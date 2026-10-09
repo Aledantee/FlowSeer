@@ -1,4 +1,4 @@
-package fabric
+package assembly
 
 import (
 	"cmp"
@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 
 	reflectormodel "go.aledante.io/FlowSeer/src/common/sim/device/reflector"
 
@@ -201,7 +203,7 @@ func DiffSpecs(a, b ConstructionSpec) ([]trace.Change, error) {
 			continue
 		}
 		changes = append(changes, trace.Change{
-			Layer:   Layer,
+			Layer:   fabric.Layer,
 			Subject: trace.Subject{Kind: "switch", Key: name},
 			Field:   "construction_inputs",
 			From:    from,
@@ -223,7 +225,7 @@ func DiffSpecs(a, b ConstructionSpec) ([]trace.Change, error) {
 // cable additions, removals, and modifications, host additions, removals, moves, and field changes
 // (an accepted multicast MAC added or removed is one change under "accept.multicast.<mac>"),
 // reflector additions, removals, and field changes (a port or an attachment added, removed, or
-// changed), Uncabled entries added or removed, and a change of the physical assumption as one
+// changed), fabric.Uncabled entries added or removed, and a change of the physical assumption as one
 // fabric field. Evidence references produce no change.
 func Diff(a, b Config) []trace.Change {
 	a = a.Normalize()
@@ -232,7 +234,7 @@ func Diff(a, b Config) []trace.Change {
 	var changes []trace.Change
 	if !a.Start.Equal(b.Start) {
 		changes = append(changes, trace.Change{
-			Layer:   Layer,
+			Layer:   fabric.Layer,
 			Subject: trace.Subject{Kind: "fabric"},
 			Field:   "start",
 			From:    newStartFact(a.Start),
@@ -241,7 +243,7 @@ func Diff(a, b Config) []trace.Change {
 	}
 	if !a.PhyAssumption.Equal(b.PhyAssumption) {
 		changes = append(changes, trace.Change{
-			Layer:   Layer,
+			Layer:   fabric.Layer,
 			Subject: trace.Subject{Kind: "fabric"},
 			Field:   "phy_assumption",
 			From:    phyAssumptionSnapshot(a.PhyAssumption),
@@ -269,7 +271,7 @@ func Diff(a, b Config) []trace.Change {
 		switch {
 		case inA && !inB:
 			changes = append(changes, trace.Change{
-				Layer: Layer,
+				Layer: fabric.Layer,
 				Subject: trace.Subject{
 					Kind: "switch",
 					Key:  name,
@@ -280,7 +282,7 @@ func Diff(a, b Config) []trace.Change {
 			})
 		case !inA && inB:
 			changes = append(changes, trace.Change{
-				Layer: Layer,
+				Layer: fabric.Layer,
 				Subject: trace.Subject{
 					Kind: "switch",
 					Key:  name,
@@ -301,11 +303,11 @@ func Diff(a, b Config) []trace.Change {
 	cablesA := sortedCables(a.Cables)
 	cablesB := sortedCables(b.Cables)
 
-	mapA := make(map[cableEndpoints]Cable, len(cablesA))
+	mapA := make(map[cableEndpoints]fabric.Cable, len(cablesA))
 	for _, c := range cablesA {
 		mapA[cableEndpointsFor(c)] = c
 	}
-	mapB := make(map[cableEndpoints]Cable, len(cablesB))
+	mapB := make(map[cableEndpoints]fabric.Cable, len(cablesB))
 	for _, c := range cablesB {
 		mapB[cableEndpointsFor(c)] = c
 	}
@@ -316,7 +318,7 @@ func Diff(a, b Config) []trace.Change {
 		cB, exists := mapB[endpoints]
 		if !exists {
 			changes = append(changes, trace.Change{
-				Layer:   Layer,
+				Layer:   fabric.Layer,
 				Subject: trace.Subject{Kind: "cable", Key: key},
 				Field:   "",
 				From:    cableSnapshot(cA),
@@ -329,7 +331,7 @@ func Diff(a, b Config) []trace.Change {
 
 		if !sameLengthMeters(cA.LengthMeters, cB.LengthMeters) {
 			changes = append(changes, trace.Change{
-				Layer:   Layer,
+				Layer:   fabric.Layer,
 				Subject: trace.Subject{Kind: "cable", Key: key},
 				Field:   "length",
 				From:    lengthFact(cA.LengthMeters),
@@ -338,7 +340,7 @@ func Diff(a, b Config) []trace.Change {
 		}
 		if mA, mB := cA.Medium, cB.Medium; mA != mB {
 			changes = append(changes, trace.Change{
-				Layer:   Layer,
+				Layer:   fabric.Layer,
 				Subject: trace.Subject{Kind: "cable", Key: key},
 				Field:   "medium",
 				From:    mA,
@@ -354,7 +356,7 @@ func Diff(a, b Config) []trace.Change {
 				toDelay = delayFact(*cB.Delay)
 			}
 			changes = append(changes, trace.Change{
-				Layer:   Layer,
+				Layer:   fabric.Layer,
 				Subject: trace.Subject{Kind: "cable", Key: key},
 				Field:   "delay",
 				From:    fromDelay,
@@ -363,7 +365,7 @@ func Diff(a, b Config) []trace.Change {
 		}
 		if cA.TopSpeedBPS != cB.TopSpeedBPS {
 			changes = append(changes, trace.Change{
-				Layer:   Layer,
+				Layer:   fabric.Layer,
 				Subject: trace.Subject{Kind: "cable", Key: key},
 				Field:   "top_speed",
 				From:    topSpeedFact(cA.TopSpeedBPS),
@@ -372,7 +374,7 @@ func Diff(a, b Config) []trace.Change {
 		}
 		if !sameFault(cA.Fault, cB.Fault) {
 			changes = append(changes, trace.Change{
-				Layer:   Layer,
+				Layer:   fabric.Layer,
 				Subject: trace.Subject{Kind: "cable", Key: key},
 				Field:   "fault",
 				From:    faultSnapshot(cA.Fault),
@@ -386,7 +388,7 @@ func Diff(a, b Config) []trace.Change {
 		key := endpoints.Canonical()
 		if _, exists := mapA[endpoints]; !exists {
 			changes = append(changes, trace.Change{
-				Layer:   Layer,
+				Layer:   fabric.Layer,
 				Subject: trace.Subject{Kind: "cable", Key: key},
 				Field:   "",
 				From:    nil,
@@ -414,7 +416,7 @@ func Diff(a, b Config) []trace.Change {
 		switch {
 		case inA && !inB:
 			changes = append(changes, trace.Change{
-				Layer:   Layer,
+				Layer:   fabric.Layer,
 				Subject: trace.Subject{Kind: "host", Key: name},
 				Field:   "",
 				From:    hostSnapshot(hA),
@@ -422,7 +424,7 @@ func Diff(a, b Config) []trace.Change {
 			})
 		case !inA && inB:
 			changes = append(changes, trace.Change{
-				Layer:   Layer,
+				Layer:   fabric.Layer,
 				Subject: trace.Subject{Kind: "host", Key: name},
 				Field:   "",
 				From:    nil,
@@ -433,7 +435,7 @@ func Diff(a, b Config) []trace.Change {
 			epB, okB := hostEndpoint(name, b.Cables)
 			if okA && okB && epA != epB {
 				changes = append(changes, trace.Change{
-					Layer:   Layer,
+					Layer:   fabric.Layer,
 					Subject: trace.Subject{Kind: "host", Key: name},
 					Field:   "port",
 					From:    epA,
@@ -442,7 +444,7 @@ func Diff(a, b Config) []trace.Change {
 			}
 			if hA.Address != hB.Address {
 				changes = append(changes, trace.Change{
-					Layer:   Layer,
+					Layer:   fabric.Layer,
 					Subject: trace.Subject{Kind: "host", Key: name},
 					Field:   "address",
 					From:    macFact(hA.Address),
@@ -458,7 +460,7 @@ func Diff(a, b Config) []trace.Change {
 					toVal = vlanFact(*hB.VLAN)
 				}
 				changes = append(changes, trace.Change{
-					Layer:   Layer,
+					Layer:   fabric.Layer,
 					Subject: trace.Subject{Kind: "host", Key: name},
 					Field:   "vlan",
 					From:    fromVal,
@@ -490,7 +492,7 @@ func Diff(a, b Config) []trace.Change {
 		switch {
 		case inA && !inB:
 			changes = append(changes, trace.Change{
-				Layer:   Layer,
+				Layer:   fabric.Layer,
 				Subject: trace.Subject{Kind: "reflector", Key: name},
 				Field:   "",
 				From:    reflectorSnapshot(rA),
@@ -498,7 +500,7 @@ func Diff(a, b Config) []trace.Change {
 			})
 		case !inA && inB:
 			changes = append(changes, trace.Change{
-				Layer:   Layer,
+				Layer:   fabric.Layer,
 				Subject: trace.Subject{Kind: "reflector", Key: name},
 				Field:   "",
 				From:    nil,
@@ -507,7 +509,7 @@ func Diff(a, b Config) []trace.Change {
 		case inA && inB:
 			if rA.Address != rB.Address {
 				changes = append(changes, trace.Change{
-					Layer:   Layer,
+					Layer:   fabric.Layer,
 					Subject: trace.Subject{Kind: "reflector", Key: name},
 					Field:   "address",
 					From:    macFact(rA.Address),
@@ -542,12 +544,12 @@ func diffPorts(changes *[]trace.Change, reflectorName string, a, b map[string]ph
 	}
 }
 
-func diffUncabled(a, b []Uncabled) []trace.Change {
-	inA := make(map[Endpoint]bool, len(a))
+func diffUncabled(a, b []fabric.Uncabled) []trace.Change {
+	inA := make(map[fabric.Endpoint]bool, len(a))
 	for _, entry := range a {
 		inA[entry.Endpoint] = true
 	}
-	inB := make(map[Endpoint]bool, len(b))
+	inB := make(map[fabric.Endpoint]bool, len(b))
 	for _, entry := range b {
 		inB[entry.Endpoint] = true
 	}
@@ -556,7 +558,7 @@ func diffUncabled(a, b []Uncabled) []trace.Change {
 	for _, entry := range a {
 		if !inB[entry.Endpoint] {
 			changes = append(changes, trace.Change{
-				Layer:   Layer,
+				Layer:   fabric.Layer,
 				Subject: trace.Subject{Kind: "uncabled", Key: entry.Endpoint.Canonical()},
 				From:    entry.Endpoint,
 			})
@@ -565,7 +567,7 @@ func diffUncabled(a, b []Uncabled) []trace.Change {
 	for _, entry := range b {
 		if !inA[entry.Endpoint] {
 			changes = append(changes, trace.Change{
-				Layer:   Layer,
+				Layer:   fabric.Layer,
 				Subject: trace.Subject{Kind: "uncabled", Key: entry.Endpoint.Canonical()},
 				To:      entry.Endpoint,
 			})
@@ -588,19 +590,19 @@ func diffHostEthernet(changes *[]trace.Change, name string, a, b phy.Ethernet) {
 func diffHostAccept(changes *[]trace.Change, name string, a, b hostmodel.Accept) {
 	subject := trace.Subject{Kind: "host", Key: name}
 	if a.Promiscuous != b.Promiscuous {
-		*changes = append(*changes, trace.Change{Layer: Layer, Subject: subject, Field: "accept.promiscuous", From: boolFact(a.Promiscuous), To: boolFact(b.Promiscuous)})
+		*changes = append(*changes, trace.Change{Layer: fabric.Layer, Subject: subject, Field: "accept.promiscuous", From: boolFact(a.Promiscuous), To: boolFact(b.Promiscuous)})
 	}
 	if a.AllMulticast != b.AllMulticast {
-		*changes = append(*changes, trace.Change{Layer: Layer, Subject: subject, Field: "accept.all_multicast", From: boolFact(a.AllMulticast), To: boolFact(b.AllMulticast)})
+		*changes = append(*changes, trace.Change{Layer: fabric.Layer, Subject: subject, Field: "accept.all_multicast", From: boolFact(a.AllMulticast), To: boolFact(b.AllMulticast)})
 	}
 	for _, mac := range a.Multicast {
 		if !slices.Contains(b.Multicast, mac) {
-			*changes = append(*changes, trace.Change{Layer: Layer, Subject: subject, Field: "accept.multicast." + mac.String(), From: macFact(mac)})
+			*changes = append(*changes, trace.Change{Layer: fabric.Layer, Subject: subject, Field: "accept.multicast." + mac.String(), From: macFact(mac)})
 		}
 	}
 	for _, mac := range b.Multicast {
 		if !slices.Contains(a.Multicast, mac) {
-			*changes = append(*changes, trace.Change{Layer: Layer, Subject: subject, Field: "accept.multicast." + mac.String(), To: macFact(mac)})
+			*changes = append(*changes, trace.Change{Layer: fabric.Layer, Subject: subject, Field: "accept.multicast." + mac.String(), To: macFact(mac)})
 		}
 	}
 }
@@ -632,12 +634,12 @@ func diffAttachments(changes *[]trace.Change, reflectorName string, a, b map[str
 		field := "attachments." + name
 		switch {
 		case inA && !inB:
-			*changes = append(*changes, trace.Change{Layer: Layer, Subject: subject, Field: field, From: attachmentSnapshot(attA), To: nil})
+			*changes = append(*changes, trace.Change{Layer: fabric.Layer, Subject: subject, Field: field, From: attachmentSnapshot(attA), To: nil})
 		case !inA && inB:
-			*changes = append(*changes, trace.Change{Layer: Layer, Subject: subject, Field: field, From: nil, To: attachmentSnapshot(attB)})
+			*changes = append(*changes, trace.Change{Layer: fabric.Layer, Subject: subject, Field: field, From: nil, To: attachmentSnapshot(attB)})
 		case inA && inB:
 			if attA.Port != attB.Port {
-				*changes = append(*changes, trace.Change{Layer: Layer, Subject: subject, Field: field + ".port", From: attachmentPortFact(attA.Port), To: attachmentPortFact(attB.Port)})
+				*changes = append(*changes, trace.Change{Layer: fabric.Layer, Subject: subject, Field: field + ".port", From: attachmentPortFact(attA.Port), To: attachmentPortFact(attB.Port)})
 			}
 			if !samePtr(attA.VLAN, attB.VLAN) {
 				var fromVal, toVal trace.Fact
@@ -647,12 +649,12 @@ func diffAttachments(changes *[]trace.Change, reflectorName string, a, b map[str
 				if attB.VLAN != nil {
 					toVal = vlanFact(*attB.VLAN)
 				}
-				*changes = append(*changes, trace.Change{Layer: Layer, Subject: subject, Field: field + ".vlan", From: fromVal, To: toVal})
+				*changes = append(*changes, trace.Change{Layer: fabric.Layer, Subject: subject, Field: field + ".vlan", From: fromVal, To: toVal})
 			}
 			pfxA := sortedPrefixStrings(attA.Addresses)
 			pfxB := sortedPrefixStrings(attB.Addresses)
 			if !slices.Equal(pfxA, pfxB) {
-				*changes = append(*changes, trace.Change{Layer: Layer, Subject: subject, Field: field + ".addresses", From: PrefixesFact(pfxA), To: PrefixesFact(pfxB)})
+				*changes = append(*changes, trace.Change{Layer: fabric.Layer, Subject: subject, Field: field + ".addresses", From: PrefixesFact(pfxA), To: PrefixesFact(pfxB)})
 			}
 		}
 	}
@@ -764,7 +766,7 @@ func diffHostIP(changes *[]trace.Change, name string, a, b *hostmodel.IP) {
 			toVal = PrefixesFact(pfxB)
 		}
 		*changes = append(*changes, trace.Change{
-			Layer:   Layer,
+			Layer:   fabric.Layer,
 			Subject: trace.Subject{Kind: "host", Key: name},
 			Field:   "addresses",
 			From:    fromVal,
@@ -791,7 +793,7 @@ func diffHostIP(changes *[]trace.Change, name string, a, b *hostmodel.IP) {
 			toVal = gatewayFact(gwB)
 		}
 		*changes = append(*changes, trace.Change{
-			Layer:   Layer,
+			Layer:   fabric.Layer,
 			Subject: trace.Subject{Kind: "host", Key: name},
 			Field:   "gateway",
 			From:    fromVal,
@@ -833,7 +835,7 @@ func diffHostIP(changes *[]trace.Change, name string, a, b *hostmodel.IP) {
 		switch {
 		case inA && !inB:
 			*changes = append(*changes, trace.Change{
-				Layer:   Layer,
+				Layer:   fabric.Layer,
 				Subject: trace.Subject{Kind: "host", Key: name},
 				Field:   field,
 				From:    macFact(macA),
@@ -841,7 +843,7 @@ func diffHostIP(changes *[]trace.Change, name string, a, b *hostmodel.IP) {
 			})
 		case !inA && inB:
 			*changes = append(*changes, trace.Change{
-				Layer:   Layer,
+				Layer:   fabric.Layer,
 				Subject: trace.Subject{Kind: "host", Key: name},
 				Field:   field,
 				From:    nil,
@@ -850,7 +852,7 @@ func diffHostIP(changes *[]trace.Change, name string, a, b *hostmodel.IP) {
 		case inA && inB:
 			if macA != macB {
 				*changes = append(*changes, trace.Change{
-					Layer:   Layer,
+					Layer:   fabric.Layer,
 					Subject: trace.Subject{Kind: "host", Key: name},
 					Field:   field,
 					From:    macFact(macA),
@@ -879,13 +881,13 @@ func sortedPrefixStrings(prefixes []netip.Prefix) []string {
 	return strs
 }
 
-func sortedCables(cables []Cable) []Cable {
+func sortedCables(cables []fabric.Cable) []fabric.Cable {
 	if len(cables) == 0 {
 		return nil
 	}
-	cp := make([]Cable, len(cables))
+	cp := make([]fabric.Cable, len(cables))
 	copy(cp, cables)
-	slices.SortFunc(cp, func(i, j Cable) int {
+	slices.SortFunc(cp, func(i, j fabric.Cable) int {
 		if r := cmp.Compare(i.A.Node, j.A.Node); r != 0 {
 			return r
 		}
@@ -901,11 +903,11 @@ func sortedCables(cables []Cable) []Cable {
 }
 
 type cableEndpoints struct {
-	A Endpoint
-	B Endpoint
+	A fabric.Endpoint
+	B fabric.Endpoint
 }
 
-func cableEndpointsFor(c Cable) cableEndpoints {
+func cableEndpointsFor(c fabric.Cable) cableEndpoints {
 	c = canonicalCableOrientation(c)
 	return cableEndpoints{A: c.A, B: c.B}
 }
@@ -948,7 +950,7 @@ func samePtr[T comparable](a, b *T) bool {
 	return a == nil || *a == *b
 }
 
-func hostEndpoint(name string, cables []Cable) (Endpoint, bool) {
+func hostEndpoint(name string, cables []fabric.Cable) (fabric.Endpoint, bool) {
 	for _, c := range cables {
 		if c.A.Node == name {
 			return c.B, true
@@ -957,7 +959,7 @@ func hostEndpoint(name string, cables []Cable) (Endpoint, bool) {
 			return c.A, true
 		}
 	}
-	return Endpoint{}, false
+	return fabric.Endpoint{}, false
 }
 
 func faultSnapshot(f cablemodel.Fault) faultSnapshotFact {
@@ -1110,7 +1112,7 @@ func attachmentFields(a reflectormodel.Attachment) string {
 	return out.String()
 }
 
-func cableSnapshot(c Cable) cableSnapshotFact {
+func cableSnapshot(c fabric.Cable) cableSnapshotFact {
 	var out strings.Builder
 	writeStringField(&out, "a.node", c.A.Node)
 	writeStringField(&out, "a.port", c.A.Port)

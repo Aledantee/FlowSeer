@@ -3,6 +3,8 @@ package cable_test
 import (
 	"testing"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
 	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
 
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
@@ -20,7 +22,7 @@ func TestPortWhosePeerIsAdminDownIsOperDown(t *testing.T) {
 	b2 := port.NewBuilder().
 		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Down, OperStatus: port.Up})
 
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Switches: map[string]vswitch.Config{
 			"sw1": {Ports: mustTable(t, b1)},
 			"sw2": {Ports: mustTable(t, b2)},
@@ -33,18 +35,18 @@ func TestPortWhosePeerIsAdminDownIsOperDown(t *testing.T) {
 		},
 	}
 
-	fab, err := fabric.New(statedPhysical(cfg))
+	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
 
-	sw1 := fab.Switch("sw1")
+	sw1 := fab.Device("sw1").(*vswitch.Switch)
 	p1, _ := sw1.Ports().Port("1/1/1")
 	if p1.OperStatus != port.Down {
 		t.Errorf("sw1 port 1/1/1 OperStatus = %v, want Down", p1.OperStatus)
 	}
 
-	sw2 := fab.Switch("sw2")
+	sw2 := fab.Device("sw2").(*vswitch.Switch)
 	p2, _ := sw2.Ports().Port("1/1/1")
 	if p2.OperStatus != port.Down {
 		t.Errorf("sw2 port 1/1/1 OperStatus = %v, want Down", p2.OperStatus)
@@ -73,7 +75,7 @@ func TestCutCableBringsBothEndsDownWithReasonCut(t *testing.T) {
 	b2 := port.NewBuilder().
 		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
 
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Switches: map[string]vswitch.Config{
 			"sw1": {Ports: mustTable(t, b1)},
 			"sw2": {Ports: mustTable(t, b2)},
@@ -87,18 +89,18 @@ func TestCutCableBringsBothEndsDownWithReasonCut(t *testing.T) {
 		},
 	}
 
-	fab, err := fabric.New(statedPhysical(cfg))
+	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
 
-	sw1 := fab.Switch("sw1")
+	sw1 := fab.Device("sw1").(*vswitch.Switch)
 	p1, _ := sw1.Ports().Port("1/1/1")
 	if p1.OperStatus != port.Down {
 		t.Errorf("sw1 port 1/1/1 OperStatus = %v, want Down", p1.OperStatus)
 	}
 
-	sw2 := fab.Switch("sw2")
+	sw2 := fab.Device("sw2").(*vswitch.Switch)
 	p2, _ := sw2.Ports().Port("1/1/1")
 	if p2.OperStatus != port.Down {
 		t.Errorf("sw2 port 1/1/1 OperStatus = %v, want Down", p2.OperStatus)
@@ -171,7 +173,7 @@ func TestDeadDirectionCableLeavesBothEndsDownWhenEitherEndAutoNegotiates(t *test
 				phy2 = &phy.Config{Ethernet: map[string]phy.Ethernet{"1/1/1": eth}}
 			}
 
-			cfg := fabric.Config{
+			cfg := assembly.Config{
 				Switches: map[string]vswitch.Config{
 					"sw1": {Ports: mustTable(t, b1), Phy: phy1},
 					"sw2": {Ports: mustTable(t, b2), Phy: phy2},
@@ -185,18 +187,18 @@ func TestDeadDirectionCableLeavesBothEndsDownWhenEitherEndAutoNegotiates(t *test
 				},
 			}
 
-			fab, err := fabric.New(statedPhysical(cfg))
+			fab, err := assembly.New(statedPhysical(cfg))
 			if err != nil {
 				t.Fatalf("New fabric: %v", err)
 			}
 
-			sw1 := fab.Switch("sw1")
+			sw1 := fab.Device("sw1").(*vswitch.Switch)
 			p1, _ := sw1.Ports().Port("1/1/1")
 			if p1.OperStatus != port.Down {
 				t.Errorf("sw1 port OperStatus = %v, want Down", p1.OperStatus)
 			}
 
-			sw2 := fab.Switch("sw2")
+			sw2 := fab.Device("sw2").(*vswitch.Switch)
 			p2, _ := sw2.Ports().Port("1/1/1")
 			if p2.OperStatus != port.Down {
 				t.Errorf("sw2 port OperStatus = %v, want Down", p2.OperStatus)
@@ -236,7 +238,7 @@ func TestDeadDirectionCableLeavesBothEndsUpWhenBothAreForced(t *testing.T) {
 				},
 			}
 
-			cfg := fabric.Config{
+			cfg := assembly.Config{
 				Switches: map[string]vswitch.Config{
 					"sw1": {
 						Ports: mustTable(t, b1),
@@ -256,18 +258,18 @@ func TestDeadDirectionCableLeavesBothEndsUpWhenBothAreForced(t *testing.T) {
 				},
 			}
 
-			fab, err := fabric.New(statedPhysical(cfg))
+			fab, err := assembly.New(statedPhysical(cfg))
 			if err != nil {
 				t.Fatalf("New fabric: %v", err)
 			}
 
-			sw1 := fab.Switch("sw1")
+			sw1 := fab.Device("sw1").(*vswitch.Switch)
 			p1, _ := sw1.Ports().Port("1/1/1")
 			if p1.OperStatus != port.Up {
 				t.Errorf("sw1 port OperStatus = %v, want Up", p1.OperStatus)
 			}
 
-			sw2 := fab.Switch("sw2")
+			sw2 := fab.Device("sw2").(*vswitch.Switch)
 			p2, _ := sw2.Ports().Port("1/1/1")
 			if p2.OperStatus != port.Up {
 				t.Errorf("sw2 port OperStatus = %v, want Up", p2.OperStatus)
@@ -296,7 +298,7 @@ func TestHostAgainstPortForcedTo10ResolvesTo10(t *testing.T) {
 	}
 
 	macH := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Switches: map[string]vswitch.Config{
 			"sw1": {
 				Ports: mustTable(t, b),
@@ -314,7 +316,7 @@ func TestHostAgainstPortForcedTo10ResolvesTo10(t *testing.T) {
 		},
 	}
 
-	fab, err := fabric.New(statedPhysical(cfg))
+	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
@@ -336,7 +338,7 @@ func TestTwoHostsOnOneCableResolveTo1000(t *testing.T) {
 	mac1 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}
 	mac2 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02}
 
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: mac1},
 			"h2": {Address: mac2},
@@ -349,7 +351,7 @@ func TestTwoHostsOnOneCableResolveTo1000(t *testing.T) {
 		},
 	}
 
-	fab, err := fabric.New(statedPhysical(cfg))
+	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
@@ -496,7 +498,7 @@ func TestCableReachBoundsLinkNegotiation(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			cfg := fabric.Config{
+			cfg := assembly.Config{
 				Switches: make(map[string]vswitch.Config),
 				Hosts:    tc.hosts,
 				Cables: []fabric.Cable{
@@ -525,7 +527,7 @@ func TestCableReachBoundsLinkNegotiation(t *testing.T) {
 				cfg.Switches[tc.nodeB.Node] = sw
 			}
 
-			fab, err := fabric.New(statedPhysical(cfg))
+			fab, err := assembly.New(statedPhysical(cfg))
 			if err != nil {
 				t.Fatalf("New fabric: %v", err)
 			}

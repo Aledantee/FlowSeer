@@ -1177,7 +1177,7 @@ func (f *Fabric) applyAction(a Action) error {
 		if a.At.After(f.clock) {
 			f.clock = a.At
 		}
-		return f.mcheck(a.Mcheck.Node, a.Mcheck.Port)
+		return a.Mcheck.Operation.Apply(f, a.Mcheck.Node)
 	case ActionRecord:
 		rec := a.Record
 		inj := Injection{
@@ -1211,7 +1211,7 @@ func (f *Fabric) applyAction(a Action) error {
 		if a.At.After(f.clock) {
 			f.clock = a.At
 		}
-		return f.Configure(a.Configure.Node, a.Configure.Config)
+		return a.Configure.Operation.Apply(f, a.Configure.Node)
 	default:
 		return errs.Msgf("unknown action kind %q", a.Kind)
 	}

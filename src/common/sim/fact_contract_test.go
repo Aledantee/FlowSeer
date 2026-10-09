@@ -5,6 +5,8 @@ import (
 	"reflect"
 	"testing"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
 	"go.aledante.io/FlowSeer/src/common/net/lacp"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
@@ -46,7 +48,7 @@ func TestFactConstructorsSnapshotCallerSlices(t *testing.T) {
 		{name: "multicast router ports", fact: mcast.RouterPortsFact(mcastPorts), mutate: func() { mcastPorts[0] = "1/1/3" }},
 		{name: "traffic ports", fact: traffic.PortsFact(trafficPorts), mutate: func() { trafficPorts[0] = "1/1/4" }},
 		{name: "traffic VLANs", fact: traffic.VLANsFact(trafficVLANs), mutate: func() { trafficVLANs[0] = 21 }},
-		{name: "fabric prefixes", fact: fabric.PrefixesFact(fabricPrefixes), mutate: func() { fabricPrefixes[0] = "203.0.113.1/24" }},
+		{name: "fabric prefixes", fact: assembly.PrefixesFact(fabricPrefixes), mutate: func() { fabricPrefixes[0] = "203.0.113.1/24" }},
 	}
 
 	for _, test := range tests {
@@ -72,7 +74,7 @@ func TestDiffReturnsImmutableFactImplementations(t *testing.T) {
 	}{
 		{
 			name: "virtual switch config",
-			fact: firstAddedFact(t, fabric.Diff(fabric.Config{}, fabric.Config{Switches: map[string]vswitch.Config{
+			fact: firstAddedFact(t, assembly.Diff(assembly.Config{}, assembly.Config{Switches: map[string]vswitch.Config{
 				"sw": {Phy: &phy.Config{Ethernet: map[string]phy.Ethernet{"p": {SupportedSpeedsBPS: []uint64{1}}}}},
 			}})),
 			forbidden: vswitch.Config{},
@@ -134,8 +136,8 @@ func TestCompositeFactCanonicalEncodingsAreInjective(t *testing.T) {
 		},
 		{
 			name: "fabric prefix strings",
-			a:    fabric.PrefixesFact([]string{"a,b", "c"}),
-			b:    fabric.PrefixesFact([]string{"a", "b,c"}),
+			a:    assembly.PrefixesFact([]string{"a,b", "c"}),
+			b:    assembly.PrefixesFact([]string{"a", "b,c"}),
 		},
 		{
 			name: "fabric endpoints",
@@ -165,8 +167,8 @@ func TestCompositeFactCanonicalEncodingsAreInjective(t *testing.T) {
 		A: fabric.Endpoint{Node: "left", Port: "right"},
 		B: fabric.Endpoint{Node: "far"},
 	}
-	keyA := firstAddedFactChange(t, fabric.Diff(fabric.Config{}, fabric.Config{Cables: []fabric.Cable{cableA}})).Subject.Key
-	keyB := firstAddedFactChange(t, fabric.Diff(fabric.Config{}, fabric.Config{Cables: []fabric.Cable{cableB}})).Subject.Key
+	keyA := firstAddedFactChange(t, assembly.Diff(assembly.Config{}, assembly.Config{Cables: []fabric.Cable{cableA}})).Subject.Key
+	keyB := firstAddedFactChange(t, assembly.Diff(assembly.Config{}, assembly.Config{Cables: []fabric.Cable{cableB}})).Subject.Key
 	if keyA == keyB {
 		t.Errorf("different cable identities share subject key %q", keyA)
 	}

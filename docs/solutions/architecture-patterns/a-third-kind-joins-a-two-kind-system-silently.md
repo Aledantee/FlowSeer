@@ -73,7 +73,8 @@ construction path.
 ## Evidence
 
 - The configuration maps and their construction sites remain in
-  `src/common/sim/fabric/config.go` and `fabric.go`. Runtime acceptance now
+  `src/common/sim/assembly/config.go` and `src/common/sim/assembly/assemble.go`.
+  Runtime acceptance now
   comes from `device.Result.Acceptance`, returned by the host and reflector.
   `src/common/sim/fabric/run.go` drives both through `device.Device.Receive`.
 - The reflector configuration and acceptance live in

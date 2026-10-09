@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
 	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
 
 	"go.aledante.io/FlowSeer/src/common/net/arp"
@@ -151,7 +153,7 @@ func TestHeldLAGEgressUsesSelectedMemberOnWire(t *testing.T) {
 	bridgeCfg.Bridge.VLAN.Switchports["1/1/1"] = bridge.Switchport{Tagged: []vlan.ID{10, 20}}
 	bridgeCfg.Bridge.VLAN.Switchports["lag1"] = bridge.Switchport{Tagged: []vlan.ID{20}}
 	vid := vlan.ID(20)
-	fab, err := fabric.New(fabric.Config{
+	fab, err := assembly.New(assembly.Config{
 		Start:    fixedTime,
 		Switches: map[string]vswitch.Config{"sw": cfg},
 		Hosts: map[string]hostmodel.Config{
@@ -175,19 +177,19 @@ func TestHeldLAGEgressUsesSelectedMemberOnWire(t *testing.T) {
 	// The routed selection uses VID zero. A later selection from the wire tag
 	// would use a different, deliberately primed bucket.
 	primeFrame := ethernet.Frame{Src: macRouter, Dst: netaddr.MAC{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}, Payload: []byte("prime")}
-	zero := fab.Switch("sw").Receive(fixedTime, "1/1/1", primeFrame)
+	zero := fab.Device("sw").(*vswitch.Switch).Receive(fixedTime, "1/1/1", primeFrame)
 	if len(zero.Egress) != 1 || zero.Egress[0].Member != "member-a" {
 		t.Fatalf("VID zero egress = %+v, want member-a", zero.Egress)
 	}
-	if err := fab.Configure("sw", bridgeCfg); err != nil {
+	if err := assembly.Configure(fab, "sw", bridgeCfg); err != nil {
 		t.Fatal(err)
 	}
 	primeFrame.Tags = []vlan.Tag{{TPID: uint16(ethernet.EtherTypeDot1Q), VID: 20}}
-	tagged := fab.Switch("sw").Receive(fixedTime, "1/1/1", primeFrame)
+	tagged := fab.Device("sw").(*vswitch.Switch).Receive(fixedTime, "1/1/1", primeFrame)
 	if len(tagged.Egress) != 1 || tagged.Egress[0].Member != "member-b" {
 		t.Fatalf("VID 20 egress = %+v, want member-b", tagged.Egress)
 	}
-	if err := fab.Configure("sw", target); err != nil {
+	if err := assembly.Configure(fab, "sw", target); err != nil {
 		t.Fatal(err)
 	}
 	frame := ethernet.Frame{

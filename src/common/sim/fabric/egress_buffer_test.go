@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
 	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
@@ -57,7 +59,7 @@ func egressBufferTopology(t *testing.T, buffer *uint64) (*fabric.Fabric, map[str
 		"h3": {0x02, 0, 0, 0, 0, 0x03},
 	}
 
-	fab, err := fabric.New(statedPhysical(fabric.Config{
+	fab, err := assembly.New(statedPhysical(assembly.Config{
 		Start: time.Date(2026, 9, 24, 12, 0, 0, 0, time.UTC),
 		Switches: map[string]vswitch.Config{
 			"sw1": {
@@ -93,7 +95,7 @@ func egressBufferTopology(t *testing.T, buffer *uint64) (*fabric.Fabric, map[str
 		},
 	}))
 	if err != nil {
-		t.Fatalf("fabric.New: %v", err)
+		t.Fatalf("assembly.New: %v", err)
 	}
 
 	return fab, macs

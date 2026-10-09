@@ -2,6 +2,7 @@ package fabric
 
 import (
 	"math"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -245,3 +246,13 @@ func TestInjectEmissionWithoutHeldFrameFallsBackToInjectionOrigin(t *testing.T) 
 		t.Errorf("journey.Origin.Of = %v, want 0", j.Origin.Of)
 	}
 }
+
+type lengthFact float64
+
+func (f lengthFact) TypeID() string    { return "fabric.length_meters" }
+func (f lengthFact) Canonical() string { return strconv.FormatFloat(float64(f), 'f', -1, 64) }
+
+type topSpeedFact uint64
+
+func (f topSpeedFact) TypeID() string    { return "fabric.top_speed_bps" }
+func (f topSpeedFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }

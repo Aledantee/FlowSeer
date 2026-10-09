@@ -5,6 +5,8 @@ import (
 	"slices"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
 	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
 
 	"go.aledante.io/FlowSeer/src/common/net/bpdu"
@@ -205,7 +207,7 @@ var (
 // link its frame must cross at sw1; a case's evidence is whether the far end
 // (sw2) admits the frame on that link or the tree governing that VLAN holds
 // it blocked there.
-func stpMSTFabricSpec(mst1, mst2 *stp.MST) (fabric.ConstructionSpec, error) {
+func stpMSTFabricSpec(mst1, mst2 *stp.MST) (assembly.ConstructionSpec, error) {
 	return stpTwoLinkFabricSpec(
 		func(c *stp.Config) { c.MST = mst1 },
 		func(c *stp.Config) { c.MST = mst2 },
@@ -216,7 +218,7 @@ func stpMSTFabricSpec(mst1, mst2 *stp.MST) (fabric.ConstructionSpec, error) {
 // per-VLAN spanning trees in place of the MST region. Everything else is
 // [stpMSTFabricSpec]'s fixture unchanged, so the two protocols are compared
 // over one topology rather than two.
-func stpPVSTFabricSpec(pvst1, pvst2 *stp.PVST) (fabric.ConstructionSpec, error) {
+func stpPVSTFabricSpec(pvst1, pvst2 *stp.PVST) (assembly.ConstructionSpec, error) {
 	return stpTwoLinkFabricSpec(
 		func(c *stp.Config) { c.PVST = pvst1 },
 		func(c *stp.Config) { c.PVST = pvst2 },
@@ -225,7 +227,7 @@ func stpPVSTFabricSpec(pvst1, pvst2 *stp.PVST) (fabric.ConstructionSpec, error) 
 
 // stpTwoLinkFabricSpec builds the shared fixture, letting each caller install
 // the per-switch spanning tree mode.
-func stpTwoLinkFabricSpec(sw1Mode, sw2Mode func(*stp.Config)) (fabric.ConstructionSpec, error) {
+func stpTwoLinkFabricSpec(sw1Mode, sw2Mode func(*stp.Config)) (assembly.ConstructionSpec, error) {
 	vid10, vid20 := vlan.ID(10), vlan.ID(20)
 
 	newPorts := func(access1, access2 string) (port.Table, error) {
@@ -253,11 +255,11 @@ func stpTwoLinkFabricSpec(sw1Mode, sw2Mode func(*stp.Config)) (fabric.Constructi
 
 	sw1Ports, err := newPorts("v10", "v20")
 	if err != nil {
-		return fabric.ConstructionSpec{}, err
+		return assembly.ConstructionSpec{}, err
 	}
 	sw2Ports, err := newPorts("d10", "d20")
 	if err != nil {
-		return fabric.ConstructionSpec{}, err
+		return assembly.ConstructionSpec{}, err
 	}
 
 	sw1STP := &stp.Config{
@@ -273,7 +275,7 @@ func stpTwoLinkFabricSpec(sw1Mode, sw2Mode func(*stp.Config)) (fabric.Constructi
 	}
 	sw2Mode(sw2STP)
 
-	return fabric.ConstructionSpec{
+	return assembly.ConstructionSpec{
 		Start: stpCaseStart,
 		Switches: map[string]vswitch.ConstructionSpec{
 			"sw1": {
@@ -328,7 +330,7 @@ func stpTwoLinkFabricSpec(sw1Mode, sw2Mode func(*stp.Config)) (fabric.Constructi
 // stpMSTInjectFrame builds fab, runs it to convergence, injects one frame from
 // the VLAN 10 or VLAN 20 host on sw1's side toward that VLAN's host on sw2's
 // side, and returns the resulting journey.
-func stpMSTInjectFrame(spec fabric.ConstructionSpec, vid vlan.ID) (*fabric.Fabric, fabric.Journey, error) {
+func stpMSTInjectFrame(spec assembly.ConstructionSpec, vid vlan.ID) (*fabric.Fabric, fabric.Journey, error) {
 	if vid == 10 {
 		return stpMSTInjectFrameTo(spec, "h1v10", stpMSTSrc10, stpMSTDst10)
 	}
@@ -338,8 +340,8 @@ func stpMSTInjectFrame(spec fabric.ConstructionSpec, vid vlan.ID) (*fabric.Fabri
 
 // stpMSTInjectFrameTo builds fab, runs it to convergence, injects one frame
 // from originHost toward dst, and returns the resulting journey.
-func stpMSTInjectFrameTo(spec fabric.ConstructionSpec, originHost string, src, dst netaddr.MAC) (*fabric.Fabric, fabric.Journey, error) {
-	fab, err := fabric.NewWithSpec(spec)
+func stpMSTInjectFrameTo(spec assembly.ConstructionSpec, originHost string, src, dst netaddr.MAC) (*fabric.Fabric, fabric.Journey, error) {
+	fab, err := assembly.NewWithSpec(spec)
 	if err != nil {
 		return nil, fabric.Journey{}, err
 	}
@@ -495,7 +497,7 @@ func casePlanningMSTPVLANInstancesDiverge() Case {
 				Reason:   journeyHopReason(j10),
 				Steps:    journeySteps(j10),
 				Metadata: j10.Metadata,
-				Switch:   fab.Switch("sw1"),
+				Switch:   fab.Device("sw1").(*vswitch.Switch),
 				Journey:  &j10,
 			}, nil
 		},
@@ -595,7 +597,7 @@ func casePlanningMSTPVLANInstancesDivergeVLAN20CrossesL1() Case {
 				Reason:   journeyHopReason(j20),
 				Steps:    journeySteps(j20),
 				Metadata: j20.Metadata,
-				Switch:   fab.Switch("sw1"),
+				Switch:   fab.Device("sw1").(*vswitch.Switch),
 				Journey:  &j20,
 			}, nil
 		},
@@ -691,7 +693,7 @@ func casePlanningMSTPVLANInstancesDivergeInstanceBlocksAlternate() Case {
 				Reason:   journeyHopReason(j),
 				Steps:    journeySteps(j),
 				Metadata: j.Metadata,
-				Switch:   fab.Switch("sw1"),
+				Switch:   fab.Device("sw1").(*vswitch.Switch),
 				Journey:  &j,
 			}, nil
 		},
@@ -801,7 +803,7 @@ func caseTopologyShadowingMSTRegionBoundary() Case {
 				Reason:   journeyHopReason(j10),
 				Steps:    journeySteps(j10),
 				Metadata: j10.Metadata,
-				Switch:   fab.Switch("sw1"),
+				Switch:   fab.Device("sw1").(*vswitch.Switch),
 				Journey:  &j10,
 			}, nil
 		},
@@ -901,7 +903,7 @@ func caseTopologyShadowingMSTRegionBoundaryVLAN20CrossesL1() Case {
 				Reason:   journeyHopReason(j20),
 				Steps:    journeySteps(j20),
 				Metadata: j20.Metadata,
-				Switch:   fab.Switch("sw1"),
+				Switch:   fab.Device("sw1").(*vswitch.Switch),
 				Journey:  &j20,
 			}, nil
 		},
@@ -1262,7 +1264,7 @@ func casePlanningPVSTPerVLANRoot() Case {
 				Reason:   journeyHopReason(j10),
 				Steps:    journeySteps(j10),
 				Metadata: j10.Metadata,
-				Switch:   fab.Switch("sw1"),
+				Switch:   fab.Device("sw1").(*vswitch.Switch),
 				Journey:  &j10,
 			}, nil
 		},

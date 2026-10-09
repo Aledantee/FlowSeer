@@ -570,14 +570,6 @@ func resolveLink(c Cable, cfg topology) (Link, linkTrust) {
 	return Link{Cable: c, A: LinkEnd{Endpoint: c.A, EndState: resolved.A}, B: LinkEnd{Endpoint: c.B, EndState: resolved.B}}, linkTrust{issues: resolved.Issues, assumption: resolved.Assumption}
 }
 
-func endpointLabel(ep Endpoint) string {
-	if ep.Port == "" {
-		return strconv.Quote(ep.Node)
-	}
-
-	return strconv.Quote(ep.Node) + ":" + strconv.Quote(ep.Port)
-}
-
 // cableScope is the link scope of a cable, keyed by its Diff subject key.
 func cableScope(c Cable) analysis.Scope {
 	return analysis.LinkScope(cableEndpointsFor(c).Canonical())

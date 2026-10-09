@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
 	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
 
 	"go.aledante.io/FlowSeer/src/common/net/bpdu"
@@ -36,13 +38,13 @@ func loopProtectSelfLoopPorts(t *testing.T) port.Table {
 	)
 }
 
-func loopProtectSelfLoopConfig(t *testing.T, action loopprotect.Action) (fabric.Config, netaddr.MAC) {
+func loopProtectSelfLoopConfig(t *testing.T, action loopprotect.Action) (assembly.Config, netaddr.MAC) {
 	t.Helper()
 
 	macH1 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}
 	macH2 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02}
 
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Start: time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC),
 		Switches: map[string]vswitch.Config{
 			"sw1": {
@@ -92,9 +94,9 @@ func runToQuiescence(t *testing.T, fab *fabric.Fabric, budget int) {
 func TestLoopProtectSelfLoopBlockActsOnExactlyOnePort(t *testing.T) {
 	cfg, macH1 := loopProtectSelfLoopConfig(t, loopprotect.Block)
 
-	fab, err := fabric.New(statedPhysical(cfg))
+	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
-		t.Fatalf("fabric.New: %v", err)
+		t.Fatalf("assembly.New: %v", err)
 	}
 
 	runToQuiescence(t, fab, 200)
@@ -145,9 +147,9 @@ func TestLoopProtectSelfLoopBlockActsOnExactlyOnePort(t *testing.T) {
 func TestLoopProtectSelfLoopNoLearnActsOnBothPorts(t *testing.T) {
 	cfg, _ := loopProtectSelfLoopConfig(t, loopprotect.NoLearn)
 
-	fab, err := fabric.New(statedPhysical(cfg))
+	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
-		t.Fatalf("fabric.New: %v", err)
+		t.Fatalf("assembly.New: %v", err)
 	}
 
 	runToQuiescence(t, fab, 200)
@@ -275,7 +277,7 @@ func TestLoopProtectWithRSTPDetectsNothing(t *testing.T) {
 		}
 	}
 
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Start: t0,
 		Switches: map[string]vswitch.Config{
 			"sw1": {
@@ -305,9 +307,9 @@ func TestLoopProtectWithRSTPDetectsNothing(t *testing.T) {
 		},
 	}
 
-	fab, err := fabric.New(statedPhysical(cfg))
+	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
-		t.Fatalf("fabric.New: %v", err)
+		t.Fatalf("assembly.New: %v", err)
 	}
 
 	deadline := t0.Add(90 * time.Second)
@@ -397,7 +399,7 @@ func TestLoopProtectInterVLANReturn(t *testing.T) {
 	vid10 := vlan.ID(10)
 	vid20 := vlan.ID(20)
 
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Start: t0,
 		Switches: map[string]vswitch.Config{
 			"sw1": {
@@ -428,9 +430,9 @@ func TestLoopProtectInterVLANReturn(t *testing.T) {
 		},
 	}
 
-	fab, err := fabric.New(statedPhysical(cfg))
+	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
-		t.Fatalf("fabric.New: %v", err)
+		t.Fatalf("assembly.New: %v", err)
 	}
 
 	runToQuiescence(t, fab, 200)

@@ -1,4 +1,4 @@
-package fabric
+package assembly
 
 import (
 	"bytes"
@@ -7,7 +7,6 @@ import (
 	"net/netip"
 	"slices"
 	"strconv"
-	"strings"
 	"time"
 
 	reflectormodel "go.aledante.io/FlowSeer/src/common/sim/device/reflector"
@@ -16,8 +15,8 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
-	"go.aledante.io/FlowSeer/src/common/sim/analysis"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
+	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
 	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
@@ -25,110 +24,17 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
-// Layer is the architectural trace layer identifier for the network fabric.
-const Layer trace.Layer = "fabric"
-
-const (
-
-	// ReasonNoCable records that a port is Down because [Config.Uncabled] states no cable reaches it;
-	// unlinked ports carry it, since a port without a cable has no Link.
-	ReasonNoCable trace.Reason = "no-cable"
-
-	// ReasonAdjacencyUnresolved records that a switch port is Unknown because no cable names it and
-	// [Config.Uncabled] does not list it, so nothing says what, if anything, is attached.
-	ReasonAdjacencyUnresolved trace.Reason = "adjacency-unresolved"
-)
-
-const (
-	// IssueOperStatusConflict marks a switch port whose configured operational status, Up or Down,
-	// differs from the status its cable derives. The derived status is the one that executes.
-	IssueOperStatusConflict analysis.IssueCode = "oper-status-conflict"
-
-	// IssueQueueBufferUnstated marks an endpoint whose egress queue has backed
-	// up past one maximum-size frame without a stated buffer, so its loss
-	// figure is unknown.
-	IssueQueueBufferUnstated analysis.IssueCode = "queue-buffer-unstated"
-)
-
-// Endpoint names a specific attachment point in the fabric, referencing a virtual switch port
-// or a single-port host when Port is empty.
-type Endpoint struct {
-	Node string
-	Port string
-}
-
-// TypeID returns the fact type identifier for Endpoint.
-func (e Endpoint) TypeID() string {
-	return "fabric.endpoint"
-}
-
-// Canonical returns the canonical representation of the endpoint.
-func (e Endpoint) Canonical() string {
-	return encodeEndpointPart(e.Node) + ":" + encodeEndpointPart(e.Port)
-}
-
-func encodeEndpointPart(value string) string {
-	return strings.NewReplacer("%", "%25", ":", "%3A", "-", "%2D").Replace(value)
-}
-
-// Cable models a physical link connecting two endpoints: a length and a medium that give the propagation time and
-// bound the negotiated speed, an optional Delay that replaces the propagation term, an optional top speed limit,
-// and declared faults. A LengthMeters of 0 is a stated 0 m cable. Evidence references entries of
-// [ConstructionSpec.Evidence] that support the cable; issues resting on the cable cite them. Evidence is not
-// behavior, so [Diff] does not report it.
-type Cable struct {
-	A Endpoint
-	B Endpoint
-	cablemodel.Cable
-	Evidence []trace.EvidenceRef
-}
-
-// Clone copies physical facts and evidence references independently.
-func (c Cable) Clone() Cable {
-	cp := c
-	cp.Cable = c.Cable.Clone()
-	cp.Evidence = slices.Clone(c.Evidence)
-	return cp
-}
-
-// Equal compares endpoints, physical facts, and ordered evidence references.
-func (c Cable) Equal(other Cable) bool {
-	return c.A == other.A && c.B == other.B && c.Cable.Equal(other.Cable) && slices.Equal(c.Evidence, other.Evidence)
-}
-
-func sameLengthMeters(a, b float64) bool {
-	return cmp.Compare(a, b) == 0
-}
-
-// Uncabled states that a switch port has no cable, so the port is Down with reason no-cable. A non-LAG
-// switch port that no cable names and no Uncabled entry lists is unresolved instead. Evidence references
-// entries of [ConstructionSpec.Evidence] and, like a cable's, stays out of [Diff].
-type Uncabled struct {
-	Endpoint Endpoint
-	Evidence []trace.EvidenceRef
-}
-
-// Clone returns an independent deep copy of the entry.
-func (u Uncabled) Clone() Uncabled {
-	return Uncabled{Endpoint: u.Endpoint, Evidence: slices.Clone(u.Evidence)}
-}
-
-// Equal reports whether two entries name the same port with the same evidence references in the same order.
-func (u Uncabled) Equal(other Uncabled) bool {
-	return u.Endpoint == other.Endpoint && slices.Equal(u.Evidence, other.Evidence)
-}
-
 // Config declares the full static topology of a simulated network fabric.
 //
-// Every non-LAG switch port is cabled, listed in Uncabled, or unresolved. A nil cablemodel.PhyAssumption leaves every
+// Every non-LAG switch port is cabled, listed in fabric.Uncabled, or unresolved. A nil cablemodel.PhyAssumption leaves every
 // unreported physical fact unknown.
 type Config struct {
 	Start         time.Time
 	Switches      map[string]vswitch.Config
 	Hosts         map[string]hostmodel.Config
 	Reflectors    map[string]reflectormodel.Config
-	Cables        []Cable
-	Uncabled      []Uncabled
+	Cables        []fabric.Cable
+	Uncabled      []fabric.Uncabled
 	PhyAssumption *cablemodel.PhyAssumption
 }
 
@@ -158,7 +64,7 @@ func (c Config) Clone() Config {
 		}
 	}
 	if c.Cables != nil {
-		cp.Cables = make([]Cable, len(c.Cables))
+		cp.Cables = make([]fabric.Cable, len(c.Cables))
 		for i, cable := range c.Cables {
 			cp.Cables[i] = cable.Clone()
 		}
@@ -167,11 +73,11 @@ func (c Config) Clone() Config {
 	return cp
 }
 
-func cloneUncabled(entries []Uncabled) []Uncabled {
+func cloneUncabled(entries []fabric.Uncabled) []fabric.Uncabled {
 	if entries == nil {
 		return nil
 	}
-	cp := make([]Uncabled, len(entries))
+	cp := make([]fabric.Uncabled, len(entries))
 	for i, entry := range entries {
 		cp[i] = entry.Clone()
 	}
@@ -188,7 +94,7 @@ func equalNormalizedConfigs(c, other Config) bool {
 	if !c.Start.Equal(other.Start) {
 		return false
 	}
-	if !slices.EqualFunc(c.Uncabled, other.Uncabled, Uncabled.Equal) || !c.PhyAssumption.Equal(other.PhyAssumption) {
+	if !slices.EqualFunc(c.Uncabled, other.Uncabled, fabric.Uncabled.Equal) || !c.PhyAssumption.Equal(other.PhyAssumption) {
 		return false
 	}
 	if len(c.Switches) != len(other.Switches) || len(c.Hosts) != len(other.Hosts) ||
@@ -224,8 +130,8 @@ func equalNormalizedConfigs(c, other Config) bool {
 // Normalize returns a normalized copy of the fabric configuration with assigned
 // hardware addresses across all switches and hosts, normalized switch configurations,
 // Ethernet facts normalized as a switch port's are, sorted and deduplicated evidence
-// references, and deterministically ordered cables and Uncabled entries. Duplicate
-// Uncabled entries are kept, so Validate still refuses them.
+// references, and deterministically ordered cables and fabric.Uncabled entries. Duplicate
+// fabric.Uncabled entries are kept, so Validate still refuses them.
 func (c Config) Normalize() Config {
 	cloned := c.Clone()
 
@@ -348,7 +254,7 @@ func (c Config) Normalize() Config {
 	for i := range cloned.Uncabled {
 		cloned.Uncabled[i].Evidence = canonicalEvidence(cloned.Uncabled[i].Evidence)
 	}
-	slices.SortStableFunc(cloned.Uncabled, func(a, b Uncabled) int {
+	slices.SortStableFunc(cloned.Uncabled, func(a, b fabric.Uncabled) int {
 		return compareEndpoint(a.Endpoint, b.Endpoint)
 	})
 
@@ -356,7 +262,7 @@ func (c Config) Normalize() Config {
 		cloned.PhyAssumption.Ethernet = cablemodel.NormalizeEthernet(cloned.PhyAssumption.Ethernet)
 	}
 
-	slices.SortFunc(cloned.Cables, func(i, j Cable) int {
+	slices.SortFunc(cloned.Cables, func(i, j fabric.Cable) int {
 		if r := cmp.Compare(i.A.Node, j.A.Node); r != 0 {
 			return r
 		}
@@ -383,7 +289,7 @@ func canonicalEvidence(refs []trace.EvidenceRef) []trace.EvidenceRef {
 	return slices.Compact(sorted)
 }
 
-func canonicalCableOrientation(c Cable) Cable {
+func canonicalCableOrientation(c fabric.Cable) fabric.Cable {
 	if compareEndpoint(c.A, c.B) <= 0 {
 		return c
 	}
@@ -399,7 +305,7 @@ func canonicalCableOrientation(c Cable) Cable {
 	return c
 }
 
-func compareEndpoint(a, b Endpoint) int {
+func compareEndpoint(a, b fabric.Endpoint) int {
 	if order := cmp.Compare(a.Node, b.Node); order != 0 {
 		return order
 	}
@@ -425,8 +331,8 @@ func comparePrefix(a, b netip.Prefix) int {
 // hosts must attach to exactly one cable with an empty port name, a reflector's ports must
 // all be cabled, host and assumed Ethernet facts must pass a switch port's physical
 // validation, a host's accepted multicast entries must be group addresses, and every
-// Uncabled entry must name an existing non-LAG switch port that no cable and no other entry
-// names. Errors about host facts, reflector attachments, Uncabled entries, and the
+// fabric.Uncabled entry must name an existing non-LAG switch port that no cable and no other entry
+// names. Errors about host facts, reflector attachments, fabric.Uncabled entries, and the
 // assumption carry a "field" path attribute such as "uncabled.1", "hosts.h1.ethernet.duplex",
 // "hosts.h1.accept.multicast.0", or "reflectors.r1.attachments.b.vlan".
 func (c Config) Validate() error {
@@ -561,7 +467,7 @@ func (c Config) Validate() error {
 	}
 
 	hostCables := make(map[string]int, len(c.Hosts))
-	portCables := make(map[Endpoint]int)
+	portCables := make(map[fabric.Endpoint]int)
 
 	for i, cable := range c.Cables {
 		if math.IsNaN(cable.LengthMeters) || math.IsInf(cable.LengthMeters, 0) || cable.LengthMeters < 0 {
@@ -612,7 +518,7 @@ func (c Config) Validate() error {
 		}
 		slices.Sort(portNames)
 		for _, portName := range portNames {
-			ep := Endpoint{Node: name, Port: portName}
+			ep := fabric.Endpoint{Node: name, Port: portName}
 			if portCables[ep] == 0 {
 				return errs.New().
 					Attr("field", "reflectors."+name+".ports."+portName).
@@ -630,8 +536,8 @@ func (c Config) Validate() error {
 	return c.PhyAssumption.Validate()
 }
 
-func (c Config) validateUncabled(portCables map[Endpoint]int) error {
-	listed := make(map[Endpoint]int, len(c.Uncabled))
+func (c Config) validateUncabled(portCables map[fabric.Endpoint]int) error {
+	listed := make(map[fabric.Endpoint]int, len(c.Uncabled))
 	for i, entry := range c.Uncabled {
 		field := "uncabled." + strconv.Itoa(i)
 		ep := entry.Endpoint
@@ -661,7 +567,7 @@ func (c Config) validateUncabled(portCables map[Endpoint]int) error {
 	return nil
 }
 
-func (c Config) validateEndpoint(ep Endpoint, hostCables map[string]int, portCables map[Endpoint]int) error {
+func (c Config) validateEndpoint(ep fabric.Endpoint, hostCables map[string]int, portCables map[fabric.Endpoint]int) error {
 	if ep.Node == "" {
 		return errs.New().Msg("endpoint node name cannot be empty")
 	}
@@ -736,3 +642,5 @@ func (c Config) validateEndpoint(ep Endpoint, hostCables map[string]int, portCab
 
 	return nil
 }
+
+func sameLengthMeters(a, b float64) bool { return cmp.Compare(a, b) == 0 }

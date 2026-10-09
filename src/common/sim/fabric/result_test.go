@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
 	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
 	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 
@@ -56,7 +58,7 @@ func TestStopReasonsCoverage(t *testing.T) {
 	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
 
 	// StopNotRun
-	fab, err := fabric.New(fabric.Config{Start: t0, PhyAssumption: testPhyAssumption()})
+	fab, err := assembly.New(assembly.Config{Start: t0, PhyAssumption: testPhyAssumption()})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -270,7 +272,7 @@ func TestOscillatingRootCycle(t *testing.T) {
 		return tbl
 	}
 
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Start:         t0,
 		PhyAssumption: testPhyAssumption(),
 		Switches: map[string]vswitch.Config{
@@ -295,7 +297,7 @@ func TestOscillatingRootCycle(t *testing.T) {
 		},
 	}
 
-	fab, err := fabric.New(cfg)
+	fab, err := assembly.New(cfg)
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -373,7 +375,7 @@ func TestFingerprintStableStatusIncompleteWhenUnknownAdjacencyConsulted(t *testi
 		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
 		Build()
 
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Start:         t0,
 		PhyAssumption: testPhyAssumption(),
 		Switches: map[string]vswitch.Config{
@@ -394,11 +396,11 @@ func TestFingerprintStableStatusIncompleteWhenUnknownAdjacencyConsulted(t *testi
 		// Port 1/1/2 is neither cabled nor in Uncabled -> ReasonAdjacencyUnresolved
 	}
 
-	fab, err := fabric.New(cfg)
+	fab, err := assembly.New(cfg)
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	if err := fab.Switch("sw1").Learn([]bridge.Seed{
+	if err := fab.Device("sw1").(*vswitch.Switch).Learn([]bridge.Seed{
 		{MAC: macUnknown, Port: "1/1/2", Lifetime: bridge.Static},
 	}); err != nil {
 		t.Fatalf("Learn: %v", err)
@@ -439,7 +441,7 @@ func newTestHostSwitchFabric(t *testing.T, t0 time.Time) *fabric.Fabric {
 		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
 		Build()
 
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Start:         t0,
 		PhyAssumption: testPhyAssumption(),
 		Switches: map[string]vswitch.Config{
@@ -464,11 +466,11 @@ func newTestHostSwitchFabric(t *testing.T, t0 time.Time) *fabric.Fabric {
 		},
 	}
 
-	fab, err := fabric.New(cfg)
+	fab, err := assembly.New(cfg)
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	if err := fab.Switch("sw1").Learn([]bridge.Seed{
+	if err := fab.Device("sw1").(*vswitch.Switch).Learn([]bridge.Seed{
 		{MAC: macH2, Port: "1/1/2", Lifetime: bridge.Static},
 	}); err != nil {
 		t.Fatalf("Learn: %v", err)
@@ -488,7 +490,7 @@ func newTestSTPFabric(t *testing.T, t0 time.Time, prio1, prio2 uint16) *fabric.F
 		return tbl
 	}
 
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Start:         t0,
 		PhyAssumption: testPhyAssumption(),
 		Switches: map[string]vswitch.Config{
@@ -519,7 +521,7 @@ func newTestSTPFabric(t *testing.T, t0 time.Time, prio1, prio2 uint16) *fabric.F
 		},
 	}
 
-	fab, err := fabric.New(cfg)
+	fab, err := assembly.New(cfg)
 	if err != nil {
 		t.Fatalf("New STP fabric: %v", err)
 	}
@@ -537,7 +539,7 @@ func newSingleSwitchSTPFabric(t *testing.T, t0 time.Time) *fabric.Fabric {
 		return tbl
 	}
 
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Start:         t0,
 		PhyAssumption: testPhyAssumption(),
 		Switches: map[string]vswitch.Config{
@@ -564,7 +566,7 @@ func newSingleSwitchSTPFabric(t *testing.T, t0 time.Time) *fabric.Fabric {
 		},
 	}
 
-	fab, err := fabric.New(cfg)
+	fab, err := assembly.New(cfg)
 	if err != nil {
 		t.Fatalf("New single switch STP fabric: %v", err)
 	}

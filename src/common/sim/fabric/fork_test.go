@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
 	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
 	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 
@@ -130,18 +132,18 @@ func probeFabricSwitches(t *testing.T) {
 	fork := fab.Fork()
 
 	mac := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x88}
-	if err := fab.Switch("sw1").Learn([]bridge.Seed{{FID: 10, MAC: mac, Port: "1/1/1", Lifetime: bridge.Aging}}); err != nil {
+	if err := fab.Device("sw1").(*vswitch.Switch).Learn([]bridge.Seed{{FID: 10, MAC: mac, Port: "1/1/1", Lifetime: bridge.Aging}}); err != nil {
 		t.Fatalf("fab learn: %v", err)
 	}
-	if fork.Switch("sw1").Forget(10, mac) {
+	if fork.Device("sw1").(*vswitch.Switch).Forget(10, mac) {
 		t.Errorf("fork switch learned entry learned on source")
 	}
 
 	forkMAC := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x77}
-	if err := fork.Switch("sw1").Learn([]bridge.Seed{{FID: 10, MAC: forkMAC, Port: "1/1/1", Lifetime: bridge.Aging}}); err != nil {
+	if err := fork.Device("sw1").(*vswitch.Switch).Learn([]bridge.Seed{{FID: 10, MAC: forkMAC, Port: "1/1/1", Lifetime: bridge.Aging}}); err != nil {
 		t.Fatalf("fork learn: %v", err)
 	}
-	if fab.Switch("sw1").Forget(10, forkMAC) {
+	if fab.Device("sw1").(*vswitch.Switch).Forget(10, forkMAC) {
 		t.Errorf("source switch learned entry learned on fork")
 	}
 }
@@ -158,16 +160,16 @@ func probeFabricDevices(t *testing.T) {
 	if source, forkState := fabric.ExportFabricNodeDevice(h, "h1").State((*fabric.ExportFabricClock(h))), fabric.ExportFabricNodeDevice(forkHost, "h1").State((*fabric.ExportFabricClock(h))); source.Ports[0].OperStatus != port.Down || forkState.Ports[0].OperStatus != port.Up {
 		t.Errorf("host link states = %s/%s, want Down/Up", source.Ports[0].OperStatus, forkState.Ports[0].OperStatus)
 	}
-	initial := newTestFabricForFork(t).Config()
+	initial := assembly.Spec(newTestFabricForFork(t)).Config()
 	initial.Cables[2].LengthMeters = 1
-	fab, err := fabric.New(initial)
+	fab, err := assembly.New(initial)
 	if err != nil {
 		t.Fatal(err)
 	}
 	fork := fab.Fork()
-	cfg := fork.Config().Switches["sw1"]
+	cfg := assembly.Spec(fork).Config().Switches["sw1"]
 	cfg.Bridge = nil
-	if err := fork.Configure("sw1", cfg); err != nil {
+	if err := assembly.Configure(fork, "sw1", cfg); err != nil {
 		t.Fatal(err)
 	}
 	for _, tc := range []struct {
@@ -441,7 +443,7 @@ func buildSteppableTwinFabrics(t *testing.T) (*fabric.Fabric, *fabric.Fabric) {
 	macH2 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02}
 	t0 := time.Date(2026, 9, 15, 10, 0, 0, 0, time.UTC)
 
-	cfg1 := fabric.Config{
+	cfg1 := assembly.Config{
 		Start: t0,
 		Switches: map[string]vswitch.Config{
 			"sw1": {Ports: pTable1, Bridge: newBridgeCfg()},
@@ -460,11 +462,11 @@ func buildSteppableTwinFabrics(t *testing.T) (*fabric.Fabric, *fabric.Fabric) {
 	}
 	cfg2 := cfg1.Clone()
 
-	fab1, err := fabric.New(cfg1)
+	fab1, err := assembly.New(cfg1)
 	if err != nil {
 		t.Fatalf("New fab1: %v", err)
 	}
-	fab2, err := fabric.New(cfg2)
+	fab2, err := assembly.New(cfg2)
 	if err != nil {
 		t.Fatalf("New fab2: %v", err)
 	}
@@ -619,7 +621,7 @@ func TestSnapshotImmutability(t *testing.T) {
 		steps++
 
 		queueMoved := len((*fabric.ExportFabricQueue(fab))) != initialFabricQueueLen
-		fdbMoved := len(fab.Switch("sw1").Entries()) > len(initialSw1Entries)
+		fdbMoved := len(fab.Device("sw1").(*vswitch.Switch).Entries()) > len(initialSw1Entries)
 		countersMoved := false
 		for _, c := range *fabric.ExportFabricCounters(fab) {
 			if c.InBytes > 0 || c.OutBytes > 0 || c.InDiscards > 0 || c.OutDiscards > 0 {
@@ -649,7 +651,7 @@ func TestSnapshotImmutability(t *testing.T) {
 	if !hasCounterMoved {
 		t.Fatalf("fabric counters did not move")
 	}
-	if len(fab.Switch("sw1").Entries()) <= len(initialSw1Entries) {
+	if len(fab.Device("sw1").(*vswitch.Switch).Entries()) <= len(initialSw1Entries) {
 		t.Fatalf("fabric sw1 entries did not move")
 	}
 
@@ -694,7 +696,7 @@ func TestSnapshotPhase4b(t *testing.T) {
 	macH2 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02}
 	t0 := time.Date(2026, 9, 15, 10, 0, 0, 0, time.UTC)
 
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Start: t0,
 		Switches: map[string]vswitch.Config{
 			"sw1": {
@@ -750,7 +752,7 @@ func TestSnapshotPhase4b(t *testing.T) {
 		PhyAssumption: defaultPhyAssumption(),
 	}
 
-	fab, err := fabric.New(cfg)
+	fab, err := assembly.New(cfg)
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}

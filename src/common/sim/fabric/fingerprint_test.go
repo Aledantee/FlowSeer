@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
 	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
 	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 
@@ -962,7 +964,7 @@ func TestFingerprintUnchangedAcrossHelloWake(t *testing.T) {
 		return tbl
 	}
 
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		PhyAssumption: &cablemodel.PhyAssumption{Medium: cablemodel.TwistedPair, Ethernet: phy.Ethernet{SupportedSpeedsBPS: []uint64{1_000_000_000}, AutoNegotiationSupported: phy.CapabilitySupported, Setting: &phy.Setting{AutoNegotiation: true}}},
 		Start:         t0,
 		Switches: map[string]vswitch.Config{
@@ -994,7 +996,7 @@ func TestFingerprintUnchangedAcrossHelloWake(t *testing.T) {
 		},
 	}
 
-	fab, err := fabric.New(cfg)
+	fab, err := assembly.New(cfg)
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -1460,7 +1462,7 @@ func TestFingerprintNeighborResolutionState(t *testing.T) {
 		return tbl
 	}
 
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Start: start,
 		Switches: map[string]vswitch.Config{
 			"sw1": {
@@ -1500,9 +1502,9 @@ func TestFingerprintNeighborResolutionState(t *testing.T) {
 		},
 	}
 
-	fab, err := fabric.New(cfg)
+	fab, err := assembly.New(cfg)
 	if err != nil {
-		t.Fatalf("fabric.New: %v", err)
+		t.Fatalf("assembly.New: %v", err)
 	}
 
 	packet, _ := ip.Header{

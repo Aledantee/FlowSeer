@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"testing"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
+
 	"go.aledante.io/FlowSeer/src/common/sim/internal/simtest"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
@@ -17,7 +20,7 @@ const forkAllocationBaseline = 15949
 
 func TestRepresentativeFabricEnvelope(t *testing.T) {
 	fab := simtest.RepresentativeFabric()
-	cfg := fab.Config()
+	cfg := assembly.Spec(fab).Config()
 
 	if len(cfg.Switches) != simtest.RepresentativeScaleNodeCount {
 		t.Fatalf("switch count = %d, want %d", len(cfg.Switches), simtest.RepresentativeScaleNodeCount)
@@ -32,7 +35,7 @@ func TestRepresentativeFabricEnvelope(t *testing.T) {
 
 	for s := 1; s <= simtest.RepresentativeScaleNodeCount; s++ {
 		swName := fmt.Sprintf("sw%d", s)
-		sw := fab.Switch(swName)
+		sw := fab.Device(swName).(*vswitch.Switch)
 		if sw == nil {
 			t.Fatalf("switch %s missing", swName)
 		}

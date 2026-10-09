@@ -4,6 +4,8 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
 	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
 	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 
@@ -305,7 +307,7 @@ func TestJourneyReportPopulatesOriginAndState(t *testing.T) {
 		Setting:                  &phy.Setting{AutoNegotiation: true},
 	}
 
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Start: t0,
 		Switches: map[string]vswitch.Config{
 			"sw1": {
@@ -345,9 +347,9 @@ func TestJourneyReportPopulatesOriginAndState(t *testing.T) {
 		PhyAssumption: defaultPhyAssumption(),
 	}
 
-	fab, err := fabric.New(cfg)
+	fab, err := assembly.New(cfg)
 	if err != nil {
-		t.Fatalf("fabric.New: %v", err)
+		t.Fatalf("assembly.New: %v", err)
 	}
 
 	// 1. Caller injection from h1 to h2

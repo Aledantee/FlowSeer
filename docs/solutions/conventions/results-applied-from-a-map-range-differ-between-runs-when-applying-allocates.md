@@ -30,13 +30,12 @@ produces the values.
 
 ## What is true
 
-- `Fabric.Derive` derives each switch and then applies its output, and
-  applying a held-frame drop allocates the journey's `FrameID` from a shared
-  counter (`src/common/sim/fabric/fabric.go:191`). The loop therefore decides
-  which switch's drop gets the lower id. It ranged over the switch map
-  until it was changed to take the sorted names
-  (`src/common/sim/fabric/derive.go:31`, names from `switchNames`, which sorts
-  at `src/common/sim/fabric/fabric.go:841`).
+- `assembly.Derive` builds switches in sorted name order
+  ([assembly/assemble.go](../../../src/common/sim/assembly/assemble.go)).
+  `fabric.New` applies each built node's output in the same order
+  ([fabric/topology.go](../../../src/common/sim/fabric/topology.go)).
+  A held-frame drop allocates a journey's `FrameID` from a shared counter,
+  so that order decides which switch's drop gets the lower id.
 - `configuredVLANs` collects VLANs into a set and returns them sorted
   (`src/common/sim/device/vswitch/inspect.go:179`, sorted at `:217`). The BPDU
   step records tree transitions in that order
@@ -53,9 +52,8 @@ does the body allocate, append, or call something that does? If so, range
 over `slices.Sorted(maps.Keys(m))` or an existing sorted accessor.
 
 ```go
-for _, name := range next.switchNames() { // sorted, not range next.switches
-    derived, out, err := vswitch.Derive(curSw, sw.Spec())
-    next.applyOutput(next.clock, name, out)
+for _, name := range slices.Sorted(maps.Keys(t.nodes)) {
+    f.applyOutput(f.clock, name, t.nodes[name].output)
 }
 ```
 

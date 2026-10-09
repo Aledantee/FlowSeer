@@ -4,6 +4,8 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
 	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
@@ -52,7 +54,7 @@ func benchmarkChainFabric(b *testing.B) (*fabric.Fabric, netaddr.MAC, netaddr.MA
 
 	src := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}
 	dst := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02}
-	fab, err := fabric.New(statedPhysical(fabric.Config{
+	fab, err := assembly.New(statedPhysical(assembly.Config{
 		Start: time.Date(2026, 9, 21, 12, 0, 0, 0, time.UTC),
 		Switches: map[string]vswitch.Config{
 			"sw1": {Ports: ports(), Bridge: bridgeCfg()},

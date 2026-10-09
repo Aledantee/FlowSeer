@@ -1,11 +1,14 @@
-// Package fabric composes virtual switches, hosts, and cables into a Layer 2 network fabric.
-package fabric
+// Package assembly constructs and reconfigures fabrics from device specifications.
+// Functions over a fabric are not safe for concurrent use.
+package assembly
 
 import (
 	"maps"
 	"slices"
 	"strconv"
 	"time"
+
+	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 
 	reflectormodel "go.aledante.io/FlowSeer/src/common/sim/device/reflector"
 
@@ -14,7 +17,6 @@ import (
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
-	"go.aledante.io/FlowSeer/src/common/sim/device"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
@@ -22,16 +24,16 @@ import (
 )
 
 // ConstructionSpec captures the topology and each switch's complete construction
-// specification needed to construct an identical [Fabric]. Every switch specification's
-// NodeID must equal its map key. Evidence is the catalog that cable and Uncabled
+// specification needed to construct an identical [fabric.Fabric]. Every switch specification's
+// NodeID must equal its map key. Evidence is the catalog that cable and fabric.Uncabled
 // evidence references resolve in; a reference it lacks makes the specification invalid.
 type ConstructionSpec struct {
 	Start         time.Time
 	Switches      map[string]vswitch.ConstructionSpec
 	Hosts         map[string]hostmodel.Config
 	Reflectors    map[string]reflectormodel.Config
-	Cables        []Cable
-	Uncabled      []Uncabled
+	Cables        []fabric.Cable
+	Uncabled      []fabric.Uncabled
 	PhyAssumption *cablemodel.PhyAssumption
 	Evidence      analysis.EvidenceCatalog
 }
@@ -63,7 +65,7 @@ func (s ConstructionSpec) Clone() ConstructionSpec {
 		}
 	}
 	if s.Cables != nil {
-		cp.Cables = make([]Cable, len(s.Cables))
+		cp.Cables = make([]fabric.Cable, len(s.Cables))
 		for i, cable := range s.Cables {
 			cp.Cables[i] = cable.Clone()
 		}
@@ -100,7 +102,7 @@ func (s ConstructionSpec) Config() Config {
 		}
 	}
 	if s.Cables != nil {
-		cfg.Cables = make([]Cable, len(s.Cables))
+		cfg.Cables = make([]fabric.Cable, len(s.Cables))
 		for i, cable := range s.Cables {
 			cfg.Cables[i] = cable.Clone()
 		}
@@ -163,10 +165,10 @@ func NewConstructionSpec(cfg Config) (ConstructionSpec, error) {
 	return spec.Normalize()
 }
 
-// New constructs a validated [Fabric] from the provided configuration, computing
+// New constructs a validated [fabric.Fabric] from the provided configuration, computing
 // operational link states and negotiated speeds across all cables before instantiating
 // the constituent virtual switches, then starts every protocol layer at Start.
-func New(cfg Config) (*Fabric, error) {
+func New(cfg Config) (*fabric.Fabric, error) {
 	spec, err := NewConstructionSpec(cfg)
 	if err != nil {
 		return nil, err
@@ -175,9 +177,9 @@ func New(cfg Config) (*Fabric, error) {
 	return NewWithSpec(spec)
 }
 
-// NewWithSpec constructs a validated [Fabric] from the provided construction specification,
+// NewWithSpec constructs a validated [fabric.Fabric] from the provided construction specification,
 // preserving every switch's node identity, trust metadata, and preloaded forwarding database seeds.
-func NewWithSpec(spec ConstructionSpec) (*Fabric, error) {
+func NewWithSpec(spec ConstructionSpec) (*fabric.Fabric, error) {
 	fab, err := build(nil, spec)
 	if err != nil {
 		return nil, err
@@ -189,19 +191,19 @@ func NewWithSpec(spec ConstructionSpec) (*Fabric, error) {
 // Spec returns a [ConstructionSpec] capturing the normalized topology and every
 // per-switch construction input needed to reconstruct this fabric. Port operational
 // states are the configured ones; the states the cables derive are in each switch's
-// Ports and in [Fabric.Links].
-func (f *Fabric) Spec() ConstructionSpec {
-	top := f.topologyCopy()
+// Ports and in [fabric.Fabric.Links].
+func Spec(f *fabric.Fabric) ConstructionSpec {
+	top := f.Config()
 	spec := ConstructionSpec{
-		Start: top.start, Cables: top.cables, Uncabled: top.uncabled,
-		PhyAssumption: top.assumption, Evidence: top.evidence,
+		Start: top.Start, Cables: top.Cables, Uncabled: top.Uncabled,
+		PhyAssumption: top.PhyAssumption, Evidence: top.Evidence,
 		Switches: make(map[string]vswitch.ConstructionSpec), Hosts: make(map[string]hostmodel.Config), Reflectors: make(map[string]reflectormodel.Config),
 	}
-	for name, node := range top.nodes {
-		switch d := node.device.(type) {
+	for name, node := range top.Nodes {
+		switch d := node.Device.(type) {
 		case *vswitch.Switch:
 			swSpec := d.Spec()
-			swSpec.Config.Ports = node.ports.Clone()
+			swSpec.Config.Ports = node.Ports.Clone()
 			spec.Switches[name] = swSpec
 		case *hostmodel.Host:
 			spec.Hosts[name] = d.Spec()
@@ -212,7 +214,7 @@ func (f *Fabric) Spec() ConstructionSpec {
 	return spec
 }
 
-func normalizeConstructionSpec(cur *Fabric, spec ConstructionSpec) (ConstructionSpec, error) {
+func normalizeConstructionSpec(cur *fabric.Fabric, spec ConstructionSpec) (ConstructionSpec, error) {
 	owned := spec.Clone()
 	names := make([]string, 0, len(owned.Switches))
 	for name := range owned.Switches {
@@ -243,9 +245,9 @@ func normalizeConstructionSpec(cur *Fabric, spec ConstructionSpec) (Construction
 	}
 
 	cfg := owned.Config()
-	// Uncabled and accepted multicast field paths name submitted positions,
+	// fabric.Uncabled and accepted multicast field paths name submitted positions,
 	// which normalization's sort would otherwise replace.
-	cabled := make(map[Endpoint]int, len(cfg.Cables)*2)
+	cabled := make(map[fabric.Endpoint]int, len(cfg.Cables)*2)
 	for _, cable := range cfg.Cables {
 		cabled[cable.A]++
 		cabled[cable.B]++
@@ -275,7 +277,7 @@ func normalizeConstructionSpec(cur *Fabric, spec ConstructionSpec) (Construction
 			if swCfg.MAC != (netaddr.MAC{}) {
 				continue
 			}
-			if current, ok := cur.Config().Switches[name]; ok {
+			if current, ok := Spec(cur).Config().Switches[name]; ok {
 				if mac, ok := carry(current.MAC); ok {
 					swCfg.MAC = mac
 					cfg.Switches[name] = swCfg
@@ -286,7 +288,7 @@ func normalizeConstructionSpec(cur *Fabric, spec ConstructionSpec) (Construction
 			if host.Address != (netaddr.MAC{}) {
 				continue
 			}
-			if current, ok := cur.Config().Hosts[name]; ok {
+			if current, ok := Spec(cur).Config().Hosts[name]; ok {
 				if mac, ok := carry(current.Address); ok {
 					host.Address = mac
 					cfg.Hosts[name] = host
@@ -297,7 +299,7 @@ func normalizeConstructionSpec(cur *Fabric, spec ConstructionSpec) (Construction
 			if refl.Address != (netaddr.MAC{}) {
 				continue
 			}
-			if current, ok := cur.Config().Reflectors[name]; ok {
+			if current, ok := Spec(cur).Config().Reflectors[name]; ok {
 				if mac, ok := carry(current.Address); ok {
 					refl.Address = mac
 					cfg.Reflectors[name] = refl
@@ -378,93 +380,98 @@ func configuredMACs(cfg Config) map[netaddr.MAC]struct{} {
 	return used
 }
 
-func build(cur *Fabric, spec ConstructionSpec) (*Fabric, error) {
+func build(cur *fabric.Fabric, spec ConstructionSpec) (*fabric.Fabric, error) {
 	norm, err := normalizeConstructionSpec(cur, spec)
 	if err != nil {
 		return nil, err
 	}
 	cfg := norm.Config()
 	top := configuredTopology(cfg)
-	top.evidence = norm.Evidence
-	byEnd := make(map[Endpoint]linkEndRef)
-	links := make([]Link, len(top.cables))
-	for i, c := range top.cables {
-		links[i], _ = resolveLink(c, top)
-		byEnd[c.A] = linkEndRef{link: &links[i], end: &links[i].A, peer: &links[i].B}
-		byEnd[c.B] = linkEndRef{link: &links[i], end: &links[i].B, peer: &links[i].A}
+	top.Evidence = norm.Evidence
+	byEnd := make(map[fabric.Endpoint]linkEndRef)
+	links := make([]fabric.Link, len(top.Cables))
+	for i, c := range top.Cables {
+		links[i] = resolveLink(c, top)
+		byEnd[c.A] = linkEndRef{end: &links[i].A}
+		byEnd[c.B] = linkEndRef{end: &links[i].B}
 	}
-	uncabled := make(map[Endpoint]Uncabled)
+	uncabled := make(map[fabric.Endpoint]fabric.Uncabled)
 	for _, entry := range cfg.Uncabled {
 		uncabled[entry.Endpoint] = entry
 	}
-	for _, name := range slices.Sorted(maps.Keys(top.nodes)) {
-		n := top.nodes[name]
+	for _, name := range slices.Sorted(maps.Keys(top.Nodes)) {
+		n := top.Nodes[name]
 		if swSpec, ok := norm.Switches[name]; ok {
 			swSpec.Config.Ports, err = rebuildSwitchPorts(name, swSpec.Config.Ports, byEnd, uncabled)
 			if err != nil {
 				return nil, err
 			}
 			if previous := curSwitch(cur, name); previous != nil {
-				n.device, n.output, err = vswitch.Derive(previous, swSpec, cfg.Start)
+				n.Device, n.Output, err = vswitch.Derive(previous, swSpec, cfg.Start)
 			} else {
-				n.device, err = vswitch.NewWithSpec(swSpec)
+				n.Device, err = vswitch.NewWithSpec(swSpec)
 			}
 		} else if h, ok := norm.Hosts[name]; ok {
-			n.device, err = hostmodel.New(name, h)
+			n.Device, err = hostmodel.New(name, h)
 		} else {
-			n.device, err = reflectormodel.New(name, norm.Reflectors[name])
+			n.Device, err = reflectormodel.New(name, norm.Reflectors[name])
 		}
 		if err != nil {
 			return nil, errs.Wrapf(err, "build node %q", name)
 		}
-		top.nodes[name] = n
+		top.Nodes[name] = n
 	}
-	return newTopology(top)
+	return fabric.New(top)
 }
 
-func curSwitch(f *Fabric, name string) *vswitch.Switch {
+func curSwitch(f *fabric.Fabric, name string) *vswitch.Switch {
 	if f == nil {
 		return nil
 	}
-	return f.Switch(name)
+	sw, _ := f.Device(name).(*vswitch.Switch)
+	return sw
 }
 
-func configuredTopology(cfg Config) topology {
-	top := topology{defaultQueue: (*vswitch.Switch)(nil), start: cfg.Start, cables: cfg.Cables, uncabled: cfg.Uncabled, assumption: cfg.PhyAssumption, nodes: make(map[string]builtNode)}
+func configuredTopology(cfg Config) fabric.Config {
+	top := fabric.Config{DefaultQueue: (*vswitch.Switch)(nil), Start: cfg.Start, Cables: cfg.Cables, Uncabled: cfg.Uncabled, PhyAssumption: cfg.PhyAssumption, Nodes: make(map[string]fabric.Node)}
 	for name, sw := range cfg.Switches {
-		n := builtNode{ports: sw.Ports.Clone(), physical: make(map[string]cablemodel.End), repeats: sw.Bridge == nil, snapshot: true}
+		n := fabric.Node{Ports: sw.Ports.Clone(), Physical: make(map[string]cablemodel.End), Repeats: sw.Bridge == nil, Snapshot: true}
 		for _, p := range sw.Ports.Ports() {
-			ep := Endpoint{Node: name, Port: p.Name}
-			n.physical[p.Name] = endpointPhyAndAdmin(ep, cfg)
+			ep := fabric.Endpoint{Node: name, Port: p.Name}
+			n.Physical[p.Name] = endpointPhyAndAdmin(ep, cfg)
 		}
-		top.nodes[name] = n
+		top.Nodes[name] = n
 	}
 	for name := range cfg.Hosts {
-		ep := Endpoint{Node: name}
-		top.nodes[name] = builtNode{physical: map[string]cablemodel.End{"": endpointPhyAndAdmin(ep, cfg)}}
+		ep := fabric.Endpoint{Node: name}
+		top.Nodes[name] = fabric.Node{Physical: map[string]cablemodel.End{"": endpointPhyAndAdmin(ep, cfg)}}
 	}
 	for name, r := range cfg.Reflectors {
-		n := builtNode{physical: make(map[string]cablemodel.End)}
+		n := fabric.Node{Physical: make(map[string]cablemodel.End)}
 		for portName := range r.Ports {
-			n.physical[portName] = endpointPhyAndAdmin(Endpoint{Node: name, Port: portName}, cfg)
+			n.Physical[portName] = endpointPhyAndAdmin(fabric.Endpoint{Node: name, Port: portName}, cfg)
 		}
-		top.nodes[name] = n
+		top.Nodes[name] = n
 	}
 	return top
 }
 
-func rebuildSwitchPorts(name string, swPorts port.Table, byEnd map[Endpoint]linkEndRef, uncabled map[Endpoint]Uncabled) (port.Table, error) {
+func rebuildSwitchPorts(name string, swPorts port.Table, byEnd map[fabric.Endpoint]linkEndRef, uncabled map[fabric.Endpoint]fabric.Uncabled) (port.Table, error) {
 	b := port.NewBuilder()
 	ports := swPorts.Ports()
 
 	for _, p := range ports {
 		switch {
 		case p.Kind != port.LAG:
-			ep := Endpoint{Node: name, Port: p.Name}
+			ep := fabric.Endpoint{Node: name, Port: p.Name}
 			if ref, ok := byEnd[ep]; ok {
 				p.OperStatus = ref.end.Oper
 			} else {
-				p.OperStatus = unlinkedEnd(ep, uncabled).Oper
+				if _, ok := uncabled[ep]; ok {
+					p.OperStatus = port.Down
+				} else {
+					p.OperStatus = port.Unknown
+				}
 			}
 		case len(swPorts.Members(p.Name)) == 0:
 			// A LAG with no member hears no link and would keep whatever
@@ -482,31 +489,21 @@ func rebuildSwitchPorts(name string, swPorts port.Table, byEnd map[Endpoint]link
 	return newTable, nil
 }
 
-// Switch returns the virtual switch with the given name, or nil if not found.
-func (f *Fabric) Switch(name string) *vswitch.Switch {
-	sw, _ := f.nodeDevice(name).(*vswitch.Switch)
-	return sw
-}
-
-// Config returns an independent deep copy of the fabric configuration. Port operational states are
-// the configured ones; the derived states are in each switch's Ports and in [Fabric.Links].
-func (f *Fabric) Config() Config {
-	return f.Spec().Config()
-}
-
 // Retention reports, for each switch, every layer including bridge and filter
 // from the most recent Derive, Fork, or
 // Configure that produced it; a Configure of one switch leaves the others' outcomes as they were.
-func (f *Fabric) Retention() map[string]vswitch.Retention {
-	ret := make(map[string]vswitch.Retention, len(f.switchNames()))
-	for _, name := range f.switchNames() {
-		sw := f.Switch(name)
-		ret[name] = sw.Retention()
+func Retention(f *fabric.Fabric) map[string]vswitch.Retention {
+	nodes := f.Config().Nodes
+	ret := make(map[string]vswitch.Retention)
+	for _, name := range slices.Sorted(maps.Keys(nodes)) {
+		if sw, ok := nodes[name].Device.(*vswitch.Switch); ok {
+			ret[name] = sw.Retention()
+		}
 	}
 	return ret
 }
 
-func endpointPhyAndAdmin(ep Endpoint, cfg Config) cablemodel.End {
+func endpointPhyAndAdmin(ep fabric.Endpoint, cfg Config) cablemodel.End {
 	end := cablemodel.End{Admin: port.Up, Label: endpointLabel(ep), Scope: endpointScope(ep)}
 	if host, ok := cfg.Hosts[ep.Node]; ok {
 		end.Ethernet = host.Ethernet
@@ -523,21 +520,4 @@ func endpointPhyAndAdmin(ep Endpoint, cfg Config) cablemodel.End {
 		end.Ethernet = swCfg.Phy.Ethernet[ep.Port]
 	}
 	return end
-}
-
-// mcheck forces protocol migration checking on a switch port at the current
-// fabric clock, then queues what the spanning tree layer emitted and its next
-// wake, as every other switch call inside the run does. It returns an error
-// when the node is not a switch.
-func (f *Fabric) mcheck(node, portName string) error {
-	sw := f.Switch(node)
-	ok := sw != nil
-	if !ok {
-		return errs.New().
-			Attr("node", node).
-			Msgf("node %q is not a switch", node)
-	}
-	return f.operate(node, func(d device.Device, now time.Time) (device.Output, error) {
-		return d.(*vswitch.Switch).Mcheck(now, portName), nil
-	})
 }

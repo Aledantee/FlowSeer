@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
 	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
@@ -52,7 +54,7 @@ func newMcastFabric(t *testing.T, floodUnregistered *bool, fastLeave bool) *fabr
 			B: fabric.Endpoint{Node: "sw1", Port: portNames[i]},
 		})
 	}
-	fab, err := fabric.New(statedPhysical(fabric.Config{
+	fab, err := assembly.New(statedPhysical(assembly.Config{
 		Switches: map[string]vswitch.Config{
 			"sw1": {
 				Ports: ports,
@@ -336,7 +338,7 @@ func TestFabricSourceFilterAcrossUplink(t *testing.T) {
 	s1 := netip.MustParseAddr("10.0.1.1")
 	s2 := netip.MustParseAddr("10.0.1.2")
 
-	fab, err := fabric.New(statedPhysical(fabric.Config{
+	fab, err := assembly.New(statedPhysical(assembly.Config{
 		Switches: map[string]vswitch.Config{
 			"A": {
 				Ports:  buildPorts(t),

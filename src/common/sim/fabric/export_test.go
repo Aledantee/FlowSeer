@@ -148,9 +148,6 @@ func ExportFabricLinkTrust(x *Fabric) *[]linkTrust { return &x.linkTrust }
 // ExportFabricLinks exposes internal state to external package tests.
 func ExportFabricLinks(x *Fabric) *[]Link { return &x.links }
 
-// ExportFabricMcheck exposes internal state to external package tests.
-func ExportFabricMcheck(x *Fabric, a0 string, a1 string) error { return x.mcheck(a0, a1) }
-
 // ExportFabricMetadataCache exposes internal state to external package tests.
 func ExportFabricMetadataCache(x *Fabric) **analysis.Metadata { return &x.metadataCache }
 
@@ -288,9 +285,6 @@ type ExportReplaySpecFields struct {
 	Checkpoint *Fabric
 	Scenario   Scenario
 }
-
-// ExportValidateEvidence exposes internal state to external package tests.
-var ExportValidateEvidence = validateEvidence
 
 // ExportAttachedSourceAttachment exposes internal state to external package tests.
 func ExportAttachedSourceAttachment(x *attachedSource) *StreamAttachment { return &x.attachment }

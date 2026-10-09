@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
 	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
 	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 
@@ -29,8 +31,8 @@ func TestScenarioActionsBeforeFabricClock(t *testing.T) {
 		{At: at, Kind: fabric.ActionInject, Inject: &fabric.Injection{At: at, Origin: fabric.Endpoint{Node: "h1"}, Frame: frame}},
 		{At: at, Kind: fabric.ActionRecord, Record: &fabric.Record{At: at, Source: "capture", Origin: fabric.Endpoint{Node: "h1"}, Frame: &frame}},
 		{At: at, Kind: fabric.ActionFault, Fault: &fabric.FaultAction{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, Fault: cablemodel.Fault{Kind: cablemodel.FaultCut}}},
-		{At: at, Kind: fabric.ActionConfigure, Configure: &fabric.ConfigureAction{Node: "sw1"}},
-		{At: at, Kind: fabric.ActionMcheck, Mcheck: &fabric.McheckAction{Node: "sw1", Port: "1/1/1"}},
+		{At: at, Kind: fabric.ActionConfigure, Configure: new(assembly.ConfigureAction("sw1", vswitch.Config{}))},
+		{At: at, Kind: fabric.ActionMcheck, Mcheck: new(assembly.McheckAction("sw1", "1/1/1"))},
 	}
 	laterFabric := func(t *testing.T, stepped bool) *fabric.Fabric {
 		t.Helper()
@@ -98,7 +100,7 @@ func newTestTwoSwitchSTPFabric(t *testing.T, t0 time.Time) *fabric.Fabric {
 		return tbl
 	}
 
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Start:         t0,
 		PhyAssumption: testPhyAssumption(),
 		Switches: map[string]vswitch.Config{
@@ -136,7 +138,7 @@ func newTestTwoSwitchSTPFabric(t *testing.T, t0 time.Time) *fabric.Fabric {
 		},
 	}
 
-	fab, err := fabric.New(cfg)
+	fab, err := assembly.New(cfg)
 	if err != nil {
 		t.Fatalf("New STP fabric: %v", err)
 	}
@@ -647,7 +649,7 @@ func TestScenarioReplayDoubleExecutionEquality(t *testing.T) {
 	}
 }
 
-func newTestThreeHostFabric(t *testing.T, t0 time.Time) (*fabric.Fabric, fabric.Config) {
+func newTestThreeHostFabric(t *testing.T, t0 time.Time) (*fabric.Fabric, assembly.Config) {
 	t.Helper()
 	macH1 := netaddr.MAC{0, 0, 0, 0, 0, 1}
 	macH2 := netaddr.MAC{0, 0, 0, 0, 0, 2}
@@ -659,7 +661,7 @@ func newTestThreeHostFabric(t *testing.T, t0 time.Time) (*fabric.Fabric, fabric.
 		Add(port.Port{Name: "1/1/3", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
 		Build()
 
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Start:         t0,
 		PhyAssumption: testPhyAssumption(),
 		Switches: map[string]vswitch.Config{
@@ -680,7 +682,7 @@ func newTestThreeHostFabric(t *testing.T, t0 time.Time) (*fabric.Fabric, fabric.
 		},
 	}
 
-	fab, err := fabric.New(cfg)
+	fab, err := assembly.New(cfg)
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
@@ -692,7 +694,7 @@ func TestScenarioReplaySeededFabricEquality(t *testing.T) {
 	fab, cfg := newTestThreeHostFabric(t, t0)
 
 	macH2 := cfg.Hosts["h2"].Address
-	if err := fab.Switch("sw1").Learn([]bridge.Seed{
+	if err := fab.Device("sw1").(*vswitch.Switch).Learn([]bridge.Seed{
 		{MAC: macH2, Port: "1/1/2", Lifetime: bridge.Static},
 	}); err != nil {
 		t.Fatalf("Learn: %v", err)
@@ -873,7 +875,7 @@ func TestScenarioConfigureTransientBetweenSwitches(t *testing.T) {
 		}
 	}
 
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Start: t0,
 		Switches: map[string]vswitch.Config{
 			"sw1": {Ports: newPorts(), Bridge: makeBridge10()},
@@ -898,7 +900,7 @@ func TestScenarioConfigureTransientBetweenSwitches(t *testing.T) {
 		},
 	}
 
-	fab, err := fabric.New(cfg)
+	fab, err := assembly.New(cfg)
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -910,12 +912,9 @@ func TestScenarioConfigureTransientBetweenSwitches(t *testing.T) {
 		Name: "vlan-migration",
 		Actions: []fabric.Action{
 			{
-				At:   t1,
-				Kind: fabric.ActionConfigure,
-				Configure: &fabric.ConfigureAction{
-					Node:   "sw1",
-					Config: vswitch.Config{Ports: newPorts(), Bridge: makeBridge20()},
-				},
+				At:        t1,
+				Kind:      fabric.ActionConfigure,
+				Configure: new(assembly.ConfigureAction("sw1", vswitch.Config{Ports: newPorts(), Bridge: makeBridge20()})),
 			},
 			{
 				At:   t1.Add(100 * time.Millisecond),
@@ -931,12 +930,9 @@ func TestScenarioConfigureTransientBetweenSwitches(t *testing.T) {
 				},
 			},
 			{
-				At:   t2,
-				Kind: fabric.ActionConfigure,
-				Configure: &fabric.ConfigureAction{
-					Node:   "sw2",
-					Config: vswitch.Config{Ports: newPorts(), Bridge: makeBridge20()},
-				},
+				At:        t2,
+				Kind:      fabric.ActionConfigure,
+				Configure: new(assembly.ConfigureAction("sw2", vswitch.Config{Ports: newPorts(), Bridge: makeBridge20()})),
 			},
 			{
 				At:   t2.Add(100 * time.Millisecond),
@@ -1021,14 +1017,14 @@ func TestConfigureActionValidateAndDiff(t *testing.T) {
 	if err := (fabric.Action{At: t0, Kind: fabric.ActionConfigure, Configure: &fabric.ConfigureAction{Node: "sw1"}, Fault: &fabric.FaultAction{}}).Validate(); err == nil {
 		t.Error("Action.Validate accepted multiple payloads")
 	}
-	valid := fabric.Action{At: t0, Kind: fabric.ActionConfigure, Configure: &fabric.ConfigureAction{Node: "sw1", Config: cfg1}}
+	valid := fabric.Action{At: t0, Kind: fabric.ActionConfigure, Configure: new(assembly.ConfigureAction("sw1", cfg1))}
 	if err := valid.Validate(); err != nil {
 		t.Errorf("Action.Validate rejected valid action: %v", err)
 	}
 
 	// Diff: changed node
-	act1 := fabric.Action{Index: 0, At: t0, Kind: fabric.ActionConfigure, Configure: &fabric.ConfigureAction{Node: "sw1", Config: cfg1}}
-	act2 := fabric.Action{Index: 0, At: t0, Kind: fabric.ActionConfigure, Configure: &fabric.ConfigureAction{Node: "sw2", Config: cfg1}}
+	act1 := fabric.Action{Index: 0, At: t0, Kind: fabric.ActionConfigure, Configure: new(assembly.ConfigureAction("sw1", cfg1))}
+	act2 := fabric.Action{Index: 0, At: t0, Kind: fabric.ActionConfigure, Configure: new(assembly.ConfigureAction("sw2", cfg1))}
 	diffNode := act1.Diff(act2)
 	var foundNodeChange bool
 	for _, c := range diffNode {
@@ -1045,7 +1041,7 @@ func TestConfigureActionValidateAndDiff(t *testing.T) {
 
 	// Diff: same node and index, changed config. The two VLAN renames must stay
 	// distinguishable through the nested action/index/inner-kind/inner-key.
-	act3 := fabric.Action{Index: 0, At: t0, Kind: fabric.ActionConfigure, Configure: &fabric.ConfigureAction{Node: "sw1", Config: cfg2}}
+	act3 := fabric.Action{Index: 0, At: t0, Kind: fabric.ActionConfigure, Configure: new(assembly.ConfigureAction("sw1", cfg2))}
 	diffConfig := act1.Diff(act3)
 	wantKeys := []string{fabric.ExportNestedSubjectKey("0", fabric.ExportNestedSubjectKey("vlan", "10")), fabric.ExportNestedSubjectKey("0", fabric.ExportNestedSubjectKey("vlan", "20"))}
 	for _, wantKey := range wantKeys {
@@ -1070,10 +1066,10 @@ func TestConfigureActionValidateAndDiff(t *testing.T) {
 	scA := fabric.Scenario{
 		Name:    "configure-a",
 		Budget:  10,
-		Actions: []fabric.Action{{At: t0, Index: 1, Kind: fabric.ActionConfigure, Configure: &fabric.ConfigureAction{Node: "sw1", Config: cfg1}}},
+		Actions: []fabric.Action{{At: t0, Index: 1, Kind: fabric.ActionConfigure, Configure: new(assembly.ConfigureAction("sw1", cfg1))}},
 	}
 	scB := scA.Clone()
-	scB.Actions[0].Configure = &fabric.ConfigureAction{Node: "sw1", Config: cfg2}
+	scB.Actions[0].Configure = new(assembly.ConfigureAction("sw1", cfg2))
 	scChanges, err := fabric.DiffScenarios(scA, scB)
 	if err != nil {
 		t.Fatalf("DiffScenarios: %v", err)

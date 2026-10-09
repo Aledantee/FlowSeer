@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/ip"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
@@ -24,13 +26,13 @@ func TestFilterChangeComparesDifferent(t *testing.T) {
 	}}}
 	sw.Filter = &filter.Config{Sets: map[string]filter.RuleSet{"ingress": {Default: filter.Accept}}, Bindings: []filter.Binding{{Interface: "vlan10", Direction: filter.In, Set: "ingress"}}}
 	cfg.Switches["sw1"] = sw
-	a, err := fabric.New(statedPhysical(cfg))
+	a, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatal(err)
 	}
 	candidate := cfg.Clone()
 	candidate.Switches["sw1"].Filter.Sets["ingress"] = filter.RuleSet{Default: filter.Drop}
-	b, err := fabric.New(statedPhysical(candidate))
+	b, err := assembly.New(statedPhysical(candidate))
 	if err != nil {
 		t.Fatal(err)
 	}

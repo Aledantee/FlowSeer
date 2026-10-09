@@ -4,6 +4,8 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
 	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
 
 	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
@@ -55,7 +57,7 @@ func TestPortCountersForwardingAndEgressDropExport(t *testing.T) {
 		t.Errorf("sw1:1/1/1 InUnicast = %d, want %d", got, want)
 	}
 
-	exp1 := netmodel.InterfaceCounters(c1, fab.Config().Start)
+	exp1 := netmodel.InterfaceCounters(c1, assembly.Spec(fab).Config().Start)
 	if got, want := exp1.GetInUnicastPackets(), uint64(1); got != want {
 		t.Errorf("sw1:1/1/1 GetInUnicastPackets() = %d, want %d", got, want)
 	}
@@ -71,7 +73,7 @@ func TestPortCountersForwardingAndEgressDropExport(t *testing.T) {
 		t.Errorf("sw1:1/1/24 OutUnicast = %d, want %d", got, want)
 	}
 
-	exp24 := netmodel.InterfaceCounters(c24, fab.Config().Start)
+	exp24 := netmodel.InterfaceCounters(c24, assembly.Spec(fab).Config().Start)
 	if got, want := exp24.GetOutUnicastPackets(), uint64(1); got != want {
 		t.Errorf("sw1:1/1/24 GetOutUnicastPackets() = %d, want %d", got, want)
 	}
@@ -89,7 +91,7 @@ func TestPortCountersForwardingAndEgressDropExport(t *testing.T) {
 	}
 
 	vid10 := vlan.ID(10)
-	cfgDrop := fabric.Config{
+	cfgDrop := assembly.Config{
 		Switches: map[string]vswitch.Config{
 			"sw1": {
 				Ports: pTableDrop,
@@ -120,7 +122,7 @@ func TestPortCountersForwardingAndEgressDropExport(t *testing.T) {
 		},
 	}
 
-	fabDrop, err := fabric.New(statedPhysical(cfgDrop))
+	fabDrop, err := assembly.New(statedPhysical(cfgDrop))
 	if err != nil {
 		t.Fatalf("New drop fabric: %v", err)
 	}
@@ -145,7 +147,7 @@ func TestPortCountersForwardingAndEgressDropExport(t *testing.T) {
 		t.Errorf("sw1:1/1/24 Discards[ReasonMTUExceeded] = %d, want %d", got, want)
 	}
 
-	expDrop := netmodel.InterfaceCounters(cEgressDrop, fabDrop.Config().Start)
+	expDrop := netmodel.InterfaceCounters(cEgressDrop, assembly.Spec(fabDrop).Config().Start)
 	if got, want := expDrop.GetOutDiscards(), uint64(1); got != want {
 		t.Errorf("exported OutDiscards = %d, want %d", got, want)
 	}
@@ -190,7 +192,7 @@ func TestStormGrowthAcrossSimulationRuns(t *testing.T) {
 	macH1 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}
 	macUnknown := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x99}
 
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Switches: map[string]vswitch.Config{
 			"sw1": {Ports: pTable1, Bridge: newBridgeCfg()},
 			"sw2": {Ports: pTable2, Bridge: newBridgeCfg()},
@@ -216,7 +218,7 @@ func TestStormGrowthAcrossSimulationRuns(t *testing.T) {
 		},
 	}
 
-	fab, err := fabric.New(statedPhysical(cfg))
+	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
@@ -317,7 +319,7 @@ func TestDeadDirectionCableLossAndDelivery(t *testing.T) {
 	macH1 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}
 	macH2 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02}
 
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Switches: map[string]vswitch.Config{
 			"sw1": {Ports: pTable1, Bridge: newBridgeCfg(), Phy: forcedPhy()},
 			"sw2": {Ports: pTable2, Bridge: newBridgeCfg(), Phy: forcedPhy()},
@@ -343,7 +345,7 @@ func TestDeadDirectionCableLossAndDelivery(t *testing.T) {
 		},
 	}
 
-	fab, err := fabric.New(statedPhysical(cfg))
+	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
@@ -446,7 +448,7 @@ func TestFrameClassesAndCorruptArrivalCounters(t *testing.T) {
 	}
 
 	vid10 := vlan.ID(10)
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Switches: map[string]vswitch.Config{
 			"sw1": {
 				Ports: pTable,
@@ -472,7 +474,7 @@ func TestFrameClassesAndCorruptArrivalCounters(t *testing.T) {
 		},
 	}
 
-	fab, err := fabric.New(statedPhysical(cfg))
+	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
@@ -518,7 +520,7 @@ func TestFrameClassesAndCorruptArrivalCounters(t *testing.T) {
 
 	// 3. Corrupt arrival across a cable with cablemodel.FaultCorruptEveryNth: 1.
 	// Connect two switches so the cable crossing applies the fault.
-	cfgCorrupt := fabric.Config{
+	cfgCorrupt := assembly.Config{
 		Switches: map[string]vswitch.Config{
 			"sw1": {Ports: pTable, Bridge: &bridge.Config{VLAN: &bridge.VLAN{Table: map[vlan.ID]string{10: "VLAN10"}, Switchports: map[string]bridge.Switchport{"1/1/1": {PVID: &vid10, Untagged: []vlan.ID{10}}, "1/1/2": {Tagged: []vlan.ID{10}}}}}},
 			"sw2": {Ports: pTable, Bridge: &bridge.Config{VLAN: &bridge.VLAN{Table: map[vlan.ID]string{10: "VLAN10"}, Switchports: map[string]bridge.Switchport{"1/1/2": {Tagged: []vlan.ID{10}}}}}},
@@ -531,7 +533,7 @@ func TestFrameClassesAndCorruptArrivalCounters(t *testing.T) {
 			{Cable: cablemodel.Cable{LengthMeters: 100, Fault: cablemodel.Fault{Kind: cablemodel.FaultCorruptEveryNth, N: 1}}, A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/2"}},
 		},
 	}
-	fabCorrupt, err := fabric.New(statedPhysical(cfgCorrupt))
+	fabCorrupt, err := assembly.New(statedPhysical(cfgCorrupt))
 	if err != nil {
 		t.Fatalf("New corrupt fabric: %v", err)
 	}
@@ -583,7 +585,7 @@ func TestLagPortAndMemberCounters(t *testing.T) {
 	macH1 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}
 	macH2 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02}
 
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Switches: map[string]vswitch.Config{
 			"sw1": {Ports: pTable, Bridge: brCfg},
 		},
@@ -597,7 +599,7 @@ func TestLagPortAndMemberCounters(t *testing.T) {
 		},
 	}
 
-	fab, err := fabric.New(statedPhysical(cfg))
+	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
@@ -669,7 +671,7 @@ func TestWholeFrameDropCounters(t *testing.T) {
 		t.Fatalf("build ports: %v", err)
 	}
 
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Switches: map[string]vswitch.Config{
 			"sw1": {
 				Ports: pTable,
@@ -692,7 +694,7 @@ func TestWholeFrameDropCounters(t *testing.T) {
 		},
 	}
 
-	fab, err := fabric.New(statedPhysical(cfg))
+	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}

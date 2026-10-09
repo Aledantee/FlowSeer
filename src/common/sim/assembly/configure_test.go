@@ -1,4 +1,4 @@
-package fabric_test
+package assembly_test
 
 import (
 	"net/netip"
@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
 
 	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
 
@@ -29,7 +31,7 @@ func newTwoSwitchFabric(t *testing.T) (*fabric.Fabric, map[string]netaddr.MAC) {
 	return newTwoSwitchFabricWith(t, nil)
 }
 
-func newTwoSwitchFabricWith(t *testing.T, mutate func(*fabric.Config)) (*fabric.Fabric, map[string]netaddr.MAC) {
+func newTwoSwitchFabricWith(t *testing.T, mutate func(*assembly.Config)) (*fabric.Fabric, map[string]netaddr.MAC) {
 	t.Helper()
 
 	newPorts := func() port.Table {
@@ -73,7 +75,7 @@ func newTwoSwitchFabricWith(t *testing.T, mutate func(*fabric.Config)) (*fabric.
 		"h2": macH2,
 	}
 
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Start: time.Unix(1700000000, 0),
 		Switches: map[string]vswitch.Config{
 			"sw1": {Ports: newPorts(), Bridge: makeBridge()},
@@ -112,9 +114,9 @@ func newTwoSwitchFabricWith(t *testing.T, mutate func(*fabric.Config)) (*fabric.
 		mutate(&cfg)
 	}
 
-	fab, err := fabric.New(cfg)
+	fab, err := assembly.New(cfg)
 	if err != nil {
-		t.Fatalf("fabric.New: %v", err)
+		t.Fatalf("assembly.New: %v", err)
 	}
 
 	return fab, macs
@@ -122,7 +124,7 @@ func newTwoSwitchFabricWith(t *testing.T, mutate func(*fabric.Config)) (*fabric.
 
 func TestConfigureKeepsInFlightFrame(t *testing.T) {
 	fab, macs := newTwoSwitchFabric(t)
-	t0 := fab.Config().Start
+	t0 := assembly.Spec(fab).Config().Start
 
 	fid, err := fab.Inject(fabric.Injection{
 		At:     t0,
@@ -151,7 +153,7 @@ func TestConfigureKeepsInFlightFrame(t *testing.T) {
 
 	// Configure sw2 moving trunk and access ports to VLAN 20 with ingress filtering.
 	vid20 := vlan.ID(20)
-	sw2Cfg := fab.Switch("sw2").Config()
+	sw2Cfg := fab.Device("sw2").(*vswitch.Switch).Config()
 	sw2Cfg.Bridge = &bridge.Config{
 		VLAN: &bridge.VLAN{
 			Table: map[vlan.ID]string{20: "vlan20"},
@@ -162,7 +164,7 @@ func TestConfigureKeepsInFlightFrame(t *testing.T) {
 		},
 	}
 
-	if err := fab.Configure("sw2", sw2Cfg); err != nil {
+	if err := assembly.Configure(fab, "sw2", sw2Cfg); err != nil {
 		t.Fatalf("Configure: %v", err)
 	}
 
@@ -194,7 +196,7 @@ func TestConfigureKeepsInFlightFrame(t *testing.T) {
 
 func TestConfigureLearnedStateAdmittedKept(t *testing.T) {
 	fab, macs := newTwoSwitchFabric(t)
-	t0 := fab.Config().Start
+	t0 := assembly.Spec(fab).Config().Start
 
 	_, err := fab.Inject(fabric.Injection{
 		At:     t0,
@@ -225,9 +227,9 @@ func TestConfigureLearnedStateAdmittedKept(t *testing.T) {
 	}
 
 	// Change only VLAN name on sw1.
-	sw1Cfg := fab.Switch("sw1").Config()
+	sw1Cfg := fab.Device("sw1").(*vswitch.Switch).Config()
 	sw1Cfg.Bridge.VLAN.Table[10] = "production"
-	if err := fab.Configure("sw1", sw1Cfg); err != nil {
+	if err := assembly.Configure(fab, "sw1", sw1Cfg); err != nil {
 		t.Fatalf("Configure same VLAN: %v", err)
 	}
 
@@ -244,14 +246,14 @@ func TestConfigureLearnedStateAdmittedKept(t *testing.T) {
 	}
 
 	// Move 1/1/1 to VLAN 20: entry should be removed.
-	swBefore := fab.Switch("sw1")
+	swBefore := fab.Device("sw1").(*vswitch.Switch)
 	vid20 := vlan.ID(20)
-	sw1CfgV20 := fab.Switch("sw1").Config()
+	sw1CfgV20 := fab.Device("sw1").(*vswitch.Switch).Config()
 	sw1CfgV20.Bridge.VLAN.Table = map[vlan.ID]string{20: "vlan20"}
 	sw1CfgV20.Bridge.VLAN.Switchports["1/1/1"] = bridge.Switchport{PVID: &vid20, Untagged: []vlan.ID{20}}
 	sw1CfgV20.Bridge.VLAN.Switchports["1/1/24"] = bridge.Switchport{Tagged: []vlan.ID{20}}
 
-	if err := fab.Configure("sw1", sw1CfgV20); err != nil {
+	if err := assembly.Configure(fab, "sw1", sw1CfgV20); err != nil {
 		t.Fatalf("Configure VLAN 20: %v", err)
 	}
 
@@ -263,22 +265,22 @@ func TestConfigureLearnedStateAdmittedKept(t *testing.T) {
 	}
 
 	// Retention matches vswitch.Derive on the same pair.
-	targetSpec := fab.Switch("sw1").Spec()
+	targetSpec := fab.Device("sw1").(*vswitch.Switch).Spec()
 	derivedDirect, _, err := vswitch.Derive(swBefore, targetSpec, fab.Snapshot().Clock)
 	if err != nil {
 		t.Fatalf("vswitch.Derive: %v", err)
 	}
-	if fab.Retention()["sw1"] != derivedDirect.Retention() {
-		t.Errorf("Retention[sw1] = %+v, want %+v", fab.Retention()["sw1"], derivedDirect.Retention())
+	if assembly.Retention(fab)["sw1"] != derivedDirect.Retention() {
+		t.Errorf("Retention[sw1] = %+v, want %+v", assembly.Retention(fab)["sw1"], derivedDirect.Retention())
 	}
 }
 
 func TestConfigureLinkStateFollowsSwitchConfig(t *testing.T) {
 	fab, macs := newTwoSwitchFabric(t)
-	t0 := fab.Config().Start
+	t0 := assembly.Spec(fab).Config().Start
 
 	// Set sw1 1/1/24 to AdminStatus: Down.
-	sw1Cfg := fab.Switch("sw1").Config()
+	sw1Cfg := fab.Device("sw1").(*vswitch.Switch).Config()
 	b := port.NewBuilder()
 	for _, p := range sw1Cfg.Ports.Ports() {
 		if p.Name == "1/1/24" {
@@ -292,7 +294,7 @@ func TestConfigureLinkStateFollowsSwitchConfig(t *testing.T) {
 	}
 	sw1Cfg.Ports = newPorts
 
-	if err := fab.Configure("sw1", sw1Cfg); err != nil {
+	if err := assembly.Configure(fab, "sw1", sw1Cfg); err != nil {
 		t.Fatalf("Configure admin down: %v", err)
 	}
 
@@ -313,7 +315,7 @@ func TestConfigureLinkStateFollowsSwitchConfig(t *testing.T) {
 	}
 
 	// sw2 1/1/24 should be oper Down in its port table.
-	sw2Port, ok := fab.Switch("sw2").Ports().Port("1/1/24")
+	sw2Port, ok := fab.Device("sw2").(*vswitch.Switch).Ports().Port("1/1/24")
 	if !ok || sw2Port.OperStatus != port.Down {
 		t.Errorf("sw2 1/1/24 oper = %v, want Down", sw2Port.OperStatus)
 	}
@@ -343,7 +345,7 @@ func TestConfigureLinkStateFollowsSwitchConfig(t *testing.T) {
 	}
 
 	// Configure Up again restores the link.
-	sw1CfgUp := fab.Switch("sw1").Config()
+	sw1CfgUp := fab.Device("sw1").(*vswitch.Switch).Config()
 	bUp := port.NewBuilder()
 	for _, p := range sw1CfgUp.Ports.Ports() {
 		if p.Name == "1/1/24" {
@@ -357,7 +359,7 @@ func TestConfigureLinkStateFollowsSwitchConfig(t *testing.T) {
 	}
 	sw1CfgUp.Ports = portsUp
 
-	if err := fab.Configure("sw1", sw1CfgUp); err != nil {
+	if err := assembly.Configure(fab, "sw1", sw1CfgUp); err != nil {
 		t.Fatalf("Configure admin up: %v", err)
 	}
 
@@ -373,12 +375,12 @@ func TestConfigureLinkStateFollowsSwitchConfig(t *testing.T) {
 func TestConfigureRefusalLeavesFabricUnchanged(t *testing.T) {
 	fab, _ := newTwoSwitchFabric(t)
 
-	spec0 := fab.Spec()
+	spec0 := assembly.Spec(fab)
 	links0 := fab.Links()
 	fp0 := fab.Fingerprint()
 
 	// Missing port 1/1/24 which cable names.
-	sw1Cfg := fab.Switch("sw1").Config()
+	sw1Cfg := fab.Device("sw1").(*vswitch.Switch).Config()
 	b := port.NewBuilder()
 	b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
 	portsMissing, err := b.Build()
@@ -387,12 +389,12 @@ func TestConfigureRefusalLeavesFabricUnchanged(t *testing.T) {
 	}
 	sw1Cfg.Ports = portsMissing
 
-	err = fab.Configure("sw1", sw1Cfg)
+	err = assembly.Configure(fab, "sw1", sw1Cfg)
 	if err == nil || !strings.Contains(err.Error(), "1/1/24") {
 		t.Fatalf("Configure missing port err = %v, want error naming 1/1/24", err)
 	}
 
-	if !fab.Spec().Equal(spec0) {
+	if !assembly.Spec(fab).Equal(spec0) {
 		t.Error("Spec changed after refused Configure")
 	}
 	if !reflect.DeepEqual(fab.Links(), links0) {
@@ -403,20 +405,20 @@ func TestConfigureRefusalLeavesFabricUnchanged(t *testing.T) {
 	}
 
 	// Refused node: "h1" (a host)
-	err = fab.Configure("h1", fab.Switch("sw1").Config())
+	err = assembly.Configure(fab, "h1", fab.Device("sw1").(*vswitch.Switch).Config())
 	if err == nil || !strings.Contains(err.Error(), "h1") {
 		t.Fatalf("Configure host err = %v, want error naming h1", err)
 	}
-	if !fab.Spec().Equal(spec0) || fab.Fingerprint() != fp0 {
+	if !assembly.Spec(fab).Equal(spec0) || fab.Fingerprint() != fp0 {
 		t.Error("fabric modified after refused node h1")
 	}
 
 	// Refused node: "nope"
-	err = fab.Configure("nope", fab.Switch("sw1").Config())
+	err = assembly.Configure(fab, "nope", fab.Device("sw1").(*vswitch.Switch).Config())
 	if err == nil || !strings.Contains(err.Error(), "nope") {
 		t.Fatalf("Configure unknown node err = %v, want error naming nope", err)
 	}
-	if !fab.Spec().Equal(spec0) || fab.Fingerprint() != fp0 {
+	if !assembly.Spec(fab).Equal(spec0) || fab.Fingerprint() != fp0 {
 		t.Error("fabric modified after refused node nope")
 	}
 }
@@ -434,7 +436,7 @@ func operStatusConflictCount(fab *fabric.Fabric) int {
 func TestConfigureNoOpKeepsConfiguredOperStatus(t *testing.T) {
 	// sw1's trunk port is configured Down over a healthy cable, so the
 	// configured table disagrees with the state the cable derives.
-	fab, _ := newTwoSwitchFabricWith(t, func(cfg *fabric.Config) {
+	fab, _ := newTwoSwitchFabricWith(t, func(cfg *assembly.Config) {
 		sw := cfg.Switches["sw1"]
 		b := port.NewBuilder()
 		for _, p := range sw.Ports.Ports() {
@@ -451,19 +453,19 @@ func TestConfigureNoOpKeepsConfiguredOperStatus(t *testing.T) {
 		cfg.Switches["sw1"] = sw
 	})
 
-	spec0 := fab.Spec()
+	spec0 := assembly.Spec(fab)
 	if got := operStatusConflictCount(fab); got != 1 {
 		t.Fatalf("oper-status conflicts before Configure = %d, want 1", got)
 	}
 
-	if err := fab.Configure("sw1", fab.Config().Switches["sw1"]); err != nil {
+	if err := assembly.Configure(fab, "sw1", assembly.Spec(fab).Config().Switches["sw1"]); err != nil {
 		t.Fatalf("Configure no-op: %v", err)
 	}
 
 	if got := operStatusConflictCount(fab); got != 1 {
 		t.Errorf("oper-status conflicts after no-op Configure = %d, want 1", got)
 	}
-	if !fab.Spec().Equal(spec0) {
+	if !assembly.Spec(fab).Equal(spec0) {
 		t.Error("Spec changed after no-op Configure")
 	}
 }
@@ -503,7 +505,7 @@ func TestConfigureHeldFramesFailAtFabricClock(t *testing.T) {
 		},
 	}
 
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Start: time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC),
 		Switches: map[string]vswitch.Config{
 			"sw1": swCfg,
@@ -533,9 +535,9 @@ func TestConfigureHeldFramesFailAtFabricClock(t *testing.T) {
 		},
 	}
 
-	fab, err := fabric.New(cfg)
+	fab, err := assembly.New(cfg)
 	if err != nil {
-		t.Fatalf("fabric.New: %v", err)
+		t.Fatalf("assembly.New: %v", err)
 	}
 
 	heldID, err := fab.Inject(fabric.Injection{
@@ -564,7 +566,7 @@ func TestConfigureHeldFramesFailAtFabricClock(t *testing.T) {
 
 	// Switch held the frame. Now configure sw1 adding a static route at time t.
 	tConfigure := fab.Snapshot().Clock
-	newCfg := fab.Switch("sw1").Config()
+	newCfg := fab.Device("sw1").(*vswitch.Switch).Config()
 	vrf := newCfg.Routing.VRFs[routing.DefaultVRF]
 	vrf.Routes = append(vrf.Routes, routing.Route{
 		Prefix:    netip.MustParsePrefix("10.99.0.0/16"),
@@ -572,7 +574,7 @@ func TestConfigureHeldFramesFailAtFabricClock(t *testing.T) {
 	})
 	newCfg.Routing.VRFs[routing.DefaultVRF] = vrf
 
-	if err := fab.Configure("sw1", newCfg); err != nil {
+	if err := assembly.Configure(fab, "sw1", newCfg); err != nil {
 		t.Fatalf("Configure: %v", err)
 	}
 
@@ -636,7 +638,7 @@ func TestConfigureProtocolTimersRestart(t *testing.T) {
 		"sw3": {0, 0, 0, 0, 1, 3},
 	}
 
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Start: t0,
 		Switches: map[string]vswitch.Config{
 			"sw1": {
@@ -682,9 +684,9 @@ func TestConfigureProtocolTimersRestart(t *testing.T) {
 		},
 	}
 
-	fab, err := fabric.New(cfg)
+	fab, err := assembly.New(cfg)
 	if err != nil {
-		t.Fatalf("fabric.New: %v", err)
+		t.Fatalf("assembly.New: %v", err)
 	}
 
 	fab.Run(200)
@@ -702,7 +704,7 @@ func TestConfigureProtocolTimersRestart(t *testing.T) {
 	// does not stay identical after both run on.
 	baseline := fab.Fork()
 	reconfigured := baseline.Fork()
-	if err := reconfigured.Configure("sw3", reconfigured.Switch("sw3").Config()); err != nil {
+	if err := assembly.Configure(reconfigured, "sw3", reconfigured.Device("sw3").(*vswitch.Switch).Config()); err != nil {
 		t.Fatalf("Configure no-op: %v", err)
 	}
 	snapAfterNoOp := reconfigured.Snapshot()
@@ -725,17 +727,17 @@ func TestConfigureProtocolTimersRestart(t *testing.T) {
 	// The fingerprint carries no topology change count, so compare it on its
 	// own.
 	for _, name := range []string{"sw1", "sw2", "sw3"} {
-		want, _ := baseline.Switch(name).TopologyChanges()
-		got, _ := reconfigured.Switch(name).TopologyChanges()
+		want, _ := baseline.Device(name).(*vswitch.Switch).TopologyChanges()
+		got, _ := reconfigured.Device(name).(*vswitch.Switch).TopologyChanges()
 		if got != want {
 			t.Errorf("%s topology changes after no-op Configure = %d, want %d", name, got, want)
 		}
 	}
 
 	// Lower sw3 bridge priority to 4096.
-	sw3Cfg := fab.Switch("sw3").Config()
+	sw3Cfg := fab.Device("sw3").(*vswitch.Switch).Config()
 	sw3Cfg.STP.Priority = 4096
-	if err := fab.Configure("sw3", sw3Cfg); err != nil {
+	if err := assembly.Configure(fab, "sw3", sw3Cfg); err != nil {
 		t.Fatalf("Configure lower priority: %v", err)
 	}
 
@@ -788,16 +790,16 @@ func TestConfigureForksStayIndependent(t *testing.T) {
 	fab, _ := newTwoSwitchFabric(t)
 
 	fork := fab.Fork()
-	spec0 := fab.Spec()
-	cfg0 := fab.Switch("sw1").Config()
+	spec0 := assembly.Spec(fab)
+	cfg0 := fab.Device("sw1").(*vswitch.Switch).Config()
 	links0 := fab.Links()
 
 	// Configure the fork with a VLAN rename and a link-changing edit: bring
 	// 1/1/24 administratively down.
-	sw1CfgFork := fork.Switch("sw1").Config()
+	sw1CfgFork := fork.Device("sw1").(*vswitch.Switch).Config()
 	sw1CfgFork.Bridge.VLAN.Table[10] = "fork-vlan"
 	setPortAdmin(t, &sw1CfgFork, "1/1/24", port.Down)
-	if err := fork.Configure("sw1", sw1CfgFork); err != nil {
+	if err := assembly.Configure(fork, "sw1", sw1CfgFork); err != nil {
 		t.Fatalf("fork.Configure: %v", err)
 	}
 
@@ -806,16 +808,16 @@ func TestConfigureForksStayIndependent(t *testing.T) {
 	}
 
 	// Source remains unchanged, links and port table included.
-	if !fab.Spec().Equal(spec0) {
+	if !assembly.Spec(fab).Equal(spec0) {
 		t.Error("source Spec changed after fork Configure")
 	}
-	if fab.Switch("sw1").Config().Bridge.VLAN.Table[10] != cfg0.Bridge.VLAN.Table[10] {
+	if fab.Device("sw1").(*vswitch.Switch).Config().Bridge.VLAN.Table[10] != cfg0.Bridge.VLAN.Table[10] {
 		t.Error("source switch config changed after fork Configure")
 	}
 	if !reflect.DeepEqual(fab.Links(), links0) {
 		t.Error("source Links changed after fork Configure")
 	}
-	if p, ok := fab.Switch("sw1").Ports().Port("1/1/24"); !ok || p.OperStatus != port.Up {
+	if p, ok := fab.Device("sw1").(*vswitch.Switch).Ports().Port("1/1/24"); !ok || p.OperStatus != port.Up {
 		t.Errorf("source sw1 1/1/24 after fork Configure = (%v, found %v), want Up", p.OperStatus, ok)
 	}
 
@@ -823,25 +825,25 @@ func TestConfigureForksStayIndependent(t *testing.T) {
 	// from the fork's state: bring 1/1/1 administratively down. The fork's
 	// links and port table stay exactly as they were.
 	forkLinks := fork.Links()
-	forkPorts := fork.Switch("sw1").Ports().Ports()
-	sw1CfgSource := fab.Switch("sw1").Config()
+	forkPorts := fork.Device("sw1").(*vswitch.Switch).Ports().Ports()
+	sw1CfgSource := fab.Device("sw1").(*vswitch.Switch).Config()
 	sw1CfgSource.Bridge.VLAN.Table[10] = "source-vlan"
 	setPortAdmin(t, &sw1CfgSource, "1/1/1", port.Down)
-	if err := fab.Configure("sw1", sw1CfgSource); err != nil {
+	if err := assembly.Configure(fab, "sw1", sw1CfgSource); err != nil {
 		t.Fatalf("fab.Configure: %v", err)
 	}
 
-	if fork.Switch("sw1").Config().Bridge.VLAN.Table[10] != "fork-vlan" {
+	if fork.Device("sw1").(*vswitch.Switch).Config().Bridge.VLAN.Table[10] != "fork-vlan" {
 		t.Errorf("fork switch config changed after source Configure: got %q, want 'fork-vlan'",
-			fork.Switch("sw1").Config().Bridge.VLAN.Table[10])
+			fork.Device("sw1").(*vswitch.Switch).Config().Bridge.VLAN.Table[10])
 	}
 	if !reflect.DeepEqual(fork.Links(), forkLinks) {
 		t.Error("fork Links changed after source Configure")
 	}
-	if !reflect.DeepEqual(fork.Switch("sw1").Ports().Ports(), forkPorts) {
+	if !reflect.DeepEqual(fork.Device("sw1").(*vswitch.Switch).Ports().Ports(), forkPorts) {
 		t.Error("fork sw1 port table changed after source Configure")
 	}
-	if p, ok := fab.Switch("sw1").Ports().Port("1/1/1"); !ok || p.OperStatus != port.Down {
+	if p, ok := fab.Device("sw1").(*vswitch.Switch).Ports().Port("1/1/1"); !ok || p.OperStatus != port.Down {
 		t.Errorf("source sw1 1/1/1 after source Configure = (%v, found %v), want Down", p.OperStatus, ok)
 	}
 }

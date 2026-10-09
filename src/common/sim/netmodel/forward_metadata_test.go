@@ -5,6 +5,8 @@ import (
 	"slices"
 	"testing"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
 	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
 
 	addrv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/addr/v1"
@@ -47,7 +49,7 @@ func TestLoadFabricJourneyPreservesConstructionTrust(t *testing.T) {
 	_, loaded := loadSwitchWithPortConflict(t)
 	macH1 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}
 	macH2 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02}
-	fab, err := fabric.NewWithSpec(fabric.ConstructionSpec{
+	fab, err := assembly.NewWithSpec(assembly.ConstructionSpec{
 		Start: trustTestTime,
 		Switches: map[string]vswitch.ConstructionSpec{
 			"sw1": loaded.Spec,
@@ -64,7 +66,7 @@ func TestLoadFabricJourneyPreservesConstructionTrust(t *testing.T) {
 		PhyAssumption: gigabitCopper(),
 	})
 	if err != nil {
-		t.Fatalf("fabric.NewWithSpec: %v", err)
+		t.Fatalf("assembly.NewWithSpec: %v", err)
 	}
 	frameID, err := fab.Inject(fabric.Injection{
 		At:     trustTestTime,
@@ -98,7 +100,7 @@ func TestLoadFabricJourneyPreservesConstructionTrust(t *testing.T) {
 		t.Fatalf("journey hop status = %s, want Unstable; issues: %+v", hop.Metadata.Status(), hop.Metadata.Issues())
 	}
 	assertIssueEvidencePresent(t, hop.Metadata, netmodel.IssueConflictSTPPort)
-	if got := fab.Spec().Switches["sw1"]; got.NodeID != "sw1" || got.Metadata.Status() != loaded.Spec.Metadata.Status() {
+	if got := assembly.Spec(fab).Switches["sw1"]; got.NodeID != "sw1" || got.Metadata.Status() != loaded.Spec.Metadata.Status() {
 		t.Errorf("fabric construction spec lost load identity/trust: %+v", got)
 	}
 }

@@ -60,6 +60,7 @@ src/common/sim/
   medium/
     cable/                       length, propagation, speed bound, faults
   fabric/                        topology, the event queue, journeys, comparison
+  assembly/                      construction, reconfiguration, derivation, diffs
   netmodel/                      the protobuf boundary
   search/
   internal/simtest/              the conformance corpus
@@ -69,10 +70,12 @@ src/common/sim/
 flowchart BT
     trace --> analysis --> port --> layer["layer/*"]
     layer --> device["device/*"]
-    device --> fabric
+    device --> assembly
+    seam["device"] --> fabric
+    fabric --> assembly
     phy["layer/phy"] --> cable["medium/cable"]
     cable --> fabric
-    fabric --> netmodel
+    device --> netmodel
     fabric --> search
 ```
 
@@ -82,14 +85,15 @@ diagram cannot show:
 - A capability package imports `port`, `layer`, `trace`, `analysis`, and
   `src/common/net`. It imports no sibling capability and no device.
 - A device imports capability packages and never `fabric`.
-- `fabric` imports `device` and `medium/cable`, and no capability package
-  directly. What it needs from a device (forwarding, emissions, state for a
+- `fabric` imports `device` and no package beneath it, and `medium/cable`.
+  It imports no capability package directly. What it needs from a device (forwarding, emissions, state for a
   snapshot) crosses the device seam.
 - A medium imports the physical-layer package of the ports it joins. The
   cable imports `layer/phy` for Ethernet settings and negotiation, so
   `fabric` depends on `layer/phy` through the cable and on no other layer.
-- `netmodel` sits beside `fabric` because it builds fabric inputs as well as
-  switch specs.
+- `netmodel` builds switch specifications at the protobuf boundary.
+  `assembly` builds devices and topologies from Go configurations so the
+  fabric runtime can depend only on the device seam.
 
 **The device seam.** `device` declares the interface `fabric` drives: receive
 a frame on a port at a time, advance to a time, report the next wake, take a

@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"testing"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
 	reflectormodel "go.aledante.io/FlowSeer/src/common/sim/device/reflector"
 
 	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
@@ -36,19 +38,19 @@ var (
 
 func TestReflectorSpecRoundTrip(t *testing.T) {
 	cfg := statedPhysical(reflectorAcceptConfig(t))
-	fab, err := fabric.New(cfg)
+	fab, err := assembly.New(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
-	spec := fab.Spec()
+	spec := assembly.Spec(fab)
 	if len(spec.Reflectors) != 1 || !spec.Reflectors["r1"].Equal(cfg.Reflectors["r1"]) {
 		t.Fatalf("Spec reflectors = %+v, want configured r1", spec.Reflectors)
 	}
-	rebuilt, err := fabric.NewWithSpec(spec)
+	rebuilt, err := assembly.NewWithSpec(spec)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !rebuilt.Spec().Equal(spec) {
+	if !assembly.Spec(rebuilt).Equal(spec) {
 		t.Fatal("reflector specification changed on round trip")
 	}
 }
@@ -75,7 +77,7 @@ func TestReflectorRefusesMixedFamily(t *testing.T) {
 // 10. Injecting at the port facing h1 floods to the port facing r1, the only
 // other port, so the frame's fate at r1 is unambiguous: no other device
 // shares the journey.
-func reflectorAcceptConfig(t *testing.T) fabric.Config {
+func reflectorAcceptConfig(t *testing.T) assembly.Config {
 	t.Helper()
 	b := port.NewBuilder()
 	b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
@@ -83,7 +85,7 @@ func reflectorAcceptConfig(t *testing.T) fabric.Config {
 
 	vid10 := vlan.ID(10)
 
-	return fabric.Config{
+	return assembly.Config{
 		Switches: map[string]vswitch.Config{"sw1": {Ports: mustTable(t, b)}},
 		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}},
@@ -110,11 +112,11 @@ func reflectorAcceptConfig(t *testing.T) fabric.Config {
 
 // reflectorArrival injects frame at the port facing away from r1 and returns
 // the journey once the run has settled.
-func reflectorArrival(t *testing.T, cfg fabric.Config, frame ethernet.Frame) fabric.Journey {
+func reflectorArrival(t *testing.T, cfg assembly.Config, frame ethernet.Frame) fabric.Journey {
 	t.Helper()
-	fab, err := fabric.New(statedPhysical(cfg))
+	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
-		t.Fatalf("fabric.New: %v", err)
+		t.Fatalf("assembly.New: %v", err)
 	}
 	fid, err := fab.Inject(fabric.Injection{
 		At:     fixedTime,

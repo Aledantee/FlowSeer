@@ -3,6 +3,8 @@ package simtest
 import (
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
 	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
@@ -51,7 +53,7 @@ func loopProtectCaseGigabit() phy.Ethernet {
 // unless something else breaks it. sw1's two looped ports run loop
 // protection with Block; sw2 is a plain bridge. Each switch also carries one
 // host, so a broadcast either host sends has somewhere to be delivered.
-func loopProtectCaseSpec() (fabric.ConstructionSpec, error) {
+func loopProtectCaseSpec() (assembly.ConstructionSpec, error) {
 	gigabit := loopProtectCaseGigabit()
 
 	newPorts := func() (port.Table, error) {
@@ -62,11 +64,11 @@ func loopProtectCaseSpec() (fabric.ConstructionSpec, error) {
 
 	sw1Ports, err := newPorts()
 	if err != nil {
-		return fabric.ConstructionSpec{}, err
+		return assembly.ConstructionSpec{}, err
 	}
 	sw2Ports, err := newPorts()
 	if err != nil {
-		return fabric.ConstructionSpec{}, err
+		return assembly.ConstructionSpec{}, err
 	}
 
 	ethFacts := map[string]phy.Ethernet{"1/1/1": gigabit, "1/1/2": gigabit, "1/1/3": gigabit}
@@ -89,7 +91,7 @@ func loopProtectCaseSpec() (fabric.ConstructionSpec, error) {
 		Phy:    &phy.Config{Ethernet: ethFacts},
 	}
 
-	return fabric.ConstructionSpec{
+	return assembly.ConstructionSpec{
 		Start: loopProtectCaseStart,
 		Switches: map[string]vswitch.ConstructionSpec{
 			"sw1": {NodeID: "sw1", Config: sw1Cfg},
@@ -196,7 +198,7 @@ func caseTroubleshootingLoopProtectContainsAccessLoop() Case {
 				return ExecutionResult{}, err
 			}
 
-			fab, err := fabric.NewWithSpec(spec)
+			fab, err := assembly.NewWithSpec(spec)
 			if err != nil {
 				return ExecutionResult{}, err
 			}
@@ -265,7 +267,7 @@ func caseTroubleshootingLoopProtectContainsAccessLoop() Case {
 				Reason:         journeyHopReason(journey),
 				Steps:          journeySteps(journey),
 				Metadata:       journey.Metadata,
-				Switch:         fab.Switch("sw1"),
+				Switch:         fab.Device("sw1").(*vswitch.Switch),
 				Journey:        &journey,
 				FabricMetadata: &fabricMetadata,
 			}, nil

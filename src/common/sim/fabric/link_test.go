@@ -3,6 +3,8 @@ package fabric_test
 import (
 	"testing"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
 	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
@@ -25,7 +27,7 @@ func TestOmittedPortIsUnknownAndAbsentFromFloodSets(t *testing.T) {
 	macH1 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}
 	macH2 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02}
 
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Switches: map[string]vswitch.Config{
 			"sw1": {
 				Ports:  mustTable(t, b),
@@ -43,12 +45,12 @@ func TestOmittedPortIsUnknownAndAbsentFromFloodSets(t *testing.T) {
 	}
 
 	cfg.PhyAssumption = gigabitCopper()
-	fab, err := fabric.New(cfg)
+	fab, err := assembly.New(cfg)
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
 
-	sw := fab.Switch("sw1")
+	sw := fab.Device("sw1").(*vswitch.Switch)
 	p3, ok := sw.Ports().Port("1/1/3")
 	if !ok {
 		t.Fatal("port 1/1/3 not found")
@@ -78,18 +80,18 @@ func TestSpecPortOperUpWithNoCableBuildsUnresolved(t *testing.T) {
 	b := port.NewBuilder()
 	b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
 
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Switches: map[string]vswitch.Config{
 			"sw1": {Ports: mustTable(t, b)},
 		},
 	}
 
-	fab, err := fabric.New(cfg)
+	fab, err := assembly.New(cfg)
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
 
-	sw := fab.Switch("sw1")
+	sw := fab.Device("sw1").(*vswitch.Switch)
 	p, ok := sw.Ports().Port("1/1/1")
 	if !ok {
 		t.Fatal("port 1/1/1 not found")
@@ -97,7 +99,7 @@ func TestSpecPortOperUpWithNoCableBuildsUnresolved(t *testing.T) {
 	if p.OperStatus != port.Unknown {
 		t.Errorf("port 1/1/1 OperStatus = %v, want Unknown", p.OperStatus)
 	}
-	if configured, _ := fab.Config().Switches["sw1"].Ports.Port("1/1/1"); configured.OperStatus != port.Up {
+	if configured, _ := assembly.Spec(fab).Config().Switches["sw1"].Ports.Port("1/1/1"); configured.OperStatus != port.Up {
 		t.Errorf("Config() port 1/1/1 OperStatus = %v, want the configured Up", configured.OperStatus)
 	}
 	issues := fab.Metadata().IssuesFor(analysis.PortScope("sw1", "1/1/1"))
@@ -116,7 +118,7 @@ func TestLagWithOneMemberCabledIsUp(t *testing.T) {
 		b2 := port.NewBuilder()
 		b2.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Down})
 
-		cfg := fabric.Config{
+		cfg := assembly.Config{
 			Switches: map[string]vswitch.Config{
 				"sw1": {Ports: mustTable(t, b1)},
 				"sw2": {Ports: mustTable(t, b2)},
@@ -129,12 +131,12 @@ func TestLagWithOneMemberCabledIsUp(t *testing.T) {
 			},
 		}
 
-		fab, err := fabric.New(statedPhysical(cfg))
+		fab, err := assembly.New(statedPhysical(cfg))
 		if err != nil {
 			t.Fatalf("New fabric: %v", err)
 		}
 
-		sw1 := fab.Switch("sw1")
+		sw1 := fab.Device("sw1").(*vswitch.Switch)
 		lag, _ := sw1.Ports().Port("lag1")
 		if lag.OperStatus != port.Up {
 			t.Errorf("lag1 OperStatus = %v, want Up", lag.OperStatus)
@@ -159,7 +161,7 @@ func TestLagWithOneMemberCabledIsUp(t *testing.T) {
 		b2 := port.NewBuilder()
 		b2.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Down})
 
-		cfg := fabric.Config{
+		cfg := assembly.Config{
 			Switches: map[string]vswitch.Config{
 				"sw1": {Ports: mustTable(t, b1)},
 				"sw2": {Ports: mustTable(t, b2)},
@@ -173,12 +175,12 @@ func TestLagWithOneMemberCabledIsUp(t *testing.T) {
 			},
 		}
 
-		fab, err := fabric.New(statedPhysical(cfg))
+		fab, err := assembly.New(statedPhysical(cfg))
 		if err != nil {
 			t.Fatalf("New fabric: %v", err)
 		}
 
-		sw1 := fab.Switch("sw1")
+		sw1 := fab.Device("sw1").(*vswitch.Switch)
 		lag, _ := sw1.Ports().Port("lag1")
 		if lag.OperStatus != port.Down {
 			t.Errorf("lag1 OperStatus = %v, want Down", lag.OperStatus)
@@ -196,7 +198,7 @@ func TestStableCableOrderingInFabricLinks(t *testing.T) {
 	macH2 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02}
 
 	// Insert cables in deliberately reversed order.
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Switches: map[string]vswitch.Config{
 			"sw1": {Ports: mustTable(t, b1)},
 			"sw2": {Ports: mustTable(t, b2)},
@@ -213,7 +215,7 @@ func TestStableCableOrderingInFabricLinks(t *testing.T) {
 		},
 	}
 
-	fab, err := fabric.New(statedPhysical(cfg))
+	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}

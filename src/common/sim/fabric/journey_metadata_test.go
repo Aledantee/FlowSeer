@@ -6,6 +6,8 @@ import (
 	"slices"
 	"testing"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
 	reflectormodel "go.aledante.io/FlowSeer/src/common/sim/device/reflector"
 
 	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
@@ -46,7 +48,7 @@ func journeyFabric(t *testing.T, seedH2 bool) *fabric.Fabric {
 	observed := autoEthernet(1_000_000_000)
 	observed.Observed = &phy.Observed{SpeedBPS: 1_000_000_000, Duplex: phy.Full}
 
-	spec := constructionSpec(fabric.Config{
+	spec := constructionSpec(assembly.Config{
 		Switches: map[string]vswitch.Config{
 			"sw1": {
 				Ports:  mustTable(t, port.NewBuilder().Range("1/1/%d", 1, 3, port.Port{Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})),
@@ -70,7 +72,7 @@ func journeyFabric(t *testing.T, seedH2 bool) *fabric.Fabric {
 		sw1.Seeds = []bridge.Seed{{MAC: journeyH2, Port: "1/1/2", Lifetime: bridge.Static}}
 		spec.Switches["sw1"] = sw1
 	}
-	fab, err := fabric.NewWithSpec(spec)
+	fab, err := assembly.NewWithSpec(spec)
 	if err != nil {
 		t.Fatalf("NewWithSpec: %v", err)
 	}
@@ -171,12 +173,12 @@ func TestSwitchOriginInjectionEntryCarriesItsPortAndCable(t *testing.T) {
 // source of the issue in the copy's journey, unlike a copy that is also
 // delivered over the same cable and could pick the issue up from either
 // side.
-func reflectMetadataConfig(t *testing.T) fabric.Config {
+func reflectMetadataConfig(t *testing.T) assembly.Config {
 	t.Helper()
 	gigabit := autoEthernet(1_000_000_000)
 	vid10, vid20 := vlan.ID(10), vlan.ID(20)
 
-	return fabric.Config{
+	return assembly.Config{
 		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: reflectH1Address, VLAN: &vid10, Ethernet: gigabit},
 			"h2": {Address: reflectH2Address, VLAN: &vid20},
@@ -203,7 +205,7 @@ func reflectMetadataConfig(t *testing.T) fabric.Config {
 // host delivery's journey does, because both go through the same generic
 // [Fabric.record] dependency fold rather than a reflector-specific path.
 func TestReflectedCopyJourneyFoldsItsCableMetadata(t *testing.T) {
-	fab, err := fabric.NewWithSpec(constructionSpec(reflectMetadataConfig(t)))
+	fab, err := assembly.NewWithSpec(constructionSpec(reflectMetadataConfig(t)))
 	if err != nil {
 		t.Fatalf("NewWithSpec: %v", err)
 	}

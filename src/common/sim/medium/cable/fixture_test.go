@@ -5,6 +5,8 @@ import (
 	"slices"
 	"testing"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
 	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
 	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
@@ -44,7 +46,7 @@ func gigabitCopper() *cablemodel.PhyAssumption {
 // An added Uncabled port's configured operational status is cleared, since the
 // fixture observed nothing about it; left Up, it would conflict with the Down
 // its entry derives and put that conflict into every journey consulting it.
-func statedPhysical(cfg fabric.Config) fabric.Config {
+func statedPhysical(cfg assembly.Config) assembly.Config {
 	cfg = cfg.Clone()
 	if cfg.PhyAssumption == nil {
 		cfg.PhyAssumption = gigabitCopper()

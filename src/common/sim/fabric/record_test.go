@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
 	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
 	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 
@@ -29,7 +31,7 @@ func newTestTwoHostFabric(t *testing.T, t0 time.Time) *fabric.Fabric {
 		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
 		Build()
 
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Start:         t0,
 		PhyAssumption: testPhyAssumption(),
 		Switches: map[string]vswitch.Config{
@@ -48,11 +50,11 @@ func newTestTwoHostFabric(t *testing.T, t0 time.Time) *fabric.Fabric {
 		},
 	}
 
-	fab, err := fabric.New(cfg)
+	fab, err := assembly.New(cfg)
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
-	if err := fab.Switch("sw1").Learn([]bridge.Seed{
+	if err := fab.Device("sw1").(*vswitch.Switch).Learn([]bridge.Seed{
 		{MAC: macH2, Port: "1/1/2", Lifetime: bridge.Static},
 	}); err != nil {
 		t.Fatalf("Learn: %v", err)

@@ -1,7 +1,8 @@
 # fabric
 
-A Layer 2 network fabric composes virtual switches, hosts, and cables into
-a simulated network. Execution advances synchronously in discrete steps.
+The fabric runtime drives built devices over cables in a simulated network.
+[assembly](../assembly/README.md) builds switches, hosts, and reflectors from
+configurations and supplies their configured physical facts. Execution advances synchronously in discrete steps.
 Each step takes the earliest scheduled arrival, forwards it through the
 destination switch, and queues copies onto connected cables.
 
@@ -27,6 +28,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 	"go.aledante.io/FlowSeer/src/common/sim/fabric"
+    "go.aledante.io/FlowSeer/src/common/sim/assembly"
     "go.aledante.io/FlowSeer/src/common/sim/device/host"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
@@ -87,7 +89,7 @@ func main() {
 	macH1 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}
 	macH2 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02}
 
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Start: time.Unix(1700000000, 0),
 		Switches: map[string]vswitch.Config{
 			"sw1": {Ports: ports1, Bridge: makeBridge()},
@@ -122,7 +124,7 @@ func main() {
 		},
 	}
 
-	fab, err := fabric.New(cfg)
+	fab, err := assembly.New(cfg)
 	if err != nil {
 		panic(err)
 	}
@@ -492,7 +494,7 @@ to 224.0.0.5 in a frame to `01:00:5e:00:00:01` passes the MAC check on the
 all-hosts clause. But 224.0.0.5 maps to `01:00:5e:00:00:05`, which the host
 does not take, so the packet is refused.
 
-`Diff` reports `accept.promiscuous` and `accept.all_multicast` as host fields,
+`assembly.Diff` reports `accept.promiscuous` and `accept.all_multicast` as host fields,
 and each multicast MAC added or removed as `accept.multicast.<mac>`.
 Validation refuses a unicast entry in `Accept.Multicast`, naming its submitted
 position, such as `hosts.h1.accept.multicast.0`.
@@ -516,13 +518,13 @@ no address, or a port and VLAN pair another attachment already uses, since a fra
 Attachments are walked in sorted name order, so a rejection names the same
 field on every run, such as `reflectors.r1.attachments.b.vlan`.
 
-`New` and `Spec` carry a configured reflector through construction and back
+`assembly.New` and `assembly.Spec` carry a configured reflector through construction and back
 out unchanged, including MAC assignment when its `Address` is left zero, the
 same allocator a switch and a host share. See [Reflector
 acceptance](#reflector-acceptance) for what an arriving frame does at a
 reflector.
 
-`Diff` reports a reflector under subject kind `reflector`, keyed by its name,
+`assembly.Diff` reports a reflector under subject kind `reflector`, keyed by its name,
 with an added or removed reflector's whole configuration on `From` or `To` as
 a `fabric.reflector` snapshot. A changed `Address` reports field `address`. A
 changed port or attachment reports a field relative to the reflector subject,
@@ -696,8 +698,8 @@ returning `StopConverged`.
 ## Link operational state rule
 
 Switch port operational states derive from the topology during `New`. The
-configured `OperStatus` is kept: `Config()` and `Spec()` return it, and the
-derived state is in `Switch(name).Ports()` and `Links()`.
+configured `OperStatus` is kept: `assembly.Spec(fab).Config()` and `assembly.Spec(fab)` return it, and the
+derived state is in `Device(name).(*vswitch.Switch).Ports()` and `Links()`.
 
 Every non-LAG switch port falls into one of three cases:
 
@@ -736,7 +738,7 @@ Unreported facts stay unknown unless the configuration opts into
 only what an end or cable leaves unreported: empty supported speeds, an unknown
 auto-negotiation capability, a nil `Setting`, or an unspecified medium. The
 filled values appear in `Links()` (the link's `Cable` and each end's
-`Ethernet`), while `Config()`, `Spec()`, and `Diff` show only the
+`Ethernet`), while `assembly.Spec(fab).Config()`, `assembly.Spec(fab)`, and `assembly.Diff` show only the
 `PhyAssumption` field. The assumption is a standards default, so it runs only
 on the record: every link it filled carries one assumption naming the facts.
 
@@ -763,17 +765,17 @@ such as `h1:-sw1:1/1/1`. A host end's port scope is its node scope. An unset or
 derived `Unknown`. The configured value is kept for the reader, but the
 derived one executes.
 
-`ConstructionSpec.Evidence` is the catalog that `Cable.Evidence` and
+`assembly.ConstructionSpec.Evidence` is the catalog that `Cable.Evidence` and
 `Uncabled.Evidence` references resolve in; a reference outside it is invalid.
 Issues cite the references of the cable or entry they rest on. Evidence is not
-behavior, so `Diff` and `DiffSpecs` report no change for it, while `Equal`
+behavior, so `assembly.Diff` and `assembly.DiffSpecs` report no change for it, while `Equal`
 compares it.
 
 Queue crossings add `fabric.runtime` evidence with origin `egress-queue`.
 Its context names the rule, physical endpoint, logical port or host node,
 PCP, frame ID, instant, and queue fact fields. `Fabric.Metadata().Evidence()`
 includes this runtime catalog so the queue issue's ref resolves;
-`Spec().Evidence` keeps only construction evidence. Earlier metadata snapshots
+`assembly.Spec(fab).Evidence` keeps only construction evidence. Earlier metadata snapshots
 and forks retain their own catalog values.
 
 A host injection transmits immediately unless a queued arrival precedes its
@@ -975,7 +977,7 @@ returns an independent fork for inspecting or continuing that state
 
 ### Reconfiguring a switch in a run
 
-`Fabric.Configure(node, cfg)` reconfigures a single virtual switch at the
+`assembly.Configure(fab, node, cfg)` reconfigures a single virtual switch at the
 current simulation time without resetting the rest of the network. The run
 continues: unaffected switches, cables, and in-flight frames remain in flight,
 while `vswitch.Derive` decides what state and learned records the target switch
@@ -986,7 +988,7 @@ is replaced) are dropped at the current simulation timestamp. Protocol timers
 and port operational states update to match the new configuration.
 
 Like all scenario actions, `ActionConfigure` within `RunScenario` refuses
-attached streams (`Fabric.Configure` can be called directly between `Run` calls
+attached streams (`assembly.Configure` can be called directly between `Run` calls
 with streams attached).
 
 The following example models a rolling two-step VLAN migration across two
@@ -1007,6 +1009,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 	"go.aledante.io/FlowSeer/src/common/sim/fabric"
+    "go.aledante.io/FlowSeer/src/common/sim/assembly"
     "go.aledante.io/FlowSeer/src/common/sim/device/host"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
@@ -1054,7 +1057,7 @@ func main() {
 	macH2 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02}
 	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
 
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Start: t0,
 		Switches: map[string]vswitch.Config{
 			"sw1": {Ports: makePorts(), Bridge: bridgeVLAN10},
@@ -1079,7 +1082,7 @@ func main() {
 		},
 	}
 
-	fab, err := fabric.New(cfg)
+	fab, err := assembly.New(cfg)
 	if err != nil {
 		panic(err)
 	}
@@ -1093,10 +1096,7 @@ func main() {
 			{
 				At:   t1,
 				Kind: fabric.ActionConfigure,
-				Configure: &fabric.ConfigureAction{
-					Node:   "sw1",
-					Config: vswitch.Config{Ports: makePorts(), Bridge: makeBridgeVLAN20()},
-				},
+				Configure: new(assembly.ConfigureAction("sw1", vswitch.Config{Ports: makePorts(), Bridge: makeBridgeVLAN20()})),
 			},
 			{
 				At:   t1.Add(100 * time.Millisecond),
@@ -1114,10 +1114,7 @@ func main() {
 			{
 				At:   t2,
 				Kind: fabric.ActionConfigure,
-				Configure: &fabric.ConfigureAction{
-					Node:   "sw2",
-					Config: vswitch.Config{Ports: makePorts(), Bridge: makeBridgeVLAN20()},
-				},
+				Configure: new(assembly.ConfigureAction("sw2", vswitch.Config{Ports: makePorts(), Bridge: makeBridgeVLAN20()})),
 			},
 			{
 				At:   t2.Add(100 * time.Millisecond),
@@ -1150,18 +1147,19 @@ func main() {
 
 ## Derivation and state retention
 
-`fabric.Derive(cur, spec)` derives a new simulation fabric from an existing
+`assembly.Derive(cur, spec)` derives a new simulation fabric from an existing
 fabric and an updated configuration specification, starting a fresh run from
 the new spec's start time while retaining capability layers on unchanged switches.
 Each switch derives at that time from an aged clone. Startup reports every
 port, with LAG members first, then schedules the switch's next wake, including
 on a switch whose only timer is neighbor resolution (`startLayers` in
 `fabric.go`, `TestRoutingOnlySwitchWakesAfterDerive` in `routing_test.go`).
-The first link-report error reaches `New`, `Derive`, or `Configure`.
+The first link-report error reaches `fabric.New`, `fabric.Replace`, or
+`fabric.Operate`. Assembly construction callers return those errors.
 
 To modify a switch configuration in-flight within an existing run without starting
-fresh, use `Fabric.Configure(node, cfg)` or `ActionConfigure` in a `Scenario`.
-`Fabric.Retention()` reports the retention outcome for every switch on the fabric.
+fresh, use `assembly.Configure(fab, node, cfg)` or `ActionConfigure` in a `Scenario`.
+`assembly.Retention(fab)` reports the retention outcome for every switch on the fabric.
 
 ## Current-against-candidate comparison
 

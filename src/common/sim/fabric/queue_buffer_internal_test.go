@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
 	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
 	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 
@@ -88,7 +90,7 @@ func queueBufferTopology(t *testing.T, buffer *uint64) (*fabric.Fabric, map[stri
 		"h3": {0x03, 0, 0, 0, 0, 0x03},
 	}
 
-	fab, err := fabric.New(fabric.Config{
+	fab, err := assembly.New(assembly.Config{
 		Start: time.Date(2026, 9, 24, 12, 0, 0, 0, time.UTC),
 		Switches: map[string]vswitch.Config{
 			"sw1": {
@@ -156,7 +158,7 @@ func unstatedBackedFabric(t *testing.T, names []string) (*fabric.Fabric, []fabri
 		t.Fatalf("build ports: %v", err)
 	}
 
-	fab, err := fabric.New(fabric.Config{Switches: map[string]vswitch.Config{
+	fab, err := assembly.New(assembly.Config{Switches: map[string]vswitch.Config{
 		"sw1": {Ports: ports},
 	}})
 	if err != nil {
@@ -196,7 +198,7 @@ func countIssueScope(issues []analysis.Issue, code analysis.IssueCode, scope ana
 func TestQueueBufferUnstatedIssueReachesFlow(t *testing.T) {
 	fab, macs := queueBufferTopology(t, nil)
 	primeQueueBufferLearning(t, fab, macs)
-	constructionEvidence := fab.Spec().Evidence.Entries()
+	constructionEvidence := assembly.Spec(fab).Evidence.Entries()
 
 	scope := analysis.PortScope("sw1", "1/1/3")
 	if got := fab.Metadata().IssuesFor(scope); len(got) != 0 {
@@ -243,7 +245,7 @@ func TestQueueBufferUnstatedIssueReachesFlow(t *testing.T) {
 	if _, ok := flow.Metadata.Evidence().Lookup(ref); !ok {
 		t.Errorf("aggregate flow catalog does not resolve %q", ref)
 	}
-	if got := fab.Spec().Evidence.Entries(); !slices.Equal(got, constructionEvidence) {
+	if got := assembly.Spec(fab).Evidence.Entries(); !slices.Equal(got, constructionEvidence) {
 		t.Errorf("runtime crossing changed Spec evidence from %+v to %+v", constructionEvidence, got)
 	}
 }

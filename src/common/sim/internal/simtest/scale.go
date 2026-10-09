@@ -5,6 +5,8 @@ import (
 	"net/netip"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
 	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
@@ -227,7 +229,7 @@ func RepresentativeFabricAtQueueDepth(queueDepth int) *fabric.Fabric {
 		}
 	}
 
-	fabCfg := fabric.Config{
+	fabCfg := assembly.Config{
 		Start:    tStart,
 		Switches: switches,
 		Hosts:    hosts,
@@ -235,13 +237,13 @@ func RepresentativeFabricAtQueueDepth(queueDepth int) *fabric.Fabric {
 		Uncabled: uncabled,
 	}
 
-	fab, err := fabric.New(fabCfg)
+	fab, err := assembly.New(fabCfg)
 	mustNil(err)
 
 	// Prime 2048 learned forwarding entries (256 per switch)
 	entriesPerSwitch := RepresentativeScaleLearnedEntries / RepresentativeScaleNodeCount
 	for s := 1; s <= RepresentativeScaleNodeCount; s++ {
-		sw := fab.Switch(fmt.Sprintf("sw%d", s))
+		sw := fab.Device(fmt.Sprintf("sw%d", s)).(*vswitch.Switch)
 		seeds := make([]bridge.Seed, entriesPerSwitch)
 		for e := range entriesPerSwitch {
 			fid := vlanList[e%len(vlanList)]

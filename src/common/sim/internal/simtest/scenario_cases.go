@@ -5,6 +5,8 @@ import (
 	"slices"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
 	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
@@ -99,7 +101,7 @@ func casePlanningScenarioReplaysLinkFlap() Case {
 				return ExecutionResult{}, err
 			}
 
-			spec := fabric.ConstructionSpec{
+			spec := assembly.ConstructionSpec{
 				Start: linkFlapT0,
 				Switches: map[string]vswitch.ConstructionSpec{
 					"sw1": {
@@ -132,7 +134,7 @@ func casePlanningScenarioReplaysLinkFlap() Case {
 				},
 			}
 
-			fab, err := fabric.NewWithSpec(spec)
+			fab, err := assembly.NewWithSpec(spec)
 			if err != nil {
 				return ExecutionResult{}, err
 			}
@@ -203,7 +205,7 @@ func casePlanningScenarioReplaysLinkFlap() Case {
 				Reason:   journeyHopReason(j1),
 				Steps:    journeySteps(j1),
 				Metadata: j1.Metadata,
-				Switch:   fab.Switch("sw1"),
+				Switch:   fab.Device("sw1").(*vswitch.Switch),
 				Journey:  &j1,
 			}, nil
 		},
@@ -283,7 +285,7 @@ func caseTroubleshootingPeriodicProtocolHidesExhaustion() Case {
 				return ExecutionResult{}, err
 			}
 
-			spec := fabric.ConstructionSpec{
+			spec := assembly.ConstructionSpec{
 				Start: periodicT0,
 				Switches: map[string]vswitch.ConstructionSpec{
 					"sw1": {
@@ -322,7 +324,7 @@ func caseTroubleshootingPeriodicProtocolHidesExhaustion() Case {
 				},
 			}
 
-			fab, err := fabric.NewWithSpec(spec)
+			fab, err := assembly.NewWithSpec(spec)
 			if err != nil {
 				return ExecutionResult{}, err
 			}
@@ -351,7 +353,7 @@ func caseTroubleshootingPeriodicProtocolHidesExhaustion() Case {
 				Reason:   journeyHopReason(j),
 				Steps:    journeySteps(j),
 				Metadata: analysis.NewMetadata(analysis.WholeScope(), []analysis.Issue{issue}, cat, nil),
-				Switch:   fab.Switch("sw2"),
+				Switch:   fab.Device("sw2").(*vswitch.Switch),
 				Journey:  &j,
 			}, nil
 		},

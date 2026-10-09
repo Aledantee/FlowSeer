@@ -25,28 +25,30 @@ tags: [reconfigure, netsim, fabric, oper-status, configured-vs-derived, spec-sta
 
 A port configured `port.Down` can sit on a cable that derives `port.Up`.
 The switch executes with the cable-derived state. The fabric keeps the declared
-state so `Spec()` can reconstruct the input and `Metadata()` can report the
-conflict.
+state so `assembly.Spec(f)` can reconstruct the input and `Metadata()` can
+report the conflict.
 
 `Fabric.Configure` once stored the cable-rebuilt port table as configuration.
-That erased `IssueOperStatusConflict` and changed `Spec()` after a no-op update.
+That erased `IssueOperStatusConflict` and changed the specification after a
+no-op update.
 The configured table now belongs to `builtNode.ports` in
 [`topology.go`](../../../src/common/sim/fabric/topology.go).
 
 ## What is true
 
-[`configure.go`](../../../src/common/sim/fabric/configure.go) passes
+[`configure.go`](../../../src/common/sim/assembly/configure.go) passes
 `rebuiltPorts` to `vswitch.Derive`, then replaces the node with the configured
-port table from `configuredTopology(normCfg)`. The derived device and its
-output travel beside that table.
+port table from `configuredTopology(normCfg).Nodes[node]`. The derived device
+and its output travel beside that table.
 [`topology.go`](../../../src/common/sim/fabric/topology.go) restores the old
 node when its replacement's link reports fail. `TestLinkChangeErrorReachesNew`
 checks the retained node through `Snapshot().Devices`.
 
-[`assemble.go`](../../../src/common/sim/fabric/assemble.go) follows the same
-rule during construction and derivation. `Spec()` reads each device's own
-specification and substitutes the node's configured port table. `Config()`
-comes from that specification. The fabric holds no stored switch configuration.
+[`assemble.go`](../../../src/common/sim/assembly/assemble.go) follows the same
+rule during construction and derivation. `assembly.Spec(f)` reads each device's own
+specification and substitutes the node's configured port table.
+`assembly.Spec(f).Config()` comes from that specification. The fabric holds no
+stored switch configuration.
 
 [`Fabric.Metadata`](../../../src/common/sim/fabric/fabric.go) compares
 `builtNode.ports` against `derivedEnd`. A conflict remains visible while the
@@ -59,26 +61,26 @@ the device with resolved inputs, then replace the node using the configured
 inputs. Reading a specification must recover those configured values.
 
 ```go
-n := configuredTopology(normCfg).nodes[node]
-n.device, n.output = derived, out
-return f.replace(node, n, nextLinks, nextTrust, changedLinks)
+n := configuredTopology(normCfg).Nodes[node]
+n.Device, n.Output = derived, out
+return fabric.Replace(f, node, n)
 ```
 
 ## Evidence
 
 - `TestConfigureNoOpKeepsConfiguredOperStatus` in
-  [`configure_test.go`](../../../src/common/sim/fabric/configure_test.go)
+  [`configure_test.go`](../../../src/common/sim/assembly/configure_test.go)
   preserves the configured `Down` value and exactly one conflict after a no-op
   configuration update.
 - `TestConfigureWithoutChangeKeepsSpec` in
-  [`built_spec_test.go`](../../../src/common/sim/fabric/built_spec_test.go)
+  [`built_spec_test.go`](../../../src/common/sim/assembly/built_spec_test.go)
   checks the complete specification, including a seeded switch, tagged host,
   reflector, and unreferenced evidence. Substituting `derived.Ports()` for
-  `n.ports` fails with `no-change Configure changed Spec`.
+  `n.Ports` fails with `no-change Configure changed Spec`.
 - `TestSpecKeepsConfiguredState` in the same file checks configured `Down`
   beside runtime `Up`, the conflict, the start, the assumption, an uncabled
   entry, and evidence no cable cites. It also checks the present cable fault.
-  Removing the configured-port substitution in `Spec()` fails with
+  Removing the configured-port substitution in `assembly.Spec(f)` fails with
   `configured port = Up, want Down`.
 
 The rule concerns externally derived properties. Node-owned state such as

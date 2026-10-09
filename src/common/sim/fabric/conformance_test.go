@@ -4,6 +4,8 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
 	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
@@ -50,7 +52,7 @@ func buildConformanceFabric(t *testing.T, vid2 uint16) (*fabric.Fabric, netaddr.
 		},
 	}
 
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		PhyAssumption: &cablemodel.PhyAssumption{
 			Medium: cablemodel.TwistedPair,
 			Ethernet: phy.Ethernet{
@@ -78,9 +80,9 @@ func buildConformanceFabric(t *testing.T, vid2 uint16) (*fabric.Fabric, netaddr.
 		},
 	}
 
-	fab, err := fabric.New(cfg)
+	fab, err := assembly.New(cfg)
 	if err != nil {
-		t.Fatalf("fabric.New: %v", err)
+		t.Fatalf("assembly.New: %v", err)
 	}
 	return fab, h1MAC, h2MAC
 }

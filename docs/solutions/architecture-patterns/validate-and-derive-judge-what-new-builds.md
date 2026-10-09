@@ -90,5 +90,5 @@ if len(stp.Diff(*cur.cfg.STP, *next.cfg.STP)) == 0 { ... }
 The rule says where a check runs, not what it checks. A constructor that
 fills nothing, or that validates its input itself, has no gap here. The
 fabric already applies the first question to switches by handing `Derive`
-the config it built (`src/common/sim/fabric/derive.go`), so the defect
+the config it built (`src/common/sim/assembly/assemble.go`), so the defect
 was standalone-switch only.

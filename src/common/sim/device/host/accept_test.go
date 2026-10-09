@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
 	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
 	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
@@ -35,7 +37,7 @@ var (
 func arrivalAtReceiver(t *testing.T, receiver hostmodel.Config, frame ethernet.Frame) fabric.Journey {
 	t.Helper()
 	receiver.Address = acceptReceiver
-	fab, err := fabric.New(statedPhysical(fabric.Config{
+	fab, err := assembly.New(statedPhysical(assembly.Config{
 		Switches: map[string]vswitch.Config{
 			"sw1": {Ports: mustTable(t, port.NewBuilder().Range("1/1/%d", 1, 2, port.Port{Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))},
 		},
@@ -384,10 +386,10 @@ func TestForeignUnicastIsRejectedUnlessPromiscuous(t *testing.T) {
 func TestHostAcceptFieldMatrix(t *testing.T) {
 	groupA := netaddr.MAC{0x01, 0x00, 0x5e, 0x00, 0x00, 0x05}
 	groupB := netaddr.MAC{0x01, 0x00, 0x5e, 0x00, 0x00, 0x06}
-	base := func() fabric.ConstructionSpec {
+	base := func() assembly.ConstructionSpec {
 		return constructionSpec(twoSwitchBaseConfig(t))
 	}
-	withAccept := func(accept hostmodel.Accept) fabric.ConstructionSpec {
+	withAccept := func(accept hostmodel.Accept) assembly.ConstructionSpec {
 		spec := base()
 		h1 := spec.Hosts["h1"]
 		h1.Accept = accept
@@ -414,7 +416,7 @@ func TestHostAcceptFieldMatrix(t *testing.T) {
 			if a.Config().Equal(b.Config()) {
 				t.Error("Config.Equal reports the changed configuration equal")
 			}
-			changes, err := fabric.DiffSpecs(a, b)
+			changes, err := assembly.DiffSpecs(a, b)
 			if err != nil {
 				t.Fatalf("DiffSpecs: %v", err)
 			}
@@ -422,24 +424,24 @@ func TestHostAcceptFieldMatrix(t *testing.T) {
 				t.Errorf("DiffSpecs = %+v, want one host h1 %s change", changes, tc.wantField)
 			}
 
-			fab, err := fabric.NewWithSpec(b)
+			fab, err := assembly.NewWithSpec(b)
 			if err != nil {
 				t.Fatalf("NewWithSpec: %v", err)
 			}
-			if !fab.Spec().Equal(b) {
+			if !assembly.Spec(fab).Equal(b) {
 				t.Error("Spec() does not round-trip the specification")
 			}
-			if !fab.Config().Equal(b.Config()) {
+			if !assembly.Spec(fab).Config().Equal(b.Config()) {
 				t.Error("Config() does not carry the specification's configuration")
 			}
-			if a.Equal(fab.Spec()) {
+			if a.Equal(assembly.Spec(fab)) {
 				t.Error("Spec() lost the acceptance")
 			}
 		})
 	}
 
 	t.Run("a unicast multicast entry is invalid", func(t *testing.T) {
-		_, err := fabric.NewWithSpec(withAccept(hostmodel.Accept{Multicast: []netaddr.MAC{acceptSender, groupA}}))
+		_, err := assembly.NewWithSpec(withAccept(hostmodel.Accept{Multicast: []netaddr.MAC{acceptSender, groupA}}))
 		if err == nil {
 			t.Fatal("NewWithSpec accepted a unicast multicast entry")
 		}
@@ -461,7 +463,7 @@ func TestHostAcceptFieldMatrix(t *testing.T) {
 	t.Run("clone", func(t *testing.T) {
 		spec := withAccept(hostmodel.Accept{Multicast: []netaddr.MAC{groupA}})
 		cfg := spec.Config()
-		copies := map[string]fabric.Config{
+		copies := map[string]assembly.Config{
 			"ConstructionSpec.Config": spec.Config(),
 			"ConstructionSpec.Clone":  spec.Clone().Config(),
 			"Config.Clone":            cfg.Clone(),
@@ -489,13 +491,13 @@ func mustTable(t *testing.T, b *port.Builder) port.Table {
 	return tbl
 }
 
-func constructionSpec(cfg fabric.Config) fabric.ConstructionSpec {
+func constructionSpec(cfg assembly.Config) assembly.ConstructionSpec {
 	switches := make(map[string]vswitch.ConstructionSpec, len(cfg.Switches))
 	for name, swCfg := range cfg.Switches {
 		switches[name] = vswitch.ConstructionSpec{Config: swCfg, NodeID: name}
 	}
 
-	return fabric.ConstructionSpec{
+	return assembly.ConstructionSpec{
 		Start:         cfg.Start,
 		Switches:      switches,
 		Hosts:         cfg.Hosts,
@@ -529,7 +531,7 @@ func gigabitCopper() *cablemodel.PhyAssumption {
 // An added Uncabled port's configured operational status is cleared, since the
 // fixture observed nothing about it; left Up, it would conflict with the Down
 // its entry derives and put that conflict into every journey consulting it.
-func statedPhysical(cfg fabric.Config) fabric.Config {
+func statedPhysical(cfg assembly.Config) assembly.Config {
 	cfg = cfg.Clone()
 	if cfg.PhyAssumption == nil {
 		cfg.PhyAssumption = gigabitCopper()
@@ -563,7 +565,7 @@ func statedPhysical(cfg fabric.Config) fabric.Config {
 	return cfg
 }
 
-func twoSwitchBaseConfig(t *testing.T) fabric.Config {
+func twoSwitchBaseConfig(t *testing.T) assembly.Config {
 	t.Helper()
 	b1 := port.NewBuilder()
 	b1.Range("1/1/%d", 1, 2, port.Port{Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
@@ -576,7 +578,7 @@ func twoSwitchBaseConfig(t *testing.T) fabric.Config {
 	macH1 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}
 	macH2 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02}
 
-	return fabric.Config{
+	return assembly.Config{
 		Switches: map[string]vswitch.Config{
 			"sw1": {Ports: mustTable(t, b1)},
 			"sw2": {Ports: mustTable(t, b2)},

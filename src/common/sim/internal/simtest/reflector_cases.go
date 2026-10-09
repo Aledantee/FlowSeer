@@ -4,6 +4,8 @@ import (
 	"net/netip"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
 	reflectormodel "go.aledante.io/FlowSeer/src/common/sim/device/reflector"
 
 	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
@@ -68,7 +70,7 @@ var (
 // [caseTroubleshootingMDNSIPv4FloodsUnderSnooping]'s sibling proof at the
 // switch layer alone. r1's two attachments carry the only addresses of h2's
 // family, so accepting on one produces exactly one copy.
-func reflectedQueryConfig() (fabric.Config, error) {
+func reflectedQueryConfig() (assembly.Config, error) {
 	vid10, vid20 := vlan.ID(10), vlan.ID(20)
 	gigabit := gigabitAuto()
 	flood := false
@@ -79,10 +81,10 @@ func reflectedQueryConfig() (fabric.Config, error) {
 		Add(port.Port{Name: "p9", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
 		Build()
 	if err != nil {
-		return fabric.Config{}, err
+		return assembly.Config{}, err
 	}
 
-	return fabric.Config{
+	return assembly.Config{
 		Switches: map[string]vswitch.Config{
 			"sw1": {
 				Ports: tbl,
@@ -191,7 +193,7 @@ func caseTroubleshootingMDNSReflectedAcrossVLANs() Case {
 			if err != nil {
 				return ExecutionResult{}, err
 			}
-			fab, err := fabric.New(cfg)
+			fab, err := assembly.New(cfg)
 			if err != nil {
 				return ExecutionResult{}, err
 			}
@@ -254,11 +256,11 @@ var (
 // their ancestry has not yet entered; only the third copy, r1's reflection
 // of that second one back onto the trunk a second time, finds the trunk
 // port already there and closes the loop.
-func reflectorLoopConfig() fabric.Config {
+func reflectorLoopConfig() assembly.Config {
 	vid10, vid20 := vlan.ID(10), vlan.ID(20)
 	gigabit := gigabitAuto()
 
-	return fabric.Config{
+	return assembly.Config{
 		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: reflectorLoopH1MAC, VLAN: &vid10, Ethernet: gigabit},
 		},
@@ -337,7 +339,7 @@ func caseTroubleshootingMDNSTwoReflectorsLoop() Case {
 		ExpectedFacts: []FactExpectation{macFact, addrFact, udpPorts},
 		ExpectedSteps: steps,
 		Execute: func() (ExecutionResult, error) {
-			fab, err := fabric.New(reflectorLoopConfig())
+			fab, err := assembly.New(reflectorLoopConfig())
 			if err != nil {
 				return ExecutionResult{}, err
 			}

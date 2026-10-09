@@ -19,6 +19,7 @@ import (
 	"go/types"
 	"io/fs"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"strconv"
@@ -94,6 +95,48 @@ var deviceGuards = []guard{
 	{name: "device_imports_fabric", kind: refuseImport, refuses: importsBelow(simImportPath + "/fabric")},
 }
 
+var fabricGuards = []guard{
+	{name: "fabric_imports_layer", kind: refuseImport, refuses: importsBelow(simImportPath + "/layer")},
+	{name: "fabric_imports_device_kind", kind: refuseImport, refuses: func(_, path string) bool { return strings.HasPrefix(path, simImportPath+"/device/") }},
+}
+
+func TestFabricContract(t *testing.T) {
+	root := repoRoot(t)
+	findings, err := checkDir(token.NewFileSet(), root, filepath.Join(root, "src/common/sim/fabric"), fabricGuards, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, finding := range findings {
+		t.Error(finding)
+	}
+}
+
+func layerDependencies(t *testing.T, pkg string) []string {
+	t.Helper()
+	cmd := exec.Command("go", "list", "-deps", pkg)
+	cmd.Dir = repoRoot(t)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("go list: %v: %s", err, out)
+	}
+	var refused []string
+	for _, path := range strings.Fields(string(out)) {
+		if strings.HasPrefix(path, layerImportPrefix) && path != layerImportPrefix+"phy" {
+			refused = append(refused, path)
+		}
+	}
+	return refused
+}
+
+func TestFabricDependsOnPhyAlone(t *testing.T) {
+	if got := layerDependencies(t, "./src/common/sim/fabric"); len(got) != 0 {
+		t.Errorf("fabric depends on %q", got)
+	}
+	if got := layerDependencies(t, "./src/common/sim/assembly"); !slices.Contains(got, layerImportPrefix+"bridge") {
+		t.Errorf("assembly dependencies %q do not report bridge", got)
+	}
+}
+
 // TestDeviceContract checks the seam itself, excluding the device kinds below it.
 func TestDeviceContract(t *testing.T) {
 	root := repoRoot(t)
@@ -167,6 +210,12 @@ func TestLayerContract(t *testing.T) {
 // stateless package made stateful, so the findings are the members the
 // stateful rows require and the fixture lacks.
 var refusedFindings = map[string][]string{
+	"fabric_imports_layer": {
+		`test/conformance/sim/testdata/fabric_imports_layer/fixture.go:3: imports "go.aledante.io/FlowSeer/src/common/sim/layer/traffic"`,
+	},
+	"fabric_imports_device_kind": {
+		`test/conformance/sim/testdata/fabric_imports_device_kind/fixture.go:3: imports "go.aledante.io/FlowSeer/src/common/sim/device/vswitch"`,
+	},
 	"device_imports_layer": {
 		`test/conformance/sim/testdata/device_imports_layer/fixture.go:4: imports "go.aledante.io/FlowSeer/src/common/sim/layer"`,
 		`test/conformance/sim/testdata/device_imports_layer/fixture.go:5: imports "go.aledante.io/FlowSeer/src/common/sim/layer/bridge"`,
@@ -270,10 +319,13 @@ func TestLayerContractGuardsRefuseTheirFixtures(t *testing.T) {
 	fset := token.NewFileSet()
 
 	named := map[string]bool{"valid": true, "valid_stateless": true}
-	for _, g := range append(slices.Clone(layerGuards), deviceGuards...) {
+	for _, g := range append(append(slices.Clone(layerGuards), deviceGuards...), fabricGuards...) {
 		guards, recursive := layerGuards, true
 		if strings.HasPrefix(g.name, "device_") {
 			guards, recursive = deviceGuards, false
+		}
+		if strings.HasPrefix(g.name, "fabric_") {
+			guards, recursive = fabricGuards, false
 		}
 		for _, name := range fixtureDirs(g.name) {
 			if named[name] {

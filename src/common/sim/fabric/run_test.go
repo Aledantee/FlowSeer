@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
 	reflectormodel "go.aledante.io/FlowSeer/src/common/sim/device/reflector"
 
 	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
@@ -59,7 +61,7 @@ func TestHostBoundLegRecordsCrossing(t *testing.T) {
 func TestHostInjectionKeepsPCP(t *testing.T) {
 	vid := vlan.ID(10)
 	src, dst := netaddr.MAC{2, 0, 0, 0, 0, 1}, netaddr.MAC{2, 0, 0, 0, 0, 2}
-	fab, err := fabric.New(statedPhysical(fabric.Config{
+	fab, err := assembly.New(statedPhysical(assembly.Config{
 		Switches: map[string]vswitch.Config{"sw": {Ports: mustTable(t, port.NewBuilder().Range("p%d", 1, 2, port.Port{Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))}},
 		Hosts:    map[string]hostmodel.Config{"h1": {Address: src, VLAN: &vid}, "h2": {Address: dst, VLAN: &vid}},
 		Cables:   []fabric.Cable{{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw", Port: "p1"}}, {A: fabric.Endpoint{Node: "sw", Port: "p2"}, B: fabric.Endpoint{Node: "h2"}}},
@@ -132,7 +134,7 @@ func newTwoSwitchTopology(t *testing.T, cableFault cablemodel.Fault) (*fabric.Fa
 	macH1 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}
 	macH2 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02}
 
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Switches: map[string]vswitch.Config{
 			"sw1": {
 				Ports:  pTable1,
@@ -164,7 +166,7 @@ func newTwoSwitchTopology(t *testing.T, cableFault cablemodel.Fault) (*fabric.Fa
 		},
 	}
 
-	fab, err := fabric.New(statedPhysical(cfg))
+	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
@@ -184,7 +186,7 @@ func TestCorruptingCableToAHostDropsTheCopy(t *testing.T) {
 	}
 	macH1 := netaddr.MAC{0, 0, 0, 0, 0, 0x01}
 	macH2 := netaddr.MAC{0, 0, 0, 0, 0, 0x02}
-	fab, err := fabric.New(statedPhysical(fabric.Config{
+	fab, err := assembly.New(statedPhysical(assembly.Config{
 		Switches: map[string]vswitch.Config{"sw1": {Ports: ports}},
 		Hosts:    map[string]hostmodel.Config{"h1": {Address: macH1}, "h2": {Address: macH2}},
 		Cables: []fabric.Cable{
@@ -223,7 +225,7 @@ func TestVlanHostReplacesTheCallersTag(t *testing.T) {
 		t.Fatal(err)
 	}
 	vid10 := vlan.ID(10)
-	fab, err := fabric.New(statedPhysical(fabric.Config{
+	fab, err := assembly.New(statedPhysical(assembly.Config{
 		Switches: map[string]vswitch.Config{"sw1": {Ports: ports}},
 		Hosts:    map[string]hostmodel.Config{"h1": {Address: netaddr.MAC{0, 0, 0, 0, 0, 1}, VLAN: &vid10}, "h2": {Address: netaddr.MAC{0, 0, 0, 0, 0, 2}}},
 		Cables: []fabric.Cable{
@@ -258,7 +260,7 @@ func TestSameInstantCopiesStepInDeviceOrder(t *testing.T) {
 
 		return tbl
 	}
-	fab, err := fabric.New(statedPhysical(fabric.Config{
+	fab, err := assembly.New(statedPhysical(assembly.Config{
 		Switches: map[string]vswitch.Config{
 			"sw1": {Ports: table()}, "sw2": {Ports: table()}, "sw3": {Ports: table()},
 		},
@@ -718,7 +720,7 @@ func TestLoopDetectionAndStepBudget(t *testing.T) {
 	macH1 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}
 	macUnknown := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x99}
 
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Switches: map[string]vswitch.Config{
 			"sw1": {Ports: pTable1, Bridge: newBridgeCfg()},
 			"sw2": {Ports: pTable2, Bridge: newBridgeCfg()},
@@ -744,7 +746,7 @@ func TestLoopDetectionAndStepBudget(t *testing.T) {
 		},
 	}
 
-	fab, err := fabric.New(statedPhysical(cfg))
+	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
@@ -806,7 +808,7 @@ func TestHostTagFormHandling(t *testing.T) {
 		macH1 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}
 		macH2 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02}
 
-		cfg := fabric.Config{
+		cfg := assembly.Config{
 			Switches: map[string]vswitch.Config{
 				"sw1": {
 					Ports: pTable1,
@@ -844,7 +846,7 @@ func TestHostTagFormHandling(t *testing.T) {
 			},
 		}
 
-		fab, err := fabric.New(statedPhysical(cfg))
+		fab, err := assembly.New(statedPhysical(cfg))
 		if err != nil {
 			t.Fatalf("New fabric: %v", err)
 		}
@@ -880,7 +882,7 @@ func TestHostTagFormHandling(t *testing.T) {
 		vid10 := vlan.ID(10)
 		macH1 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}
 
-		cfg := fabric.Config{
+		cfg := assembly.Config{
 			Switches: map[string]vswitch.Config{
 				"sw1": {
 					Ports: pTable,
@@ -906,7 +908,7 @@ func TestHostTagFormHandling(t *testing.T) {
 			},
 		}
 
-		fab, err := fabric.New(statedPhysical(cfg))
+		fab, err := assembly.New(statedPhysical(cfg))
 		if err != nil {
 			t.Fatalf("New fabric: %v", err)
 		}
@@ -956,7 +958,7 @@ func TestDevicePortCaptureReplay(t *testing.T) {
 	pTable, _ := b.Build()
 
 	vid10 := vlan.ID(10)
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Switches: map[string]vswitch.Config{
 			"sw1": {
 				Ports: pTable,
@@ -978,7 +980,7 @@ func TestDevicePortCaptureReplay(t *testing.T) {
 		},
 	}
 
-	fab, err := fabric.New(statedPhysical(cfg))
+	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
@@ -1094,9 +1096,9 @@ func TestInjectInvalidOrigins(t *testing.T) {
 // reflector is a node the fabric knows, but one with no host or switch port
 // to inject at.
 func TestInjectAtReflectorOriginNamesTheReflector(t *testing.T) {
-	fab, err := fabric.New(statedPhysical(reflectCopyConfig(t)))
+	fab, err := assembly.New(statedPhysical(reflectCopyConfig(t)))
 	if err != nil {
-		t.Fatalf("fabric.New: %v", err)
+		t.Fatalf("assembly.New: %v", err)
 	}
 
 	_, err = fab.Inject(fabric.Injection{
@@ -1125,7 +1127,7 @@ func TestWakePrecedesFrameAtSameInstant(t *testing.T) {
 	}
 
 	mac := netaddr.MAC{0, 0, 0, 0, 0, 1}
-	fab, err := fabric.New(statedPhysical(fabric.Config{
+	fab, err := assembly.New(statedPhysical(assembly.Config{
 		Start: t0,
 		Switches: map[string]vswitch.Config{
 			"sw1": {
@@ -1201,7 +1203,7 @@ func TestRescheduledWakeLeavesOneQueueEntry(t *testing.T) {
 	}
 
 	mac := netaddr.MAC{0, 0, 0, 0, 0, 1}
-	fab, err := fabric.New(statedPhysical(fabric.Config{
+	fab, err := assembly.New(statedPhysical(assembly.Config{
 		Start: t0,
 		Switches: map[string]vswitch.Config{
 			"sw1": {
@@ -1352,7 +1354,7 @@ func TestSetFaultStoresNormalizedFault(t *testing.T) {
 				t.Fatal("live link is absent")
 			}
 
-			spec := fab.Spec()
+			spec := assembly.Spec(fab)
 			foundCable := false
 			for _, cable := range spec.Cables {
 				if (cable.A == a && cable.B == b) || (cable.A == b && cable.B == a) {
@@ -1419,7 +1421,7 @@ func TestInjectMalformedPacketRejected(t *testing.T) {
 	macH2 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02}
 	gateway := netip.MustParseAddr("10.0.10.1")
 
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Start: time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC),
 		Switches: map[string]vswitch.Config{
 			"sw1": {Ports: ports},
@@ -1451,9 +1453,9 @@ func TestInjectMalformedPacketRejected(t *testing.T) {
 		},
 	}
 
-	fab, err := fabric.New(statedPhysical(cfg))
+	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
-		t.Fatalf("fabric.New: %v", err)
+		t.Fatalf("assembly.New: %v", err)
 	}
 
 	validPacket := &fabric.Packet{
@@ -1527,7 +1529,7 @@ func TestHostIPv6PacketToOffLinkViaGateway(t *testing.T) {
 	gateway := netip.MustParseAddr("2001:db8:1::1")
 	offLinkDst := netip.MustParseAddr("2001:db8:99::1")
 
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Start: time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC),
 		Switches: map[string]vswitch.Config{
 			"sw1": {Ports: ports},
@@ -1552,9 +1554,9 @@ func TestHostIPv6PacketToOffLinkViaGateway(t *testing.T) {
 		},
 	}
 
-	fab, err := fabric.New(statedPhysical(cfg))
+	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
-		t.Fatalf("fabric.New: %v", err)
+		t.Fatalf("assembly.New: %v", err)
 	}
 
 	fid, err := fab.Inject(fabric.Injection{
@@ -1655,7 +1657,7 @@ func TestTrunkBusyClockSerializesConcurrentFloods(t *testing.T) {
 	}
 
 	vid10 := vlan.ID(10)
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Switches: map[string]vswitch.Config{
 			"sw1": {
 				Ports: pTable1,
@@ -1700,7 +1702,7 @@ func TestTrunkBusyClockSerializesConcurrentFloods(t *testing.T) {
 		},
 	}
 
-	fab, err := fabric.New(statedPhysical(cfg))
+	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
@@ -1904,7 +1906,7 @@ func TestDelayOverrideOnTrunk(t *testing.T) {
 		macH1 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}
 		macH2 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02}
 
-		cfg := fabric.Config{
+		cfg := assembly.Config{
 			Switches: map[string]vswitch.Config{
 				"sw1": {
 					Ports: pTable1,
@@ -1946,7 +1948,7 @@ func TestDelayOverrideOnTrunk(t *testing.T) {
 			},
 		}
 
-		fab, err := fabric.New(statedPhysical(cfg))
+		fab, err := assembly.New(statedPhysical(cfg))
 		if err != nil {
 			t.Fatalf("New fabric: %v", err)
 		}
@@ -2006,7 +2008,7 @@ func TestSinglemodeFiberTenGigabitTiming(t *testing.T) {
 	macH1 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}
 	macH2 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02}
 
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Switches: map[string]vswitch.Config{
 			"sw1": {
 				Ports: pTable1,
@@ -2050,7 +2052,7 @@ func TestSinglemodeFiberTenGigabitTiming(t *testing.T) {
 		},
 	}
 
-	fab, err := fabric.New(statedPhysical(cfg))
+	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
@@ -2182,7 +2184,7 @@ func TestInjectFromHostWithReachExceededCableRecordsDrop(t *testing.T) {
 	pTable, _ := b.Build()
 
 	macH1 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}
-	cfg := statedPhysical(fabric.Config{
+	cfg := statedPhysical(assembly.Config{
 		Switches: map[string]vswitch.Config{
 			"sw1": {Ports: pTable},
 		},
@@ -2198,7 +2200,7 @@ func TestInjectFromHostWithReachExceededCableRecordsDrop(t *testing.T) {
 		},
 	})
 
-	fab, err := fabric.New(cfg)
+	fab, err := assembly.New(cfg)
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
@@ -2243,7 +2245,7 @@ func TestInjectFromHostOnUnknownLinkRecordsUnresolved(t *testing.T) {
 	pTable, _ := b.Build()
 
 	macH1 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}
-	fab, err := fabric.New(fabric.Config{
+	fab, err := assembly.New(assembly.Config{
 		Switches: map[string]vswitch.Config{
 			"sw1": {Ports: pTable},
 		},
@@ -2304,7 +2306,7 @@ func TestBPDUCrossingCarriesSerialization(t *testing.T) {
 	}
 
 	mac1 := netaddr.MAC{0, 0, 0, 0, 1, 1}
-	fab, err := fabric.New(statedPhysical(fabric.Config{
+	fab, err := assembly.New(statedPhysical(assembly.Config{
 		Start: t0,
 		Switches: map[string]vswitch.Config{
 			"sw1": {
@@ -2386,7 +2388,7 @@ func TestSnapshotRelayCounters(t *testing.T) {
 	}
 
 	vid10 := vlan.ID(10)
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Start: t0,
 		Switches: map[string]vswitch.Config{
 			"sw1": {
@@ -2416,9 +2418,9 @@ func TestSnapshotRelayCounters(t *testing.T) {
 		},
 	}
 
-	fab, err := fabric.New(statedPhysical(cfg))
+	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
-		t.Fatalf("fabric.New: %v", err)
+		t.Fatalf("assembly.New: %v", err)
 	}
 
 	macA := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}
@@ -2535,11 +2537,11 @@ var (
 // the arrival side (VLAN 10); "b" (VLAN 20) has an IPv4 address and answers
 // on h2; "c" (VLAN 30) carries only an IPv6 address, so an IPv4 query gives
 // it no copy.
-func reflectCopyConfig(t *testing.T) fabric.Config {
+func reflectCopyConfig(t *testing.T) assembly.Config {
 	t.Helper()
 	vid10, vid20, vid30 := vlan.ID(10), vlan.ID(20), vlan.ID(30)
 
-	return fabric.Config{
+	return assembly.Config{
 		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: reflectH1Address, VLAN: &vid10},
 			"h2": {
@@ -2578,9 +2580,9 @@ func journeyHasKind(entries []fabric.Entry, kind fabric.EntryKind) bool {
 // end to end, and a drop naming the attachment with no address of that
 // family instead of a second copy.
 func TestReflectorOriginatesACopyPerOtherAttachmentAndDropsWithoutAnAddress(t *testing.T) {
-	fab, err := fabric.New(statedPhysical(reflectCopyConfig(t)))
+	fab, err := assembly.New(statedPhysical(reflectCopyConfig(t)))
 	if err != nil {
-		t.Fatalf("fabric.New: %v", err)
+		t.Fatalf("assembly.New: %v", err)
 	}
 	frame := mdnsFrame(t, reflectH1Address, nil, reflectorGroupMAC, reflectorGroupAddr, 17, 5353)
 	parentID, err := fab.Inject(fabric.Injection{At: fixedTime, Origin: fabric.Endpoint{Node: "h1"}, Frame: frame})
@@ -2656,11 +2658,11 @@ func TestReflectorOriginatesACopyPerOtherAttachmentAndDropsWithoutAnAddress(t *t
 // loop, and it is also the reflector-to-reflector cable the Decisions
 // require the far end to enqueue rather than call inline: r1 and r2 are
 // cabled to each other with no switch between them.
-func reflectLoopConfig(t *testing.T) fabric.Config {
+func reflectLoopConfig(t *testing.T) assembly.Config {
 	t.Helper()
 	vid10, vid20 := vlan.ID(10), vlan.ID(20)
 
-	return fabric.Config{
+	return assembly.Config{
 		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: reflectH1Address, VLAN: &vid10},
 		},
@@ -2695,9 +2697,9 @@ func reflectLoopConfig(t *testing.T) fabric.Config {
 // trunk, an EntryLoop lands once entered is exhausted, and the run stops on
 // Run's budget rather than draining the queue or overflowing the stack.
 func TestTwoReflectorsSharingTwoVLANsLoopAndHaltOnBudget(t *testing.T) {
-	fab, err := fabric.New(statedPhysical(reflectLoopConfig(t)))
+	fab, err := assembly.New(statedPhysical(reflectLoopConfig(t)))
 	if err != nil {
-		t.Fatalf("fabric.New: %v", err)
+		t.Fatalf("assembly.New: %v", err)
 	}
 	frame := mdnsFrame(t, reflectH1Address, nil, reflectorGroupMAC, reflectorGroupAddr, 17, 5353)
 	if _, err := fab.Inject(fabric.Injection{At: fixedTime, Origin: fabric.Endpoint{Node: "h1"}, Frame: frame}); err != nil {
@@ -2733,14 +2735,14 @@ func TestTwoReflectorsSharingTwoVLANsLoopAndHaltOnBudget(t *testing.T) {
 // arrive at the same switch port endpoint, which is exactly the case a
 // shared (rather than seeded) re-entry set reports as a false loop on the
 // second sibling.
-func reflectSiblingConfig(t *testing.T) fabric.Config {
+func reflectSiblingConfig(t *testing.T) assembly.Config {
 	t.Helper()
 	b := port.NewBuilder()
 	b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
 	b.Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
 	vid10, vid20, vid30 := vlan.ID(10), vlan.ID(20), vlan.ID(30)
 
-	return fabric.Config{
+	return assembly.Config{
 		Switches: map[string]vswitch.Config{"sw1": {Ports: mustTable(t, b)}},
 		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: reflectH1Address, VLAN: &vid10},
@@ -2770,9 +2772,9 @@ func reflectSiblingConfig(t *testing.T) fabric.Config {
 // switch port entered when the first sibling arrives and falsely flag the
 // second.
 func TestReflectorSiblingCopiesAreNotALoop(t *testing.T) {
-	fab, err := fabric.New(statedPhysical(reflectSiblingConfig(t)))
+	fab, err := assembly.New(statedPhysical(reflectSiblingConfig(t)))
 	if err != nil {
-		t.Fatalf("fabric.New: %v", err)
+		t.Fatalf("assembly.New: %v", err)
 	}
 	frame := mdnsFrame(t, reflectH1Address, nil, reflectorGroupMAC, reflectorGroupAddr, 17, 5353)
 	parentID, err := fab.Inject(fabric.Injection{At: fixedTime, Origin: fabric.Endpoint{Node: "h1"}, Frame: frame})

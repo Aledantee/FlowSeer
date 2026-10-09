@@ -5,6 +5,8 @@ import (
 	"slices"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
 	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
 
 	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
@@ -261,7 +263,7 @@ func casePlanningCandidateForkDiverges() Case {
 				return ExecutionResult{}, err
 			}
 
-			spec := fabric.ConstructionSpec{
+			spec := assembly.ConstructionSpec{
 				Switches: map[string]vswitch.ConstructionSpec{
 					"sw1": {
 						NodeID: "sw1",
@@ -283,7 +285,7 @@ func casePlanningCandidateForkDiverges() Case {
 				},
 			}
 
-			fab, err := fabric.NewWithSpec(spec)
+			fab, err := assembly.NewWithSpec(spec)
 			if err != nil {
 				return ExecutionResult{}, err
 			}
@@ -345,7 +347,7 @@ func casePlanningCandidateForkDiverges() Case {
 				Reason:         journeyHopReason(journey),
 				Steps:          journeySteps(journey),
 				Metadata:       journey.Metadata,
-				Switch:         fab.Switch("sw1"),
+				Switch:         fab.Device("sw1").(*vswitch.Switch),
 				Journey:        &journey,
 				FabricMetadata: &fabricMetadata,
 			}, nil
@@ -681,7 +683,7 @@ var unresolvedTransceiverEvidence = analysis.Evidence{
 // so the observed rule still resolves the link; carrying an unspecified medium and a nonzero
 // length, it adds propagation-unknown. A static forwarding entry for each of h2 and h3 makes a
 // frame to either of them known unicast, so a hop consults only its ingress and egress ports.
-func unresolvedTransceiverSpec() fabric.ConstructionSpec {
+func unresolvedTransceiverSpec() assembly.ConstructionSpec {
 	gigabit := gigabitAuto()
 	observed := gigabit
 	observed.Observed = &phy.Observed{SpeedBPS: 1_000_000_000, Duplex: phy.Full}
@@ -689,7 +691,7 @@ func unresolvedTransceiverSpec() fabric.ConstructionSpec {
 	tbl, _ := port.NewBuilder().Range("1/1/%d", 1, 3, port.Port{Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).Build()
 
 	cat, ref := analysis.EvidenceCatalog{}.Add(unresolvedTransceiverEvidence)
-	spec := fabric.ConstructionSpec{
+	spec := assembly.ConstructionSpec{
 		Switches: map[string]vswitch.ConstructionSpec{
 			"sw1": {
 				NodeID: "sw1",
@@ -789,7 +791,7 @@ func caseTopologyShadowingUnresolvedTransceiver() Case {
 		ExpectedFacts: []FactExpectation{fdbHit, macFact},
 		ExpectedSteps: steps,
 		Execute: func() (ExecutionResult, error) {
-			fab, err := fabric.NewWithSpec(unresolvedTransceiverSpec())
+			fab, err := assembly.NewWithSpec(unresolvedTransceiverSpec())
 			if err != nil {
 				return ExecutionResult{}, err
 			}
@@ -816,7 +818,7 @@ func caseTopologyShadowingUnresolvedTransceiver() Case {
 				Reason:         journeyHopReason(journey),
 				Steps:          steps,
 				Metadata:       journey.Metadata,
-				Switch:         fab.Switch("sw1"),
+				Switch:         fab.Device("sw1").(*vswitch.Switch),
 				Journey:        &journey,
 				FabricMetadata: &fabricMetadata,
 			}, nil
@@ -870,7 +872,7 @@ func caseTopologyShadowingUnresolvedTransceiverKnownDelivery() Case {
 		ExpectedFacts: []FactExpectation{fdbHit, macFact},
 		ExpectedSteps: steps,
 		Execute: func() (ExecutionResult, error) {
-			fab, err := fabric.NewWithSpec(unresolvedTransceiverSpec())
+			fab, err := assembly.NewWithSpec(unresolvedTransceiverSpec())
 			if err != nil {
 				return ExecutionResult{}, err
 			}
@@ -897,7 +899,7 @@ func caseTopologyShadowingUnresolvedTransceiverKnownDelivery() Case {
 				Reason:         journeyHopReason(journey),
 				Steps:          steps,
 				Metadata:       journey.Metadata,
-				Switch:         fab.Switch("sw1"),
+				Switch:         fab.Device("sw1").(*vswitch.Switch),
 				Journey:        &journey,
 				FabricMetadata: &fabricMetadata,
 			}, nil
@@ -1016,7 +1018,7 @@ func caseTopologyShadowingUncabledPortDefiniteDrop() Case {
 				return ExecutionResult{}, err
 			}
 
-			spec := fabric.ConstructionSpec{
+			spec := assembly.ConstructionSpec{
 				Switches: map[string]vswitch.ConstructionSpec{
 					"sw1": {
 						NodeID: "sw1",
@@ -1037,7 +1039,7 @@ func caseTopologyShadowingUncabledPortDefiniteDrop() Case {
 				Evidence: cat,
 			}
 
-			fab, err := fabric.NewWithSpec(spec)
+			fab, err := assembly.NewWithSpec(spec)
 			if err != nil {
 				return ExecutionResult{}, err
 			}
@@ -1063,7 +1065,7 @@ func caseTopologyShadowingUncabledPortDefiniteDrop() Case {
 				Reason:         journeyHopReason(journey),
 				Steps:          journeySteps(journey),
 				Metadata:       journey.Metadata,
-				Switch:         fab.Switch("sw1"),
+				Switch:         fab.Device("sw1").(*vswitch.Switch),
 				Journey:        &journey,
 				FabricMetadata: &fabricMetadata,
 			}, nil
@@ -1158,7 +1160,7 @@ func caseTopologyShadowingUnreportedNegotiation() Case {
 				return ExecutionResult{}, err
 			}
 
-			spec := fabric.ConstructionSpec{
+			spec := assembly.ConstructionSpec{
 				Switches: map[string]vswitch.ConstructionSpec{
 					"sw1": {
 						NodeID: "sw1",
@@ -1181,7 +1183,7 @@ func caseTopologyShadowingUnreportedNegotiation() Case {
 				Evidence: specCat,
 			}
 
-			fab, err := fabric.NewWithSpec(spec)
+			fab, err := assembly.NewWithSpec(spec)
 			if err != nil {
 				return ExecutionResult{}, err
 			}
@@ -1207,7 +1209,7 @@ func caseTopologyShadowingUnreportedNegotiation() Case {
 				Reason:         journeyHopReason(journey),
 				Steps:          journeySteps(journey),
 				Metadata:       journey.Metadata,
-				Switch:         fab.Switch("sw1"),
+				Switch:         fab.Device("sw1").(*vswitch.Switch),
 				Journey:        &journey,
 				FabricMetadata: &fabricMetadata,
 			}, nil
@@ -1343,7 +1345,7 @@ func caseTopologyShadowingUnknownUplinkSTP() Case {
 				return ExecutionResult{}, err
 			}
 
-			spec := fabric.ConstructionSpec{
+			spec := assembly.ConstructionSpec{
 				Start: t0,
 				Switches: map[string]vswitch.ConstructionSpec{
 					"sw1": {NodeID: "sw1", Config: sw1Config, Seeds: []bridge.Seed{{MAC: unknownUplinkH2, Port: "1/1/1", Lifetime: bridge.Static}}},
@@ -1361,7 +1363,7 @@ func caseTopologyShadowingUnknownUplinkSTP() Case {
 				},
 			}
 
-			fab, err := fabric.NewWithSpec(spec)
+			fab, err := assembly.NewWithSpec(spec)
 			if err != nil {
 				return ExecutionResult{}, err
 			}
@@ -1391,7 +1393,7 @@ func caseTopologyShadowingUnknownUplinkSTP() Case {
 				Reason:         journeyHopReason(journey),
 				Steps:          journeySteps(journey),
 				Metadata:       journey.Metadata,
-				Switch:         fab.Switch("sw1"),
+				Switch:         fab.Device("sw1").(*vswitch.Switch),
 				Journey:        &journey,
 				FabricMetadata: &fabricMetadata,
 			}, nil
@@ -1459,7 +1461,7 @@ func caseTroubleshootingHostRejectsForeignUnicast() Case {
 				return ExecutionResult{}, err
 			}
 
-			spec := fabric.ConstructionSpec{
+			spec := assembly.ConstructionSpec{
 				Switches: map[string]vswitch.ConstructionSpec{
 					"sw1": {
 						NodeID: "sw1",
@@ -1481,7 +1483,7 @@ func caseTroubleshootingHostRejectsForeignUnicast() Case {
 				},
 			}
 
-			fab, err := fabric.NewWithSpec(spec)
+			fab, err := assembly.NewWithSpec(spec)
 			if err != nil {
 				return ExecutionResult{}, err
 			}
@@ -1510,7 +1512,7 @@ func caseTroubleshootingHostRejectsForeignUnicast() Case {
 				Reason:         journeyHopReason(journey),
 				Steps:          journeySteps(journey),
 				Metadata:       journey.Metadata,
-				Switch:         fab.Switch("sw1"),
+				Switch:         fab.Device("sw1").(*vswitch.Switch),
 				Journey:        &journey,
 				FabricMetadata: &fabricMetadata,
 			}, nil

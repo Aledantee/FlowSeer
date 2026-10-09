@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
-	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
@@ -34,16 +33,23 @@ const (
 	ActionConfigure ActionKind = "Configure"
 )
 
-// ConfigureAction specifies a target virtual switch node and the new configuration to apply.
+// Operation applies a node change and compares its immutable inputs against
+// another operation. Implementations own their inputs so actions may share them.
+type Operation interface {
+	Apply(*Fabric, string) error
+	Diff(Operation) []trace.Change
+}
+
+// ConfigureAction specifies a target node and its configuration operation.
 type ConfigureAction struct {
-	Node   string
-	Config vswitch.Config
+	Node      string
+	Operation Operation
 }
 
 // Validate verifies that the target node is non-empty.
 func (c ConfigureAction) Validate() error {
-	if c.Node == "" {
-		return errs.Msg("configure node cannot be empty")
+	if c.Node == "" || c.Operation == nil {
+		return errs.Msg("configure node and operation cannot be empty")
 	}
 	return nil
 }
@@ -65,14 +71,14 @@ func (f FaultAction) Validate() error {
 
 // McheckAction specifies a target virtual switch port to run protocol migration check.
 type McheckAction struct {
-	Node string
-	Port string
+	Node      string
+	Operation Operation
 }
 
 // Validate verifies that the target node and port are non-empty.
 func (m McheckAction) Validate() error {
-	if m.Node == "" || m.Port == "" {
-		return errs.Msg("mcheck node and port cannot be empty")
+	if m.Node == "" || m.Operation == nil {
+		return errs.Msg("mcheck node and operation cannot be empty")
 	}
 	return nil
 }
@@ -204,7 +210,6 @@ func (a Action) Normalize() (Action, error) {
 	case ActionConfigure:
 		if cp.Configure != nil {
 			cCopy := *cp.Configure
-			cCopy.Config = cp.Configure.Config.Clone()
 			cp.Configure = &cCopy
 		}
 	}
@@ -233,7 +238,6 @@ func (a Action) Clone() Action {
 	}
 	if a.Configure != nil {
 		cCopy := *a.Configure
-		cCopy.Config = a.Configure.Config.Clone()
 		cp.Configure = &cCopy
 	}
 	return cp
@@ -260,7 +264,7 @@ func (f actionStringFact) TypeID() string    { return "fabric.action.payload" }
 func (f actionStringFact) Canonical() string { return string(f) }
 
 // Diff returns changes between two Actions. A Configure payload diff keeps the
-// kind "scenario.action"; its key nests the action index and the inner vswitch
+// kind "scenario.action"; its key nests the action index and the inner operation
 // subject, so two changes inside one switch configuration stay distinguishable.
 func (a Action) Diff(other Action) []trace.Change {
 	var changes []trace.Change
@@ -311,14 +315,17 @@ func (a Action) Diff(other Action) []trace.Change {
 			To:      actionStringFact(faultSummary(other.Fault)),
 		})
 	}
-	if (a.Mcheck == nil) != (other.Mcheck == nil) || (a.Mcheck != nil && other.Mcheck != nil && *a.Mcheck != *other.Mcheck) {
-		changes = append(changes, trace.Change{
-			Layer:   Layer,
-			Subject: subject,
-			Field:   "mcheck",
-			From:    actionStringFact(mcheckSummary(a.Mcheck)),
-			To:      actionStringFact(mcheckSummary(other.Mcheck)),
-		})
+	if (a.Mcheck == nil) != (other.Mcheck == nil) {
+		changes = append(changes, trace.Change{Layer: Layer, Subject: subject, Field: "mcheck", From: actionStringFact(mcheckSummary(a.Mcheck)), To: actionStringFact(mcheckSummary(other.Mcheck))})
+	} else if a.Mcheck != nil && other.Mcheck != nil {
+		if a.Mcheck.Node != other.Mcheck.Node {
+			changes = append(changes, trace.Change{Layer: Layer, Subject: subject, Field: "mcheck.node", From: actionStringFact(a.Mcheck.Node), To: actionStringFact(other.Mcheck.Node)})
+		} else {
+			for _, d := range a.Mcheck.Operation.Diff(other.Mcheck.Operation) {
+				d.Subject = trace.Subject{Kind: "scenario.action", Key: nestedSubjectKey(strconv.Itoa(a.Index), nestedSubjectKey(d.Subject.Kind, d.Subject.Key))}
+				changes = append(changes, d)
+			}
+		}
 	}
 	if (a.Record == nil) != (other.Record == nil) {
 		changes = append(changes, trace.Change{
@@ -349,7 +356,7 @@ func (a Action) Diff(other Action) []trace.Change {
 				To:      actionStringFact(other.Configure.Node),
 			})
 		} else {
-			diffs := vswitch.Diff(a.Configure.Config, other.Configure.Config)
+			diffs := a.Configure.Operation.Diff(other.Configure.Operation)
 			for _, d := range diffs {
 				d.Subject = trace.Subject{
 					Kind: "scenario.action",
@@ -404,7 +411,7 @@ func mcheckSummary(m *McheckAction) string {
 	if m == nil {
 		return ""
 	}
-	return fmt.Sprintf("node=%s,port=%s", m.Node, m.Port)
+	return fmt.Sprintf("node=%s", m.Node)
 }
 
 func recordSummary(r *Record) string {

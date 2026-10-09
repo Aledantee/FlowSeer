@@ -4,10 +4,11 @@ import (
 	"net/netip"
 	"testing"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
 	reflectormodel "go.aledante.io/FlowSeer/src/common/sim/device/reflector"
 
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
-	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
@@ -22,7 +23,7 @@ func TestReflectorDiffAdded(t *testing.T) {
 	a := base
 	a.Reflectors = nil
 
-	changes := fabric.Diff(a, base)
+	changes := assembly.Diff(a, base)
 	found := 0
 	for _, ch := range changes {
 		if ch.Subject.Kind != "reflector" {
@@ -56,7 +57,7 @@ func TestReflectorDiffRemoved(t *testing.T) {
 	b := base
 	b.Reflectors = nil
 
-	changes := fabric.Diff(base, b)
+	changes := assembly.Diff(base, b)
 	found := 0
 	for _, ch := range changes {
 		if ch.Subject.Kind != "reflector" {
@@ -95,7 +96,7 @@ func TestReflectorDiffChangedAttachmentVLAN(t *testing.T) {
 	attach.VLAN = &newVID
 	b.Reflectors["r1"].Attachments["a"] = attach
 
-	changes := fabric.Diff(a, b)
+	changes := assembly.Diff(a, b)
 	var match *trace.Change
 	for i := range changes {
 		if changes[i].Subject == (trace.Subject{Kind: "reflector", Key: "r1"}) && changes[i].Field == "attachments.a.vlan" {
@@ -138,7 +139,7 @@ func TestReflectorDiffPortAdded(t *testing.T) {
 	b.Reflectors = map[string]reflectormodel.Config{"r1": a.Reflectors["r1"].Clone()}
 	b.Reflectors["r1"].Ports["p2"] = phy.Ethernet{}
 
-	changes := fabric.Diff(a, b)
+	changes := assembly.Diff(a, b)
 	var match *trace.Change
 	for i := range changes {
 		if changes[i].Subject == (trace.Subject{Kind: "reflector", Key: "r1"}) && changes[i].Field == "ports.p2" {
@@ -170,7 +171,7 @@ func TestReflectorDiffChangedPortSpeed(t *testing.T) {
 	b.Reflectors = map[string]reflectormodel.Config{"r1": a.Reflectors["r1"].Clone()}
 	b.Reflectors["r1"].Ports["p1"] = phy.Ethernet{Setting: &phy.Setting{SpeedBPS: 1_000_000_000, Duplex: phy.Full}}
 
-	changes := fabric.Diff(a, b)
+	changes := assembly.Diff(a, b)
 	found := 0
 	for _, ch := range changes {
 		if ch.Subject != (trace.Subject{Kind: "reflector", Key: "r1"}) {
@@ -199,7 +200,7 @@ func TestReflectorDiffAttachmentAddressChange(t *testing.T) {
 	attach.Addresses = []netip.Prefix{netip.MustParsePrefix("10.0.10.10/24")}
 	b.Reflectors["r1"].Attachments["a"] = attach
 
-	changes := fabric.Diff(a, b)
+	changes := assembly.Diff(a, b)
 	found := 0
 	for _, ch := range changes {
 		if ch.Subject.Kind != "reflector" {

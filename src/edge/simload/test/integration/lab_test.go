@@ -15,6 +15,8 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
 	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
@@ -137,7 +139,7 @@ func oneSwitchFabric(config labConfig) (*fabric.Fabric, error) {
 			Setting:                  &phy.Setting{AutoNegotiation: true},
 		}
 	}
-	return fabric.New(fabric.Config{
+	return assembly.New(assembly.Config{
 		Start: time.Date(2026, 9, 24, 0, 0, 0, 0, time.UTC),
 		Switches: map[string]vswitch.Config{"LABSW06": {
 			Ports: table,

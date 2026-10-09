@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
 	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
@@ -67,7 +69,7 @@ func makeMinimizeFabrics(t *testing.T) (cur, cand *fabric.Fabric, h1MAC, h2MAC, 
 		}
 
 		v99 := vlan.ID(99)
-		cfg := fabric.Config{
+		cfg := assembly.Config{
 			PhyAssumption: &cablemodel.PhyAssumption{
 				Medium: cablemodel.TwistedPair,
 				Ethernet: phy.Ethernet{
@@ -103,9 +105,9 @@ func makeMinimizeFabrics(t *testing.T) (cur, cand *fabric.Fabric, h1MAC, h2MAC, 
 			},
 		}
 
-		fab, err := fabric.New(cfg)
+		fab, err := assembly.New(cfg)
 		if err != nil {
-			t.Fatalf("fabric.New: %v", err)
+			t.Fatalf("assembly.New: %v", err)
 		}
 		return fab
 	}
@@ -407,7 +409,7 @@ func makeFixedPointFabrics(t *testing.T) (cur, cand *fabric.Fabric, h1MAC, h2MAC
 			},
 		}
 
-		cfg := fabric.Config{
+		cfg := assembly.Config{
 			PhyAssumption: &cablemodel.PhyAssumption{
 				Medium: cablemodel.TwistedPair,
 				Ethernet: phy.Ethernet{
@@ -443,9 +445,9 @@ func makeFixedPointFabrics(t *testing.T) (cur, cand *fabric.Fabric, h1MAC, h2MAC
 			},
 		}
 
-		fab, err := fabric.New(cfg)
+		fab, err := assembly.New(cfg)
 		if err != nil {
-			t.Fatalf("fabric.New: %v", err)
+			t.Fatalf("assembly.New: %v", err)
 		}
 		return fab
 	}
@@ -607,7 +609,7 @@ func TestMinimizeRejectsInvalidAndNonDifferenceInputs(t *testing.T) {
 		{"zero budget", nil, nil, valid, 0, 0, "budget must be positive"},
 		{"negative budget", nil, nil, valid, -1, 0, "budget must be positive"},
 		{"negative trial limit", nil, nil, valid, 30, -1, "trial limit must be nonnegative"},
-		{"invalid action", nil, nil, Candidate{Actions: []fabric.Action{{Kind: fabric.ActionConfigure, At: at, Configure: &fabric.ConfigureAction{Node: "sw1"}}}}, 30, 0, "candidate action"},
+		{"invalid action", nil, nil, Candidate{Actions: []fabric.Action{{Kind: fabric.ActionConfigure, At: at, Configure: new(assembly.ConfigureAction("sw1", vswitch.Config{}))}}}, 30, 0, "candidate action"},
 		{"equivalent", current, current, valid, 30, 0, "initial minimization comparison is equivalent"},
 		{"inconclusive", current, expected, valid, 1, 0, "initial minimization comparison is inconclusive"},
 		{"comparison error", current, expected, Candidate{Actions: []fabric.Action{{Kind: fabric.ActionInject, At: at, Inject: &fabric.Injection{At: at, Origin: fabric.Endpoint{Node: "missing"}, Frame: ethernet.Frame{Src: src, Dst: dst}}}}}, 30, 0, "initial minimization comparison"},
@@ -643,11 +645,11 @@ func TestMinimizeRejectsInvalidAndNonDifferenceInputs(t *testing.T) {
 func TestMinimizeGlobalTargets(t *testing.T) {
 	t.Run("run issues survive empty scenario", func(t *testing.T) {
 		current, _, src, dst, _ := makeMinimizeFabrics(t)
-		spec := current.Spec()
+		spec := assembly.Spec(current)
 		sw := spec.Switches["sw1"]
 		sw.Metadata = analysis.NewMetadata(analysis.NodeScope("sw1"), []analysis.Issue{{Code: "complete-test-issue", Status: analysis.Complete, Scope: analysis.PortScope("sw1", "1/1/1")}}, analysis.EvidenceCatalog{}, nil)
 		spec.Switches["sw1"] = sw
-		expected, err := fabric.NewWithSpec(spec)
+		expected, err := assembly.NewWithSpec(spec)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -679,17 +681,17 @@ func TestMinimizeGlobalTargets(t *testing.T) {
 	})
 	t.Run("snapshot fields with identical displayed values", func(t *testing.T) {
 		at := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
-		cfg := fabric.Config{Start: at, Hosts: map[string]hostmodel.Config{"a": {}, "b": {}, "c": {}, "d": {}}, Cables: []fabric.Cable{
+		cfg := assembly.Config{Start: at, Hosts: map[string]hostmodel.Config{"a": {}, "b": {}, "c": {}, "d": {}}, Cables: []fabric.Cable{
 			{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "a"}, B: fabric.Endpoint{Node: "b"}},
 			{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "c"}, B: fabric.Endpoint{Node: "d"}},
 		}}
-		current, err := fabric.New(cfg)
+		current, err := assembly.New(cfg)
 		if err != nil {
 			t.Fatal(err)
 		}
 		cfg.Cables[0].Fault = cablemodel.Fault{Kind: cablemodel.FaultLoseEveryNth, N: 2}
 		cfg.Cables[1].Fault = cablemodel.Fault{Kind: cablemodel.FaultLoseEveryNth, N: 2}
-		expected, err := fabric.New(cfg)
+		expected, err := assembly.New(cfg)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -710,10 +712,10 @@ func TestMinimizeGlobalTargets(t *testing.T) {
 	})
 	t.Run("snapshot text identifies the differing port", func(t *testing.T) {
 		current, _, _, _, _ := makeMinimizeFabrics(t)
-		cfg := current.Config()
+		cfg := assembly.Spec(current).Config()
 		cfg.Cables[0].Fault = cablemodel.Fault{Kind: cablemodel.FaultCut}
 		cfg.Cables[1].Fault = cablemodel.Fault{Kind: cablemodel.FaultCut}
-		expected, err := fabric.New(cfg)
+		expected, err := assembly.New(cfg)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -737,11 +739,11 @@ func TestMinimizeGlobalTargets(t *testing.T) {
 
 func TestMinimizePreservesMirrorLineage(t *testing.T) {
 	current, _, src, dst, _ := makeMinimizeFabrics(t)
-	cfg := current.Config()
+	cfg := assembly.Spec(current).Config()
 	sw := cfg.Switches["sw1"]
 	sw.Traffic = &traffic.Config{Mirrors: []traffic.Mirror{{Name: "span", SelectSrcPorts: []string{"1/1/1"}, OutputPort: "1/1/3"}}}
 	cfg.Switches["sw1"] = sw
-	expected, err := fabric.New(cfg)
+	expected, err := assembly.New(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -818,7 +820,7 @@ func TestMinimizeZeroLimitAllowsExactlySixtyFourTrials(t *testing.T) {
 
 func TestMinimizeRejectsMovingMirrorLineage(t *testing.T) {
 	base, _, src, dst, _ := makeFixedPointFabrics(t)
-	cfg := base.Config()
+	cfg := assembly.Spec(base).Config()
 	sw := cfg.Switches["sw1"]
 	builder := port.NewBuilder()
 	for _, p := range sw.Ports.Ports() {
@@ -835,7 +837,7 @@ func TestMinimizeRejectsMovingMirrorLineage(t *testing.T) {
 	cfg.Switches["sw1"] = sw
 	cfg.Hosts["h4"] = hostmodel.Config{Address: netaddr.MAC{2, 0, 0, 0, 1, 4}}
 	cfg.Cables = append(cfg.Cables, fabric.Cable{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair, LengthMeters: 5}, A: fabric.Endpoint{Node: "sw1", Port: "1/1/4"}, B: fabric.Endpoint{Node: "h4"}})
-	current, err := fabric.New(cfg)
+	current, err := assembly.New(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -844,7 +846,7 @@ func TestMinimizeRejectsMovingMirrorLineage(t *testing.T) {
 		{Name: "b-span", SelectSrcPorts: []string{"1/1/1"}, OutputPort: "1/1/4"},
 	}}
 	cfg.Switches["sw1"] = sw
-	expected, err := fabric.New(cfg)
+	expected, err := assembly.New(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -889,16 +891,16 @@ func TestMinimizeRejectsMovingMirrorLineage(t *testing.T) {
 
 func TestMinimizeRejectsInconclusiveTrialWithExactTarget(t *testing.T) {
 	base, _, src, dst, _ := makeMinimizeFabrics(t)
-	cfg := base.Config()
+	cfg := assembly.Spec(base).Config()
 	cfg.Cables[1].Fault = cablemodel.Fault{Kind: cablemodel.FaultCut}
-	current, err := fabric.New(cfg)
+	current, err := assembly.New(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
 	sw := cfg.Switches["sw1"]
 	sw.Traffic = &traffic.Config{Mirrors: []traffic.Mirror{{Name: "span", SelectSrcPorts: []string{"1/1/1"}, OutputPort: "1/1/3"}}}
 	cfg.Switches["sw1"] = sw
-	expected, err := fabric.New(cfg)
+	expected, err := assembly.New(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -206,6 +206,17 @@ To reproduce simulations without drift, `vswitch.ConstructionSpec` and
 seeds (such as preloaded forwarding database entries). Re-running a simulation
 from its construction specification yields identical state and trace records.
 
+### Assembly amendment, 2026-10-09
+
+`assembly.ConstructionSpec` replaces `fabric.ConstructionSpec`.
+`assembly.Derive` rebuilds a fabric from that specification, and
+`assembly.Configure` replaces one switch at the fabric clock. Their
+construction and retention rules below still apply. The runtime accepts built
+nodes through `fabric.Config`, `fabric.New`, `fabric.Replace`, and
+`fabric.Operate`, so it imports the device seam without a concrete device kind
+([assembly/assemble.go](../../src/common/sim/assembly/assemble.go),
+[fabric/topology.go](../../src/common/sim/fabric/topology.go)).
+
 ### State ownership, forking, and snapshots
 
 A snapshot, a fork, and `Derive` answer three different questions about a

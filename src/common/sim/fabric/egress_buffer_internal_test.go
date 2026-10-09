@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
@@ -45,7 +47,7 @@ func mtuAccountingFabric(t *testing.T, mtu int, buffer *uint64) (*fabric.Fabric,
 		}
 	}
 
-	fab, err := fabric.New(fabric.Config{Switches: map[string]vswitch.Config{
+	fab, err := assembly.New(assembly.Config{Switches: map[string]vswitch.Config{
 		"sw1": {Ports: ports, Traffic: &traffic.Config{Queues: queues}},
 	}})
 	if err != nil {
@@ -85,7 +87,7 @@ func lagAccountingFabric(t *testing.T, lagMTU int, buffer *uint64) (*fabric.Fabr
 		}
 	}
 
-	fab, err := fabric.New(fabric.Config{Switches: map[string]vswitch.Config{
+	fab, err := assembly.New(assembly.Config{Switches: map[string]vswitch.Config{
 		"sw1": {Ports: ports, Traffic: &traffic.Config{Queues: queues}},
 	}})
 	if err != nil {
@@ -138,8 +140,8 @@ func TestEgressUnstatedThresholdRecordsEvidenceAtEnqueue(t *testing.T) {
 	if !ok || value.Kind != "fabric.runtime" || value.Origin != "egress-queue" {
 		t.Fatalf("runtime evidence = %+v, found %t", value, ok)
 	}
-	if err := fabric.ExportValidateEvidence("queue", []trace.EvidenceRef{ref}, fab.Metadata().Evidence()); err != nil {
-		t.Errorf("queue evidence does not validate: %v", err)
+	if _, ok := fab.Metadata().Evidence().Lookup(ref); !ok {
+		t.Error("queue evidence is missing from the catalog")
 	}
 	var matching []analysis.Issue
 	for _, issue := range fab.Metadata().IssuesFor(analysis.PortScope(ep.Node, ep.Port)) {

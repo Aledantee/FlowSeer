@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
 	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
@@ -49,7 +51,7 @@ func steppedReplayFabric(t *testing.T) (*fabric.Fabric, fabric.Scenario) {
 	if crossings != 3 {
 		t.Fatalf("history trunk crossings = %d, want 3", crossings)
 	}
-	entries := fab.Switch("sw1").Entries()
+	entries := fab.Device("sw1").(*vswitch.Switch).Entries()
 	if len(entries) != 1 || entries[0].MAC != h2 || entries[0].Port != "1/1/24" {
 		t.Fatalf("learned FDB = %+v, want h2 on 1/1/24", entries)
 	}
@@ -73,7 +75,7 @@ func assertSteppedReplayJourney(t *testing.T, replay fabric.ReplaySpec) {
 	if got := fab.Report(); len(got) != 3 {
 		t.Fatalf("checkpoint journeys = %d, want 3", len(got))
 	}
-	entries := fab.Switch("sw1").Entries()
+	entries := fab.Device("sw1").(*vswitch.Switch).Entries()
 	if len(entries) != 1 || entries[0].MAC != replay.Scenario.Actions[0].Inject.Frame.Dst || entries[0].Port != "1/1/24" {
 		t.Fatalf("replay checkpoint FDB = %+v, want learned destination on 1/1/24", entries)
 	}
@@ -221,7 +223,7 @@ func makeReplayFabric(t *testing.T, pTable port.Table, brCfg *bridge.Config, tra
 	if len(trafficCfg) > 0 {
 		tc = trafficCfg[0]
 	}
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Switches: map[string]vswitch.Config{
 			"sw1": {
 				Ports:   pTable,
@@ -233,7 +235,7 @@ func makeReplayFabric(t *testing.T, pTable port.Table, brCfg *bridge.Config, tra
 		Cables: cables,
 	}
 
-	fab, err := fabric.New(statedPhysical(cfg))
+	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatalf("New replay fabric: %v", err)
 	}
@@ -305,7 +307,7 @@ func TestReplayUntaggedLearnAndFlood(t *testing.T) {
 		t.Errorf("egress ports = %v, want 1/1/2 and 1/1/3", egressPorts)
 	}
 
-	entries := fab.Switch("sw1").Entries()
+	entries := fab.Device("sw1").(*vswitch.Switch).Entries()
 	if len(entries) != 1 {
 		t.Fatalf("len(entries) = %d, want 1", len(entries))
 	}
@@ -552,8 +554,8 @@ func TestReplayReservedDestinationAddressesDropped(t *testing.T) {
 	if res.Reason != bridge.ReasonReservedAddress {
 		t.Errorf("res.Reason = %q, want %q", res.Reason, bridge.ReasonReservedAddress)
 	}
-	if len(fab.Switch("sw1").Entries()) != 0 {
-		t.Errorf("FDB has %d entries, want 0", len(fab.Switch("sw1").Entries()))
+	if len(fab.Device("sw1").(*vswitch.Switch).Entries()) != 0 {
+		t.Errorf("FDB has %d entries, want 0", len(fab.Device("sw1").(*vswitch.Switch).Entries()))
 	}
 }
 
@@ -999,7 +1001,7 @@ func TestReplayedRunReproducesArrivalTimes(t *testing.T) {
 
 func TestScenarioReplayConfigureEquality(t *testing.T) {
 	cfg, macH1, macH2 := makeTwoSwitchConfigs(t)
-	fab, err := fabric.New(statedPhysical(cfg))
+	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
@@ -1044,12 +1046,9 @@ func TestScenarioReplayConfigureEquality(t *testing.T) {
 				},
 			},
 			{
-				At:   t0.Add(time.Second),
-				Kind: fabric.ActionConfigure,
-				Configure: &fabric.ConfigureAction{
-					Node:   "sw2",
-					Config: sw2New,
-				},
+				At:        t0.Add(time.Second),
+				Kind:      fabric.ActionConfigure,
+				Configure: new(assembly.ConfigureAction("sw2", sw2New)),
 			},
 			{
 				At:   t0.Add(2 * time.Second),

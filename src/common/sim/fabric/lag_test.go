@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
 	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
@@ -31,7 +33,7 @@ func TestRoutedLAGSolicitationKeepsCommittedMember(t *testing.T) {
 		Add(port.Port{Name: "member-a", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}).
 		Add(port.Port{Name: "member-b", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}))
 	peerPorts := mustTable(t, port.NewBuilder().Add(port.Port{Name: "in", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
-	cfg := statedPhysical(fabric.Config{
+	cfg := statedPhysical(assembly.Config{
 		Start: start,
 		Switches: map[string]vswitch.Config{
 			"sw": {
@@ -62,18 +64,18 @@ func TestRoutedLAGSolicitationKeepsCommittedMember(t *testing.T) {
 	delete(vrf.Interfaces, "out")
 	initial.Routing.VRFs[routing.DefaultVRF] = vrf
 	cfg.Switches["sw"] = initial
-	fab, err := fabric.New(cfg)
+	fab, err := assembly.New(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
-	prime := fab.Switch("sw").Receive(start, "prime", ethernet.Frame{
+	prime := fab.Device("sw").(*vswitch.Switch).Receive(start, "prime", ethernet.Frame{
 		Src: routerMAC, Dst: netaddr.MAC{0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
 		Tags: []vlan.Tag{{TPID: uint16(ethernet.EtherTypeDot1Q), VID: 20}}, Payload: []byte("prime wire VLAN"),
 	})
 	if len(prime.Egress) != 1 || prime.Egress[0].Port != "lag1" || prime.Egress[0].Member != "member-a" {
 		t.Fatalf("prime = %+v, want lag1/member-a at VID 20", prime)
 	}
-	if err := fab.Configure("sw", target); err != nil {
+	if err := assembly.Configure(fab, "sw", target); err != nil {
 		t.Fatal(err)
 	}
 	payload, err := (ip.Header{Src: netip.MustParseAddr("10.0.10.7"), Dst: netip.MustParseAddr("10.0.20.7"), HopLimit: 64, Protocol: 17, V4: &ip.V4{}}).Encode([]byte("resolve"))
@@ -143,7 +145,7 @@ func newLagTopology(t *testing.T, start time.Time, lagA, lagB *lag.Config) (*fab
 	macH1 := netaddr.MAC{0x02, 0x00, 0x00, 0x00, 0x00, 0x01}
 	macH2 := netaddr.MAC{0x02, 0x00, 0x00, 0x00, 0x00, 0x02}
 
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Start: start,
 		Switches: map[string]vswitch.Config{
 			"A": {
@@ -169,7 +171,7 @@ func newLagTopology(t *testing.T, start time.Time, lagA, lagB *lag.Config) (*fab
 		},
 	}
 
-	fab, err := fabric.New(statedPhysical(cfg))
+	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
@@ -707,9 +709,9 @@ func TestLACPConvergence(t *testing.T) {
 		t.Fatal("lag1 on switch A is not Up")
 	}
 
-	// fab.Switch("A").MemberInfo("1/1/1") reads Attached and Enabled with B's system ID as partner.
-	swA := fab.Switch("A")
-	swB := fab.Switch("B")
+	// fab.Device("A").(*vswitch.Switch).MemberInfo("1/1/1") reads Attached and Enabled with B's system ID as partner.
+	swA := fab.Device("A").(*vswitch.Switch)
+	swB := fab.Device("B").(*vswitch.Switch)
 	infoA1 := swA.MemberInfo("1/1/1")
 	if infoA1.Status != lag.Current || infoA1.Actor.State != 0x3f {
 		t.Errorf("A:1/1/1 = %+v, want Current with actor state 0x3f", infoA1)
@@ -774,7 +776,7 @@ func TestLACPConvergence(t *testing.T) {
 		}
 	}
 
-	swAMismatch := fabMismatch.Switch("A")
+	swAMismatch := fabMismatch.Device("A").(*vswitch.Switch)
 	info1 := swAMismatch.MemberInfo("1/1/1")
 	if !info1.Attached || !info1.Enabled {
 		t.Errorf("A:1/1/1 attached=%v enabled=%v, want true/true", info1.Attached, info1.Enabled)
@@ -819,7 +821,7 @@ func TestFallback(t *testing.T) {
 		}
 	}
 
-	if info := fabWithFallback.Switch("A").MemberInfo("1/1/1"); info.Status != lag.Defaulted || !info.Enabled || info.Actor.State&0xc0 != 0x40 {
+	if info := fabWithFallback.Device("A").(*vswitch.Switch).MemberInfo("1/1/1"); info.Status != lag.Defaulted || !info.Enabled || info.Actor.State&0xc0 != 0x40 {
 		t.Fatalf("fallback member at 5s = %+v, want Defaulted and enabled without Expired", info)
 	}
 
@@ -880,7 +882,7 @@ func TestFallback(t *testing.T) {
 		}
 	}
 
-	if info := fabNoFallback.Switch("A").MemberInfo("1/1/1"); info.Status != lag.Defaulted || info.Enabled {
+	if info := fabNoFallback.Device("A").(*vswitch.Switch).MemberInfo("1/1/1"); info.Status != lag.Defaulted || info.Enabled {
 		t.Fatalf("member without fallback at 3s = %+v, want Defaulted and disabled", info)
 	}
 
@@ -1007,7 +1009,7 @@ func TestMemberlessLagIsDown(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fab, err := fabric.New(statedPhysical(fabric.Config{
+	fab, err := assembly.New(statedPhysical(assembly.Config{
 		Start:    t0,
 		Switches: map[string]vswitch.Config{"A": {Ports: tbl, Bridge: &bridge.Config{}}},
 		Hosts:    map[string]hostmodel.Config{"h1": {Address: netaddr.MAC{0x02, 0, 0, 0, 0, 0x01}}},
@@ -1052,9 +1054,9 @@ func TestConfigureInjectsTheLACPDUsOfMemberReports(t *testing.T) {
 	}
 	before := lacpdusFrom("A")
 
-	cfg := fab.Switch("A").Config()
+	cfg := fab.Device("A").(*vswitch.Switch).Config()
 	cfg.LAG = lagCfg(2)
-	if err := fab.Configure("A", cfg); err != nil {
+	if err := assembly.Configure(fab, "A", cfg); err != nil {
 		t.Fatalf("Configure: %v", err)
 	}
 

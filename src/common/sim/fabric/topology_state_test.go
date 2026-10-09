@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
 	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
@@ -39,7 +41,7 @@ func forcedEthernet(speed uint64, duplex phy.Duplex) phy.Ethernet {
 }
 
 // switchPair is two one-port switches joined by cable, each port with the given facts.
-func switchPair(t *testing.T, ethA, ethB phy.Ethernet, cable fabric.Cable) fabric.Config {
+func switchPair(t *testing.T, ethA, ethB phy.Ethernet, cable fabric.Cable) assembly.Config {
 	t.Helper()
 	sw := func(eth phy.Ethernet) vswitch.Config {
 		return vswitch.Config{
@@ -50,7 +52,7 @@ func switchPair(t *testing.T, ethA, ethB phy.Ethernet, cable fabric.Cable) fabri
 	cable.A = fabric.Endpoint{Node: "sw1", Port: "1/1/1"}
 	cable.B = fabric.Endpoint{Node: "sw2", Port: "1/1/1"}
 
-	return fabric.Config{
+	return assembly.Config{
 		Switches: map[string]vswitch.Config{"sw1": sw(ethA), "sw2": sw(ethB)},
 		Cables:   []fabric.Cable{cable},
 	}
@@ -179,7 +181,7 @@ func TestLinkReachFollowsItsTable(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			fab, err := fabric.New(switchPair(t, tc.ethA, tc.ethB, tc.cable))
+			fab, err := assembly.New(switchPair(t, tc.ethA, tc.ethB, tc.cable))
 			if err != nil {
 				t.Fatalf("New fabric: %v", err)
 			}
@@ -218,7 +220,7 @@ func TestUnspecifiedMediumBetweenGigabitEndsIsReachUnknownNotExceeded(t *testing
 	spec := constructionSpec(cfg)
 	spec.Evidence = catalog
 
-	fab, err := fabric.NewWithSpec(spec)
+	fab, err := assembly.NewWithSpec(spec)
 	if err != nil {
 		t.Fatalf("NewWithSpec: %v", err)
 	}
@@ -231,7 +233,7 @@ func TestUnspecifiedMediumBetweenGigabitEndsIsReachUnknownNotExceeded(t *testing
 		t.Error("an unspecified medium reads reach-exceeded")
 	}
 	for _, name := range []string{"sw1", "sw2"} {
-		if p, _ := fab.Switch(name).Ports().Port("1/1/1"); p.OperStatus != port.Unknown {
+		if p, _ := fab.Device(name).(*vswitch.Switch).Ports().Port("1/1/1"); p.OperStatus != port.Unknown {
 			t.Errorf("%s port OperStatus = %s, want Unknown", name, p.OperStatus)
 		}
 	}
@@ -260,7 +262,7 @@ func TestObservedLinkOverUnspecifiedMediumReportsUnknownPropagation(t *testing.T
 	observed := autoEthernet(1_000_000_000)
 	observed.Observed = &phy.Observed{SpeedBPS: 1_000_000_000, Duplex: phy.Full}
 
-	fab, err := fabric.New(switchPair(t, observed, observed, fabric.Cable{Cable: cablemodel.Cable{LengthMeters: 2}}))
+	fab, err := assembly.New(switchPair(t, observed, observed, fabric.Cable{Cable: cablemodel.Cable{LengthMeters: 2}}))
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
@@ -269,7 +271,7 @@ func TestObservedLinkOverUnspecifiedMediumReportsUnknownPropagation(t *testing.T
 	}
 
 	delay := time.Nanosecond
-	withDelay, err := fabric.New(switchPair(t, observed, observed, fabric.Cable{Cable: cablemodel.Cable{LengthMeters: 2, Delay: &delay}}))
+	withDelay, err := assembly.New(switchPair(t, observed, observed, fabric.Cable{Cable: cablemodel.Cable{LengthMeters: 2, Delay: &delay}}))
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
@@ -282,7 +284,7 @@ func TestObservedSpeedThatDisagreesWithNegotiationConflicts(t *testing.T) {
 	observed := autoEthernet(100_000_000, 1_000_000_000)
 	observed.Observed = &phy.Observed{SpeedBPS: 100_000_000, Duplex: phy.Full}
 
-	fab, err := fabric.New(switchPair(t, observed, autoEthernet(100_000_000, 1_000_000_000), fabric.Cable{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}}))
+	fab, err := assembly.New(switchPair(t, observed, autoEthernet(100_000_000, 1_000_000_000), fabric.Cable{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}}))
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
@@ -307,7 +309,7 @@ func TestHostWithoutEthernetFactsLeavesLinkUnknownAndFloodsNothing(t *testing.T)
 
 	b := port.NewBuilder()
 	b.Range("1/1/%d", 1, 3, port.Port{Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
-	fab, err := fabric.New(fabric.Config{
+	fab, err := assembly.New(assembly.Config{
 		Switches: map[string]vswitch.Config{
 			"sw1": {
 				Ports:  mustTable(t, b),
@@ -334,7 +336,7 @@ func TestHostWithoutEthernetFactsLeavesLinkUnknownAndFloodsNothing(t *testing.T)
 	if l.A.Node != "h1" || l.A.Oper != port.Unknown || l.B.Oper != port.Unknown || l.A.Reason != phy.ReasonCapabilityUnknown {
 		t.Errorf("h1 link = %+v / %+v, want both ends Unknown with capability-unknown", l.A, l.B)
 	}
-	if p, _ := fab.Switch("sw1").Ports().Port("1/1/1"); p.OperStatus != port.Unknown {
+	if p, _ := fab.Device("sw1").(*vswitch.Switch).Ports().Port("1/1/1"); p.OperStatus != port.Unknown {
 		t.Errorf("sw1 1/1/1 OperStatus = %s, want Unknown", p.OperStatus)
 	}
 	if got := issueCodes(fab.Metadata().IssuesFor(analysis.LinkScope("h1:-sw1:1/1/1"))); !slices.Equal(got, []analysis.IssueCode{analysis.IssueCode(phy.ReasonCapabilityUnknown)}) {
@@ -372,7 +374,7 @@ func TestHostWithoutEthernetFactsLeavesLinkUnknownAndFloodsNothing(t *testing.T)
 }
 
 func TestForcedHundredFullAgainstKnownAutoResolvesWithDuplexMismatch(t *testing.T) {
-	fab, err := fabric.New(switchPair(t,
+	fab, err := assembly.New(switchPair(t,
 		forcedEthernet(100_000_000, phy.Full),
 		autoEthernet(10_000_000, 100_000_000, 1_000_000_000),
 		fabric.Cable{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair, LengthMeters: 10}},
@@ -394,7 +396,7 @@ func TestForcedHundredFullAgainstKnownAutoResolvesWithDuplexMismatch(t *testing.
 }
 
 func TestForcedGigabitAgainstAutoIsUnsupported(t *testing.T) {
-	fab, err := fabric.New(switchPair(t,
+	fab, err := assembly.New(switchPair(t,
 		forcedEthernet(1_000_000_000, phy.Full),
 		autoEthernet(1_000_000_000, 10_000_000_000),
 		fabric.Cable{Cable: cablemodel.Cable{Medium: cablemodel.MultimodeFiber, LengthMeters: 400}},
@@ -425,7 +427,7 @@ func TestUncabledPortDropsDefinitelyAndOmittedPortIsUnresolved(t *testing.T) {
 	b := port.NewBuilder()
 	b.Add(port.Port{Name: "1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
 	b.Range("%d", 2, 4, port.Port{Kind: port.Physical, AdminStatus: port.Up})
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Switches: map[string]vswitch.Config{
 			"sw1": {Ports: mustTable(t, b), Bridge: &bridge.Config{}, Phy: &phy.Config{Ethernet: map[string]phy.Ethernet{"1": gigabit}}},
 		},
@@ -442,12 +444,12 @@ func TestUncabledPortDropsDefinitelyAndOmittedPortIsUnresolved(t *testing.T) {
 	}
 	spec.Switches["sw1"] = sw1
 
-	fab, err := fabric.NewWithSpec(spec)
+	fab, err := assembly.NewWithSpec(spec)
 	if err != nil {
 		t.Fatalf("NewWithSpec: %v", err)
 	}
 
-	ports := fab.Switch("sw1").Ports()
+	ports := fab.Device("sw1").(*vswitch.Switch).Ports()
 	if p, _ := ports.Port("3"); p.OperStatus != port.Down {
 		t.Errorf("port 3 OperStatus = %s, want Down", p.OperStatus)
 	}
@@ -538,7 +540,7 @@ func TestOperStatusConflictStaysOnItsPort(t *testing.T) {
 	hosts["h4"] = hostmodel.Config{Address: netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x04}, Ethernet: gigabit}
 	cables = append(cables, fabric.Cable{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "h4"}, B: fabric.Endpoint{Node: "sw1", Port: "4"}})
 
-	spec := constructionSpec(fabric.Config{
+	spec := constructionSpec(assembly.Config{
 		Switches: map[string]vswitch.Config{
 			"sw1": {Ports: mustTable(t, b), Bridge: &bridge.Config{}, Phy: &phy.Config{Ethernet: ethernetFacts}},
 		},
@@ -550,7 +552,7 @@ func TestOperStatusConflictStaysOnItsPort(t *testing.T) {
 	sw1.Seeds = []bridge.Seed{{MAC: macs["h3"], Port: "3", Lifetime: bridge.Static}}
 	spec.Switches["sw1"] = sw1
 
-	fab, err := fabric.NewWithSpec(spec)
+	fab, err := assembly.NewWithSpec(spec)
 	if err != nil {
 		t.Fatalf("NewWithSpec: %v", err)
 	}
@@ -572,13 +574,13 @@ func TestOperStatusConflictStaysOnItsPort(t *testing.T) {
 		t.Errorf("port 6 issue codes = %v, want only adjacency-unresolved: an unresolved port observes nothing to conflict with", got)
 	}
 
-	if p, _ := fab.Switch("sw1").Ports().Port("1"); p.OperStatus != port.Up {
+	if p, _ := fab.Device("sw1").(*vswitch.Switch).Ports().Port("1"); p.OperStatus != port.Up {
 		t.Errorf("effective port 1 OperStatus = %s, want the derived Up", p.OperStatus)
 	}
-	if p, _ := fab.Config().Switches["sw1"].Ports.Port("1"); p.OperStatus != port.Down {
+	if p, _ := assembly.Spec(fab).Config().Switches["sw1"].Ports.Port("1"); p.OperStatus != port.Down {
 		t.Errorf("Config() port 1 OperStatus = %s, want the configured Down", p.OperStatus)
 	}
-	if p, _ := fab.Spec().Switches["sw1"].Config.Ports.Port("1"); p.OperStatus != port.Down {
+	if p, _ := assembly.Spec(fab).Switches["sw1"].Config.Ports.Port("1"); p.OperStatus != port.Down {
 		t.Errorf("Spec() port 1 OperStatus = %s, want the configured Down", p.OperStatus)
 	}
 
@@ -637,7 +639,7 @@ func TestSnapshotDevicesEntriesCarryOriginAndLifetime(t *testing.T) {
 		{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "h3"}, B: fabric.Endpoint{Node: "sw1", Port: "3"}},
 	}
 
-	spec := constructionSpec(fabric.Config{
+	spec := constructionSpec(assembly.Config{
 		Switches: map[string]vswitch.Config{
 			"sw1": {Ports: mustTable(t, b), Bridge: &bridge.Config{}, Phy: &phy.Config{Ethernet: ethernetFacts}},
 		},
@@ -648,7 +650,7 @@ func TestSnapshotDevicesEntriesCarryOriginAndLifetime(t *testing.T) {
 	sw1.Seeds = []bridge.Seed{{MAC: macs["h3"], Port: "3", Lifetime: bridge.Static}}
 	spec.Switches["sw1"] = sw1
 
-	fab, err := fabric.NewWithSpec(spec)
+	fab, err := assembly.NewWithSpec(spec)
 	if err != nil {
 		t.Fatalf("NewWithSpec: %v", err)
 	}
@@ -695,7 +697,7 @@ func TestUnknownRedundantUplinkMarksSpanningTreeForwarding(t *testing.T) {
 			Phy: &phy.Config{Ethernet: uplinkFacts},
 		}
 	}
-	fab, err := fabric.New(fabric.Config{
+	fab, err := assembly.New(assembly.Config{
 		Start: t0,
 		Switches: map[string]vswitch.Config{
 			"sw1": switchConfig(4096, netaddr.MAC{0, 0, 0, 0, 1, 1}, map[string]phy.Ethernet{"1/1/1": gigabit, "1/1/2": gigabit, "1/1/3": gigabit}),
@@ -722,7 +724,7 @@ func TestUnknownRedundantUplinkMarksSpanningTreeForwarding(t *testing.T) {
 
 	for _, name := range []string{"sw1", "sw2"} {
 		for _, p := range []string{"1/1/1", "1/1/2", "1/1/3"} {
-			issues := fab.Switch(name).Peek(t0, p, ethernet.Frame{}).Metadata.IssuesFor(analysis.PortScope(name, p))
+			issues := fab.Device(name).(*vswitch.Switch).Peek(t0, p, ethernet.Frame{}).Metadata.IssuesFor(analysis.PortScope(name, p))
 			if !slices.ContainsFunc(issues, func(issue analysis.Issue) bool { return issue.Code == vswitch.IssueProtocolLinkUnknown }) {
 				t.Errorf("%s %s issues = %+v, want protocol-link-unknown", name, p, issues)
 			}
@@ -760,7 +762,7 @@ func TestPhyAssumptionRecordsOneAssumptionPerFilledLink(t *testing.T) {
 	gigabit := autoEthernet(10_000_000, 100_000_000, 1_000_000_000)
 	b := port.NewBuilder()
 	b.Range("1/1/%d", 1, 2, port.Port{Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
-	stated := fabric.Config{
+	stated := assembly.Config{
 		Switches: map[string]vswitch.Config{
 			"sw1": {Ports: mustTable(t, b), Phy: &phy.Config{Ethernet: map[string]phy.Ethernet{"1/1/1": gigabit, "1/1/2": gigabit}}},
 		},
@@ -776,7 +778,7 @@ func TestPhyAssumptionRecordsOneAssumptionPerFilledLink(t *testing.T) {
 	assumed := stated.Clone()
 	assumed.PhyAssumption = gigabitCopper()
 
-	fab, err := fabric.New(assumed)
+	fab, err := assembly.New(assumed)
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
@@ -804,14 +806,14 @@ func TestPhyAssumptionRecordsOneAssumptionPerFilledLink(t *testing.T) {
 	if h2Link.A.Oper != port.Up || h2Link.A.Speed.SpeedBPS != 1_000_000_000 {
 		t.Errorf("h2 link end = %+v, want Up at 1 Gb/s", h2Link.A)
 	}
-	if cfg := fab.Config(); cfg.Cables[1].Medium != cablemodel.MediumUnspecified || cfg.Hosts["h2"].Ethernet.Setting != nil {
+	if cfg := assembly.Spec(fab).Config(); cfg.Cables[1].Medium != cablemodel.MediumUnspecified || cfg.Hosts["h2"].Ethernet.Setting != nil {
 		t.Errorf("Config() shows filled values: cable %+v, host %+v", cfg.Cables[1], cfg.Hosts["h2"])
 	}
-	spec := fab.Spec()
+	spec := assembly.Spec(fab)
 	if spec.Cables[1].Medium != cablemodel.MediumUnspecified || spec.Hosts["h2"].Ethernet.Setting != nil || !spec.PhyAssumption.Equal(gigabitCopper()) {
 		t.Errorf("Spec() = cable %+v, host %+v, assumption %+v; want configured values and the assumption", spec.Cables[1], spec.Hosts["h2"], spec.PhyAssumption)
 	}
-	changes := fabric.Diff(stated, assumed)
+	changes := assembly.Diff(stated, assumed)
 	if len(changes) != 1 || changes[0].Subject.Kind != "fabric" || changes[0].Field != "phy_assumption" {
 		t.Errorf("Diff = %+v, want the phy_assumption field only", changes)
 	}
@@ -819,7 +821,7 @@ func TestPhyAssumptionRecordsOneAssumptionPerFilledLink(t *testing.T) {
 
 func TestUncabledValidationNamesTheField(t *testing.T) {
 	// Only the trunk stays, so sw1:1/1/1 and both switches' other ports are free.
-	base := func() fabric.Config {
+	base := func() assembly.Config {
 		cfg := twoSwitchBaseConfig(t)
 		cfg.Cables = cfg.Cables[1:2]
 		cfg.Hosts = nil
@@ -850,7 +852,7 @@ func TestUncabledValidationNamesTheField(t *testing.T) {
 			cfg := base()
 			cfg.Uncabled = tc.uncabled
 
-			_, err := fabric.NewConstructionSpec(cfg)
+			_, err := assembly.NewConstructionSpec(cfg)
 			if err == nil {
 				t.Fatal("NewConstructionSpec accepted the entry")
 			}
@@ -866,7 +868,7 @@ func TestUncabledValidationNamesTheField(t *testing.T) {
 	t.Run("a valid entry", func(t *testing.T) {
 		cfg := base()
 		cfg.Uncabled = []fabric.Uncabled{{Endpoint: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}}}
-		if _, err := fabric.NewConstructionSpec(cfg); err != nil {
+		if _, err := assembly.NewConstructionSpec(cfg); err != nil {
 			t.Errorf("NewConstructionSpec: %v", err)
 		}
 	})
@@ -876,17 +878,17 @@ func TestConstructionFieldPathsForEvidenceAndPhysicalFacts(t *testing.T) {
 	ref := trace.EvidenceRef("evidence:missing")
 	tests := []struct {
 		name      string
-		mutate    func(*fabric.ConstructionSpec)
+		mutate    func(*assembly.ConstructionSpec)
 		wantField string
 	}{
 		{
 			name:      "a cable reference outside the catalog",
-			mutate:    func(s *fabric.ConstructionSpec) { s.Cables[1].Evidence = []trace.EvidenceRef{ref} },
+			mutate:    func(s *assembly.ConstructionSpec) { s.Cables[1].Evidence = []trace.EvidenceRef{ref} },
 			wantField: "cables.1.evidence.0",
 		},
 		{
 			name: "an uncabled reference outside the catalog",
-			mutate: func(s *fabric.ConstructionSpec) {
+			mutate: func(s *assembly.ConstructionSpec) {
 				s.Cables = s.Cables[1:2]
 				s.Hosts = nil
 				s.Uncabled = []fabric.Uncabled{{Endpoint: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, Evidence: []trace.EvidenceRef{ref}}}
@@ -895,7 +897,7 @@ func TestConstructionFieldPathsForEvidenceAndPhysicalFacts(t *testing.T) {
 		},
 		{
 			name: "an unknown host duplex",
-			mutate: func(s *fabric.ConstructionSpec) {
+			mutate: func(s *assembly.ConstructionSpec) {
 				h := s.Hosts["h1"]
 				h.Ethernet = phy.Ethernet{Setting: &phy.Setting{Duplex: "Bogus"}}
 				s.Hosts["h1"] = h
@@ -904,7 +906,7 @@ func TestConstructionFieldPathsForEvidenceAndPhysicalFacts(t *testing.T) {
 		},
 		{
 			name: "a host forced speed it does not support",
-			mutate: func(s *fabric.ConstructionSpec) {
+			mutate: func(s *assembly.ConstructionSpec) {
 				h := s.Hosts["h1"]
 				h.Ethernet = phy.Ethernet{SupportedSpeedsBPS: []uint64{100_000_000}, Setting: &phy.Setting{SpeedBPS: 1_000_000_000}}
 				s.Hosts["h1"] = h
@@ -913,21 +915,21 @@ func TestConstructionFieldPathsForEvidenceAndPhysicalFacts(t *testing.T) {
 		},
 		{
 			name: "an assumed observation",
-			mutate: func(s *fabric.ConstructionSpec) {
+			mutate: func(s *assembly.ConstructionSpec) {
 				s.PhyAssumption = &cablemodel.PhyAssumption{Ethernet: phy.Ethernet{Observed: &phy.Observed{SpeedBPS: 1}}}
 			},
 			wantField: "phy_assumption.ethernet.observed",
 		},
 		{
 			name: "an assumed unknown medium",
-			mutate: func(s *fabric.ConstructionSpec) {
+			mutate: func(s *assembly.ConstructionSpec) {
 				s.PhyAssumption = &cablemodel.PhyAssumption{Medium: "coax"}
 			},
 			wantField: "phy_assumption.medium",
 		},
 		{
 			name: "an assumed auto-negotiation the profile does not support",
-			mutate: func(s *fabric.ConstructionSpec) {
+			mutate: func(s *assembly.ConstructionSpec) {
 				s.PhyAssumption = &cablemodel.PhyAssumption{Ethernet: phy.Ethernet{
 					AutoNegotiationSupported: phy.CapabilityUnsupported,
 					Setting:                  &phy.Setting{AutoNegotiation: true},
@@ -941,7 +943,7 @@ func TestConstructionFieldPathsForEvidenceAndPhysicalFacts(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			spec := constructionSpec(twoSwitchBaseConfig(t))
 			tc.mutate(&spec)
-			_, err := fabric.NewWithSpec(spec)
+			_, err := assembly.NewWithSpec(spec)
 			if err == nil {
 				t.Fatal("NewWithSpec accepted the specification")
 			}
@@ -956,7 +958,7 @@ func TestAddedFabricFieldsFieldMatrix(t *testing.T) {
 	catalog, refA := analysis.EvidenceCatalog{}.Add(analysis.Evidence{Kind: "survey", Origin: "a"})
 	catalog, refB := catalog.Add(analysis.Evidence{Kind: "survey", Origin: "b"})
 
-	base := func() fabric.ConstructionSpec {
+	base := func() assembly.ConstructionSpec {
 		cfg := twoSwitchBaseConfig(t)
 		cfg.Cables = cfg.Cables[1:2]
 		cfg.Hosts = nil
@@ -967,26 +969,26 @@ func TestAddedFabricFieldsFieldMatrix(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		mutate      func(*fabric.ConstructionSpec)
+		mutate      func(*assembly.ConstructionSpec)
 		wantChanges int
 		wantKind    string
 		wantField   string
 	}{
 		{
 			name: "adding an uncabled entry",
-			mutate: func(s *fabric.ConstructionSpec) {
+			mutate: func(s *assembly.ConstructionSpec) {
 				s.Uncabled = append(s.Uncabled, fabric.Uncabled{Endpoint: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}})
 			},
 			wantChanges: 1, wantKind: "uncabled",
 		},
 		{
 			name:        "setting the physical assumption",
-			mutate:      func(s *fabric.ConstructionSpec) { s.PhyAssumption = gigabitCopper() },
+			mutate:      func(s *assembly.ConstructionSpec) { s.PhyAssumption = gigabitCopper() },
 			wantChanges: 1, wantKind: "fabric", wantField: "phy_assumption",
 		},
 		{
 			name: "changing the assumed medium",
-			mutate: func(s *fabric.ConstructionSpec) {
+			mutate: func(s *assembly.ConstructionSpec) {
 				s.PhyAssumption = gigabitCopper()
 				s.PhyAssumption.Medium = cablemodel.Twinax
 			},
@@ -994,12 +996,12 @@ func TestAddedFabricFieldsFieldMatrix(t *testing.T) {
 		},
 		{
 			name:        "citing evidence on a cable",
-			mutate:      func(s *fabric.ConstructionSpec) { s.Cables[0].Evidence = []trace.EvidenceRef{refA} },
+			mutate:      func(s *assembly.ConstructionSpec) { s.Cables[0].Evidence = []trace.EvidenceRef{refA} },
 			wantChanges: 0,
 		},
 		{
 			name: "citing evidence on an uncabled entry",
-			mutate: func(s *fabric.ConstructionSpec) {
+			mutate: func(s *assembly.ConstructionSpec) {
 				s.Uncabled = []fabric.Uncabled{{Endpoint: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, Evidence: []trace.EvidenceRef{refB}}}
 			},
 			wantChanges: 1, wantKind: "uncabled",
@@ -1019,7 +1021,7 @@ func TestAddedFabricFieldsFieldMatrix(t *testing.T) {
 				t.Error("Config.Equal reports the changed configuration equal")
 			}
 
-			changes, err := fabric.DiffSpecs(a, b)
+			changes, err := assembly.DiffSpecs(a, b)
 			if err != nil {
 				t.Fatalf("DiffSpecs: %v", err)
 			}
@@ -1030,14 +1032,14 @@ func TestAddedFabricFieldsFieldMatrix(t *testing.T) {
 				t.Errorf("change = %+v, want subject kind %q field %q", changes[0], tc.wantKind, tc.wantField)
 			}
 
-			fab, err := fabric.NewWithSpec(b)
+			fab, err := assembly.NewWithSpec(b)
 			if err != nil {
 				t.Fatalf("NewWithSpec: %v", err)
 			}
-			if !fab.Spec().Equal(b) {
+			if !assembly.Spec(fab).Equal(b) {
 				t.Error("Spec() does not round-trip the specification")
 			}
-			if !fab.Config().Equal(b.Config()) {
+			if !assembly.Spec(fab).Config().Equal(b.Config()) {
 				t.Error("Config() does not carry the specification's configuration")
 			}
 		})
@@ -1050,7 +1052,7 @@ func TestAddedFabricFieldsFieldMatrix(t *testing.T) {
 		b := a.Clone()
 		b.Hosts["h1"] = hostmodel.Config{Ethernet: phy.Ethernet{AutoNegotiationSupported: phy.CapabilitySupported}}
 
-		changes, err := fabric.DiffSpecs(a, b)
+		changes, err := assembly.DiffSpecs(a, b)
 		if err != nil {
 			t.Fatalf("DiffSpecs: %v", err)
 		}
@@ -1116,7 +1118,7 @@ func TestAddedFabricFieldsFieldMatrix(t *testing.T) {
 		cfg.Hosts["h1"].Ethernet.SupportedSpeedsBPS[0] = 1
 		cfg.Hosts["h1"].Ethernet.Setting.AutoNegotiation = false
 
-		for name, c := range map[string]fabric.Config{"Config.Clone": cloned, "ConstructionSpec.Clone": clonedSpec.Config()} {
+		for name, c := range map[string]assembly.Config{"Config.Clone": cloned, "ConstructionSpec.Clone": clonedSpec.Config()} {
 			if c.Cables[0].Evidence[0] != refA || c.Uncabled[0].Evidence[0] != refA || c.Uncabled[0].Endpoint.Port != "1/1/1" {
 				t.Errorf("%s shares cable or uncabled state: %+v %+v", name, c.Cables[0], c.Uncabled)
 			}

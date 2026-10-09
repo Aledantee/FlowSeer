@@ -4,6 +4,8 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
 	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
 
 	"go.aledante.io/FlowSeer/src/common/net/bpdu"
@@ -120,7 +122,7 @@ func newThreeSwitchRingTopology(t *testing.T) (*fabric.Fabric, time.Time, map[st
 		"h3":  {0, 0, 0, 0, 2, 3},
 	}
 
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Start: t0,
 		Switches: map[string]vswitch.Config{
 			"sw1": {
@@ -193,7 +195,7 @@ func newThreeSwitchRingTopology(t *testing.T) (*fabric.Fabric, time.Time, map[st
 		},
 	}
 
-	fab, err := fabric.New(statedPhysical(cfg))
+	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
@@ -521,7 +523,7 @@ func TestHubTransparentInRing(t *testing.T) {
 		"h3":  {0, 0, 0, 0, 2, 3},
 	}
 
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Start: t0,
 		Switches: map[string]vswitch.Config{
 			"sw1": {
@@ -605,7 +607,7 @@ func TestHubTransparentInRing(t *testing.T) {
 		},
 	}
 
-	fab, err := fabric.New(statedPhysical(cfg))
+	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
@@ -670,7 +672,7 @@ func TestBPDUVisibleOnSwitchWithoutLayer(t *testing.T) {
 	mac1 := netaddr.MAC{0, 0, 0, 0, 1, 1}
 	mac2 := netaddr.MAC{0, 0, 0, 0, 1, 2}
 
-	fab, err := fabric.New(statedPhysical(fabric.Config{
+	fab, err := assembly.New(statedPhysical(assembly.Config{
 		Start: t0,
 		Switches: map[string]vswitch.Config{
 			"sw1": {
@@ -734,7 +736,7 @@ func TestBPDUVisibleOnSwitchWithoutLayer(t *testing.T) {
 func TestZeroStartRefusedWithSpanningTree(t *testing.T) {
 	tbl := mustTable(t, port.NewBuilder().
 		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Switches: map[string]vswitch.Config{
 			"sw1": {
 				Ports:  tbl,
@@ -746,7 +748,7 @@ func TestZeroStartRefusedWithSpanningTree(t *testing.T) {
 			},
 		},
 	}
-	if _, err := fabric.New(statedPhysical(cfg)); err == nil {
+	if _, err := assembly.New(statedPhysical(cfg)); err == nil {
 		t.Fatal("New accepted a spanning tree fabric with a zero Start")
 	}
 }
@@ -760,9 +762,9 @@ func TestDeriveWithSpanningTreeQueuesNoStrayProposals(t *testing.T) {
 	fab.Run(200)
 	before := fab.Snapshot()
 
-	cfg := fab.Config()
+	cfg := assembly.Spec(fab).Config()
 	cfg.Start = before.Clock
-	next, err := fabric.Derive(fab, constructionSpec(statedPhysical(cfg)))
+	next, err := assembly.Derive(fab, constructionSpec(statedPhysical(cfg)))
 	if err != nil {
 		t.Fatalf("Derive: %v", err)
 	}
@@ -799,7 +801,7 @@ func TestCutLagMemberKeepsLagUp(t *testing.T) {
 			Ports:    map[string]stp.Port{"lag1": {}},
 		}
 	}
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Start: t0,
 		Switches: map[string]vswitch.Config{
 			"sw1": {Ports: lagPorts(), Bridge: &bridge.Config{}, STP: stpCfg(1, 4096)},
@@ -810,14 +812,14 @@ func TestCutLagMemberKeepsLagUp(t *testing.T) {
 			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/2"}},
 		},
 	}
-	fab, err := fabric.New(statedPhysical(cfg))
+	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
 	fab.Run(50)
 
 	lagState := func() (port.LinkState, device.PortInfo) {
-		sw := fab.Switch("sw2")
+		sw := fab.Device("sw2").(*vswitch.Switch)
 		lag, _ := sw.Ports().Port("lag1")
 
 		return lag.OperStatus, sw.State(fab.Snapshot().Clock).Roles["lag1"]
@@ -858,7 +860,7 @@ func TestFabricLegacyBPDUInjectionMigratesPort(t *testing.T) {
 	macSW2 := netaddr.MAC{0, 0, 0, 0, 1, 2}
 	macH1 := netaddr.MAC{0, 0, 0, 0, 2, 1}
 
-	fab, err := fabric.New(statedPhysical(fabric.Config{
+	fab, err := assembly.New(statedPhysical(assembly.Config{
 		Start: t0,
 		Switches: map[string]vswitch.Config{
 			"sw1": {
@@ -1003,7 +1005,7 @@ func TestFabricTxHoldCountLimitsInferiorBPDUReplies(t *testing.T) {
 	macSW2 := netaddr.MAC{0, 0, 0, 0, 1, 2}
 	macH1 := netaddr.MAC{0, 0, 0, 2, 1, 1}
 
-	fab, err := fabric.New(statedPhysical(fabric.Config{
+	fab, err := assembly.New(statedPhysical(assembly.Config{
 		Start: t0,
 		Switches: map[string]vswitch.Config{
 			"sw1": {
@@ -1231,7 +1233,7 @@ func newTwoSwitchTrunkTopology(t *testing.T, mst1, mst2 *stp.MST, instPorts1, in
 		return &region
 	}
 
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Start: t0,
 		Switches: map[string]vswitch.Config{
 			"sw1": {
@@ -1271,7 +1273,7 @@ func newTwoSwitchTrunkTopology(t *testing.T, mst1, mst2 *stp.MST, instPorts1, in
 		},
 	}
 
-	fab, err := fabric.New(statedPhysical(cfg))
+	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
@@ -1540,7 +1542,7 @@ func newFourSwitchMSTRing(t *testing.T) *fabric.Fabric {
 		}
 	}
 
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Start:    t0,
 		Switches: switches,
 		Cables: []fabric.Cable{
@@ -1551,7 +1553,7 @@ func newFourSwitchMSTRing(t *testing.T) *fabric.Fabric {
 		},
 	}
 
-	fab, err := fabric.New(statedPhysical(cfg))
+	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}

@@ -7,6 +7,8 @@ import (
 	"time"
 	"unsafe"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
 	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
 	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 
@@ -218,7 +220,7 @@ func newTestFabricForFork(t *testing.T) *fabric.Fabric {
 	macH1 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}
 	macH2 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02}
 
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Start: time.Unix(1000, 0),
 		Switches: map[string]vswitch.Config{
 			"sw1": {
@@ -260,7 +262,7 @@ func newTestFabricForFork(t *testing.T) *fabric.Fabric {
 		PhyAssumption: defaultPhyAssumption(),
 	}
 
-	fab, err := fabric.New(cfg)
+	fab, err := assembly.New(cfg)
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}

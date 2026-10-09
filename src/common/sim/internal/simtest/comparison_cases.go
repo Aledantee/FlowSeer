@@ -6,6 +6,8 @@ import (
 	"slices"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
 	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
@@ -401,12 +403,12 @@ func ComparisonCorpus() []ComparisonCase {
 
 			cables := shuffleSlice(rng, baseCables)
 
-			spec := fabric.ConstructionSpec{
+			spec := assembly.ConstructionSpec{
 				Switches: shuffleMap(rng, switches),
 				Hosts:    shuffleMap(rng, hosts),
 				Cables:   cables,
 			}
-			return fabric.NewWithSpec(spec)
+			return assembly.NewWithSpec(spec)
 		}
 
 		fabA, err := makeFab(nil)
@@ -426,7 +428,7 @@ func ComparisonCorpus() []ComparisonCase {
 	c4ClockA, c4ClockB := c4FabA.Snapshot().Clock, c4FabB.Snapshot().Clock
 	c4ReportA, c4ReportB := c4FabA.Report(), c4FabB.Report()
 	c4LinksA, c4LinksB := c4FabA.Links(), c4FabB.Links()
-	c4SpecA, c4SpecB := c4FabA.Spec(), c4FabB.Spec()
+	c4SpecA, c4SpecB := assembly.Spec(c4FabA), assembly.Spec(c4FabB)
 
 	case4 := ComparisonCase{
 		Name:                "fabric/equivalent-complete",
@@ -482,10 +484,10 @@ func ComparisonCorpus() []ComparisonCase {
 			if !reflect.DeepEqual(c4FabB.Links(), c4LinksB) {
 				return errs.Msg("c4FabB links mutated")
 			}
-			if !reflect.DeepEqual(c4FabA.Spec(), c4SpecA) {
+			if !reflect.DeepEqual(assembly.Spec(c4FabA), c4SpecA) {
 				return errs.Msg("c4FabA spec mutated")
 			}
-			if !reflect.DeepEqual(c4FabB.Spec(), c4SpecB) {
+			if !reflect.DeepEqual(assembly.Spec(c4FabB), c4SpecB) {
 				return errs.Msg("c4FabB spec mutated")
 			}
 			return nil
@@ -508,7 +510,7 @@ func ComparisonCorpus() []ComparisonCase {
 	c5ClockA, c5ClockB := c5FabA.Snapshot().Clock, c5FabB.Snapshot().Clock
 	c5ReportA, c5ReportB := c5FabA.Report(), c5FabB.Report()
 	c5LinksA, c5LinksB := c5FabA.Links(), c5FabB.Links()
-	c5SpecA, c5SpecB := c5FabA.Spec(), c5FabB.Spec()
+	c5SpecA, c5SpecB := assembly.Spec(c5FabA), assembly.Spec(c5FabB)
 
 	case5 := ComparisonCase{
 		Name:                "fabric/cable-cut-different",
@@ -564,10 +566,10 @@ func ComparisonCorpus() []ComparisonCase {
 			if !reflect.DeepEqual(c5FabB.Links(), c5LinksB) {
 				return errs.Msg("c5FabB links mutated")
 			}
-			if !reflect.DeepEqual(c5FabA.Spec(), c5SpecA) {
+			if !reflect.DeepEqual(assembly.Spec(c5FabA), c5SpecA) {
 				return errs.Msg("c5FabA spec mutated")
 			}
-			if !reflect.DeepEqual(c5FabB.Spec(), c5SpecB) {
+			if !reflect.DeepEqual(assembly.Spec(c5FabB), c5SpecB) {
 				return errs.Msg("c5FabB spec mutated")
 			}
 			return nil
@@ -590,7 +592,7 @@ func ComparisonCorpus() []ComparisonCase {
 	c6ClockA, c6ClockB := c6FabA.Snapshot().Clock, c6FabB.Snapshot().Clock
 	c6ReportA, c6ReportB := c6FabA.Report(), c6FabB.Report()
 	c6LinksA, c6LinksB := c6FabA.Links(), c6FabB.Links()
-	c6SpecA, c6SpecB := c6FabA.Spec(), c6FabB.Spec()
+	c6SpecA, c6SpecB := assembly.Spec(c6FabA), assembly.Spec(c6FabB)
 
 	case6 := ComparisonCase{
 		Name:                "fabric/medium-path-different",
@@ -646,10 +648,10 @@ func ComparisonCorpus() []ComparisonCase {
 			if !reflect.DeepEqual(c6FabB.Links(), c6LinksB) {
 				return errs.Msg("c6FabB links mutated")
 			}
-			if !reflect.DeepEqual(c6FabA.Spec(), c6SpecA) {
+			if !reflect.DeepEqual(assembly.Spec(c6FabA), c6SpecA) {
 				return errs.Msg("c6FabA spec mutated")
 			}
-			if !reflect.DeepEqual(c6FabB.Spec(), c6SpecB) {
+			if !reflect.DeepEqual(assembly.Spec(c6FabB), c6SpecB) {
 				return errs.Msg("c6FabB spec mutated")
 			}
 			return nil
@@ -662,7 +664,7 @@ func ComparisonCorpus() []ComparisonCase {
 	c7ClockA, c7ClockB := c7FabA.Snapshot().Clock, c7FabB.Snapshot().Clock
 	c7ReportA, c7ReportB := c7FabA.Report(), c7FabB.Report()
 	c7LinksA, c7LinksB := c7FabA.Links(), c7FabB.Links()
-	c7SpecA, c7SpecB := c7FabA.Spec(), c7FabB.Spec()
+	c7SpecA, c7SpecB := assembly.Spec(c7FabA), assembly.Spec(c7FabB)
 
 	case7 := ComparisonCase{
 		Name:                "fabric/inconclusive-budget-exhausted",
@@ -718,10 +720,10 @@ func ComparisonCorpus() []ComparisonCase {
 			if !reflect.DeepEqual(c7FabB.Links(), c7LinksB) {
 				return errs.Msg("c7FabB links mutated")
 			}
-			if !reflect.DeepEqual(c7FabA.Spec(), c7SpecA) {
+			if !reflect.DeepEqual(assembly.Spec(c7FabA), c7SpecA) {
 				return errs.Msg("c7FabA spec mutated")
 			}
-			if !reflect.DeepEqual(c7FabB.Spec(), c7SpecB) {
+			if !reflect.DeepEqual(assembly.Spec(c7FabB), c7SpecB) {
 				return errs.Msg("c7FabB spec mutated")
 			}
 			return nil

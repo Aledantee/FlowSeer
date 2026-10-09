@@ -4,6 +4,8 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
@@ -15,7 +17,7 @@ import (
 func TestFabricSeedDefaultsCompareEqual(t *testing.T) {
 	now := time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC)
 	ports := mustFabricPortTable(t, port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
-	base, err := fabric.NewConstructionSpec(statedPhysical(fabric.Config{
+	base, err := assembly.NewConstructionSpec(statedPhysical(assembly.Config{
 		Start:    now,
 		Switches: map[string]vswitch.Config{"sw1": {Ports: ports, Bridge: &bridge.Config{}}},
 	}))
@@ -31,18 +33,18 @@ func TestFabricSeedDefaultsCompareEqual(t *testing.T) {
 	sw.Seeds[0].Origin = "configured"
 	sw.Seeds[0].Lifetime = "aging"
 	explicit.Switches["sw1"] = sw
-	a, err := fabric.NewWithSpec(omitted)
+	a, err := assembly.NewWithSpec(omitted)
 	if err != nil {
 		t.Fatal(err)
 	}
-	b, err := fabric.NewWithSpec(explicit)
+	b, err := assembly.NewWithSpec(explicit)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !a.Spec().Equal(b.Spec()) {
+	if !assembly.Spec(a).Equal(assembly.Spec(b)) {
 		t.Error("constructed specs differ for omitted and explicit seed defaults")
 	}
-	changes, err := fabric.DiffSpecs(omitted, explicit)
+	changes, err := assembly.DiffSpecs(omitted, explicit)
 	if err != nil || len(changes) != 0 {
 		t.Errorf("DiffSpecs = %+v, %v, want empty", changes, err)
 	}

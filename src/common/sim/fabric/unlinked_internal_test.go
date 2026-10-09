@@ -3,6 +3,8 @@ package fabric_test
 import (
 	"testing"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
 	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
 	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 
@@ -16,13 +18,13 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
-func testConstructionSpec(cfg fabric.Config) fabric.ConstructionSpec {
+func testConstructionSpec(cfg assembly.Config) assembly.ConstructionSpec {
 	switches := make(map[string]vswitch.ConstructionSpec, len(cfg.Switches))
 	for name, swCfg := range cfg.Switches {
 		switches[name] = vswitch.ConstructionSpec{Config: swCfg, NodeID: name}
 	}
 
-	return fabric.ConstructionSpec{
+	return assembly.ConstructionSpec{
 		Start:      cfg.Start,
 		Switches:   switches,
 		Hosts:      cfg.Hosts,
@@ -49,7 +51,7 @@ func TestFabricUnlinkedInternal(t *testing.T) {
 		t.Fatalf("build ports: %v", err)
 	}
 
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Switches: map[string]vswitch.Config{
 			"sw1": {Ports: ports, Bridge: &bridge.Config{}, Phy: &phy.Config{Ethernet: map[string]phy.Ethernet{"1": gigabit}}},
 		},
@@ -66,7 +68,7 @@ func TestFabricUnlinkedInternal(t *testing.T) {
 	}
 	spec.Switches["sw1"] = sw1
 
-	fab, err := fabric.NewWithSpec(spec)
+	fab, err := assembly.NewWithSpec(spec)
 	if err != nil {
 		t.Fatalf("NewWithSpec: %v", err)
 	}
@@ -99,7 +101,7 @@ func TestFabricUnlinkedOmittedPortConfiguredUp(t *testing.T) {
 		t.Fatalf("build ports: %v", err)
 	}
 
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Switches: map[string]vswitch.Config{"sw1": {Ports: ports, Bridge: &bridge.Config{}}},
 		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}},
@@ -118,7 +120,7 @@ func TestFabricUnlinkedOmittedPortConfiguredUp(t *testing.T) {
 			},
 		},
 	}
-	fab, err := fabric.New(cfg)
+	fab, err := assembly.New(cfg)
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}

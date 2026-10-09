@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
 	reflectormodel "go.aledante.io/FlowSeer/src/common/sim/device/reflector"
 	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 
@@ -286,7 +288,7 @@ func invariantFabric(t *testing.T, variant string, t0 time.Time) *fabric.Fabric 
 			},
 		}
 		cables = append(cables, fabric.Cable{Cable: cablemodel.Cable{LengthMeters: 5}, A: fabric.Endpoint{Node: "sw1", Port: "1/1/3"}, B: fabric.Endpoint{Node: "reflector", Port: "rp1"}})
-		cfg := fabric.Config{
+		cfg := assembly.Config{
 			Start:         t0,
 			PhyAssumption: testPhyAssumption(),
 			Switches:      map[string]vswitch.Config{"sw1": sw1, "sw2": sw2},
@@ -297,7 +299,7 @@ func invariantFabric(t *testing.T, variant string, t0 time.Time) *fabric.Fabric 
 		return newInvariantFabric(t, cfg)
 	}
 
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Start:         t0,
 		PhyAssumption: testPhyAssumption(),
 		Switches:      map[string]vswitch.Config{"sw1": sw1, "sw2": sw2},
@@ -307,9 +309,9 @@ func invariantFabric(t *testing.T, variant string, t0 time.Time) *fabric.Fabric 
 	return newInvariantFabric(t, cfg)
 }
 
-func newInvariantFabric(t *testing.T, cfg fabric.Config) *fabric.Fabric {
+func newInvariantFabric(t *testing.T, cfg assembly.Config) *fabric.Fabric {
 	t.Helper()
-	fab, err := fabric.New(cfg)
+	fab, err := assembly.New(cfg)
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
@@ -430,7 +432,7 @@ func TestHeldFlowCountsHeld(t *testing.T) {
 	macH2 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x77}
 	addrH2 := netip.MustParseAddr("10.0.20.7")
 
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Start:         t0,
 		PhyAssumption: testPhyAssumption(),
 		Switches: map[string]vswitch.Config{"sw1": {
@@ -543,7 +545,7 @@ func heldPropertyFixture(t *testing.T) (*fabric.Fabric, netaddr.MAC, netaddr.MAC
 	macH1 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x11}
 	macH2 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x77}
 
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Start:         time.Date(2026, 9, 21, 10, 0, 0, 0, time.UTC),
 		PhyAssumption: testPhyAssumption(),
 		Switches: map[string]vswitch.Config{"sw1": {
@@ -577,7 +579,7 @@ func heldPropertyFixture(t *testing.T) (*fabric.Fabric, netaddr.MAC, netaddr.MAC
 		},
 	}
 
-	fab, err := fabric.New(cfg)
+	fab, err := assembly.New(cfg)
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}

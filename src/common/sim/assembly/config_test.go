@@ -1,4 +1,4 @@
-package fabric_test
+package assembly_test
 
 import (
 	"maps"
@@ -7,6 +7,8 @@ import (
 	"slices"
 	"testing"
 	"time"
+
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
 
 	reflectormodel "go.aledante.io/FlowSeer/src/common/sim/device/reflector"
 
@@ -38,13 +40,13 @@ func mustTable(t *testing.T, b *port.Builder) port.Table {
 	return tbl
 }
 
-func constructionSpec(cfg fabric.Config) fabric.ConstructionSpec {
+func constructionSpec(cfg assembly.Config) assembly.ConstructionSpec {
 	switches := make(map[string]vswitch.ConstructionSpec, len(cfg.Switches))
 	for name, swCfg := range cfg.Switches {
 		switches[name] = vswitch.ConstructionSpec{Config: swCfg, NodeID: name}
 	}
 
-	return fabric.ConstructionSpec{
+	return assembly.ConstructionSpec{
 		Start:         cfg.Start,
 		Switches:      switches,
 		Hosts:         cfg.Hosts,
@@ -78,7 +80,7 @@ func gigabitCopper() *cablemodel.PhyAssumption {
 // An added Uncabled port's configured operational status is cleared, since the
 // fixture observed nothing about it; left Up, it would conflict with the Down
 // its entry derives and put that conflict into every journey consulting it.
-func statedPhysical(cfg fabric.Config) fabric.Config {
+func statedPhysical(cfg assembly.Config) assembly.Config {
 	cfg = cfg.Clone()
 	if cfg.PhyAssumption == nil {
 		cfg.PhyAssumption = gigabitCopper()
@@ -112,7 +114,7 @@ func statedPhysical(cfg fabric.Config) fabric.Config {
 	return cfg
 }
 
-func twoSwitchBaseConfig(t *testing.T) fabric.Config {
+func twoSwitchBaseConfig(t *testing.T) assembly.Config {
 	t.Helper()
 	b1 := port.NewBuilder()
 	b1.Range("1/1/%d", 1, 2, port.Port{Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
@@ -125,7 +127,7 @@ func twoSwitchBaseConfig(t *testing.T) fabric.Config {
 	macH1 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}
 	macH2 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02}
 
-	return fabric.Config{
+	return assembly.Config{
 		Switches: map[string]vswitch.Config{
 			"sw1": {Ports: mustTable(t, b1)},
 			"sw2": {Ports: mustTable(t, b2)},
@@ -157,12 +159,12 @@ func twoSwitchBaseConfig(t *testing.T) fabric.Config {
 func TestConfigValidateRules(t *testing.T) {
 	tests := []struct {
 		name      string
-		mutate    func(*fabric.Config)
+		mutate    func(*assembly.Config)
 		wantError bool
 	}{
 		{
 			name: "switch config fails validation",
-			mutate: func(c *fabric.Config) {
+			mutate: func(c *assembly.Config) {
 				c.Switches["sw1"] = vswitch.Config{
 					Ports: c.Switches["sw1"].Ports,
 					Bridge: &bridge.Config{
@@ -176,35 +178,35 @@ func TestConfigValidateRules(t *testing.T) {
 		},
 		{
 			name: "cable endpoint naming absent node",
-			mutate: func(c *fabric.Config) {
+			mutate: func(c *assembly.Config) {
 				c.Cables[0].A = fabric.Endpoint{Node: "absent_node"}
 			},
 			wantError: true,
 		},
 		{
 			name: "cable endpoint naming absent switch port",
-			mutate: func(c *fabric.Config) {
+			mutate: func(c *assembly.Config) {
 				c.Cables[0].B = fabric.Endpoint{Node: "sw1", Port: "1/1/99"}
 			},
 			wantError: true,
 		},
 		{
 			name: "cable endpoint naming host with non-empty port",
-			mutate: func(c *fabric.Config) {
+			mutate: func(c *assembly.Config) {
 				c.Cables[0].A = fabric.Endpoint{Node: "h1", Port: "eth0"}
 			},
 			wantError: true,
 		},
 		{
 			name: "cable endpoint naming LAG directly",
-			mutate: func(c *fabric.Config) {
+			mutate: func(c *assembly.Config) {
 				c.Cables[0].B = fabric.Endpoint{Node: "sw1", Port: "lag1"}
 			},
 			wantError: true,
 		},
 		{
 			name: "switch port on two cables",
-			mutate: func(c *fabric.Config) {
+			mutate: func(c *assembly.Config) {
 				c.Cables = append(c.Cables, fabric.Cable{
 					A: fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
 					B: fabric.Endpoint{Node: "sw2", Port: "1/1/2"},
@@ -214,7 +216,7 @@ func TestConfigValidateRules(t *testing.T) {
 		},
 		{
 			name: "host on two cables",
-			mutate: func(c *fabric.Config) {
+			mutate: func(c *assembly.Config) {
 				c.Cables = append(c.Cables, fabric.Cable{
 					A: fabric.Endpoint{Node: "h1"},
 					B: fabric.Endpoint{Node: "sw2", Port: "1/1/2"},
@@ -224,56 +226,56 @@ func TestConfigValidateRules(t *testing.T) {
 		},
 		{
 			name: "host on no cables",
-			mutate: func(c *fabric.Config) {
+			mutate: func(c *assembly.Config) {
 				c.Hosts["h3"] = hostmodel.Config{Address: netaddr.MAC{0, 0, 0, 0, 0, 3}}
 			},
 			wantError: true,
 		},
 		{
 			name: "cable with negative length",
-			mutate: func(c *fabric.Config) {
+			mutate: func(c *assembly.Config) {
 				c.Cables[0].LengthMeters = -1.0
 			},
 			wantError: true,
 		},
 		{
 			name: "cable with NaN length",
-			mutate: func(c *fabric.Config) {
+			mutate: func(c *assembly.Config) {
 				c.Cables[0].LengthMeters = math.NaN()
 			},
 			wantError: true,
 		},
 		{
 			name: "cable with positive infinite length",
-			mutate: func(c *fabric.Config) {
+			mutate: func(c *assembly.Config) {
 				c.Cables[0].LengthMeters = math.Inf(1)
 			},
 			wantError: true,
 		},
 		{
 			name: "cable with negative infinite length",
-			mutate: func(c *fabric.Config) {
+			mutate: func(c *assembly.Config) {
 				c.Cables[0].LengthMeters = math.Inf(-1)
 			},
 			wantError: true,
 		},
 		{
 			name: "cable with zero length",
-			mutate: func(c *fabric.Config) {
+			mutate: func(c *assembly.Config) {
 				c.Cables[0].LengthMeters = 0
 			},
 			wantError: false,
 		},
 		{
 			name: "cable with maximum finite length",
-			mutate: func(c *fabric.Config) {
+			mutate: func(c *assembly.Config) {
 				c.Cables[0].LengthMeters = math.MaxFloat64
 			},
 			wantError: false,
 		},
 		{
 			name: "cable with negative delay",
-			mutate: func(c *fabric.Config) {
+			mutate: func(c *assembly.Config) {
 				d := -1 * time.Nanosecond
 				c.Cables[0].Delay = &d
 			},
@@ -281,77 +283,77 @@ func TestConfigValidateRules(t *testing.T) {
 		},
 		{
 			name: "cable with unknown medium coax",
-			mutate: func(c *fabric.Config) {
+			mutate: func(c *assembly.Config) {
 				c.Cables[0].Medium = "coax"
 			},
 			wantError: true,
 		},
 		{
 			name: "cable with empty medium accepted",
-			mutate: func(c *fabric.Config) {
+			mutate: func(c *assembly.Config) {
 				c.Cables[0].Medium = ""
 			},
 			wantError: false,
 		},
 		{
 			name: "cable fault LoseEveryNth with N zero",
-			mutate: func(c *fabric.Config) {
+			mutate: func(c *assembly.Config) {
 				c.Cables[0].Fault = cablemodel.Fault{Kind: cablemodel.FaultLoseEveryNth, N: 0}
 			},
 			wantError: true,
 		},
 		{
 			name: "cable fault CorruptEveryNth with N zero",
-			mutate: func(c *fabric.Config) {
+			mutate: func(c *assembly.Config) {
 				c.Cables[0].Fault = cablemodel.Fault{Kind: cablemodel.FaultCorruptEveryNth, N: 0}
 			},
 			wantError: true,
 		},
 		{
 			name: "cable fault LoseSequence with empty sequence",
-			mutate: func(c *fabric.Config) {
+			mutate: func(c *assembly.Config) {
 				c.Cables[0].Fault = cablemodel.Fault{Kind: cablemodel.FaultLoseSequence, Sequence: nil}
 			},
 			wantError: true,
 		},
 		{
 			name: "inactive N on cut fault",
-			mutate: func(c *fabric.Config) {
+			mutate: func(c *assembly.Config) {
 				c.Cables[0].Fault = cablemodel.Fault{Kind: cablemodel.FaultCut, N: 2}
 			},
 			wantError: true,
 		},
 		{
 			name: "inactive sequence on every Nth fault",
-			mutate: func(c *fabric.Config) {
+			mutate: func(c *assembly.Config) {
 				c.Cables[0].Fault = cablemodel.Fault{Kind: cablemodel.FaultLoseEveryNth, N: 2, Sequence: []uint{1}}
 			},
 			wantError: true,
 		},
 		{
 			name: "inactive N on sequence fault",
-			mutate: func(c *fabric.Config) {
+			mutate: func(c *assembly.Config) {
 				c.Cables[0].Fault = cablemodel.Fault{Kind: cablemodel.FaultLoseSequence, N: 2, Sequence: []uint{1}}
 			},
 			wantError: true,
 		},
 		{
 			name: "sequence fault with zero position",
-			mutate: func(c *fabric.Config) {
+			mutate: func(c *assembly.Config) {
 				c.Cables[0].Fault = cablemodel.Fault{Kind: cablemodel.FaultLoseSequence, Sequence: []uint{0, 1}}
 			},
 			wantError: true,
 		},
 		{
 			name: "cable fault with unknown kind",
-			mutate: func(c *fabric.Config) {
+			mutate: func(c *assembly.Config) {
 				c.Cables[0].Fault = cablemodel.Fault{Kind: "InvalidKind"}
 			},
 			wantError: true,
 		},
 		{
 			name: "host with invalid VLAN ID zero",
-			mutate: func(c *fabric.Config) {
+			mutate: func(c *assembly.Config) {
 				vid := vlan.ID(0)
 				c.Hosts["h1"] = hostmodel.Config{
 					Address: c.Hosts["h1"].Address,
@@ -362,7 +364,7 @@ func TestConfigValidateRules(t *testing.T) {
 		},
 		{
 			name: "host with invalid VLAN ID above 4094",
-			mutate: func(c *fabric.Config) {
+			mutate: func(c *assembly.Config) {
 				vid := vlan.ID(4095)
 				c.Hosts["h1"] = hostmodel.Config{
 					Address: c.Hosts["h1"].Address,
@@ -373,14 +375,14 @@ func TestConfigValidateRules(t *testing.T) {
 		},
 		{
 			name: "node name collision between switch and host",
-			mutate: func(c *fabric.Config) {
+			mutate: func(c *assembly.Config) {
 				c.Hosts["sw1"] = hostmodel.Config{Address: netaddr.MAC{0, 0, 0, 0, 0, 1}}
 			},
 			wantError: true,
 		},
 		{
 			name: "switch name empty",
-			mutate: func(c *fabric.Config) {
+			mutate: func(c *assembly.Config) {
 				c.Switches[""] = c.Switches["sw1"]
 				delete(c.Switches, "sw1")
 			},
@@ -388,7 +390,7 @@ func TestConfigValidateRules(t *testing.T) {
 		},
 		{
 			name: "host name empty",
-			mutate: func(c *fabric.Config) {
+			mutate: func(c *assembly.Config) {
 				c.Hosts[""] = c.Hosts["h1"]
 				delete(c.Hosts, "h1")
 			},
@@ -396,14 +398,14 @@ func TestConfigValidateRules(t *testing.T) {
 		},
 		{
 			name: "endpoint with empty node name",
-			mutate: func(c *fabric.Config) {
+			mutate: func(c *assembly.Config) {
 				c.Cables[0].A = fabric.Endpoint{Node: "", Port: ""}
 			},
 			wantError: true,
 		},
 		{
 			name: "switch endpoint with empty port name",
-			mutate: func(c *fabric.Config) {
+			mutate: func(c *assembly.Config) {
 				c.Cables[0].B = fabric.Endpoint{Node: "sw1", Port: ""}
 			},
 			wantError: true,
@@ -428,17 +430,17 @@ func TestTwoSwitchConfigValidation(t *testing.T) {
 
 	cases := []struct {
 		name      string
-		mutate    func(*fabric.Config)
+		mutate    func(*assembly.Config)
 		wantError bool
 	}{
 		{
 			name:      "baseline valid two switch spec",
-			mutate:    func(_ *fabric.Config) {},
+			mutate:    func(_ *assembly.Config) {},
 			wantError: false,
 		},
 		{
 			name: "valid with tagged host VLAN",
-			mutate: func(c *fabric.Config) {
+			mutate: func(c *assembly.Config) {
 				h1 := c.Hosts["h1"]
 				h1.VLAN = &vid10
 				c.Hosts["h1"] = h1
@@ -451,7 +453,7 @@ func TestTwoSwitchConfigValidation(t *testing.T) {
 		},
 		{
 			name: "valid with cable faults",
-			mutate: func(c *fabric.Config) {
+			mutate: func(c *assembly.Config) {
 				c.Cables[0].Fault = cablemodel.Fault{Kind: cablemodel.FaultCut}
 				c.Cables[1].Fault = cablemodel.Fault{Kind: cablemodel.FaultLoseEveryNth, N: 3}
 				c.Cables[2].Fault = cablemodel.Fault{Kind: cablemodel.FaultLoseSequence, Sequence: []uint{1, 5, 10}}
@@ -460,7 +462,7 @@ func TestTwoSwitchConfigValidation(t *testing.T) {
 		},
 		{
 			name: "valid with top speed limit and length",
-			mutate: func(c *fabric.Config) {
+			mutate: func(c *assembly.Config) {
 				c.Cables[1].TopSpeedBPS = 100_000_000
 				c.Cables[1].LengthMeters = 300.5
 				c.Cables[1].Medium = cablemodel.MultimodeFiber
@@ -469,7 +471,7 @@ func TestTwoSwitchConfigValidation(t *testing.T) {
 		},
 		{
 			name: "duplicate host addresses",
-			mutate: func(c *fabric.Config) {
+			mutate: func(c *assembly.Config) {
 				h2 := c.Hosts["h2"]
 				h2.Address = c.Hosts["h1"].Address
 				c.Hosts["h2"] = h2
@@ -478,7 +480,7 @@ func TestTwoSwitchConfigValidation(t *testing.T) {
 		},
 		{
 			name: "host address equals switch base MAC",
-			mutate: func(c *fabric.Config) {
+			mutate: func(c *assembly.Config) {
 				sw1 := c.Switches["sw1"]
 				sw1.MAC = c.Hosts["h1"].Address
 				c.Switches["sw1"] = sw1
@@ -487,7 +489,7 @@ func TestTwoSwitchConfigValidation(t *testing.T) {
 		},
 		{
 			name: "host address equals switch routed interface MAC",
-			mutate: func(c *fabric.Config) {
+			mutate: func(c *assembly.Config) {
 				sw1 := c.Switches["sw1"]
 				sw1.Routing = &routing.Config{
 					VRFs: map[string]routing.VRF{
@@ -508,7 +510,7 @@ func TestTwoSwitchConfigValidation(t *testing.T) {
 		},
 		{
 			name: "host address equals switch STP address",
-			mutate: func(c *fabric.Config) {
+			mutate: func(c *assembly.Config) {
 				sw1 := c.Switches["sw1"]
 				c.Start = fixedTime
 				sw1.Bridge = &bridge.Config{}
@@ -521,7 +523,7 @@ func TestTwoSwitchConfigValidation(t *testing.T) {
 		},
 		{
 			name: "duplicate switch base MACs",
-			mutate: func(c *fabric.Config) {
+			mutate: func(c *assembly.Config) {
 				mac := netaddr.MAC{0x00, 0x5e, 0x00, 0x01, 0x01, 0x01}
 				sw1 := c.Switches["sw1"]
 				sw1.MAC = mac
@@ -534,7 +536,7 @@ func TestTwoSwitchConfigValidation(t *testing.T) {
 		},
 		{
 			name: "switch base MAC equals another switch routed interface MAC",
-			mutate: func(c *fabric.Config) {
+			mutate: func(c *assembly.Config) {
 				mac := netaddr.MAC{0x00, 0x5e, 0x00, 0x01, 0x01, 0x01}
 				sw1 := c.Switches["sw1"]
 				sw1.MAC = mac
@@ -559,7 +561,7 @@ func TestTwoSwitchConfigValidation(t *testing.T) {
 		},
 		{
 			name: "switch routed interface MAC equals same switch base MAC",
-			mutate: func(c *fabric.Config) {
+			mutate: func(c *assembly.Config) {
 				mac := netaddr.MAC{0x00, 0x5e, 0x00, 0x01, 0x01, 0x01}
 				b := port.NewBuilder()
 				b.Range("1/1/%d", 1, 2, port.Port{Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
@@ -590,7 +592,7 @@ func TestTwoSwitchConfigValidation(t *testing.T) {
 		},
 		{
 			name: "host with IP stack but no addresses",
-			mutate: func(c *fabric.Config) {
+			mutate: func(c *assembly.Config) {
 				h1 := c.Hosts["h1"]
 				h1.IP = &hostmodel.IP{Addresses: nil}
 				c.Hosts["h1"] = h1
@@ -601,7 +603,7 @@ func TestTwoSwitchConfigValidation(t *testing.T) {
 			// The host constructs and its default route is withdrawn; see
 			// TestHostWithOffLinkGatewayHasNoDefaultRoute.
 			name: "host with IP stack gateway unreachable",
-			mutate: func(c *fabric.Config) {
+			mutate: func(c *assembly.Config) {
 				h1 := c.Hosts["h1"]
 				h1.IP = &hostmodel.IP{
 					Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.7/24")},
@@ -613,7 +615,7 @@ func TestTwoSwitchConfigValidation(t *testing.T) {
 		},
 		{
 			name: "host with IP stack prefix length 0",
-			mutate: func(c *fabric.Config) {
+			mutate: func(c *assembly.Config) {
 				h1 := c.Hosts["h1"]
 				h1.IP = &hostmodel.IP{
 					Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.7/0")},
@@ -624,7 +626,7 @@ func TestTwoSwitchConfigValidation(t *testing.T) {
 		},
 		{
 			name: "valid host with IP stack",
-			mutate: func(c *fabric.Config) {
+			mutate: func(c *assembly.Config) {
 				gw := netip.MustParseAddr("10.0.10.1")
 				h1 := c.Hosts["h1"]
 				h1.IP = &hostmodel.IP{
@@ -654,7 +656,7 @@ func TestTwoSwitchConfigValidation(t *testing.T) {
 
 // reflectorBaseConfig extends twoSwitchBaseConfig with a free port on sw1 and
 // a reflector r1 cabled to it, attached on VLAN 10.
-func reflectorBaseConfig(t *testing.T) fabric.Config {
+func reflectorBaseConfig(t *testing.T) assembly.Config {
 	t.Helper()
 	cfg := twoSwitchBaseConfig(t)
 
@@ -692,24 +694,24 @@ func reflectorBaseConfig(t *testing.T) fabric.Config {
 func TestReflectorValidateRules(t *testing.T) {
 	tests := []struct {
 		name      string
-		mutate    func(*fabric.Config)
+		mutate    func(*assembly.Config)
 		wantError bool
 	}{
 		{
 			name:      "unmodified baseline passes",
-			mutate:    func(*fabric.Config) {},
+			mutate:    func(*assembly.Config) {},
 			wantError: false,
 		},
 		{
 			name: "node name collision between reflector and switch",
-			mutate: func(c *fabric.Config) {
+			mutate: func(c *assembly.Config) {
 				c.Switches["r1"] = c.Switches["sw1"]
 			},
 			wantError: true,
 		},
 		{
 			name: "reflector MAC collides with a host",
-			mutate: func(c *fabric.Config) {
+			mutate: func(c *assembly.Config) {
 				r1 := c.Reflectors["r1"]
 				r1.Address = c.Hosts["h1"].Address
 				c.Reflectors["r1"] = r1
@@ -718,7 +720,7 @@ func TestReflectorValidateRules(t *testing.T) {
 		},
 		{
 			name: "attachment VLAN above the valid range",
-			mutate: func(c *fabric.Config) {
+			mutate: func(c *assembly.Config) {
 				vid := vlan.ID(4095)
 				r1 := c.Reflectors["r1"]
 				a := r1.Attachments["a"]
@@ -730,7 +732,7 @@ func TestReflectorValidateRules(t *testing.T) {
 		},
 		{
 			name: "reflector port with invalid ethernet facts",
-			mutate: func(c *fabric.Config) {
+			mutate: func(c *assembly.Config) {
 				r1 := c.Reflectors["r1"]
 				r1.Ports["p1"] = phy.Ethernet{Setting: &phy.Setting{Duplex: "Bogus"}}
 				c.Reflectors["r1"] = r1
@@ -767,12 +769,12 @@ func TestReflectorValidateRules(t *testing.T) {
 func TestReflectorValidateRejectionsNameTheirField(t *testing.T) {
 	tests := []struct {
 		name      string
-		mutate    func(*fabric.Config)
+		mutate    func(*assembly.Config)
 		wantField any
 	}{
 		{
 			name: "node name collision between reflector and host",
-			mutate: func(c *fabric.Config) {
+			mutate: func(c *assembly.Config) {
 				c.Hosts["r1"] = hostmodel.Config{Address: netaddr.MAC{0, 0, 0, 0, 0, 9}}
 			},
 			wantField: "hosts.r1",
@@ -783,7 +785,7 @@ func TestReflectorValidateRejectionsNameTheirField(t *testing.T) {
 			// the guard's own error carries none, so the intact case wants
 			// nil, not empty string.
 			name: "reflector name empty",
-			mutate: func(c *fabric.Config) {
+			mutate: func(c *assembly.Config) {
 				c.Reflectors[""] = c.Reflectors["r1"]
 				delete(c.Reflectors, "r1")
 				// The cable still names r1, which now names nothing.
@@ -796,21 +798,21 @@ func TestReflectorValidateRejectionsNameTheirField(t *testing.T) {
 			// the ports-must-be-cabled check for the now-uncabled p1; that
 			// error carries a field, the guard's own error does not.
 			name: "cable endpoint naming an unknown reflector port",
-			mutate: func(c *fabric.Config) {
+			mutate: func(c *assembly.Config) {
 				c.Cables[len(c.Cables)-1].B.Port = "p9"
 			},
 			wantField: nil,
 		},
 		{
 			name: "reflector endpoint with empty port name",
-			mutate: func(c *fabric.Config) {
+			mutate: func(c *assembly.Config) {
 				c.Cables[len(c.Cables)-1].B.Port = ""
 			},
 			wantField: "reflectors.r1.ports",
 		},
 		{
 			name: "an uncabled port",
-			mutate: func(c *fabric.Config) {
+			mutate: func(c *assembly.Config) {
 				r1 := c.Reflectors["r1"]
 				r1.Ports["p2"] = phy.Ethernet{}
 				c.Reflectors["r1"] = r1
@@ -819,14 +821,14 @@ func TestReflectorValidateRejectionsNameTheirField(t *testing.T) {
 		},
 		{
 			name: "a port named in Uncabled",
-			mutate: func(c *fabric.Config) {
+			mutate: func(c *assembly.Config) {
 				c.Uncabled = append(c.Uncabled, fabric.Uncabled{Endpoint: fabric.Endpoint{Node: "r1", Port: "p1"}})
 			},
 			wantField: "uncabled.0",
 		},
 		{
 			name: "an attachment naming an unknown port",
-			mutate: func(c *fabric.Config) {
+			mutate: func(c *assembly.Config) {
 				r1 := c.Reflectors["r1"]
 				a := r1.Attachments["a"]
 				a.Port = "p9"
@@ -837,7 +839,7 @@ func TestReflectorValidateRejectionsNameTheirField(t *testing.T) {
 		},
 		{
 			name: "two attachments sharing a port and VLAN",
-			mutate: func(c *fabric.Config) {
+			mutate: func(c *assembly.Config) {
 				r1 := c.Reflectors["r1"]
 				a := r1.Attachments["a"]
 				r1.Attachments["b"] = reflectormodel.Attachment{Port: a.Port, VLAN: a.VLAN, Addresses: a.Addresses}
@@ -847,7 +849,7 @@ func TestReflectorValidateRejectionsNameTheirField(t *testing.T) {
 		},
 		{
 			name: "an attachment with no address",
-			mutate: func(c *fabric.Config) {
+			mutate: func(c *assembly.Config) {
 				r1 := c.Reflectors["r1"]
 				a := r1.Attachments["a"]
 				a.Addresses = nil
@@ -1027,7 +1029,7 @@ func TestConfigNormalizeDefinesBehavioralEquivalence(t *testing.T) {
 	if !cfgA.Equal(cfgB) {
 		t.Error("Config.Equal reports behaviorally equivalent configurations as different")
 	}
-	if changes := fabric.Diff(cfgA, cfgB); len(changes) != 0 {
+	if changes := assembly.Diff(cfgA, cfgB); len(changes) != 0 {
 		t.Errorf("Diff returned %d changes for behaviorally equivalent configurations: %v", len(changes), changes)
 	}
 }
@@ -1098,11 +1100,11 @@ func TestCableLengthEqualityAndDiffAreReflexive(t *testing.T) {
 				t.Error("Cable.Equal is not reflexive")
 			}
 
-			cfg := fabric.Config{Cables: []fabric.Cable{cable}}
+			cfg := assembly.Config{Cables: []fabric.Cable{cable}}
 			if !cfg.Equal(cfg.Clone()) {
 				t.Error("Config.Equal is not reflexive")
 			}
-			if changes := fabric.Diff(cfg, cfg.Clone()); len(changes) != 0 {
+			if changes := assembly.Diff(cfg, cfg.Clone()); len(changes) != 0 {
 				t.Errorf("Diff(config, config) = %+v, want no changes", changes)
 			}
 		})
@@ -1139,7 +1141,7 @@ func TestConfigNormalizeCanonicalizesCableOrientation(t *testing.T) {
 }
 
 func TestCableDiffKeysAreInjectiveForDelimiterHeavyEndpoints(t *testing.T) {
-	cfg := fabric.Config{Cables: []fabric.Cable{
+	cfg := assembly.Config{Cables: []fabric.Cable{
 		{
 			A: fabric.Endpoint{Node: "left-right", Port: "port:one%"},
 			B: fabric.Endpoint{Node: "peer", Port: "two-three"},
@@ -1149,7 +1151,7 @@ func TestCableDiffKeysAreInjectiveForDelimiterHeavyEndpoints(t *testing.T) {
 			B: fabric.Endpoint{Node: "peer-two", Port: "three"},
 		},
 	}}
-	changes := fabric.Diff(fabric.Config{}, cfg)
+	changes := assembly.Diff(assembly.Config{}, cfg)
 	keys := make(map[string]struct{})
 	for _, change := range changes {
 		if change.Subject.Kind == "cable" {
@@ -1176,17 +1178,17 @@ func TestNestedSwitchDiffKeysAreInjective(t *testing.T) {
 		return table
 	}
 
-	a := fabric.Config{Switches: map[string]vswitch.Config{
+	a := assembly.Config{Switches: map[string]vswitch.Config{
 		"edge/a": {Ports: ports("b", false)},
 		"edge":   {Ports: ports("a/b", false)},
 	}}
-	b := fabric.Config{Switches: map[string]vswitch.Config{
+	b := assembly.Config{Switches: map[string]vswitch.Config{
 		"edge/a": {Ports: ports("b", true)},
 		"edge":   {Ports: ports("a/b", true)},
 	}}
 
 	keys := make(map[string]struct{})
-	for _, change := range fabric.Diff(a, b) {
+	for _, change := range assembly.Diff(a, b) {
 		if change.Subject.Kind == "port" && change.Field == "admin_status" {
 			keys[change.Subject.Key] = struct{}{}
 		}

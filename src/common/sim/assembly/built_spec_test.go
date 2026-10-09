@@ -1,10 +1,12 @@
-package fabric_test
+package assembly_test
 
 import (
 	"net/netip"
 	"reflect"
 	"testing"
 	"time"
+
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
 
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
@@ -19,7 +21,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
-func builtSpecFixture(t *testing.T) fabric.ConstructionSpec {
+func builtSpecFixture(t *testing.T) assembly.ConstructionSpec {
 	t.Helper()
 	ports, err := port.NewBuilder().
 		Add(port.Port{Name: "h", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Down}).
@@ -30,7 +32,7 @@ func builtSpecFixture(t *testing.T) fabric.ConstructionSpec {
 	}
 	vid := vlan.ID(10)
 	catalog, _ := analysis.EvidenceCatalog{}.Add(analysis.Evidence{Kind: "inventory", Origin: "unused inventory observation"})
-	return fabric.ConstructionSpec{
+	return assembly.ConstructionSpec{
 		Start: time.Unix(1700000000, 123).UTC(),
 		Switches: map[string]vswitch.ConstructionSpec{"sw": {
 			NodeID: "sw", Config: vswitch.Config{Ports: ports, Bridge: &bridge.Config{}},
@@ -51,16 +53,16 @@ func builtSpecFixture(t *testing.T) fabric.ConstructionSpec {
 }
 
 func TestSpecRoundTrip(t *testing.T) {
-	first, err := fabric.NewWithSpec(builtSpecFixture(t))
+	first, err := assembly.NewWithSpec(builtSpecFixture(t))
 	if err != nil {
 		t.Fatal(err)
 	}
-	spec := first.Spec()
-	second, err := fabric.NewWithSpec(spec)
+	spec := assembly.Spec(first)
+	second, err := assembly.NewWithSpec(spec)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(second.Spec(), spec) {
+	if !reflect.DeepEqual(assembly.Spec(second), spec) {
 		t.Fatal("rebuilt Spec differs from the first Spec")
 	}
 	if len(spec.Switches["sw"].Seeds) != 1 || len(spec.Hosts) != 1 || len(spec.Reflectors) != 1 {
@@ -69,15 +71,15 @@ func TestSpecRoundTrip(t *testing.T) {
 }
 
 func TestConfigureWithoutChangeKeepsSpec(t *testing.T) {
-	f, err := fabric.NewWithSpec(builtSpecFixture(t))
+	f, err := assembly.NewWithSpec(builtSpecFixture(t))
 	if err != nil {
 		t.Fatal(err)
 	}
-	before := f.Spec()
-	if err := f.Configure("sw", f.Config().Switches["sw"]); err != nil {
+	before := assembly.Spec(f)
+	if err := assembly.Configure(f, "sw", assembly.Spec(f).Config().Switches["sw"]); err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(f.Spec(), before) {
+	if !reflect.DeepEqual(assembly.Spec(f), before) {
 		t.Fatal("no-change Configure changed Spec")
 	}
 	if got := operStatusConflictCount(f); got != 1 {
@@ -90,15 +92,15 @@ func TestSpecKeepsConfiguredState(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	f, err := fabric.NewWithSpec(input)
+	f, err := assembly.NewWithSpec(input)
 	if err != nil {
 		t.Fatal(err)
 	}
-	runtimePort, _ := f.Switch("sw").Ports().Port("h")
+	runtimePort, _ := f.Device("sw").(*vswitch.Switch).Ports().Port("h")
 	if runtimePort.OperStatus != port.Up {
 		t.Fatalf("runtime port = %s, want Up", runtimePort.OperStatus)
 	}
-	spec := f.Spec()
+	spec := assembly.Spec(f)
 	configured, _ := spec.Switches["sw"].Config.Ports.Port("h")
 	if configured.OperStatus != port.Down {
 		t.Fatalf("configured port = %s, want Down", configured.OperStatus)
@@ -114,7 +116,7 @@ func TestSpecKeepsConfiguredState(t *testing.T) {
 	if err := f.SetFault(cable.A, cable.B, fault); err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(f.Spec().Cables[0].Fault, fault) {
+	if !reflect.DeepEqual(assembly.Spec(f).Cables[0].Fault, fault) {
 		t.Fatal("Spec did not report present cable fault")
 	}
 }

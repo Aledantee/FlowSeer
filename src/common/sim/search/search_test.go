@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
 	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
@@ -59,7 +61,7 @@ func makeTestFabrics(t *testing.T) (cur, cand, curTwin, candTwin *fabric.Fabric,
 			},
 		}
 
-		cfg := fabric.Config{
+		cfg := assembly.Config{
 			PhyAssumption: &cablemodel.PhyAssumption{
 				Medium: cablemodel.TwistedPair,
 				Ethernet: phy.Ethernet{
@@ -89,9 +91,9 @@ func makeTestFabrics(t *testing.T) (cur, cand, curTwin, candTwin *fabric.Fabric,
 			},
 		}
 
-		fab, err := fabric.New(cfg)
+		fab, err := assembly.New(cfg)
 		if err != nil {
-			t.Fatalf("fabric.New: %v", err)
+			t.Fatalf("assembly.New: %v", err)
 		}
 		return fab
 	}
@@ -434,7 +436,7 @@ type candidateList []Candidate
 func TestSearchRejectsExecutableConfigureCandidate(t *testing.T) {
 	current, _, twin, _, _, _ := makeTestFabrics(t)
 	at := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
-	input := Candidate{Tuple: "configure", Actions: []fabric.Action{{At: at, Kind: fabric.ActionConfigure, Configure: &fabric.ConfigureAction{Node: "sw1", Config: current.Config().Switches["sw1"]}}}}
+	input := Candidate{Tuple: "configure", Actions: []fabric.Action{{At: at, Kind: fabric.ActionConfigure, Configure: new(assembly.ConfigureAction("sw1", assembly.Spec(current).Config().Switches["sw1"]))}}}
 	comparison := fabric.Compare(current, twin, input.ToScenario(30), 30)
 	if comparison.Err != nil || comparison.Disposition != analysis.Equivalent {
 		t.Fatalf("fabric comparison = %+v, want executable equivalent configure action", comparison)

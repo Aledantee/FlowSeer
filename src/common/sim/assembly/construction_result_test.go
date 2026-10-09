@@ -1,8 +1,10 @@
-package fabric_test
+package assembly_test
 
 import (
 	"testing"
 	"time"
+
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
 
 	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
 
@@ -26,7 +28,7 @@ func TestFabricConstructionSpecAndPropagation(t *testing.T) {
 	p1, _ := b1.Build()
 
 	vid10 := vlan.ID(10)
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Start: time.Now(),
 		Switches: map[string]vswitch.Config{
 			"sw1": {
@@ -57,12 +59,12 @@ func TestFabricConstructionSpecAndPropagation(t *testing.T) {
 		},
 	}
 
-	fab, err := fabric.New(statedPhysical(cfg))
+	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
-		t.Fatalf("fabric.New: %v", err)
+		t.Fatalf("assembly.New: %v", err)
 	}
 
-	spec := fab.Spec()
+	spec := assembly.Spec(fab)
 	if spec.Switches == nil {
 		t.Errorf("expected spec to contain normalized switches")
 	}
@@ -147,16 +149,16 @@ func TestFabricConstructionSpecPreservesCompleteSwitchSpecs(t *testing.T) {
 	mismatchedSpec := mismatched.Switches["sw1"]
 	mismatchedSpec.NodeID = "different-node"
 	mismatched.Switches["sw1"] = mismatchedSpec
-	_, err := fabric.NewWithSpec(mismatched)
+	_, err := assembly.NewWithSpec(mismatched)
 	if err == nil {
 		t.Fatal("NewWithSpec accepted a switch NodeID that differs from its map key")
 	}
 
-	fab, err := fabric.NewWithSpec(spec)
+	fab, err := assembly.NewWithSpec(spec)
 	if err != nil {
 		t.Fatalf("NewWithSpec: %v", err)
 	}
-	roundTrip := fab.Spec()
+	roundTrip := assembly.Spec(fab)
 	gotMetadata := roundTrip.Switches["sw1"].Metadata
 	if gotMetadata.Status() != analysis.Incomplete || len(gotMetadata.Issues()) != 1 {
 		t.Errorf("round-trip metadata = %+v, want one incomplete issue", gotMetadata)
@@ -167,11 +169,11 @@ func TestFabricConstructionSpecPreservesCompleteSwitchSpecs(t *testing.T) {
 	if got := roundTrip.Switches["sw1"].Seeds; len(got) != 1 || got[0] != seed {
 		t.Errorf("round-trip seeds = %+v, want %+v", got, []bridge.Seed{seed})
 	}
-	rebuilt, err := fabric.NewWithSpec(roundTrip)
+	rebuilt, err := assembly.NewWithSpec(roundTrip)
 	if err != nil {
 		t.Fatalf("NewWithSpec from returned spec: %v", err)
 	}
-	if got := rebuilt.Spec(); !got.Equal(roundTrip) {
+	if got := assembly.Spec(rebuilt); !got.Equal(roundTrip) {
 		t.Errorf("round-trip spec = %+v, want %+v", got, roundTrip)
 	}
 
@@ -191,7 +193,7 @@ func TestFabricConstructionSpecPreservesCompleteSwitchSpecs(t *testing.T) {
 	withoutMetadataSpec := withoutMetadata.Switches["sw1"]
 	withoutMetadataSpec.Metadata = analysis.Metadata{}
 	withoutMetadata.Switches["sw1"] = withoutMetadataSpec
-	changes, err := fabric.DiffSpecs(roundTrip, withoutMetadata)
+	changes, err := assembly.DiffSpecs(roundTrip, withoutMetadata)
 	if err != nil {
 		t.Fatalf("DiffSpecs: %v", err)
 	}
@@ -205,11 +207,11 @@ func TestFabricConstructionSpecPreservesCompleteSwitchSpecs(t *testing.T) {
 		t.Errorf("DiffSpecs omitted metadata change: %+v", changes)
 	}
 
-	derived, err := fabric.Derive(fab, withoutMetadata)
+	derived, err := assembly.Derive(fab, withoutMetadata)
 	if err != nil {
 		t.Fatalf("Derive: %v", err)
 	}
-	derivedSpec := derived.Spec().Switches["sw1"]
+	derivedSpec := assembly.Spec(derived).Switches["sw1"]
 	if derivedSpec.Metadata.Status() != analysis.Complete {
 		t.Errorf("derived metadata status = %v, want Complete", derivedSpec.Metadata.Status())
 	}
@@ -246,7 +248,7 @@ func TestFabricDiffSpecsIgnoresConstructionIssueMessages(t *testing.T) {
 	if !a.Equal(b) {
 		t.Fatal("ConstructionSpec.Equal distinguished human-only issue messages")
 	}
-	changes, err := fabric.DiffSpecs(a, b)
+	changes, err := assembly.DiffSpecs(a, b)
 	if err != nil {
 		t.Fatalf("DiffSpecs: %v", err)
 	}
@@ -271,19 +273,19 @@ func TestFabricConfigConstructorsRejectInactiveFaultParameters(t *testing.T) {
 	}
 	constructors := []struct {
 		name string
-		new  func(fabric.Config) error
+		new  func(assembly.Config) error
 	}{
 		{
 			name: "NewConstructionSpec",
-			new: func(cfg fabric.Config) error {
-				_, err := fabric.NewConstructionSpec(statedPhysical(cfg))
+			new: func(cfg assembly.Config) error {
+				_, err := assembly.NewConstructionSpec(statedPhysical(cfg))
 				return err
 			},
 		},
 		{
 			name: "New",
-			new: func(cfg fabric.Config) error {
-				_, err := fabric.New(statedPhysical(cfg))
+			new: func(cfg assembly.Config) error {
+				_, err := assembly.New(statedPhysical(cfg))
 				return err
 			},
 		},
@@ -320,12 +322,12 @@ func TestFabricDiffSpecsReportsStartChange(t *testing.T) {
 	if _, err := b.Normalize(); err != nil {
 		t.Fatalf("Normalize(b): %v", err)
 	}
-	configChanges := fabric.Diff(a.Config(), b.Config())
+	configChanges := assembly.Diff(a.Config(), b.Config())
 	if len(configChanges) != 1 || configChanges[0].Field != "start" {
 		t.Fatalf("Diff omitted public configuration start change: %+v", configChanges)
 	}
 
-	changes, err := fabric.DiffSpecs(a, b)
+	changes, err := assembly.DiffSpecs(a, b)
 	if err != nil {
 		t.Fatalf("DiffSpecs: %v", err)
 	}
@@ -382,7 +384,7 @@ func TestFabricConstructionSpecNormalizesSeedInstantsToUTC(t *testing.T) {
 	if !a.Equal(b) {
 		t.Error("construction specifications with the same seed instant compare unequal")
 	}
-	changes, err := fabric.DiffSpecs(a, b)
+	changes, err := assembly.DiffSpecs(a, b)
 	if err != nil {
 		t.Fatalf("DiffSpecs: %v", err)
 	}
@@ -402,7 +404,7 @@ func TestFabricPerHopReadinessMetadataPropagation(t *testing.T) {
 	}
 
 	vid10 := vlan.ID(10)
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Start: time.Now(),
 		Switches: map[string]vswitch.Config{
 			"sw1": {
@@ -452,9 +454,9 @@ func TestFabricPerHopReadinessMetadataPropagation(t *testing.T) {
 		},
 	}
 
-	fab, err := fabric.New(statedPhysical(cfg))
+	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
-		t.Fatalf("fabric.New: %v", err)
+		t.Fatalf("assembly.New: %v", err)
 	}
 
 	frame := ethernet.Frame{

@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
 	"go.aledante.io/FlowSeer/src/common/net/bpdu"
 	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 
@@ -75,7 +77,7 @@ func newRingTopology(t *testing.T) (*fabric.Fabric, time.Time, map[string]netadd
 		"sw3": {0, 0, 0, 0, 1, 3},
 	}
 
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Start: t0,
 		Switches: map[string]vswitch.Config{
 			"sw1": {
@@ -140,9 +142,9 @@ func newRingTopology(t *testing.T) (*fabric.Fabric, time.Time, map[string]netadd
 		PhyAssumption: gigabitCopper(),
 	}
 
-	fab, err := fabric.New(cfg)
+	fab, err := assembly.New(cfg)
 	if err != nil {
-		t.Fatalf("fabric.New: %v", err)
+		t.Fatalf("assembly.New: %v", err)
 	}
 
 	return fab, t0, macs
@@ -190,7 +192,7 @@ func TestStpExportAndLoad_RingConvergence(t *testing.T) {
 	operUp := interfacev1.OperStatus_OPER_STATUS_UP
 
 	for _, name := range swNames {
-		sw := fab.Switch(name)
+		sw := fab.Device(name).(*vswitch.Switch)
 		if sw == nil {
 			t.Fatalf("switch %s not found in fabric", name)
 		}

@@ -3,6 +3,8 @@ package simtest
 import (
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
 	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
@@ -27,11 +29,11 @@ var (
 	loadH2 = netaddr.MAC{0x02, 0, 0, 0, 0x13, 2}
 )
 
-func loadCaseSpec(buffer *uint64, policed bool) (fabric.ConstructionSpec, error) {
+func loadCaseSpec(buffer *uint64, policed bool) (assembly.ConstructionSpec, error) {
 	ports, err := port.NewBuilder().Range("1/1/%d", 1, 2,
 		port.Port{Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).Build()
 	if err != nil {
-		return fabric.ConstructionSpec{}, err
+		return assembly.ConstructionSpec{}, err
 	}
 	vid10 := vlan.ID(10)
 	physical := func(speed uint64) phy.Ethernet {
@@ -52,7 +54,7 @@ func loadCaseSpec(buffer *uint64, policed bool) (fabric.ConstructionSpec, error)
 			"1/1/1": {RateBPS: 1_000_000, BurstOctets: 1518},
 		}
 	}
-	return fabric.ConstructionSpec{
+	return assembly.ConstructionSpec{
 		Start: time.Unix(0, 0).UTC(),
 		Switches: map[string]vswitch.ConstructionSpec{
 			"sw1": {
@@ -91,7 +93,7 @@ func executeLoadCase(buffer *uint64, policed bool, decisive trace.RuleID) (Execu
 	if err != nil {
 		return ExecutionResult{}, err
 	}
-	fab, err := fabric.NewWithSpec(spec)
+	fab, err := assembly.NewWithSpec(spec)
 	if err != nil {
 		return ExecutionResult{}, err
 	}

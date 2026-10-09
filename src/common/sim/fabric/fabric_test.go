@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
 	reflectormodel "go.aledante.io/FlowSeer/src/common/sim/device/reflector"
 
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
@@ -29,7 +31,7 @@ func TestFabricSchedulesLoopProtectWakeWithNoSTPOrLAG(t *testing.T) {
 		port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up},
 	)
 
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Start: time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC),
 		Switches: map[string]vswitch.Config{
 			"sw1": {
@@ -54,9 +56,9 @@ func TestFabricSchedulesLoopProtectWakeWithNoSTPOrLAG(t *testing.T) {
 		},
 	}
 
-	fab, err := fabric.New(statedPhysical(cfg))
+	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
-		t.Fatalf("fabric.New: %v", err)
+		t.Fatalf("assembly.New: %v", err)
 	}
 
 	sawWake := false
@@ -99,12 +101,12 @@ func TestFabricSchedulesLoopProtectWakeWithNoSTPOrLAG(t *testing.T) {
 func TestFabricRoundTripsAReflector(t *testing.T) {
 	cfg := reflectorBaseConfig(t)
 
-	fab, err := fabric.New(statedPhysical(cfg))
+	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
-		t.Fatalf("fabric.New: %v", err)
+		t.Fatalf("assembly.New: %v", err)
 	}
 
-	spec := fab.Spec()
+	spec := assembly.Spec(fab)
 	refl, ok := spec.Reflectors["r1"]
 	if !ok {
 		t.Fatal("Spec() dropped reflector r1")
@@ -113,7 +115,7 @@ func TestFabricRoundTripsAReflector(t *testing.T) {
 		t.Fatal("Spec() dropped reflector r1's attachment a")
 	}
 
-	if _, ok := fab.Config().Reflectors["r1"]; !ok {
+	if _, ok := assembly.Spec(fab).Config().Reflectors["r1"]; !ok {
 		t.Fatal("Config() dropped reflector r1")
 	}
 }
@@ -132,7 +134,7 @@ func TestFabricUsesTheReflectorsOwnPortFacts(t *testing.T) {
 	b := port.NewBuilder()
 	b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
 
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Switches: map[string]vswitch.Config{
 			"sw1": {
 				Ports: mustFabricPortTable(t, port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}),
@@ -152,9 +154,9 @@ func TestFabricUsesTheReflectorsOwnPortFacts(t *testing.T) {
 		},
 	}
 
-	fab, err := fabric.New(cfg)
+	fab, err := assembly.New(cfg)
 	if err != nil {
-		t.Fatalf("fabric.New: %v", err)
+		t.Fatalf("assembly.New: %v", err)
 	}
 
 	links := fab.Links()
