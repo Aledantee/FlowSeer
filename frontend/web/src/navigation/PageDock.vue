@@ -50,7 +50,7 @@ function formatAttention(attention: number | undefined): string {
   >
     <UiScrollArea
       axis="x"
-      class="dock-scroll max-w-full pointer-events-auto border border-chrome-border rounded-panel bg-chrome/88 backdrop-blur-xl shadow-lg"
+      class="dock-scroll max-w-full pointer-events-auto border border-chrome-border rounded-panel bg-chrome/88 backdrop-blur-xl"
     >
       <TransitionGroup
         name="dock"
@@ -174,7 +174,10 @@ function formatAttention(attention: number | undefined): string {
               <span class="min-w-0">
                 <strong
                   class="block truncate text-xs font-semibold"
-                  :class="{ 'max-w-[180px]': tab.beside }"
+                  :class="[
+                    { 'max-w-[180px]': tab.beside },
+                    title(tab).labelName ? 'font-mono' : '',
+                  ]"
                 >
                   <I18nT
                     v-if="title(tab).pair"
@@ -220,7 +223,7 @@ function formatAttention(attention: number | undefined): string {
             side="top"
           >
             <button
-              class="dock-action grid place-items-center w-6.5 h-6.5 p-0 border-0 rounded bg-transparent text-chrome-muted-foreground hover:bg-chrome-surface/80 hover:text-chrome-foreground cursor-pointer [&>svg]:w-3.5"
+              class="dock-action grid place-items-center w-6.5 h-6.5 p-0 border-0 rounded-control bg-transparent text-chrome-muted-foreground hover:bg-chrome-surface/80 hover:text-chrome-foreground cursor-pointer [&>svg]:w-3.5"
               :aria-label="
                 t('view.common.openBesideLabel', { label: title(tab).label })
               "
@@ -231,7 +234,7 @@ function formatAttention(attention: number | undefined): string {
           </UiTooltip>
           <UiTooltip :label="t('view.dock.remove')" side="top">
             <button
-              class="dock-action grid place-items-center w-6.5 h-6.5 mr-1 p-0 border-0 rounded bg-transparent text-chrome-muted-foreground hover:bg-chrome-surface/80 hover:text-chrome-foreground cursor-pointer [&>svg]:w-3.5"
+              class="dock-action grid place-items-center w-6.5 h-6.5 mr-1 p-0 border-0 rounded-control bg-transparent text-chrome-muted-foreground hover:bg-chrome-surface/80 hover:text-chrome-foreground cursor-pointer [&>svg]:w-3.5"
               :aria-label="t('view.dock.close', { label: title(tab).label })"
               @click="emit('close', tab.id)"
             >

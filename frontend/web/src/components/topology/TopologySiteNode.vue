@@ -45,7 +45,7 @@ const target = computed<AiTarget | undefined>(() => {
     <div :class="['topology-site-node', { solo: sites.length === 1 }]">
       <header v-if="sites.length > 1">
         <span
-          ><strong translate="no">{{ site.name }}</strong
+          ><strong class="font-mono" translate="no">{{ site.name }}</strong
           ><small translate="no">{{
             format.facts([site.location, tenantName(site.id)])
           }}</small></span
@@ -88,6 +88,7 @@ const target = computed<AiTarget | undefined>(() => {
   display: block;
 }
 .topology-site-node strong {
+  font-family: var(--font-mono);
   font-size: var(--text-md);
   font-weight: 600;
 }

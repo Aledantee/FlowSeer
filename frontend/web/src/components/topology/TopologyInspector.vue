@@ -124,7 +124,7 @@ function deviceLink(id: string) {
 <template>
   <aside
     v-if="device || link || port"
-    class="topology-inspector"
+    class="topology-inspector ui-card relative"
     aria-live="polite"
     :aria-label="label"
   >
@@ -132,7 +132,7 @@ function deviceLink(id: string) {
       <template v-if="device">
         <DeviceIcon :role="device.role" />
         <span
-          ><strong translate="no">{{ device.name }}</strong
+          ><strong class="mono" translate="no">{{ device.name }}</strong
           ><small translate="no">{{
             format.facts([device.kind, siteName(device.siteId)])
           }}</small></span
@@ -164,7 +164,7 @@ function deviceLink(id: string) {
         >
       </template>
       <span v-else-if="link"
-        ><strong translate="no">{{
+        ><strong class="mono" translate="no">{{
           t('view.topologyInspector.linkEnds', {
             source: ends[0]?.name ?? '',
             target: ends[1]?.name ?? '',
@@ -516,7 +516,7 @@ function deviceLink(id: string) {
   border-radius: var(--radius-panel);
   background: color-mix(in srgb, var(--card) 92%, transparent);
   backdrop-filter: blur(16px);
-  box-shadow: var(--shadow-lg);
+  box-shadow: none;
 }
 .topology-inspector header {
   display: flex;
@@ -537,6 +537,7 @@ function deviceLink(id: string) {
   white-space: nowrap;
 }
 .topology-inspector header strong {
+  font-family: var(--font-mono);
   font-size: var(--text-base);
   font-weight: 600;
 }
@@ -553,13 +554,18 @@ function deviceLink(id: string) {
   padding: 14px 16px;
 }
 .topology-inspector dt {
-  font-size: var(--text-xs);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
   color: var(--muted-foreground);
 }
 .topology-inspector dd {
   margin: 4px 0 0;
   font-size: var(--text-base);
   font-weight: 550;
+  font-variant-numeric: tabular-nums;
 }
 .topology-inspector dl .wide {
   grid-column: 1 / -1;
@@ -571,9 +577,12 @@ function deviceLink(id: string) {
   border-top: 1px solid var(--border);
 }
 .topology-inspector-section h3 {
-  font-size: var(--text-xs);
-  font-weight: 500;
-  color: var(--muted-foreground);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--foreground);
 }
 .topology-inspector-note {
   font-size: var(--text-xs);
