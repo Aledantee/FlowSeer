@@ -763,9 +763,7 @@ behaviour changes.
 Tests: `TestLinkChangeErrorReachesNew` hands a built test device whose
 `LinkChange` returns an error to the fabric, and asserts construction returns
 that error and no fabric, with the same check for `Derive` and `Configure`
-wherever those paths live after U10 and U11. In U10 the built-device proof
-calls the shared `newTopology` entry used by construction and `Derive`, and
-`replace`, the run half of `Configure`. Both return the device's link error.
+wherever those paths live after U10 and U11.
 `TestRunHalfImportsNoDeviceKind` in `Fb` parses the imports of
 every non-test file but the five of the construction half and
 `scenario.go`, and fails on a path under `sim/layer` or `sim/device/`. `TestSpecRoundTrip`: for a
