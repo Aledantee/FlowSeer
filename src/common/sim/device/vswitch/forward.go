@@ -9,6 +9,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/lacp"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
+	"go.aledante.io/FlowSeer/src/common/sim/device"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/filter"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/lag"
@@ -23,7 +24,7 @@ import (
 
 // Peek processes an arrival on an ingress port at the given time without mutating
 // runtime state and returns the forwarding result, metadata, and mirror copies.
-func (s *Switch) Peek(now time.Time, ingress string, f ethernet.Frame) Output {
+func (s *Switch) Peek(now time.Time, ingress string, f ethernet.Frame) device.Output {
 	c, end := s.beginCall(now, false)
 	defer end()
 

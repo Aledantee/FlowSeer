@@ -12,7 +12,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
-	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
+	"go.aledante.io/FlowSeer/src/common/sim/device"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/stp"
@@ -85,7 +85,7 @@ func TestJourneyDifferenceFields(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			a := Journey{FrameID: 1, State: JourneyDelivered, Origin: JourneyOrigin{Kind: OriginInjection}, Entries: []Entry{{Kind: EntryHop, Cable: &Cable{}, Result: &vswitch.ForwardResult{Result: bridge.Result{Egress: []bridge.Egress{{}}}}}}, Deliveries: []Delivery{{}}}
+			a := Journey{FrameID: 1, State: JourneyDelivered, Origin: JourneyOrigin{Kind: OriginInjection}, Entries: []Entry{{Kind: EntryHop, Cable: &Cable{}, Result: &device.Result{Egress: []device.Egress{{}}}}}, Deliveries: []Delivery{{}}}
 			if tc.name == "drop device" || tc.name == "drop port" {
 				a.Entries[0].Kind = EntryDrop
 			}

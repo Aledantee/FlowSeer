@@ -341,6 +341,9 @@ func stpMSTInjectFrameTo(spec fabric.ConstructionSpec, originHost string, src, d
 		return nil, fabric.Journey{}, err
 	}
 	fab.Run(1000)
+	if err := validateReceiveReport(fab.Report()); err != nil {
+		return fab, fabric.Journey{}, err
+	}
 
 	fid, err := fab.Inject(fabric.Injection{
 		At:     fab.Snapshot().Clock,
@@ -351,6 +354,9 @@ func stpMSTInjectFrameTo(spec fabric.ConstructionSpec, originHost string, src, d
 		return fab, fabric.Journey{}, err
 	}
 	fab.Run(50)
+	if err := validateReceiveReport(fab.Report()); err != nil {
+		return fab, fabric.Journey{}, err
+	}
 
 	report := fab.Report()
 
@@ -926,7 +932,9 @@ func caseTroubleshootingStaleRootAgesOut() Case {
 			if err != nil {
 				return ExecutionResult{}, err
 			}
-			sw.Receive(stpCaseStart.Add(33*time.Second), "p2", rootClaim)
+			if err := validateReceiveResult(sw.Receive(stpCaseStart.Add(33*time.Second), "p2", rootClaim).Result); err != nil {
+				return ExecutionResult{}, err
+			}
 
 			// A second bridge claims the same root on p1 at a cost that beats
 			// this bridge's own, so storing the claim would make p1 Alternate
@@ -937,9 +945,14 @@ func caseTroubleshootingStaleRootAgesOut() Case {
 			if err != nil {
 				return ExecutionResult{}, err
 			}
-			sw.Receive(stpCaseStart.Add(34*time.Second), "p1", staleClaim)
+			if err := validateReceiveResult(sw.Receive(stpCaseStart.Add(34*time.Second), "p1", staleClaim).Result); err != nil {
+				return ExecutionResult{}, err
+			}
 
 			fwd := sw.Receive(stpCaseStart.Add(35*time.Second), "p9", stpCaseDataFrame())
+			if err := validateReceiveResult(fwd.Result); err != nil {
+				return ExecutionResult{}, err
+			}
 
 			return ExecutionResult{
 				Outcome:  fwd.Outcome,
@@ -947,7 +960,7 @@ func caseTroubleshootingStaleRootAgesOut() Case {
 				Steps:    fwd.Steps,
 				Metadata: fwd.Metadata,
 				Switch:   sw,
-				Forward:  &fwd.ForwardResult,
+				Forward:  &fwd.Result,
 			}, nil
 		},
 		ID:      "troubleshooting/stale-root-ages-out",
@@ -997,11 +1010,16 @@ func caseTroubleshootingBPDUGuardDisablesEdge() Case {
 			if err != nil {
 				return ExecutionResult{}, err
 			}
-			sw.Receive(stpCaseStart.Add(time.Second), "p1", superiorBPDU)
+			if err := validateReceiveResult(sw.Receive(stpCaseStart.Add(time.Second), "p1", superiorBPDU).Result); err != nil {
+				return ExecutionResult{}, err
+			}
 
 			// A frame the forwarding database resolves to p1 now meets a port
 			// the guard has disabled.
 			fwd := sw.Receive(stpCaseStart.Add(2*time.Second), "p9", stpCaseDataFrame())
+			if err := validateReceiveResult(fwd.Result); err != nil {
+				return ExecutionResult{}, err
+			}
 
 			return ExecutionResult{
 				Outcome:  fwd.Outcome,
@@ -1009,7 +1027,7 @@ func caseTroubleshootingBPDUGuardDisablesEdge() Case {
 				Steps:    fwd.Steps,
 				Metadata: fwd.Metadata,
 				Switch:   sw,
-				Forward:  &fwd.ForwardResult,
+				Forward:  &fwd.Result,
 			}, nil
 		},
 		ID:      "troubleshooting/bpdu-guard-disables-edge",
@@ -1065,13 +1083,18 @@ func caseTroubleshootingLoopGuardUnidirectionalLink() Case {
 			if err != nil {
 				return ExecutionResult{}, err
 			}
-			sw.Receive(stpCaseStart.Add(time.Second), "p1", superiorBPDU)
+			if err := validateReceiveResult(sw.Receive(stpCaseStart.Add(time.Second), "p1", superiorBPDU).Result); err != nil {
+				return ExecutionResult{}, err
+			}
 
 			// The link breaks in the receive direction only: nothing more
 			// arrives, and three hello times later the information expires.
 			sw.Advance(stpCaseStart.Add(9 * time.Second))
 
 			fwd := sw.Receive(stpCaseStart.Add(10*time.Second), "p9", stpCaseDataFrame())
+			if err := validateReceiveResult(fwd.Result); err != nil {
+				return ExecutionResult{}, err
+			}
 
 			return ExecutionResult{
 				Outcome:  fwd.Outcome,
@@ -1079,7 +1102,7 @@ func caseTroubleshootingLoopGuardUnidirectionalLink() Case {
 				Steps:    fwd.Steps,
 				Metadata: fwd.Metadata,
 				Switch:   sw,
-				Forward:  &fwd.ForwardResult,
+				Forward:  &fwd.Result,
 			}, nil
 		},
 		ID:      "troubleshooting/loop-guard-unidirectional-link",

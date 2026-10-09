@@ -5,10 +5,9 @@ import (
 	"slices"
 	"time"
 
-	"go.aledante.io/FlowSeer/src/common/errs"
-
 	interfacev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1"
 	switchingv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/switching/v1"
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/arp"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/igmp"
@@ -16,6 +15,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
+	"go.aledante.io/FlowSeer/src/common/sim/device"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
@@ -182,6 +182,12 @@ func casePlanningPortVLANChange() Case {
 			}
 
 			cmp := vswitch.Compare(swCur, swNext, now, "1/1/1", frame)
+			if err := validateReceiveResult(cmp.Current.Result); err != nil {
+				return ExecutionResult{}, err
+			}
+			if err := validateReceiveResult(cmp.Expected.Result); err != nil {
+				return ExecutionResult{}, err
+			}
 
 			return ExecutionResult{
 				Outcome:    cmp.Expected.Outcome,
@@ -279,6 +285,9 @@ func casePlanningCandidateForkDiverges() Case {
 			}
 
 			fab.Run(5)
+			if err := validateReceiveReport(fab.Report()); err != nil {
+				return ExecutionResult{}, err
+			}
 
 			// Fork a candidate simulation mid-run.
 			cand := fab.Fork()
@@ -301,6 +310,9 @@ func casePlanningCandidateForkDiverges() Case {
 				return ExecutionResult{}, err
 			}
 			cand.Run(20)
+			if err := validateReceiveReport(cand.Report()); err != nil {
+				return ExecutionResult{}, err
+			}
 
 			// Source fabric injects the planned frame and continues its run unaffected.
 			fid, err := fab.Inject(fabric.Injection{
@@ -317,6 +329,9 @@ func casePlanningCandidateForkDiverges() Case {
 				return ExecutionResult{}, err
 			}
 			fab.Run(10)
+			if err := validateReceiveReport(fab.Report()); err != nil {
+				return ExecutionResult{}, err
+			}
 
 			journey := fab.Report()[fid-1]
 			fabricMetadata := fab.Metadata()
@@ -497,6 +512,9 @@ func caseShadowingPartialUnknownPort() Case {
 			}
 
 			fwdUnknown := sw.Receive(now, "1/1/2", frame)
+			if err := validateReceiveResult(fwdUnknown.Result); err != nil {
+				return ExecutionResult{}, err
+			}
 
 			return ExecutionResult{
 				Outcome:     fwdUnknown.Outcome,
@@ -505,7 +523,7 @@ func caseShadowingPartialUnknownPort() Case {
 				Metadata:    loadRes.Metadata,
 				Switch:      sw,
 				ModelResult: &loadRes,
-				Forward:     &fwdUnknown.ForwardResult,
+				Forward:     &fwdUnknown.Result,
 			}, nil
 		},
 	}
@@ -618,6 +636,9 @@ func caseTroubleshootingUnicastForwarding() Case {
 			}
 
 			fwd := sw.Receive(now, "1/1/1", frame)
+			if err := validateReceiveResult(fwd.Result); err != nil {
+				return ExecutionResult{}, err
+			}
 
 			return ExecutionResult{
 				Outcome:  fwd.Outcome,
@@ -625,7 +646,7 @@ func caseTroubleshootingUnicastForwarding() Case {
 				Steps:    fwd.Steps,
 				Metadata: fwd.Metadata,
 				Switch:   sw,
-				Forward:  &fwd.ForwardResult,
+				Forward:  &fwd.Result,
 			}, nil
 		},
 	}
@@ -778,6 +799,9 @@ func caseTopologyShadowingUnresolvedTransceiver() Case {
 				return ExecutionResult{}, err
 			}
 			fab.Run(10)
+			if err := validateReceiveReport(fab.Report()); err != nil {
+				return ExecutionResult{}, err
+			}
 
 			journey := fab.Report()[fid-1]
 			steps := journeySteps(journey)
@@ -856,6 +880,9 @@ func caseTopologyShadowingUnresolvedTransceiverKnownDelivery() Case {
 				return ExecutionResult{}, err
 			}
 			fab.Run(10)
+			if err := validateReceiveReport(fab.Report()); err != nil {
+				return ExecutionResult{}, err
+			}
 
 			journey := fab.Report()[fid-1]
 			steps := journeySteps(journey)
@@ -893,7 +920,7 @@ func journeySteps(j fabric.Journey) []trace.Step {
 // journeyHopResult returns the last recorded hop's forwarding result: the switch-layer outcome
 // host-level acceptance or rejection follows. A journey without a hop, such as one that never
 // left its origin, returns nil.
-func journeyHopResult(j fabric.Journey) *vswitch.ForwardResult {
+func journeyHopResult(j fabric.Journey) *device.Result {
 	for _, e := range slices.Backward(j.Entries) {
 		if e.Result != nil {
 			return e.Result
@@ -1020,6 +1047,9 @@ func caseTopologyShadowingUncabledPortDefiniteDrop() Case {
 				return ExecutionResult{}, err
 			}
 			fab.Run(10)
+			if err := validateReceiveReport(fab.Report()); err != nil {
+				return ExecutionResult{}, err
+			}
 
 			journey := fab.Report()[fid-1]
 			fabricMetadata := fab.Metadata()
@@ -1161,6 +1191,9 @@ func caseTopologyShadowingUnreportedNegotiation() Case {
 				return ExecutionResult{}, err
 			}
 			fab.Run(10)
+			if err := validateReceiveReport(fab.Report()); err != nil {
+				return ExecutionResult{}, err
+			}
 
 			journey := fab.Report()[fid-1]
 			fabricMetadata := fab.Metadata()
@@ -1329,6 +1362,9 @@ func caseTopologyShadowingUnknownUplinkSTP() Case {
 				return ExecutionResult{}, err
 			}
 			fab.Run(200)
+			if err := validateReceiveReport(fab.Report()); err != nil {
+				return ExecutionResult{}, err
+			}
 
 			fid, err := fab.Inject(fabric.Injection{
 				At:     fab.Snapshot().Clock,
@@ -1339,6 +1375,9 @@ func caseTopologyShadowingUnknownUplinkSTP() Case {
 				return ExecutionResult{}, err
 			}
 			fab.Run(50)
+			if err := validateReceiveReport(fab.Report()); err != nil {
+				return ExecutionResult{}, err
+			}
 
 			journey := fab.Report()[fid-1]
 			fabricMetadata := fab.Metadata()
@@ -1455,6 +1494,9 @@ func caseTroubleshootingHostRejectsForeignUnicast() Case {
 				return ExecutionResult{}, err
 			}
 			fab.Run(10)
+			if err := validateReceiveReport(fab.Report()); err != nil {
+				return ExecutionResult{}, err
+			}
 
 			journey := fab.Report()[fid-1]
 			fabricMetadata := fab.Metadata()
@@ -1569,17 +1611,26 @@ func casePlanningLAGMemberFaultKeepsSurvivingFlows() Case {
 			// Both flows land on distinct members: flow1 takes the front of
 			// the enabled list (member-a, bucket 28), and flow2 takes the
 			// new front after the rotation (member-b, bucket 253).
-			sw.Receive(now, "in", flow1)
-			sw.Receive(now, "in", flow2)
+			if err := validateReceiveResult(sw.Receive(now, "in", flow1).Result); err != nil {
+				return ExecutionResult{}, err
+			}
+			if err := validateReceiveResult(sw.Receive(now, "in", flow2).Result); err != nil {
+				return ExecutionResult{}, err
+			}
 
 			// member-a faults. Only the bucket it held (flow1's) needs
 			// reassignment; flow2's bucket was never on member-a.
-			if _, err := sw.LinkChange(now.Add(time.Second), "member-a", port.Down, vswitch.PointToPointTrue, 1_000_000_000); err != nil {
+			if _, err := sw.LinkChange(now.Add(time.Second), "member-a", port.Down, device.PointToPointTrue, 1_000_000_000); err != nil {
 				return ExecutionResult{}, err
 			}
-			sw.Receive(now.Add(2*time.Second), "in", flow1)
+			if err := validateReceiveResult(sw.Receive(now.Add(2*time.Second), "in", flow1).Result); err != nil {
+				return ExecutionResult{}, err
+			}
 
 			fwd := sw.Receive(now.Add(2*time.Second), "in", flow2)
+			if err := validateReceiveResult(fwd.Result); err != nil {
+				return ExecutionResult{}, err
+			}
 
 			return ExecutionResult{
 				Outcome:  fwd.Outcome,
@@ -1587,7 +1638,7 @@ func casePlanningLAGMemberFaultKeepsSurvivingFlows() Case {
 				Steps:    fwd.Steps,
 				Metadata: fwd.Metadata,
 				Switch:   sw,
-				Forward:  &fwd.ForwardResult,
+				Forward:  &fwd.Result,
 			}, nil
 		},
 	}
@@ -1680,17 +1731,24 @@ func caseTroubleshootingActiveBackupNoFailback() Case {
 			frame := ethernet.Frame{Dst: dst, Src: netaddr.MAC{0x02, 0, 0, 0, 0, 1}, EtherType: ethernet.EtherTypeIPv4, Payload: []byte("x")}
 
 			now := time.Unix(1700000000, 0)
-			sw.Receive(now, "in", frame)
-
-			if _, err := sw.LinkChange(now.Add(time.Second), "a", port.Down, vswitch.PointToPointTrue, 1_000_000_000); err != nil {
+			if err := validateReceiveResult(sw.Receive(now, "in", frame).Result); err != nil {
 				return ExecutionResult{}, err
 			}
-			sw.Receive(now.Add(2*time.Second), "in", frame)
 
-			if _, err := sw.LinkChange(now.Add(3*time.Second), "a", port.Up, vswitch.PointToPointTrue, 1_000_000_000); err != nil {
+			if _, err := sw.LinkChange(now.Add(time.Second), "a", port.Down, device.PointToPointTrue, 1_000_000_000); err != nil {
+				return ExecutionResult{}, err
+			}
+			if err := validateReceiveResult(sw.Receive(now.Add(2*time.Second), "in", frame).Result); err != nil {
+				return ExecutionResult{}, err
+			}
+
+			if _, err := sw.LinkChange(now.Add(3*time.Second), "a", port.Up, device.PointToPointTrue, 1_000_000_000); err != nil {
 				return ExecutionResult{}, err
 			}
 			fwd := sw.Receive(now.Add(4*time.Second), "in", frame)
+			if err := validateReceiveResult(fwd.Result); err != nil {
+				return ExecutionResult{}, err
+			}
 
 			return ExecutionResult{
 				Outcome:  fwd.Outcome,
@@ -1698,7 +1756,7 @@ func caseTroubleshootingActiveBackupNoFailback() Case {
 				Steps:    fwd.Steps,
 				Metadata: fwd.Metadata,
 				Switch:   sw,
-				Forward:  &fwd.ForwardResult,
+				Forward:  &fwd.Result,
 			}, nil
 		},
 	}
@@ -1808,7 +1866,9 @@ func caseTroubleshootingSSMRejectsUnjoinedSource() Case {
 				return ExecutionResult{}, err
 			}
 			joinFrame := ethernet.Frame{Dst: groupMAC, Src: hostMAC, EtherType: ethernet.EtherTypeIPv4, Payload: joinPacket}
-			sw.Receive(now, "p1", joinFrame)
+			if err := validateReceiveResult(sw.Receive(now, "p1", joinFrame).Result); err != nil {
+				return ExecutionResult{}, err
+			}
 
 			dataFrame := func(src netip.Addr) (ethernet.Frame, error) {
 				hdr := ip.Header{Src: src, Dst: group, HopLimit: 32, Protocol: 17, V4: &ip.V4{}}
@@ -1823,13 +1883,18 @@ func caseTroubleshootingSSMRejectsUnjoinedSource() Case {
 			if err != nil {
 				return ExecutionResult{}, err
 			}
-			sw.Receive(now.Add(time.Second), "p9", frameS1)
+			if err := validateReceiveResult(sw.Receive(now.Add(time.Second), "p9", frameS1).Result); err != nil {
+				return ExecutionResult{}, err
+			}
 
 			frameS2, err := dataFrame(s2)
 			if err != nil {
 				return ExecutionResult{}, err
 			}
 			fwd := sw.Receive(now.Add(time.Second), "p9", frameS2)
+			if err := validateReceiveResult(fwd.Result); err != nil {
+				return ExecutionResult{}, err
+			}
 
 			return ExecutionResult{
 				Outcome:  fwd.Outcome,
@@ -1837,7 +1902,7 @@ func caseTroubleshootingSSMRejectsUnjoinedSource() Case {
 				Steps:    fwd.Steps,
 				Metadata: fwd.Metadata,
 				Switch:   sw,
-				Forward:  &fwd.ForwardResult,
+				Forward:  &fwd.Result,
 			}, nil
 		},
 	}
@@ -1949,7 +2014,9 @@ func caseTroubleshootingLeaveLastMemberQuery() Case {
 			if err != nil {
 				return ExecutionResult{}, err
 			}
-			sw.Receive(now, "p1", ethernet.Frame{Dst: groupMAC, Src: hostMAC, EtherType: ethernet.EtherTypeIPv4, Payload: joinPacket})
+			if err := validateReceiveResult(sw.Receive(now, "p1", ethernet.Frame{Dst: groupMAC, Src: hostMAC, EtherType: ethernet.EtherTypeIPv4, Payload: joinPacket}).Result); err != nil {
+				return ExecutionResult{}, err
+			}
 
 			leavePayload, err := igmp.Encode(igmp.Message{Type: igmp.Leave, Group: group})
 			if err != nil {
@@ -1960,7 +2027,9 @@ func caseTroubleshootingLeaveLastMemberQuery() Case {
 			if err != nil {
 				return ExecutionResult{}, err
 			}
-			sw.Receive(leaveAt, "p1", ethernet.Frame{Dst: allRoutersMAC, Src: hostMAC, EtherType: ethernet.EtherTypeIPv4, Payload: leavePacket})
+			if err := validateReceiveResult(sw.Receive(leaveAt, "p1", ethernet.Frame{Dst: allRoutersMAC, Src: hostMAC, EtherType: ethernet.EtherTypeIPv4, Payload: leavePacket}).Result); err != nil {
+				return ExecutionResult{}, err
+			}
 
 			queryPayload, err := igmp.Encode(igmp.Message{Type: igmp.Query, Version: igmp.V2, Group: group})
 			if err != nil {
@@ -1971,7 +2040,9 @@ func caseTroubleshootingLeaveLastMemberQuery() Case {
 			if err != nil {
 				return ExecutionResult{}, err
 			}
-			sw.Receive(leaveAt, "p9", ethernet.Frame{Dst: groupMAC, Src: routerMAC, EtherType: ethernet.EtherTypeIPv4, Payload: queryPacket})
+			if err := validateReceiveResult(sw.Receive(leaveAt, "p9", ethernet.Frame{Dst: groupMAC, Src: routerMAC, EtherType: ethernet.EtherTypeIPv4, Payload: queryPacket}).Result); err != nil {
+				return ExecutionResult{}, err
+			}
 
 			dataHdr := ip.Header{Src: netip.MustParseAddr("10.9.9.9"), Dst: group, HopLimit: 32, Protocol: 17, V4: &ip.V4{}}
 			dataPacket, err := dataHdr.Encode([]byte("data"))
@@ -1980,8 +2051,13 @@ func caseTroubleshootingLeaveLastMemberQuery() Case {
 			}
 			dataFrame := ethernet.Frame{Dst: groupMAC, Src: routerMAC, EtherType: ethernet.EtherTypeIPv4, Payload: dataPacket}
 
-			sw.Receive(leaveAt.Add(time.Second), "p9", dataFrame)
+			if err := validateReceiveResult(sw.Receive(leaveAt.Add(time.Second), "p9", dataFrame).Result); err != nil {
+				return ExecutionResult{}, err
+			}
 			fwd := sw.Receive(leaveAt.Add(2*time.Second), "p9", dataFrame)
+			if err := validateReceiveResult(fwd.Result); err != nil {
+				return ExecutionResult{}, err
+			}
 
 			return ExecutionResult{
 				Outcome:  fwd.Outcome,
@@ -1989,7 +2065,7 @@ func caseTroubleshootingLeaveLastMemberQuery() Case {
 				Steps:    fwd.Steps,
 				Metadata: fwd.Metadata,
 				Switch:   sw,
-				Forward:  &fwd.ForwardResult,
+				Forward:  &fwd.Result,
 			}, nil
 		},
 	}
@@ -2151,6 +2227,9 @@ func casePlanningECMPCandidatesRecorded() Case {
 				EtherType: ethernet.EtherTypeIPv4,
 				Payload:   pkt,
 			})
+			if err := validateReceiveResult(fwd.Result); err != nil {
+				return ExecutionResult{}, err
+			}
 
 			return ExecutionResult{
 				Outcome:  fwd.Outcome,
@@ -2158,7 +2237,7 @@ func casePlanningECMPCandidatesRecorded() Case {
 				Steps:    fwd.Steps,
 				Metadata: fwd.Metadata,
 				Switch:   sw,
-				Forward:  &fwd.ForwardResult,
+				Forward:  &fwd.Result,
 			}, nil
 		},
 	}
@@ -2285,6 +2364,9 @@ func caseTroubleshootingNeighborResolutionPending() Case {
 				EtherType: ethernet.EtherTypeIPv4,
 				Payload:   pkt,
 			})
+			if err := validateReceiveResult(fwd.Result); err != nil {
+				return ExecutionResult{}, err
+			}
 
 			// The reply arrives on the retransmit deadline, after the second solicitation.
 			replyMsg := arp.Message{
@@ -2301,9 +2383,12 @@ func caseTroubleshootingNeighborResolutionPending() Case {
 				return ExecutionResult{}, err
 			}
 			received := sw.Receive(now.Add(time.Second), "out", reply)
+			if err := validateReceiveResult(received.Result); err != nil {
+				return ExecutionResult{}, err
+			}
 			advanced := sw.Advance(now.Add(time.Second))
 
-			var emissions []vswitch.Emission
+			var emissions []device.Emission
 			solicitations := 0
 			for _, emission := range append(append(fwd.Emissions, received.Emissions...), advanced.Emissions...) {
 				if !emission.Protocol {
@@ -2338,7 +2423,7 @@ func caseTroubleshootingNeighborResolutionPending() Case {
 				Steps:    fwd.Steps,
 				Metadata: fwd.Metadata,
 				Switch:   sw,
-				Forward:  &fwd.ForwardResult,
+				Forward:  &fwd.Result,
 			}, nil
 		},
 	}
@@ -2455,6 +2540,9 @@ func caseTroubleshootingRecursiveRouteNotInstalled() Case {
 				EtherType: ethernet.EtherTypeIPv4,
 				Payload:   pkt,
 			})
+			if err := validateReceiveResult(fwd.Result); err != nil {
+				return ExecutionResult{}, err
+			}
 
 			return ExecutionResult{
 				Outcome:  fwd.Outcome,
@@ -2462,7 +2550,7 @@ func caseTroubleshootingRecursiveRouteNotInstalled() Case {
 				Steps:    fwd.Steps,
 				Metadata: fwd.Metadata,
 				Switch:   sw,
-				Forward:  &fwd.ForwardResult,
+				Forward:  &fwd.Result,
 			}, nil
 		},
 	}

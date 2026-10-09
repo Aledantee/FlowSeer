@@ -17,6 +17,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
+	"go.aledante.io/FlowSeer/src/common/sim/device"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/lag"
@@ -168,7 +169,7 @@ func TestHeldOutputKeepsReleaseIdentity(t *testing.T) {
 	if len(out.Drops) != 0 || len(out.Emissions) != 2 {
 		t.Fatalf("release = %+v, want exactly two data emissions", out)
 	}
-	for i, token := range []routing.HoldToken{first.Hold, second.Hold} {
+	for i, token := range []device.HoldToken{first.Hold, second.Hold} {
 		if em := out.Emissions[i]; em.Protocol || em.Hold != token || em.Ingress != "vlan10" {
 			t.Errorf("emission %d = %+v, want token %d and ingress vlan10", i, em, token)
 		}
@@ -229,7 +230,7 @@ func TestRoutingSolicitationHasNoHoldToken(t *testing.T) {
 // own result must carry no lag-rebalance-unmodeled issue even though
 // releasing the held frame raises the same condition on lag1 itself.
 func TestObservationReleaseDoesNotChargeLAGRebalanceToObservingFrame(t *testing.T) {
-	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
+	callOutputs := make(map[*vswitch.Switch]device.Output)
 	ports := mustTable(t, port.NewBuilder().
 		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
 		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
@@ -414,7 +415,7 @@ func makeNDPFrame(t *testing.T, src, dst netip.Addr, srcMAC, dstMAC netaddr.MAC,
 // reply moves the entry, and Advance releases the held frame as ordinary data
 // (Protocol: false) rather than a protocol frame of the switch's own.
 func TestARPObservationReleasesHeldFrameOnRoutedPort(t *testing.T) {
-	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
+	callOutputs := make(map[*vswitch.Switch]device.Output)
 	sw := buildRoutedPortSwitch(t)
 
 	dst := netip.MustParseAddr("10.0.20.77")
@@ -489,7 +490,7 @@ func buildSubInterfaceSwitch(t *testing.T) *vswitch.Switch {
 
 // holdOnSubInterface routes a frame in on eth3 for a host behind eth1.10, which
 // has no neighbor, leaving the frame in that interface's hold queue.
-func holdOnSubInterface(t *testing.T, sw *vswitch.Switch) vswitch.Output {
+func holdOnSubInterface(t *testing.T, sw *vswitch.Switch) device.Output {
 	t.Helper()
 	pkt := makeIPv4Packet(t, ipSubSrc, ipSubHost, 64, []byte("held on a sub-interface"))
 	frame := ethernet.Frame{Src: macH1, Dst: macRouter, EtherType: ethernet.EtherTypeIPv4, Payload: pkt}
@@ -522,7 +523,7 @@ func subInterfaceARPReply(t *testing.T, tags []vlan.Tag) ethernet.Frame {
 // needs the release path: Observe updates a pending entry and creates none, so
 // binding shows only as the held frame leaving.
 func TestSubInterfaceObservationBindsOnlyItsOuterVID(t *testing.T) {
-	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
+	callOutputs := make(map[*vswitch.Switch]device.Output)
 	cTag := uint16(ethernet.EtherTypeDot1Q)
 
 	for _, tc := range []struct {
@@ -540,7 +541,7 @@ func TestSubInterfaceObservationBindsOnlyItsOuterVID(t *testing.T) {
 			sw := buildSubInterfaceSwitch(t)
 			captureOutput(callOutputs, sw, holdOnSubInterface(t, sw))
 			if tc.down {
-				if _, err := sw.LinkChange(time.Time{}, "eth1", port.Down, vswitch.PointToPointTrue, 0); err != nil {
+				if _, err := sw.LinkChange(time.Time{}, "eth1", port.Down, device.PointToPointTrue, 0); err != nil {
 					t.Fatalf("LinkChange(eth1, Down) = %v", err)
 				}
 			}
@@ -596,7 +597,7 @@ func TestSubInterfaceObservationBindsOnlyItsOuterVID(t *testing.T) {
 // so a release routed through the bridge does not merely take the wrong path
 // here — it dereferences a nil bridge and panics.
 func TestARPObservationReleasesHeldFrameOnSubInterface(t *testing.T) {
-	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
+	callOutputs := make(map[*vswitch.Switch]device.Output)
 	sw := buildSubInterfaceSwitch(t)
 	captureOutput(callOutputs, sw, holdOnSubInterface(t, sw))
 	captureOutput(callOutputs, sw, sw.Receive(fixedTime.Add(time.Second), "eth1", subInterfaceARPReply(t, []vlan.Tag{{TPID: uint16(ethernet.EtherTypeDot1Q), VID: 10}})))
@@ -623,7 +624,7 @@ func TestARPObservationReleasesHeldFrameOnSubInterface(t *testing.T) {
 // interface, so this pins that contract rather than the release path; a timed
 // out frame never reaches releaseHeldFrame at all.
 func TestHeldFrameOnSubInterfaceTimesOutAgainstParentPort(t *testing.T) {
-	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
+	callOutputs := make(map[*vswitch.Switch]device.Output)
 	sw := buildSubInterfaceSwitch(t)
 	captureOutput(callOutputs, sw, holdOnSubInterface(t, sw))
 
@@ -650,7 +651,7 @@ func TestHeldFrameOnSubInterfaceTimesOutAgainstParentPort(t *testing.T) {
 // two VLAN 10s are unrelated namespaces and the released frame belongs on eth1
 // alone.
 func TestReleasedSubInterfaceFrameStaysOffTheBridge(t *testing.T) {
-	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
+	callOutputs := make(map[*vswitch.Switch]device.Output)
 	p10 := vlan.ID(10)
 	ports := mustTable(t, port.NewBuilder().
 		Add(port.Port{Name: "eth1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
@@ -692,7 +693,7 @@ func TestReleasedSubInterfaceFrameStaysOffTheBridge(t *testing.T) {
 // to a VLAN rather than a port, and checks the released frame egresses
 // through the bridge the way a routed frame's egress already does.
 func TestARPObservationReleasesHeldFrameOnVLANInterface(t *testing.T) {
-	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
+	callOutputs := make(map[*vswitch.Switch]device.Output)
 	sw := buildBaseRoutingSwitch(t)
 
 	dst := netip.MustParseAddr("10.0.20.77")
@@ -734,7 +735,7 @@ func TestARPObservationReleasesHeldFrameOnVLANInterface(t *testing.T) {
 // released frame always egressed at priority 0 regardless of what it
 // arrived with.
 func TestReleasedFrameCarriesIngressPCPAndDEI(t *testing.T) {
-	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
+	callOutputs := make(map[*vswitch.Switch]device.Output)
 	p10 := vlan.ID(10)
 	p20 := vlan.ID(20)
 
@@ -811,7 +812,7 @@ func TestReleasedFrameCarriesIngressPCPAndDEI(t *testing.T) {
 // changes nothing under Peek, and two consecutive Peeks over the pending
 // destination agree.
 func TestARPReplyUnderPeekLeavesTableUntouched(t *testing.T) {
-	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
+	callOutputs := make(map[*vswitch.Switch]device.Output)
 	sw := buildBaseRoutingSwitch(t)
 
 	dst := netip.MustParseAddr("10.0.20.77")
@@ -846,7 +847,7 @@ func TestARPReplyUnderPeekLeavesTableUntouched(t *testing.T) {
 // TestHeldFrameTimesOutWithDropStep checks each request and the final drop
 // when resolution gets no reply.
 func TestHeldFrameTimesOutWithDropStep(t *testing.T) {
-	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
+	callOutputs := make(map[*vswitch.Switch]device.Output)
 	sw := buildBaseRoutingSwitch(t)
 
 	dst := netip.MustParseAddr("10.0.20.88")
@@ -889,7 +890,7 @@ func TestHeldFrameTimesOutWithDropStep(t *testing.T) {
 // hop limit is not 255: routing.Layer.Receive ignores the frame, so the held
 // frame still times out on schedule.
 func TestNDPInvalidHopLimitDoesNotObserve(t *testing.T) {
-	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
+	callOutputs := make(map[*vswitch.Switch]device.Output)
 	sw := buildIPv6MulticastRoutingSwitch(t)
 
 	src := netip.MustParseAddr("2001:db8:10::7")
@@ -916,7 +917,7 @@ func TestNDPInvalidHopLimitDoesNotObserve(t *testing.T) {
 }
 
 func TestRoutingSolicitationDoesNotChargeMulticastQueryToHeldFrame(t *testing.T) {
-	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
+	callOutputs := make(map[*vswitch.Switch]device.Output)
 	sw := buildIPv6MulticastRoutingSwitch(t)
 	group := netip.MustParseAddr("ff02::1:ff00:77")
 	groupMAC := netaddr.MAC{0x33, 0x33, 0xff, 0, 0, 0x77}
@@ -984,7 +985,7 @@ func TestRoutingSolicitationDoesNotChargeMulticastQueryToHeldFrame(t *testing.T)
 // forwardMulticastControl, and its observation never reaches mcast group
 // state either.
 func TestNDPReachesNeighborPathNotMulticastPath(t *testing.T) {
-	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
+	callOutputs := make(map[*vswitch.Switch]device.Output)
 	sw := buildIPv6MulticastRoutingSwitch(t)
 
 	src := netip.MustParseAddr("2001:db8:10::7")
@@ -1024,7 +1025,7 @@ func TestNDPReachesNeighborPathNotMulticastPath(t *testing.T) {
 // separately held frame on the same switch still times out on schedule,
 // proving the report never touched it.
 func TestMLDReportReachesMulticastPathNotNeighborPath(t *testing.T) {
-	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
+	callOutputs := make(map[*vswitch.Switch]device.Output)
 	sw := buildIPv6MulticastRoutingSwitch(t)
 
 	src := netip.MustParseAddr("2001:db8:10::7")
@@ -1086,7 +1087,7 @@ func TestARPReplyForOtherStationLeavesStaleEntryStale(t *testing.T) {
 // non-local solicitation is discarded before learning its source, as RFC 4861
 // section 7.2.3 requires.
 func TestNDPNonLocalSolicitationTeachesNothingAndKeepsBothFramesHeld(t *testing.T) {
-	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
+	callOutputs := make(map[*vswitch.Switch]device.Output)
 	sw := buildIPv6MulticastRoutingSwitch(t)
 	src := netip.MustParseAddr("2001:db8:10::7")
 	other := netip.MustParseAddr("2001:db8:20::77")
@@ -1160,7 +1161,7 @@ func TestNeighborSolicitationToRoutedPortIsConsumed(t *testing.T) {
 // solicitation learns its source and leaves the other next hop unresolved,
 // as RFC 4861 section 7.2.3 requires.
 func TestNDPLocalSolicitationResolvesItsOwnSourceNotTheTarget(t *testing.T) {
-	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
+	callOutputs := make(map[*vswitch.Switch]device.Output)
 	sw := buildIPv6MulticastRoutingSwitch(t)
 
 	src := netip.MustParseAddr("2001:db8:10::7")
@@ -1278,7 +1279,7 @@ func buildHeldEgressSwitch(t *testing.T, depth int) *vswitch.Switch {
 // reply that resolved the neighbor in the first place. The observing Receive is the call that
 // releases, so the egress has to be refusing at that moment.
 func TestReleaseOntoRefusingRoutedPortRecordsThePortsOwnReason(t *testing.T) {
-	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
+	callOutputs := make(map[*vswitch.Switch]device.Output)
 	sw := buildHeldEgressSwitch(t, 3)
 
 	dst := netip.MustParseAddr("10.0.30.77")
@@ -1325,7 +1326,7 @@ func TestReleaseOntoRefusingRoutedPortRecordsThePortsOwnReason(t *testing.T) {
 // this branch: the observing Receive is the call that releases, so the neighbor has to resolve
 // over a live port while the egress the frame would take is already refusing.
 func TestReleaseOntoSVIWithNoSelectableMemberRecordsTheBridgesReason(t *testing.T) {
-	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
+	callOutputs := make(map[*vswitch.Switch]device.Output)
 	p10 := vlan.ID(10)
 	p20 := vlan.ID(20)
 
@@ -1397,7 +1398,7 @@ func TestReleaseOntoSVIWithNoSelectableMemberRecordsTheBridgesReason(t *testing.
 }
 
 func TestReleaseOntoLAGWithNoSelectableMemberRecordsRoutingReason(t *testing.T) {
-	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
+	callOutputs := make(map[*vswitch.Switch]device.Output)
 	ports := mustTable(t, port.NewBuilder().
 		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
 		Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up}).
@@ -1468,7 +1469,7 @@ func TestReleaseOntoLAGWithNoSelectableMemberRecordsRoutingReason(t *testing.T) 
 // to attribute the observation to vlan20's interface without also handing
 // the release a live vlan20 port to flood onto.
 func TestReleaseOntoFloodVLANWithNoMemberRecordsTheBridgesReason(t *testing.T) {
-	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
+	callOutputs := make(map[*vswitch.Switch]device.Output)
 	p10 := vlan.ID(10)
 
 	ports := mustTable(t, port.NewBuilder().
@@ -1530,7 +1531,7 @@ func TestReleaseOntoFloodVLANWithNoMemberRecordsTheBridgesReason(t *testing.T) {
 // make room. It is not a neighbor that failed to answer — in this very run the neighbor answers,
 // and the two frames behind it release when the reply arrives.
 func TestEvictedHeldFrameIsNotReportedAsANeighborMiss(t *testing.T) {
-	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
+	callOutputs := make(map[*vswitch.Switch]device.Output)
 	sw := buildHeldEgressSwitch(t, 2)
 
 	dst := netip.MustParseAddr("10.0.20.77")
@@ -1619,13 +1620,13 @@ func TestReceiveReturnsHoldQueueEviction(t *testing.T) {
 			}
 			reply := makeARPReply(t, dst, netip.MustParseAddr("10.0.20.1"), macH2, macRouter)
 			out := sw.Receive(fixedTime.Add(time.Second), "1/1/2", reply)
-			var tokens []routing.HoldToken
+			var tokens []device.HoldToken
 			for _, em := range out.Emissions {
 				if em.Hold != 0 {
 					tokens = append(tokens, em.Hold)
 				}
 			}
-			if !slices.Equal(tokens, []routing.HoldToken{second.Hold, third.Hold}) {
+			if !slices.Equal(tokens, []device.HoldToken{second.Hold, third.Hold}) {
 				t.Errorf("released tokens = %v, want [%v %v]", tokens, second.Hold, third.Hold)
 			}
 		})
@@ -1633,7 +1634,7 @@ func TestReceiveReturnsHoldQueueEviction(t *testing.T) {
 }
 
 func TestRepeatedAdvanceBeforeReceiveLeavesTheSameNeighborAndOutput(t *testing.T) {
-	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
+	callOutputs := make(map[*vswitch.Switch]device.Output)
 	dst := netip.MustParseAddr("10.0.20.77")
 	setup := func() (*vswitch.Switch, ethernet.Frame, time.Time) {
 		sw := buildBaseRoutingSwitch(t)
@@ -1712,7 +1713,7 @@ func TestRepeatedAdvanceBeforeReceiveLeavesTheSameNeighborAndOutput(t *testing.T
 // would have overtaken. The sub-interface row has it both ways, on the tag it prepends and on
 // the Emission, and each release is compared against the live path through the same interface.
 func TestReleasedFrameCarriesIngressPriorityOntoEgress(t *testing.T) {
-	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
+	callOutputs := make(map[*vswitch.Switch]device.Output)
 	p10 := vlan.ID(10)
 	p20 := vlan.ID(20)
 
@@ -1865,7 +1866,7 @@ func TestRoutedFrameToDownPortEmitsPortStatusDownRule(t *testing.T) {
 
 // assertSolicitationSchedule drains the first request when initial is set,
 // then checks each retransmission instant and the final failure boundary.
-func assertSolicitationSchedule(t *testing.T, callOutputs map[*vswitch.Switch]vswitch.Output, sw *vswitch.Switch, start time.Time, initial bool) {
+func assertSolicitationSchedule(t *testing.T, callOutputs map[*vswitch.Switch]device.Output, sw *vswitch.Switch, start time.Time, initial bool) {
 	t.Helper()
 	if initial {
 		if data := dataAfterSolicitations(t, takeEmissions(callOutputs, sw), 1); len(data) != 0 {
@@ -1894,7 +1895,7 @@ func assertSolicitationSchedule(t *testing.T, callOutputs map[*vswitch.Switch]vs
 }
 
 func TestRoutingSolicitationsLeaveEachInterfaceShape(t *testing.T) {
-	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
+	callOutputs := make(map[*vswitch.Switch]device.Output)
 	for _, tc := range []struct {
 		name          string
 		build         func(*testing.T) *vswitch.Switch

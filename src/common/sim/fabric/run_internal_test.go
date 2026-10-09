@@ -9,8 +9,8 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/sim/device"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
-	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
@@ -43,14 +43,14 @@ func TestReportDeepClonesNestedJourneyData(t *testing.T) {
 				},
 			},
 			Entries: []Entry{{
-				Result: &vswitch.ForwardResult{Result: bridge.Result{
+				Result: &device.Result{
 					Trace: trace.Trace{Steps: []trace.Step{{
 						Inputs:   []trace.Fact{lengthFact(1)},
 						Outputs:  []trace.Fact{topSpeedFact(2)},
 						Evidence: []trace.EvidenceRef{"source"},
 					}}},
-					Egress: []bridge.Egress{{Frame: frame}},
-				}},
+					Egress: []device.Egress{{Frame: frame}},
+				},
 			}},
 		},
 	}}
@@ -181,7 +181,7 @@ func TestRecordNeighborFailureCountsOnlyAgainstAPort(t *testing.T) {
 	t.Run("a drop naming no port creates no endpoint", func(t *testing.T) {
 		t.Parallel()
 		f := &Fabric{clock: base}
-		f.recordNeighborFailure(base, "sw1", vswitch.NeighborDrop{
+		f.recordNeighborFailure(base, "sw1", device.Drop{
 			Step:   trace.Step{Subject: trace.Subject{Kind: "interface", Key: "vlan20"}},
 			Reason: routing.ReasonNeighborMiss,
 		})
@@ -194,7 +194,7 @@ func TestRecordNeighborFailureCountsOnlyAgainstAPort(t *testing.T) {
 	t.Run("a drop naming a port counts against it", func(t *testing.T) {
 		t.Parallel()
 		f := &Fabric{clock: base}
-		f.recordNeighborFailure(base, "sw1", vswitch.NeighborDrop{
+		f.recordNeighborFailure(base, "sw1", device.Drop{
 			Step:   trace.Step{Subject: trace.Subject{Kind: "port", Key: "1/1/2"}},
 			Port:   "1/1/2",
 			Reason: routing.ReasonNeighborHoldOverflow,
@@ -222,7 +222,7 @@ func TestInjectEmissionWithoutHeldFrameFallsBackToInjectionOrigin(t *testing.T) 
 	}
 	f.initRunState()
 
-	em := vswitch.Emission{
+	em := device.Emission{
 		Port:     "swp1",
 		Frame:    ethernet.Frame{Payload: []byte("non-protocol-payload")},
 		Protocol: false,

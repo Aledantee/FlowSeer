@@ -15,6 +15,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/ip"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/sim/device"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/lag"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/loopprotect"
@@ -35,7 +36,7 @@ func TestDeriveCarriesLinkReportsTogether(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := sw.LinkChange(fixedTime, "1/1/3", port.Up, PointToPointTrue, 1_000_000_000); err != nil {
+	if _, err := sw.LinkChange(fixedTime, "1/1/3", port.Up, device.PointToPointTrue, 1_000_000_000); err != nil {
 		t.Fatal(err)
 	}
 	target := sw.Spec()
@@ -54,16 +55,16 @@ func TestDeriveCarriesLinkReportsTogether(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if next.portP2P["1/1/3"] != PointToPointUnknown || next.portSpeed["1/1/3"] != 0 {
+	if next.portP2P["1/1/3"] != device.PointToPointUnknown || next.portSpeed["1/1/3"] != 0 {
 		t.Fatalf("changed member report = %s/%d, want Unknown/0", next.portP2P["1/1/3"], next.portSpeed["1/1/3"])
 	}
 	if (next.portP2P == nil) != (next.portSpeed == nil) {
 		t.Fatal("Derive left only one link-report map nil")
 	}
-	if _, err := next.LinkChange(fixedTime, "1/1/3", port.Up, PointToPointUnknown, 0); err != nil {
+	if _, err := next.LinkChange(fixedTime, "1/1/3", port.Up, device.PointToPointUnknown, 0); err != nil {
 		t.Fatal(err)
 	}
-	if next.portP2P["1/1/3"] != PointToPointUnknown || next.portSpeed["1/1/3"] != 0 {
+	if next.portP2P["1/1/3"] != device.PointToPointUnknown || next.portSpeed["1/1/3"] != 0 {
 		t.Fatalf("member report after LinkChange = %s/%d, want Unknown/0", next.portP2P["1/1/3"], next.portSpeed["1/1/3"])
 	}
 }
@@ -311,7 +312,7 @@ func TestDeriveBridgeLosesALearnedEntryTheSeedRuleRefuses(t *testing.T) {
 // for each of the six capability layers, asserting that mutating each dependency
 // rebuilds the layer and names the difference, while an unrelated mutation retains it.
 func TestLayerDependencyMutationMatrix(t *testing.T) {
-	callOutputs := make(map[*Switch]Output)
+	callOutputs := make(map[*Switch]device.Output)
 	t.Run("STP", func(t *testing.T) {
 		ports, err := port.NewBuilder().
 			Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
@@ -1361,7 +1362,7 @@ func TestDeriveDoesNotMutateSourceRoutingState(t *testing.T) {
 }
 
 func TestDeriveRoutingHeldFrameFailedOnRebuildReleasedOnRetain(t *testing.T) {
-	callOutputs := make(map[*Switch]Output)
+	callOutputs := make(map[*Switch]device.Output)
 	ports, err := port.NewBuilder().
 		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
 		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).

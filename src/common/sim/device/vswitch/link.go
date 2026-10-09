@@ -5,22 +5,23 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/sim/device"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/stp"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
 // Start initializes the protocol layers with the current link state of every port in the table.
-// It returns protocol emissions in Output. On a switch without spanning tree,
-// link aggregation, or loop protection, Start returns an empty Output.
-func (s *Switch) Start(now time.Time) Output {
+// It returns protocol emissions in device.Output. On a switch without spanning tree,
+// link aggregation, or loop protection, Start returns an empty device.Output.
+func (s *Switch) Start(now time.Time) device.Output {
 	c, end := s.beginCall(now, true)
 	defer end()
 
 	if s.stp == nil && s.lag == nil && s.loopprotect == nil {
-		return c.output(ForwardResult{})
+		return c.output(forwardResult{})
 	}
 	if s.portP2P == nil {
-		s.portP2P = make(map[string]PointToPoint)
+		s.portP2P = make(map[string]device.PointToPoint)
 	}
 	if s.portSpeed == nil {
 		s.portSpeed = make(map[string]uint64)
@@ -29,7 +30,7 @@ func (s *Switch) Start(now time.Time) Output {
 	for _, p := range s.ports.Ports() {
 		if p.LagParent != "" {
 			speed := s.linkSpeed(p)
-			s.portP2P[p.Name] = PointToPointTrue
+			s.portP2P[p.Name] = device.PointToPointTrue
 			s.portSpeed[p.Name] = speed
 			if s.lag != nil {
 				fx := s.lag.LinkChange(now, p.Name, p.Forwards())
@@ -56,9 +57,9 @@ func (s *Switch) Start(now time.Time) Output {
 			}
 		}
 		speed := s.linkSpeed(p)
-		s.portP2P[p.Name] = PointToPointFalse
+		s.portP2P[p.Name] = device.PointToPointFalse
 		if p2p {
-			s.portP2P[p.Name] = PointToPointTrue
+			s.portP2P[p.Name] = device.PointToPointTrue
 		}
 		s.portSpeed[p.Name] = speed
 
@@ -72,7 +73,7 @@ func (s *Switch) Start(now time.Time) Output {
 		}
 	}
 	s.recomputeProtocolLinkIssues()
-	return c.output(ForwardResult{})
+	return c.output(forwardResult{})
 }
 
 // linkSpeed is the resolved speed of a port, or of a LAG's fastest member,
@@ -164,7 +165,7 @@ func (s *Switch) updateLagState(now time.Time, lagName string) {
 			}
 			highestSpeed = max(highestSpeed, memSpeed)
 
-			if p2p, ok := s.portP2P[memName]; ok && p2p != PointToPointTrue {
+			if p2p, ok := s.portP2P[memName]; ok && p2p != device.PointToPointTrue {
 				lagP2P = false
 			}
 		}
@@ -174,9 +175,9 @@ func (s *Switch) updateLagState(now time.Time, lagName string) {
 			}
 		}
 		if s.portP2P != nil {
-			s.portP2P[lagName] = PointToPointFalse
+			s.portP2P[lagName] = device.PointToPointFalse
 			if lagP2P {
-				s.portP2P[lagName] = PointToPointTrue
+				s.portP2P[lagName] = device.PointToPointTrue
 			}
 			s.portSpeed[lagName] = highestSpeed
 		}
@@ -206,33 +207,18 @@ func aggregateOperStatus(members []port.Port) port.LinkState {
 	return port.Down
 }
 
-// PointToPoint represents the operational point-to-point status of a link.
-type PointToPoint string
-
-const (
-	// PointToPointUnknown indicates point-to-point status cannot be determined
-	// (for example, due to an unknown or unreported duplex).
-	PointToPointUnknown PointToPoint = "Unknown"
-
-	// PointToPointTrue indicates the port operates as a point-to-point link.
-	PointToPointTrue PointToPoint = "True"
-
-	// PointToPointFalse indicates the port operates as shared media.
-	PointToPointFalse PointToPoint = "False"
-)
-
 // LinkChange updates the named port and reports the output of its protocol layers.
 // An absent port or a state outside [port.LinkState] returns an error without
 // changing runtime state.
-func (s *Switch) LinkChange(now time.Time, portName string, state port.LinkState, pointToPoint PointToPoint, speed uint64) (Output, error) {
+func (s *Switch) LinkChange(now time.Time, portName string, state port.LinkState, pointToPoint device.PointToPoint, speed uint64) (device.Output, error) {
 	if err := s.setOperStatus(portName, state); err != nil {
-		return Output{}, err
+		return device.Output{}, err
 	}
 	c, end := s.beginCall(now, true)
 	defer end()
 
 	if s.portP2P == nil {
-		s.portP2P = make(map[string]PointToPoint)
+		s.portP2P = make(map[string]device.PointToPoint)
 	}
 	if s.portSpeed == nil {
 		s.portSpeed = make(map[string]uint64)
@@ -240,11 +226,11 @@ func (s *Switch) LinkChange(now time.Time, portName string, state port.LinkState
 	// An unset value is a report that says nothing about the link, so it is
 	// unknown rather than shared media.
 	if pointToPoint == "" {
-		pointToPoint = PointToPointUnknown
+		pointToPoint = device.PointToPointUnknown
 	}
 
 	up := state == port.Up
-	p2p := pointToPoint == PointToPointTrue
+	p2p := pointToPoint == device.PointToPointTrue
 
 	p, ok := s.ports.Port(portName)
 	if ok && p.LagParent != "" {
@@ -257,7 +243,7 @@ func (s *Switch) LinkChange(now time.Time, portName string, state port.LinkState
 		}
 		s.updateLagState(now, p.LagParent)
 		s.recomputeProtocolLinkIssues()
-		return c.output(ForwardResult{}), nil
+		return c.output(forwardResult{}), nil
 	}
 
 	resolvedPort := portName
@@ -276,7 +262,7 @@ func (s *Switch) LinkChange(now time.Time, portName string, state port.LinkState
 		s.applyLoopProtectEffects(fx)
 	}
 	s.recomputeProtocolLinkIssues()
-	return c.output(ForwardResult{}), nil
+	return c.output(forwardResult{}), nil
 }
 
 func (s *Switch) setOperStatus(portName string, state port.LinkState) error {

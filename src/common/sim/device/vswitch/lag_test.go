@@ -14,6 +14,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
+	"go.aledante.io/FlowSeer/src/common/sim/device"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/lag"
@@ -84,14 +85,14 @@ func TestLagAggregateOperStatusUsesEffectiveMemberState(t *testing.T) {
 		Add(port.Port{Name: "member", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Unknown, LagParent: "lag1"}))
 	sw := mustSwitch(t, vswitch.Config{Ports: ports, Bridge: &bridge.Config{}})
 	sw.Start(fixedTime)
-	if _, err := sw.LinkChange(fixedTime.Add(time.Second), "member", port.Up, vswitch.PointToPointTrue, 1_000_000_000); err != nil {
+	if _, err := sw.LinkChange(fixedTime.Add(time.Second), "member", port.Up, device.PointToPointTrue, 1_000_000_000); err != nil {
 		t.Fatal(err)
 	}
 	lagPort, _ := sw.Ports().Port("lag1")
 	if got := lagPort.OperStatus; got != port.Up {
 		t.Fatalf("oper status after link up = %s, want %s", got, port.Up)
 	}
-	if _, err := sw.LinkChange(fixedTime.Add(2*time.Second), "member", port.Down, vswitch.PointToPointTrue, 1_000_000_000); err != nil {
+	if _, err := sw.LinkChange(fixedTime.Add(2*time.Second), "member", port.Down, device.PointToPointTrue, 1_000_000_000); err != nil {
 		t.Fatal(err)
 	}
 	lagPort, _ = sw.Ports().Port("lag1")
@@ -101,7 +102,7 @@ func TestLagAggregateOperStatusUsesEffectiveMemberState(t *testing.T) {
 }
 
 func TestLACPDUHandlingAtSwitch(t *testing.T) {
-	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
+	callOutputs := make(map[*vswitch.Switch]device.Output)
 	now := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
 	macA := netaddr.MAC{0x02, 0x00, 0x00, 0x00, 0x00, 0x0a}
 	macB := netaddr.MAC{0x02, 0x00, 0x00, 0x00, 0x00, 0x0b}
@@ -222,7 +223,7 @@ func TestLACPDUHandlingAtSwitch(t *testing.T) {
 	if info := sw.MemberInfo("1/1/1"); info.BadLACPDUs != 1 {
 		t.Errorf("after Receive bad, BadLACPDUs = %d, want 1", info.BadLACPDUs)
 	}
-	for _, out := range []vswitch.Output{peekBad, resBad} {
+	for _, out := range []device.Output{peekBad, resBad} {
 		want := lag.LACPDecodeFact(badFrame, false, lag.ReasonUnsupportedLACPDU)
 		if len(out.Steps) == 0 || len(out.Steps[0].Inputs) != 1 || !trace.EqualFact(out.Steps[0].Inputs[0], want) {
 			t.Errorf("refused LACP inputs = %+v, want LACP decode fact", out.Steps)
@@ -230,7 +231,7 @@ func TestLACPDUHandlingAtSwitch(t *testing.T) {
 	}
 	badMarker := badFrame
 	badMarker.Payload = []byte{lacp.SubtypeMarker}
-	for _, out := range []vswitch.Output{sw.Peek(now, "1/1/1", badMarker), sw.Receive(now, "1/1/1", badMarker)} {
+	for _, out := range []device.Output{sw.Peek(now, "1/1/1", badMarker), sw.Receive(now, "1/1/1", badMarker)} {
 		want := lag.MarkerDecodeFact(badMarker, false, lag.ReasonUnsupportedLACPDU)
 		if out.Outcome != trace.Dropped || out.Reason != lag.ReasonUnsupportedLACPDU || len(out.Steps) == 0 || len(out.Steps[0].Inputs) != 1 || !trace.EqualFact(out.Steps[0].Inputs[0], want) {
 			t.Errorf("refused Marker = %+v, want Marker decode fact", out)
@@ -363,7 +364,7 @@ func TestMemberLinkDownMovesSelectionAndSTPPathCost(t *testing.T) {
 		t.Errorf("lag1 PathCost = %d, want 2000 (10 Gbps)", roles["lag1"].PathCost)
 	}
 	// Member 1/1/1 goes down through LinkChange
-	if _, err := sw.LinkChange(now, "1/1/1", port.Down, vswitch.PointToPointTrue, 10_000_000_000); err != nil {
+	if _, err := sw.LinkChange(now, "1/1/1", port.Down, device.PointToPointTrue, 10_000_000_000); err != nil {
 		t.Fatal(err)
 	}
 
@@ -377,7 +378,7 @@ func TestMemberLinkDownMovesSelectionAndSTPPathCost(t *testing.T) {
 		t.Errorf("after link down, lag1 PathCost = %d, want 20000 (1 Gbps)", roles["lag1"].PathCost)
 	}
 	// Both members down: lag1 has no enabled member
-	if _, err := sw.LinkChange(now, "1/1/2", port.Down, vswitch.PointToPointTrue, 1_000_000_000); err != nil {
+	if _, err := sw.LinkChange(now, "1/1/2", port.Down, device.PointToPointTrue, 1_000_000_000); err != nil {
 		t.Fatal(err)
 	}
 	mem, ok = sw.SelectMember(now, "lag1", dummyFrame, 10)
@@ -405,7 +406,7 @@ func TestLagRowFollowsMemberRowsNotTheDelay(t *testing.T) {
 	})
 	t0 := time.Date(2026, 9, 11, 12, 0, 0, 0, time.UTC)
 	sw.Start(t0)
-	if _, err := sw.LinkChange(t0, "1/1/1", port.Down, vswitch.PointToPointTrue, 0); err != nil {
+	if _, err := sw.LinkChange(t0, "1/1/1", port.Down, device.PointToPointTrue, 0); err != nil {
 		t.Fatalf("LinkChange: %v", err)
 	}
 	p, _ := sw.Ports().Port("lag1")

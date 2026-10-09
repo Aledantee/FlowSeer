@@ -5,14 +5,14 @@ import (
 	"testing"
 	"time"
 
-	"go.aledante.io/FlowSeer/src/common/net/bpdu"
-
 	"go.aledante.io/FlowSeer/src/common/net/arp"
+	"go.aledante.io/FlowSeer/src/common/net/bpdu"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/igmp"
 	"go.aledante.io/FlowSeer/src/common/net/ip"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
+	"go.aledante.io/FlowSeer/src/common/sim/device"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/filter"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/traffic"
@@ -38,7 +38,7 @@ var switchDeepCopiedProbes = map[string]func(t *testing.T){
 
 func probeSwitchBridge(t *testing.T) {
 	sw := newTestSwitchForFork(t)
-	fork := sw.Fork()
+	fork := sw.Fork().(*Switch)
 
 	macSrc := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x11}
 	macFork := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x22}
@@ -60,8 +60,8 @@ func probeSwitchBridge(t *testing.T) {
 
 func probeSwitchSTP(t *testing.T) {
 	sw := newTestSwitchForFork(t)
-	fork := sw.Fork()
-	if _, err := sw.LinkChange(time.Unix(2000, 0), "1/1/1", port.Down, PointToPointFalse, 0); err != nil {
+	fork := sw.Fork().(*Switch)
+	if _, err := sw.LinkChange(time.Unix(2000, 0), "1/1/1", port.Down, device.PointToPointFalse, 0); err != nil {
 		t.Fatal(err)
 	}
 	if got := sw.Roles()["1/1/1"].Role; got != bpdu.RoleDisabled {
@@ -70,7 +70,7 @@ func probeSwitchSTP(t *testing.T) {
 	if fork.Roles()["1/1/1"].Role == bpdu.RoleDisabled {
 		t.Errorf("fork STP port role moved when source changed link")
 	}
-	if _, err := fork.LinkChange(time.Unix(2000, 0), "1/1/2", port.Down, PointToPointFalse, 0); err != nil {
+	if _, err := fork.LinkChange(time.Unix(2000, 0), "1/1/2", port.Down, device.PointToPointFalse, 0); err != nil {
 		t.Fatal(err)
 	}
 	if sw.Roles()["1/1/2"].Role == bpdu.RoleDisabled {
@@ -80,10 +80,10 @@ func probeSwitchSTP(t *testing.T) {
 
 func probeSwitchLoopProtect(t *testing.T) {
 	sw := newTestSwitchForFork(t)
-	fork := sw.Fork()
+	fork := sw.Fork().(*Switch)
 
 	now := time.Unix(3000, 0)
-	if _, err := sw.LinkChange(now, "1/1/1", port.Down, PointToPointTrue, 1_000_000_000); err != nil {
+	if _, err := sw.LinkChange(now, "1/1/1", port.Down, device.PointToPointTrue, 1_000_000_000); err != nil {
 		t.Fatal(err)
 	}
 	if sw.loopprotect == nil || fork.loopprotect == nil {
@@ -96,10 +96,10 @@ func probeSwitchLoopProtect(t *testing.T) {
 
 func probeSwitchLAG(t *testing.T) {
 	sw := newTestSwitchForFork(t)
-	fork := sw.Fork()
+	fork := sw.Fork().(*Switch)
 
 	now := time.Unix(4000, 0)
-	if _, err := sw.LinkChange(now, "1/1/3", port.Down, PointToPointTrue, 1_000_000_000); err != nil {
+	if _, err := sw.LinkChange(now, "1/1/3", port.Down, device.PointToPointTrue, 1_000_000_000); err != nil {
 		t.Fatal(err)
 	}
 	if fork.lag == nil || sw.lag == nil {
@@ -112,7 +112,7 @@ func probeSwitchLAG(t *testing.T) {
 
 func probeSwitchMcast(t *testing.T) {
 	sw := newTestSwitchForFork(t)
-	fork := sw.Fork()
+	fork := sw.Fork().(*Switch)
 
 	now := time.Unix(5000, 0)
 	group := netip.MustParseAddr("239.1.1.1")
@@ -159,7 +159,7 @@ func probeSwitchRouting(t *testing.T) {
 	if sw.routing == nil {
 		t.Fatal("source routing is nil")
 	}
-	fork := sw.Fork()
+	fork := sw.Fork().(*Switch)
 
 	now := time.Unix(6000, 0)
 	frame, err := arp.Encode(arp.Message{
@@ -188,7 +188,7 @@ func probeSwitchTraffic(t *testing.T) {
 	if sw.traffic == nil {
 		t.Fatal("source traffic is nil")
 	}
-	fork := sw.Fork()
+	fork := sw.Fork().(*Switch)
 
 	now := time.Unix(7000, 0)
 	if sw.Receive(now, "1/1/1", ethernet.Frame{EtherType: ethernet.EtherTypeIPv4, Payload: make([]byte, 400-38)}).Reason == traffic.ReasonPoliced {
@@ -203,7 +203,7 @@ func TestForkKeepsTheFilter(t *testing.T) {
 	sw := newTestSwitchForFork(t)
 	frame := forkFilterFrame(t, sw.cfg.MAC)
 	now := time.Unix(1001, 0)
-	fork := sw.Fork()
+	fork := sw.Fork().(*Switch)
 	if got := sw.Receive(now, "1/1/1", frame); got.Reason != filter.ReasonFilterDrop {
 		t.Fatalf("source reason = %v, want %v", got.Reason, filter.ReasonFilterDrop)
 	}
@@ -214,7 +214,7 @@ func TestForkKeepsTheFilter(t *testing.T) {
 
 func probeSwitchFilter(t *testing.T) {
 	sw := newTestSwitchForFork(t)
-	fork := sw.Fork()
+	fork := sw.Fork().(*Switch)
 	if sw.filter == nil || fork.filter == nil || sw.filter == fork.filter {
 		t.Fatal("filter must be present and independently cloned")
 	}
@@ -237,35 +237,35 @@ func forkFilterFrame(t *testing.T, dst netaddr.MAC) ethernet.Frame {
 
 func probeSwitchPortP2P(t *testing.T) {
 	sw := newTestSwitchForFork(t)
-	fork := sw.Fork()
+	fork := sw.Fork().(*Switch)
 
 	now := time.Unix(8000, 0)
-	if _, err := sw.LinkChange(now, "1/1/1", port.Up, PointToPointFalse, 1_000_000_000); err != nil {
+	if _, err := sw.LinkChange(now, "1/1/1", port.Up, device.PointToPointFalse, 1_000_000_000); err != nil {
 		t.Fatal(err)
 	}
-	if fork.portP2P["1/1/1"] != PointToPointTrue {
-		t.Errorf("fork portP2P changed when source changed: got %v, want %v", fork.portP2P["1/1/1"], PointToPointTrue)
+	if fork.portP2P["1/1/1"] != device.PointToPointTrue {
+		t.Errorf("fork portP2P changed when source changed: got %v, want %v", fork.portP2P["1/1/1"], device.PointToPointTrue)
 	}
-	if _, err := fork.LinkChange(now, "1/1/1", port.Up, PointToPointTrue, 1_000_000_000); err != nil {
+	if _, err := fork.LinkChange(now, "1/1/1", port.Up, device.PointToPointTrue, 1_000_000_000); err != nil {
 		t.Fatal(err)
 	}
-	if sw.portP2P["1/1/1"] != PointToPointFalse {
-		t.Errorf("source portP2P changed when fork changed: got %v, want %v", sw.portP2P["1/1/1"], PointToPointFalse)
+	if sw.portP2P["1/1/1"] != device.PointToPointFalse {
+		t.Errorf("source portP2P changed when fork changed: got %v, want %v", sw.portP2P["1/1/1"], device.PointToPointFalse)
 	}
 }
 
 func probeSwitchPortSpeed(t *testing.T) {
 	sw := newTestSwitchForFork(t)
-	fork := sw.Fork()
+	fork := sw.Fork().(*Switch)
 
 	now := time.Unix(8000, 0)
-	if _, err := sw.LinkChange(now, "1/1/1", port.Up, PointToPointTrue, 10_000_000_000); err != nil {
+	if _, err := sw.LinkChange(now, "1/1/1", port.Up, device.PointToPointTrue, 10_000_000_000); err != nil {
 		t.Fatal(err)
 	}
 	if fork.portSpeed["1/1/1"] != 1_000_000_000 {
 		t.Errorf("fork portSpeed changed when source changed: got %d, want 1000000000", fork.portSpeed["1/1/1"])
 	}
-	if _, err := fork.LinkChange(now, "1/1/1", port.Up, PointToPointTrue, 2_500_000_000); err != nil {
+	if _, err := fork.LinkChange(now, "1/1/1", port.Up, device.PointToPointTrue, 2_500_000_000); err != nil {
 		t.Fatal(err)
 	}
 	if sw.portSpeed["1/1/1"] != 10_000_000_000 {
@@ -275,7 +275,7 @@ func probeSwitchPortSpeed(t *testing.T) {
 
 func probeSwitchProtocolIssues(t *testing.T) {
 	sw := newTestSwitchForFork(t)
-	fork := sw.Fork()
+	fork := sw.Fork().(*Switch)
 
 	sw.protocolIssues["1/1/1"] = analysis.Issue{Code: "source-issue"}
 	if fork.protocolIssues["1/1/1"].Code == "source-issue" {
@@ -290,7 +290,7 @@ func probeSwitchProtocolIssues(t *testing.T) {
 
 func probeSwitchSeeds(t *testing.T) {
 	sw := newTestSwitchForFork(t)
-	fork := sw.Fork()
+	fork := sw.Fork().(*Switch)
 
 	if len(sw.seeds) == 0 || len(fork.seeds) == 0 {
 		t.Fatalf("seeds must be non-empty on both source and fork")
@@ -312,10 +312,10 @@ func probeSwitchSeeds(t *testing.T) {
 func TestForkBackPointerLagMemberRemoved(t *testing.T) {
 	// Member removal on the source switch leaves LAG forwarding on the fork intact.
 	sw := newTestSwitchForFork(t)
-	fork := sw.Fork()
+	fork := sw.Fork().(*Switch)
 
 	now := time.Unix(9000, 0)
-	if _, err := sw.LinkChange(now, "1/1/3", port.Down, PointToPointTrue, 1_000_000_000); err != nil {
+	if _, err := sw.LinkChange(now, "1/1/3", port.Down, device.PointToPointTrue, 1_000_000_000); err != nil {
 		t.Fatal(err)
 	}
 
@@ -347,7 +347,7 @@ func probeSwitchRetention(t *testing.T) {
 	sw.retention = Retention{
 		STP: LayerRetention{Kept: false, Difference: "port-state"},
 	}
-	fork := sw.Fork()
+	fork := sw.Fork().(*Switch)
 	if !fork.Retention().STP.Kept {
 		t.Errorf("fork STP kept = false, want true")
 	}

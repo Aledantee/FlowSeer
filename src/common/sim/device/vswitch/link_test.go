@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
-
+	"go.aledante.io/FlowSeer/src/common/sim/device"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
@@ -27,7 +27,7 @@ func TestLinkChangeRejectsInvalidStateWithoutMutation(t *testing.T) {
 			}
 			before := sw.Ports().Ports()
 
-			_, err = sw.LinkChange(time.Time{}, portName, port.LinkState("invalid"), PointToPointTrue, 0)
+			_, err = sw.LinkChange(time.Time{}, portName, port.LinkState("invalid"), device.PointToPointTrue, 0)
 			if err == nil {
 				t.Fatal("LinkChange with invalid state succeeded, want error")
 			}
@@ -69,7 +69,7 @@ func TestLinkChangeRefusesAnUnknownPort(t *testing.T) {
 				t.Fatal(err)
 			}
 			before := sw.Ports().Ports()
-			_, err = sw.LinkChange(time.Time{}, tc.name, tc.state, PointToPointTrue, 1_000_000_000)
+			_, err = sw.LinkChange(time.Time{}, tc.name, tc.state, device.PointToPointTrue, 1_000_000_000)
 			if err == nil {
 				t.Error("LinkChange did not return an error")
 			}

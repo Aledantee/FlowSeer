@@ -1494,3 +1494,15 @@ func stringContains(s, sub string) bool {
 	}
 	return false
 }
+
+func TestCorpusReceiveOutcomes(t *testing.T) {
+	checked := 0
+	for _, c := range simtest.DefaultRegistry().All() {
+		if t.Run(c.ID, func(t *testing.T) { simtest.AssertCase(t, c) }) {
+			checked++
+		}
+	}
+	if checked != 39 {
+		t.Errorf("cases reaching concrete expectations = %d, want 39", checked)
+	}
+}

@@ -8,6 +8,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/sim/device"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
@@ -446,7 +447,7 @@ func TestReplaySTaggedFrameCarriedThroughBothEgressForms(t *testing.T) {
 		t.Fatalf("res.Outcome = %q, want Flooded", res.Outcome)
 	}
 
-	var egressTagged, egressUntagged *bridge.Egress
+	var egressTagged, egressUntagged *device.Egress
 	for i := range res.Egress {
 		if res.Egress[i].Port == "1/1/2" {
 			egressTagged = &res.Egress[i]
@@ -533,7 +534,7 @@ func TestReplayOversizedFrameDropsAtEgress(t *testing.T) {
 		t.Fatalf("res.Outcome = %q, want Flooded", res.Outcome)
 	}
 
-	var egress2, egress3 *bridge.Egress
+	var egress2, egress3 *device.Egress
 	for i := range res.Egress {
 		if res.Egress[i].Port == "1/1/2" {
 			egress2 = &res.Egress[i]

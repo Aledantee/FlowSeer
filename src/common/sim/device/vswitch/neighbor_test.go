@@ -7,12 +7,12 @@ import (
 	"testing"
 	"time"
 
-	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
-
 	"go.aledante.io/FlowSeer/src/common/net/arp"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/sim/device"
+	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/stp"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
@@ -22,7 +22,7 @@ import (
 // TestPeekARPReplyKeepsPendingNeighborAndHeldFrame proves that previewing a
 // resolving reply leaves both neighbor state and the held frame untouched.
 func TestPeekARPReplyKeepsPendingNeighborAndHeldFrame(t *testing.T) {
-	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
+	callOutputs := make(map[*vswitch.Switch]device.Output)
 	sw := buildBaseRoutingSwitch(t)
 	dst := netip.MustParseAddr("10.0.20.77")
 	frame := ethernet.Frame{
@@ -60,7 +60,7 @@ func TestPeekARPReplyKeepsPendingNeighborAndHeldFrame(t *testing.T) {
 // TestAdvanceEmitsNeighborRetransmission proves Advance delivers the protocol frame
 // returned by the routing timer at its retransmission deadline.
 func TestAdvanceEmitsNeighborRetransmission(t *testing.T) {
-	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
+	callOutputs := make(map[*vswitch.Switch]device.Output)
 	sw := buildBaseRoutingSwitch(t)
 	dst := netip.MustParseAddr("10.0.20.77")
 	captureOutput(callOutputs, sw, holdFrameToward(t, sw, fixedTime, dst, []byte("held")))
@@ -87,7 +87,7 @@ func TestAdvanceEmitsNeighborRetransmission(t *testing.T) {
 // TestRoutingSolicitationSkipsRefusingVLANMember proves neighbor protocol
 // emissions obey the bridge's per-port egress refusal.
 func TestRoutingSolicitationSkipsRefusingVLANMember(t *testing.T) {
-	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
+	callOutputs := make(map[*vswitch.Switch]device.Output)
 	for _, refusal := range []string{"down", "spanning-tree"} {
 		t.Run(refusal, func(t *testing.T) {
 			cfg := buildBaseRoutingSwitch(t).Config()

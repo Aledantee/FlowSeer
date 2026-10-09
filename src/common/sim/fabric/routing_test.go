@@ -879,7 +879,7 @@ func TestFabricReleasesHeldFrameOnObservedARPReply(t *testing.T) {
 // switch, where a frame released untagged, or flooded onto a bridge, would
 // never arrive at a host that only accepts its own VLAN.
 //
-// There is no separate assertion that no vswitch.NeighborDrop was recorded.
+// There is no separate assertion that no device.Drop was recorded.
 // Every way the held frame could leave its queue without reaching a wire ends
 // with no delivery to h2, which the released == nil check below already fails
 // on, so such an assertion would have no discriminating power here.
@@ -1019,7 +1019,7 @@ func TestFabricReleasesHeldFrameOnSubInterfaceToVLANHost(t *testing.T) {
 }
 
 // TestFabricRecordsNeighborFailureOnHeldFrameTimeout checks that the fabric
-// records the [vswitch.Output] drops of a call alongside its emissions: a held
+// records the [device.Output] drops of a call alongside its emissions: a held
 // frame whose neighbor never resolves must leave a drop entry and a discard
 // counter behind, not vanish after a held journey entry with nothing
 // following it.

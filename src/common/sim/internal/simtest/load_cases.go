@@ -108,6 +108,9 @@ func executeLoadCase(buffer *uint64, policed bool, decisive trace.RuleID) (Execu
 	if run := fab.Run(10_000); run.Err != nil || run.Pending.Journeys != 0 {
 		return ExecutionResult{}, errs.Msgf("load run did not settle: %+v", run)
 	}
+	if err := validateReceiveReport(fab.Report()); err != nil {
+		return ExecutionResult{}, err
+	}
 	stats, ok := fab.Flows()[flow]
 	if !ok || stats.Offered != 32 {
 		return ExecutionResult{}, errs.Msgf("flow %d offered %d frames, found %t; want 32", flow, stats.Offered, ok)

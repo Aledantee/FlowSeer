@@ -147,7 +147,7 @@ observations, or learning. The switch holds no output between calls
 Every emission passes `emit` in `timers.go`. A mirror output port emits
 copies alone, including when spanning tree, loop protection, routing, or
 a held-frame release would otherwise send there. A refused release becomes
-a `NeighborDrop` with reason `mirror-output`. Mirror selectors resolve the
+a `device.Drop` with reason `mirror-output`. Mirror selectors resolve the
 physical ingress to its logical port, including a received LACPDU's member
 (`mirror.go`, `TestMirrorCopiesLACPFromLogicalIngress`).
 
@@ -364,7 +364,7 @@ so the host drives them through explicit calls:
 - `LinkChange(now, port, state, pointToPoint, speed)` tells the protocol layers
   one link moved. `state` ([port.LinkState]) preserves unknown operational state
   while informing protocol layers that the link is non-operational. `pointToPoint`
-  ([PointToPoint]) conveys operational point-to-point duplex status. For a LAG
+  (`device.PointToPoint`) conveys operational point-to-point duplex status. For a LAG
   member, it notifies the aggregation layer, updates the LAG port's operational
   state, and informs spanning tree of the LAG's link and speed from the enabled
   members. It returns the call's emissions and drops in `Output`, or an
@@ -430,9 +430,9 @@ Exported constructors validate and normalize configurations:
   the source and its fork. `TestForkCapabilityMatrix` checks equal outputs
   across 192 valid capability combinations and isolates an hour of fork
   advancement from the source.
-- [Switch.Receive] and [Switch.Peek] return [Output], embedding [ForwardResult]
-  and carrying emissions, copies, and held-frame drops. The result combines the domain
-  [bridge.Result] with [analysis.Metadata] recording scoped issues, operational
+- [Switch.Receive] and [Switch.Peek] return `device.Output`, embedding `device.Result`
+  and carrying emissions, copies, and held-frame drops. The result carries forwarding
+  decisions with [analysis.Metadata] recording scoped issues, operational
   readiness, and evidence. A port with unknown operational status never forwards
   and attaches an Incomplete issue scoped to that port, while known-down ports
   drop traffic authoritatively with Complete readiness.
@@ -578,7 +578,7 @@ The comparison evaluates three dispositions:
 
 ### Behavioral versus diagnostic split
 
-Comparison reads the normalized `Output` and its embedded `ForwardResult`:
+Comparison reads `device.Output` and its embedded `device.Result`:
 
 1. **Outcome**: Typed forwarding decision (`Forwarded`, `Flooded`, `Dropped`, `Consumed`, `Held`).
 2. **Reason**: Specific discard or forwarding reason (`ReasonNoEgress`, `ReasonPortDown`, etc.).
@@ -617,7 +617,7 @@ that will be shared comes from `Clone`.
 | [fork.go](fork.go) | Independent runtime copies |
 | [issues.go](issues.go) | Per-call readiness and dependency hits |
 | [metadata.go](metadata.go) | Scopes and metadata of a call's result |
-| [output.go](output.go) | `Output` and the `Receive` and `Advance` entry points |
+| [output.go](output.go) | Conversion to `device.Output` and the receive and advance entry points |
 | [layers.go](layers.go) | Layer table: advance, clone, and retention keys |
 | [retention.go](retention.go) | Per-layer retention outcome |
 | [derive.go](derive.go) | Derivation of a target switch from a current one |

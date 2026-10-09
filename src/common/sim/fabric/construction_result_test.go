@@ -8,6 +8,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
+	"go.aledante.io/FlowSeer/src/common/sim/device"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
@@ -90,7 +91,7 @@ func TestFabricConstructionSpecAndPropagation(t *testing.T) {
 	}
 	journey := report[0]
 
-	// Verify journey entry results are vswitch.ForwardResult envelopes with metadata
+	// Verify journey entry results are device.Result envelopes with metadata
 	var foundHopResult bool
 	for _, entry := range journey.Entries {
 		if entry.Kind == fabric.EntryHop && entry.Result != nil {
@@ -492,7 +493,7 @@ func TestFabricPerHopReadinessMetadataPropagation(t *testing.T) {
 		t.Fatalf("got %d journeys, want 3", len(reports))
 	}
 
-	findHopResult := func(j fabric.Journey, port string) *vswitch.ForwardResult {
+	findHopResult := func(j fabric.Journey, port string) *device.Result {
 		for _, e := range j.Entries {
 			if e.Kind == fabric.EntryHop && e.Port == port && e.Result != nil {
 				return e.Result

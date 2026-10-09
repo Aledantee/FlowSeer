@@ -7,10 +7,10 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/bpdu"
-
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
+	"go.aledante.io/FlowSeer/src/common/sim/device"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
@@ -194,7 +194,7 @@ func TestPendingWorkHandBuiltQueue(t *testing.T) {
 					{
 						Kind:   EntryHop,
 						Device: "sw1",
-						Result: &vswitch.ForwardResult{
+						Result: &device.Result{
 							Trace: trace.Trace{Outcome: trace.Held},
 						},
 					},
@@ -250,7 +250,7 @@ func TestConvergenceBlockedByPendingJourney(t *testing.T) {
 			{
 				Kind:   EntryHop,
 				Device: "sw1",
-				Result: &vswitch.ForwardResult{
+				Result: &device.Result{
 					Trace: trace.Trace{Outcome: trace.Held},
 				},
 			},

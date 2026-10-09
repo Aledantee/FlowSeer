@@ -40,6 +40,7 @@ func Derive(cur *Fabric, target ConstructionSpec) (*Fabric, error) {
 			return nil, errs.Wrapf(err, "derive switch %q", name)
 		}
 		next.switches[name] = derived
+		next.devices[name] = derived
 		next.applyOutput(next.clock, name, out)
 		derivedCfg := derived.Config()
 		derivedCfg.Ports = next.cfg.Switches[name].Ports

@@ -8,8 +8,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
-	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
-	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
+	"go.aledante.io/FlowSeer/src/common/sim/device"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
@@ -81,7 +80,7 @@ const (
 // entry rests on: the one crossed, lost on, or arrived over, and for an injection the origin's cable. Step is
 // set on a host's Delivery, Rejection, or Unresolved entry after an Arrival, on a reflector's Reflection,
 // Rejection, or Unresolved entry, which carries no preceding Arrival, and on the Drop entry a
-// [vswitch.NeighborDrop] produces for a held frame that left its hold queue and reached no wire, where
+// [device.Drop] produces for a held frame that left its hold queue and reached no wire, where
 // Port and Reason likewise come from the drop rather than from reading the step back.
 // A QueueThreshold entry carries the physical endpoint and the queue observation step.
 type Entry struct {
@@ -94,7 +93,7 @@ type Entry struct {
 	Serialization time.Duration
 	Wait          time.Duration
 	PCP           vlan.PCP
-	Result        *vswitch.ForwardResult
+	Result        *device.Result
 	Step          *trace.Step
 	Reason        trace.Reason
 }
@@ -457,8 +456,10 @@ func (f *Fabric) dependencies(e Entry) []analysis.Scope {
 	return scopes
 }
 
-func cloneResult(r vswitch.ForwardResult) *vswitch.ForwardResult {
+func cloneResult(r device.Result) *device.Result {
 	cp := r
+	cp.PortDependencies = r.ConsultedPorts()
+	cp.ScopeDependencies = r.ConsultedScopes()
 	if len(r.Steps) > 0 {
 		cp.Steps = make([]trace.Step, len(r.Steps))
 		for i, step := range r.Steps {
@@ -466,7 +467,7 @@ func cloneResult(r vswitch.ForwardResult) *vswitch.ForwardResult {
 		}
 	}
 	if len(r.Egress) > 0 {
-		cp.Egress = make([]bridge.Egress, len(r.Egress))
+		cp.Egress = make([]device.Egress, len(r.Egress))
 		for i, egress := range r.Egress {
 			cp.Egress[i] = egress
 			cp.Egress[i].Frame = cloneFrame(egress.Frame)

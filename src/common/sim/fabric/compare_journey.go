@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
-	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
+	"go.aledante.io/FlowSeer/src/common/sim/device"
 )
 
 func diffJourney(jA, jB Journey) (analysis.Difference, string, bool) {
@@ -214,7 +214,7 @@ func diffJourney(jA, jB Journey) (analysis.Difference, string, bool) {
 	return analysis.Difference{}, "", false
 }
 
-func diffHopResult(rA, rB vswitch.ForwardResult) (analysis.Difference, string, bool) {
+func diffHopResult(rA, rB device.Result) (analysis.Difference, string, bool) {
 	if len(rA.Egress) != len(rB.Egress) {
 		return analysis.Difference{
 			Observable: "journey rewrite",

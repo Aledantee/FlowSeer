@@ -204,6 +204,9 @@ func caseTroubleshootingMDNSReflectedAcrossVLANs() Case {
 				return ExecutionResult{}, err
 			}
 			fab.Run(10)
+			if err := validateReceiveReport(fab.Report()); err != nil {
+				return ExecutionResult{}, err
+			}
 
 			var copyJourney fabric.Journey
 			matches := 0
@@ -346,6 +349,9 @@ func caseTroubleshootingMDNSTwoReflectorsLoop() Case {
 				return ExecutionResult{}, err
 			}
 			steps := fab.Run(reflectorLoopBudget).Steps
+			if err := validateReceiveReport(fab.Report()); err != nil {
+				return ExecutionResult{}, err
+			}
 			if steps != reflectorLoopBudget || len(fab.Snapshot().Queue) == 0 {
 				return ExecutionResult{}, errs.Msgf(
 					"fabric.Run(%d) = %d steps with %d arrivals queued, want the budget exhausted with work still queued",
@@ -389,7 +395,7 @@ func journeyHasKind(entries []fabric.Entry, kind fabric.EntryKind) bool {
 // entry: [trace.Consumed] for a reflector or host taking the frame for
 // itself, [trace.Dropped] for one rejecting, discarding, or failing to
 // decide it. Unlike journeyHopOutcome, which reads the last switch-layer
-// [vswitch.ForwardResult], a reflector's own arrival carries no such
+// [device.Result], a reflector's own arrival carries no such
 // result, only the Step its acceptance or refusal recorded.
 func journeyLastEntryOutcome(j fabric.Journey) trace.Outcome {
 	if len(j.Entries) == 0 {

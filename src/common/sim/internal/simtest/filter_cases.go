@@ -229,6 +229,9 @@ func caseTroubleshootingFilterDropsMDNSUnicastProbe() Case {
 
 			now := time.Unix(1700000000, 0)
 			fwd := sw.Receive(now, "1/1/1", frame)
+			if err := validateReceiveResult(fwd.Result); err != nil {
+				return ExecutionResult{}, err
+			}
 
 			return ExecutionResult{
 				Outcome:  fwd.Outcome,
@@ -236,7 +239,7 @@ func caseTroubleshootingFilterDropsMDNSUnicastProbe() Case {
 				Steps:    fwd.Steps,
 				Metadata: fwd.Metadata,
 				Switch:   sw,
-				Forward:  &fwd.ForwardResult,
+				Forward:  &fwd.Result,
 			}, nil
 		},
 	}
@@ -386,6 +389,9 @@ func caseTroubleshootingStatefulReplyAllowed() Case {
 
 			now := time.Unix(1700000000, 0)
 			fwd := sw.Receive(now, "1/1/2", frame)
+			if err := validateReceiveResult(fwd.Result); err != nil {
+				return ExecutionResult{}, err
+			}
 
 			return ExecutionResult{
 				Outcome:  fwd.Outcome,
@@ -393,7 +399,7 @@ func caseTroubleshootingStatefulReplyAllowed() Case {
 				Steps:    fwd.Steps,
 				Metadata: fwd.Metadata,
 				Switch:   sw,
-				Forward:  &fwd.ForwardResult,
+				Forward:  &fwd.Result,
 			}, nil
 		},
 	}
@@ -569,6 +575,12 @@ func casePlanningFilterRuleChange() Case {
 
 			now := time.Unix(1700000000, 0)
 			cmp := vswitch.Compare(swCur, swNext, now, "1/1/1", frame)
+			if err := validateReceiveResult(cmp.Current.Result); err != nil {
+				return ExecutionResult{}, err
+			}
+			if err := validateReceiveResult(cmp.Expected.Result); err != nil {
+				return ExecutionResult{}, err
+			}
 
 			return ExecutionResult{
 				Outcome:    cmp.Expected.Outcome,

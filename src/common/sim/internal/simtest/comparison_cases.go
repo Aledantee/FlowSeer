@@ -171,6 +171,12 @@ func ComparisonCorpus() []ComparisonCase {
 			} else {
 				cmp = vswitch.Compare(swA, swB, now, "1/1/1", testFrame)
 			}
+			if err := validateReceiveResult(cmp.Current.Result); err != nil {
+				return ComparisonResult{}, err
+			}
+			if err := validateReceiveResult(cmp.Expected.Result); err != nil {
+				return ComparisonResult{}, err
+			}
 			return ComparisonResult{
 				Disposition: cmp.Disposition,
 				Observable:  cmp.Difference.Observable,
@@ -228,6 +234,12 @@ func ComparisonCorpus() []ComparisonCase {
 			} else {
 				cmp = vswitch.Compare(swA, swB, now, "1/1/1", testFrame)
 			}
+			if err := validateReceiveResult(cmp.Current.Result); err != nil {
+				return ComparisonResult{}, err
+			}
+			if err := validateReceiveResult(cmp.Expected.Result); err != nil {
+				return ComparisonResult{}, err
+			}
 			return ComparisonResult{
 				Disposition: cmp.Disposition,
 				Observable:  cmp.Difference.Observable,
@@ -280,6 +292,12 @@ func ComparisonCorpus() []ComparisonCase {
 				cmp = vswitch.Compare(swB, swA, now, "1/1/1", testFrame)
 			} else {
 				cmp = vswitch.Compare(swA, swB, now, "1/1/1", testFrame)
+			}
+			if err := validateReceiveResult(cmp.Current.Result); err != nil {
+				return ComparisonResult{}, err
+			}
+			if err := validateReceiveResult(cmp.Expected.Result); err != nil {
+				return ComparisonResult{}, err
 			}
 			return ComparisonResult{
 				Disposition: cmp.Disposition,
@@ -429,6 +447,12 @@ func ComparisonCorpus() []ComparisonCase {
 			if cmp.Err != nil {
 				return ComparisonResult{}, cmp.Err
 			}
+			if err := validateReceiveReport(cmp.Current); err != nil {
+				return ComparisonResult{}, err
+			}
+			if err := validateReceiveReport(cmp.Expected); err != nil {
+				return ComparisonResult{}, err
+			}
 			return ComparisonResult{
 				Disposition: cmp.Disposition,
 				Observable:  cmp.Difference.Observable,
@@ -504,6 +528,12 @@ func ComparisonCorpus() []ComparisonCase {
 			}
 			if cmp.Err != nil {
 				return ComparisonResult{}, cmp.Err
+			}
+			if err := validateReceiveReport(cmp.Current); err != nil {
+				return ComparisonResult{}, err
+			}
+			if err := validateReceiveReport(cmp.Expected); err != nil {
+				return ComparisonResult{}, err
 			}
 			return ComparisonResult{
 				Disposition: cmp.Disposition,
@@ -581,6 +611,12 @@ func ComparisonCorpus() []ComparisonCase {
 			if cmp.Err != nil {
 				return ComparisonResult{}, cmp.Err
 			}
+			if err := validateReceiveReport(cmp.Current); err != nil {
+				return ComparisonResult{}, err
+			}
+			if err := validateReceiveReport(cmp.Expected); err != nil {
+				return ComparisonResult{}, err
+			}
 			return ComparisonResult{
 				Disposition: cmp.Disposition,
 				Observable:  cmp.Difference.Observable,
@@ -646,6 +682,12 @@ func ComparisonCorpus() []ComparisonCase {
 			}
 			if cmp.Err != nil {
 				return ComparisonResult{}, cmp.Err
+			}
+			if err := validateReceiveReport(cmp.Current); err != nil {
+				return ComparisonResult{}, err
+			}
+			if err := validateReceiveReport(cmp.Expected); err != nil {
+				return ComparisonResult{}, err
 			}
 			return ComparisonResult{
 				Disposition: cmp.Disposition,

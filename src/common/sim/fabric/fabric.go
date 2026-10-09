@@ -14,6 +14,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
+	"go.aledante.io/FlowSeer/src/common/sim/device"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
@@ -178,6 +179,7 @@ type Fabric struct {
 	linkTrust       []linkTrust
 	uncabled        map[Endpoint]Uncabled
 	switches        map[string]*vswitch.Switch
+	devices         map[string]device.Device
 	hostStacks      map[string]*routing.Layer
 	byEnd           map[Endpoint]linkEndRef
 	clock           time.Time
@@ -491,7 +493,8 @@ func build(cur *Fabric, spec ConstructionSpec) (*Fabric, error) {
 
 	// Rebuild each switch's port table with oper states derived from the cables.
 	switches := make(map[string]*vswitch.Switch, len(cloned.Switches))
-	initialOutput := make(map[string]vswitch.Output, len(cloned.Switches))
+	devices := make(map[string]device.Device, len(cloned.Switches))
+	initialOutput := make(map[string]device.Output, len(cloned.Switches))
 	for name, swCfg := range cloned.Switches {
 		newTable, err := rebuildSwitchPorts(name, swCfg.Ports, byEnd, uncabled)
 		if err != nil {
@@ -506,6 +509,7 @@ func build(cur *Fabric, spec ConstructionSpec) (*Fabric, error) {
 			return nil, errs.Wrapf(err, "build switch %q", name)
 		}
 		switches[name] = sw
+		devices[name] = sw
 
 		out, err := notifyLAGMembers(sw, name, cloned, cloned.Start, byEnd)
 		if err != nil {
@@ -533,6 +537,7 @@ func build(cur *Fabric, spec ConstructionSpec) (*Fabric, error) {
 		linkTrust:      trust,
 		uncabled:       uncabled,
 		switches:       switches,
+		devices:        devices,
 		hostStacks:     hostStacks,
 		byEnd:          byEnd,
 		clock:          cloned.Start,
@@ -585,8 +590,8 @@ func rebuildSwitchPorts(name string, swPorts port.Table, byEnd map[Endpoint]link
 	return newTable, nil
 }
 
-func notifyLAGMembers(sw *vswitch.Switch, name string, cfg Config, now time.Time, byEnd map[Endpoint]linkEndRef) (vswitch.Output, error) {
-	var output vswitch.Output
+func notifyLAGMembers(sw *vswitch.Switch, name string, cfg Config, now time.Time, byEnd map[Endpoint]linkEndRef) (device.Output, error) {
+	var output device.Output
 	memberPorts := sw.Ports().Ports()
 	slices.SortFunc(memberPorts, func(a, b port.Port) int {
 		return cmp.Compare(a.Name, b.Name)
@@ -601,7 +606,7 @@ func notifyLAGMembers(sw *vswitch.Switch, name string, cfg Config, now time.Time
 			speed := ref.end.Speed.SpeedBPS
 			out, err := sw.LinkChange(now, p.Name, ref.end.Oper, p2p, speed)
 			if err != nil {
-				return vswitch.Output{}, err
+				return device.Output{}, err
 			}
 			output.Emissions = append(output.Emissions, out.Emissions...)
 			output.Drops = append(output.Drops, out.Drops...)
@@ -636,7 +641,15 @@ func (f *Fabric) Fork() *Fabric {
 	if f.switches != nil {
 		switches = make(map[string]*vswitch.Switch, len(f.switches))
 		for name, sw := range f.switches {
-			switches[name] = sw.Fork()
+			switches[name] = sw.Fork().(*vswitch.Switch)
+		}
+	}
+
+	var devices map[string]device.Device
+	if f.devices != nil {
+		devices = make(map[string]device.Device, len(f.devices))
+		for name := range f.devices {
+			devices[name] = switches[name]
 		}
 	}
 
@@ -669,12 +682,12 @@ func (f *Fabric) Fork() *Fabric {
 	}
 
 	var dequeueItems map[Endpoint]int
-	if f.dequeueItems != nil {
+	if len(f.dequeueItems) > 0 {
 		dequeueItems = maps.Clone(f.dequeueItems)
 	}
 
 	var wakeItems map[string]int
-	if f.wakeItems != nil {
+	if len(f.wakeItems) > 0 {
 		wakeItems = maps.Clone(f.wakeItems)
 	}
 
@@ -758,6 +771,7 @@ func (f *Fabric) Fork() *Fabric {
 		linkTrust:       cloneLinkTrustSlice(f.linkTrust),
 		uncabled:        uncabled,
 		switches:        switches,
+		devices:         devices,
 		hostStacks:      hostStacks,
 		byEnd:           byEnd,
 		clock:           f.clock,
@@ -1483,61 +1497,61 @@ func (f *Fabric) relinkAt(idx int) error {
 	return nil
 }
 
-func (f *Fabric) portPointToPoint(node, portName string, end LinkEnd, peer Endpoint) vswitch.PointToPoint {
+func (f *Fabric) portPointToPoint(node, portName string, end LinkEnd, peer Endpoint) device.PointToPoint {
 	return portPointToPoint(f.cfg, node, portName, end, peer)
 }
 
-func portPointToPoint(cfg Config, node, portName string, end LinkEnd, peer Endpoint) vswitch.PointToPoint {
+func portPointToPoint(cfg Config, node, portName string, end LinkEnd, peer Endpoint) device.PointToPoint {
 	swCfg := cfg.Switches[node]
 	if swCfg.STP != nil {
 		if pCfg, ok := swCfg.STP.Ports[portName]; ok {
 			if pCfg.PointToPoint == stp.PointToPointForceTrue {
-				return vswitch.PointToPointTrue
+				return device.PointToPointTrue
 			}
 			if pCfg.PointToPoint == stp.PointToPointForceFalse {
-				return vswitch.PointToPointFalse
+				return device.PointToPointFalse
 			}
 		}
 	}
 
 	if end.Speed.DuplexA == "" || end.Speed.DuplexA == phy.Unknown {
-		return vswitch.PointToPointUnknown
+		return device.PointToPointUnknown
 	}
 	if end.Speed.DuplexA != phy.Full {
-		return vswitch.PointToPointFalse
+		return device.PointToPointFalse
 	}
 	if _, isHost := cfg.Hosts[peer.Node]; isHost {
-		return vswitch.PointToPointTrue
+		return device.PointToPointTrue
 	}
 	if _, isReflector := cfg.Reflectors[peer.Node]; isReflector {
-		return vswitch.PointToPointTrue
+		return device.PointToPointTrue
 	}
 	if peerSw, isSw := cfg.Switches[peer.Node]; isSw {
 		if peerSw.Bridge != nil {
-			return vswitch.PointToPointTrue
+			return device.PointToPointTrue
 		}
 	}
 
-	return vswitch.PointToPointFalse
+	return device.PointToPointFalse
 }
 
-func (f *Fabric) uncabledPointToPoint(node, portName string) vswitch.PointToPoint {
+func (f *Fabric) uncabledPointToPoint(node, portName string) device.PointToPoint {
 	swCfg := f.cfg.Switches[node]
 	if swCfg.STP != nil {
 		if pCfg, ok := swCfg.STP.Ports[portName]; ok {
 			if pCfg.PointToPoint == stp.PointToPointForceTrue {
-				return vswitch.PointToPointTrue
+				return device.PointToPointTrue
 			}
 			if pCfg.PointToPoint == stp.PointToPointForceFalse {
-				return vswitch.PointToPointFalse
+				return device.PointToPointFalse
 			}
 		}
 	}
 
-	return vswitch.PointToPointFalse
+	return device.PointToPointFalse
 }
 
-func (f *Fabric) applyOutput(now time.Time, node string, out vswitch.Output) {
+func (f *Fabric) applyOutput(now time.Time, node string, out device.Output) {
 	for _, em := range out.Emissions {
 		f.injectEmission(now, node, em)
 	}

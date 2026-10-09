@@ -13,6 +13,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
+	"go.aledante.io/FlowSeer/src/common/sim/device"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
@@ -27,7 +28,7 @@ func TestMirrorOutputSuppressesBPDUs(t *testing.T) {
 	cfg := sw.Config()
 	cfg.Traffic = &traffic.Config{Mirrors: []traffic.Mirror{{Name: "span", SelectAll: true, OutputPort: "1/1/3"}}}
 	sw = mustSwitch(t, cfg)
-	outs := []vswitch.Output{sw.Start(fixedTime), sw.Advance(fixedTime.Add(2 * time.Second)), sw.Advance(fixedTime.Add(4 * time.Second)), sw.Advance(fixedTime.Add(6 * time.Second))}
+	outs := []device.Output{sw.Start(fixedTime), sw.Advance(fixedTime.Add(2 * time.Second)), sw.Advance(fixedTime.Add(4 * time.Second)), sw.Advance(fixedTime.Add(6 * time.Second))}
 	for i, out := range outs {
 		normal := 0
 		for _, em := range out.Emissions {
@@ -45,7 +46,7 @@ func TestMirrorOutputSuppressesBPDUs(t *testing.T) {
 }
 
 func TestMirrorCopiesRequireReadyOutputs(t *testing.T) {
-	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
+	callOutputs := make(map[*vswitch.Switch]device.Output)
 	frame := ethernet.Frame{Src: netaddr.MAC{2}, Dst: netaddr.MAC{4}, Payload: []byte("mirror")}
 	for _, output := range []string{"direct", "output VLAN", "output VLAN LAG"} {
 		for _, test := range []struct {
@@ -95,7 +96,7 @@ func TestMirrorCopiesRequireReadyOutputs(t *testing.T) {
 }
 
 func TestOutputVLANMirrorLAGSelectionUsesLogicalVLAN(t *testing.T) {
-	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
+	callOutputs := make(map[*vswitch.Switch]device.Output)
 	const outputVLAN vlan.ID = 99
 
 	frame := ethernet.Frame{Src: netaddr.MAC{2}, Dst: netaddr.MAC{4}, Payload: []byte("mirror")}
@@ -222,7 +223,7 @@ func TestPeekCalculatesMirrorDependenciesAndKeepsReceivedCopies(t *testing.T) {
 	if len(first.Copies) != 1 || !slices.Equal(first.Copies[0].Frame.Payload, received.Payload) {
 		t.Fatalf("Receive copies = %+v, want one copy of the received frame", first.Copies)
 	}
-	if _, err := sw.LinkChange(time.Time{}, "mirror", port.Unknown, vswitch.PointToPointTrue, 0); err != nil {
+	if _, err := sw.LinkChange(time.Time{}, "mirror", port.Unknown, device.PointToPointTrue, 0); err != nil {
 		t.Fatalf("LinkChange: %v", err)
 	}
 	res := sw.Peek(fixedTime, "in", peeked)
@@ -446,7 +447,7 @@ func TestMirrorCopiesLACPFromLogicalIngress(t *testing.T) {
 	})
 	sw.Start(fixedTime)
 	f := lacp.Encode(lacp.PDU{Actor: lacp.Info{SystemID: macH1, State: lacp.StateActive | lacp.StateAggregation}}, macH1)
-	for _, out := range []vswitch.Output{sw.Peek(fixedTime, "1/1/1", f), sw.Receive(fixedTime, "1/1/1", f)} {
+	for _, out := range []device.Output{sw.Peek(fixedTime, "1/1/1", f), sw.Receive(fixedTime, "1/1/1", f)} {
 		if out.Outcome != trace.Consumed || len(out.Copies) != 1 || out.Copies[0].Port != "1/1/3" || !slices.Equal(out.Copies[0].Frame.Payload, f.Payload) {
 			t.Fatalf("LACP mirror = %+v, want member frame copied by lag1 selector", out)
 		}
@@ -492,7 +493,7 @@ func TestReleasedFrameRefusesMirrorOutput(t *testing.T) {
 }
 
 func TestSwitchReservesMirrorOutputAndCollectsCopies(t *testing.T) {
-	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
+	callOutputs := make(map[*vswitch.Switch]device.Output)
 	ports := mustTable(t, port.NewBuilder().
 		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
 		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
@@ -707,7 +708,7 @@ func TestPeekLeavesPolicerBucketsUntouched(t *testing.T) {
 }
 
 func TestMirrorSelectionUsesLogicalLAGIngress(t *testing.T) {
-	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
+	callOutputs := make(map[*vswitch.Switch]device.Output)
 	ports := mustTable(t, port.NewBuilder().
 		Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up}).
 		Add(port.Port{Name: "1/1/1", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}).

@@ -2,6 +2,7 @@ package fabric_test
 
 import (
 	"net/netip"
+	"reflect"
 	"slices"
 	"testing"
 
@@ -9,6 +10,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
+	"go.aledante.io/FlowSeer/src/common/sim/device"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
@@ -232,7 +234,7 @@ func TestFloodJourneyCarriesTheIssueOfAConsultedPortItDidNotEgress(t *testing.T)
 	fab := journeyFabric(t, false)
 
 	journey := sendH1ToH2(t, fab)
-	var hop *vswitch.ForwardResult
+	var hop *device.Result
 	for _, entry := range journey.Entries {
 		if entry.Kind == fabric.EntryHop {
 			hop = entry.Result
@@ -241,7 +243,7 @@ func TestFloodJourneyCarriesTheIssueOfAConsultedPortItDidNotEgress(t *testing.T)
 	if hop == nil || hop.Outcome != trace.Flooded {
 		t.Fatalf("entries = %+v, want a flooding hop", journey.Entries)
 	}
-	if slices.ContainsFunc(hop.Egress, func(e bridge.Egress) bool { return e.Port == "1/1/3" }) {
+	if slices.ContainsFunc(hop.Egress, func(e device.Egress) bool { return e.Port == "1/1/3" }) {
 		t.Fatalf("flood egress = %+v, want nothing onto the Unknown port 1/1/3", hop.Egress)
 	}
 	if !slices.ContainsFunc(hop.ConsultedPorts(), func(p port.Port) bool { return p.Name == "1/1/3" }) {
@@ -250,5 +252,37 @@ func TestFloodJourneyCarriesTheIssueOfAConsultedPortItDidNotEgress(t *testing.T)
 
 	if !hasIssue(journey.Metadata.IssuesFor(analysis.LinkScope(h3LinkKey)), analysis.IssueCode(phy.ReasonCapabilityUnknown)) {
 		t.Errorf("journey issues = %+v, want capability-unknown on the consulted h3 link", journey.Metadata.Issues())
+	}
+}
+
+func TestReportCopiesConsultedDependencies(t *testing.T) {
+	for _, field := range []string{"ports", "scopes"} {
+		t.Run(field, func(t *testing.T) {
+			fab := journeyFabric(t, false)
+			journey := sendH1ToH2(t, fab)
+			index := -1
+			for i, entry := range journey.Entries {
+				if entry.Kind == fabric.EntryHop {
+					index = i
+				}
+			}
+			if index < 0 {
+				t.Fatal("journey has no forwarding hop")
+			}
+			hop := journey.Entries[index].Result
+			ports, scopes := hop.ConsultedPorts(), hop.ConsultedScopes()
+			if hop.Outcome != trace.Flooded || !slices.ContainsFunc(ports, func(p port.Port) bool { return p.Name == "1/1/1" }) || len(scopes) == 0 {
+				t.Fatalf("hop = %+v, want flood with ingress dependency and consulted scopes", hop)
+			}
+			if field == "ports" {
+				hop.PortDependencies[0].Name = "mutated"
+			} else {
+				hop.ScopeDependencies[0] = analysis.NodeScope("mutated")
+			}
+			fresh := fab.Report()[journey.FrameID-1].Entries[index].Result
+			if !reflect.DeepEqual(fresh.ConsultedPorts(), ports) || !reflect.DeepEqual(fresh.ConsultedScopes(), scopes) {
+				t.Fatalf("report dependencies = %v/%v, want unchanged %v/%v", fresh.ConsultedPorts(), fresh.ConsultedScopes(), ports, scopes)
+			}
+		})
 	}
 }

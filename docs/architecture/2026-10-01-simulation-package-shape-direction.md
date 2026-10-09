@@ -97,6 +97,8 @@ it, which is what `docs/code-style.md` asks of an interface. An access point
 or a client with behaviour is a third package under `device/`, built from the
 same layers plus its own.
 
+The seam's types name no layer.
+
 **The medium seam.** The cable model moves to `medium/cable` and `fabric`
 calls it as a concrete type. No `Medium` interface is written while the cable
 is the only implementation. A radio medium is the second one, and the

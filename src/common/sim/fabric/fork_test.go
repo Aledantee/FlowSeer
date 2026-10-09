@@ -25,6 +25,7 @@ var fabricDeepCopiedProbes = map[string]func(t *testing.T){
 	"linkTrust":      probeFabricLinkTrust,
 	"uncabled":       probeFabricUncabled,
 	"switches":       probeFabricSwitches,
+	"devices":        probeFabricDevices,
 	"hostStacks":     probeFabricHostStacks,
 	"byEnd":          probeFabricByEnd,
 	"queue":          probeFabricQueue,
@@ -147,6 +148,47 @@ func probeFabricSwitches(t *testing.T) {
 	}
 }
 
+func probeFabricDevices(t *testing.T) {
+	initial := newTestFabricForFork(t).Config()
+	initial.Cables[2].LengthMeters = 1
+	fab, err := New(initial)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fork := fab.Fork()
+	cfg := fork.Config().Switches["sw1"]
+	cfg.Bridge = nil
+	if err := fork.Configure("sw1", cfg); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		name   string
+		fabric *Fabric
+		fid    vlan.ID
+	}{
+		{"source", fab, 10},
+		{"fork", fork, 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := tc.fabric.Inject(Injection{
+				At:     tc.fabric.Snapshot().Clock,
+				Origin: Endpoint{Node: "sw1", Port: "1/1/1"},
+				Frame:  ethernet.Frame{Src: netaddr.MAC{0, 1, 2, 3, 4, 5}, Dst: netaddr.MAC{255, 255, 255, 255, 255, 255}},
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			entry, ok := tc.fabric.Step()
+			if !ok || entry.Result == nil {
+				t.Fatalf("step = %+v, ok %t, want forwarding result", entry, ok)
+			}
+			if entry.Result.Outcome != trace.Flooded || entry.Result.FID != tc.fid {
+				t.Fatalf("outcome/FID = %s/%d, want Flooded/%d", entry.Result.Outcome, entry.Result.FID, tc.fid)
+			}
+		})
+	}
+}
+
 func probeFabricHostStacks(t *testing.T) {
 	fab := newTestFabricForFork(t)
 	fork := fab.Fork()
@@ -242,6 +284,7 @@ func probeFabricFlows(t *testing.T) {
 
 func probeFabricDequeueItems(t *testing.T) {
 	fab := newTestFabricForFork(t)
+	fab.dequeueItems[Endpoint{Node: "existing"}] = 0
 	fork := fab.Fork()
 
 	fab.dequeueItems[Endpoint{Node: "src"}] = 1
@@ -257,6 +300,7 @@ func probeFabricDequeueItems(t *testing.T) {
 
 func probeFabricWakeItems(t *testing.T) {
 	fab := newTestFabricForFork(t)
+	fab.wakeItems["existing"] = 0
 	fork := fab.Fork()
 
 	fab.wakeItems["src"] = 1

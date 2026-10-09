@@ -13,6 +13,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
+	"go.aledante.io/FlowSeer/src/common/sim/device"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
@@ -76,7 +77,7 @@ func TestLoadFabricJourneyPreservesConstructionTrust(t *testing.T) {
 	}
 	fab.Run(100)
 
-	var hop *vswitch.ForwardResult
+	var hop *device.Result
 	for _, journey := range fab.Report() {
 		if journey.FrameID != frameID {
 			continue

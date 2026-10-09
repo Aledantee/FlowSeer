@@ -28,18 +28,18 @@ const reasonHeldInterfaceUnknown trace.Reason = "held-interface-unknown"
 // vanish with no record, the way the interface case above does not.
 const reasonHeldCauseUnknown trace.Reason = "held-cause-unknown"
 
-// NeighborDrop is one frame taken out of a hold queue that could not be put on a wire,
+// neighborDrop is one frame taken out of a hold queue that could not be put on a wire,
 // carrying the reason from whichever stage refused it: the routing layer, for a frame that timed
 // out or was pushed out of a full queue, the filter, for a released frame a bound rule set
 // refuses, or the bridge or the port table, for a released frame the egress then refused.
-// [Switch.Receive], [Switch.Advance], and [Derive] report them in [Output.Drops] when they settle
+// [Switch.Receive], [Switch.Advance], and [Derive] report them in [device.Output.Drops] when they settle
 // held frames. Reason is that stage's own answer rather than one the reader supplies, and Step is
 // the trace step naming it. Steps holds the steps behind the refusal, the filter's for a filter
 // refusal and the routed steps for an egress refusal, and is empty for a routing-layer exit. Port
 // is the egress port the drop is counted against, and is empty when no single port owns it (a VLAN
 // interface whose bridge found no candidate at all), in which case a consumer counts it against no
 // port rather than inventing an endpoint.
-type NeighborDrop struct {
+type neighborDrop struct {
 	Step   trace.Step
 	Steps  []trace.Step
 	Port   string
@@ -209,7 +209,7 @@ func (s *Switch) emitRouting(now time.Time, emissions []layer.Emission) {
 				res := s.bridge.Egress(bridge.Ingress{FID: em.VID, Now: now, Commit: true}, em.Frame)
 				for _, eg := range res.Egress {
 					if eg.Dropped == "" {
-						s.emit(Emission{Port: eg.Port, Member: eg.Member, Frame: eg.Frame, Protocol: true})
+						s.emit(emission{Port: eg.Port, Member: eg.Member, Frame: eg.Frame, Protocol: true})
 					}
 				}
 				return
@@ -225,16 +225,16 @@ func (s *Switch) emitRouting(now time.Time, emissions []layer.Emission) {
 			if p.Kind == port.LAG && !s.selectOrPeekMember(now, em.Port, frame, 0, true).OK {
 				return
 			}
-			s.emit(Emission{Port: em.Port, Frame: frame, Protocol: true})
+			s.emit(emission{Port: em.Port, Frame: frame, Protocol: true})
 		}()
 	}
 }
 
 // applyRoutingExits turns the routing layer's hold-queue exits into what a
-// caller of [Switch.Receive], [Switch.Advance], or [Derive] can observe: a released frame becomes an Emission
+// caller of [Switch.Receive], [Switch.Advance], or [Derive] can observe: a released frame becomes an emission
 // with Protocol false, since it is ordinary data the switch is finally able
 // to send rather than a protocol frame of the switch's own, and a frame that
-// left the queue any other way becomes a [NeighborDrop] under the reason its
+// left the queue any other way becomes a [neighborDrop] under the reason its
 // own cause names rather than vanishing silently.
 //
 // A timeout keeps [routing.ReasonNeighborMiss]: nothing ever answered for the
@@ -255,7 +255,7 @@ func (s *Switch) applyRoutingExits(now time.Time, exits []routing.HeldFrame) {
 			// bare string type, and reasonHeldInterfaceUnknown already chose a record over
 			// silence for its own unreachable case; a cause this switch on hf.Cause does not
 			// recognize gets the same treatment rather than vanishing with no emission and no
-			// NeighborDrop.
+			// neighborDrop.
 			s.recordHeldExitDrop(hf, reasonHeldCauseUnknown)
 		}
 	}
@@ -264,7 +264,7 @@ func (s *Switch) applyRoutingExits(now time.Time, exits []routing.HeldFrame) {
 // recordHeldExitDrop records a held frame the routing layer itself refused, so the subject is
 // the interface it was held on rather than a port: no egress was attempted.
 func (s *Switch) recordHeldExitDrop(hf routing.HeldFrame, reason trace.Reason) {
-	s.call.drops = append(s.call.drops, NeighborDrop{
+	s.call.drops = append(s.call.drops, neighborDrop{
 		Step: trace.Step{
 			Layer:   routing.LayerName,
 			Op:      trace.OpDrop,
@@ -285,7 +285,7 @@ func (s *Switch) recordHeldEgressDrop(hf routing.HeldFrame, egressPort, member s
 		// No port was chosen, so the interface is the most specific thing the drop is about.
 		subject = trace.Subject{Kind: "interface", Key: hf.Interface}
 	}
-	s.call.drops = append(s.call.drops, NeighborDrop{
+	s.call.drops = append(s.call.drops, neighborDrop{
 		Step: trace.Step{
 			Layer:   routing.LayerName,
 			Op:      trace.OpDrop,
@@ -315,7 +315,7 @@ func (s *Switch) releaseHeldFrame(now time.Time, hf routing.HeldFrame) {
 				in = s.filter.ResolveDeferred(in, hf.Interface)
 			}
 			if in.Decision != filter.DecisionAccept {
-				s.call.drops = append(s.call.drops, NeighborDrop{
+				s.call.drops = append(s.call.drops, neighborDrop{
 					Step: in.Steps[len(in.Steps)-1], Steps: in.Steps,
 					Reason: in.Reason, Hold: hf.Token, Ingress: hf.Ingress,
 				})
@@ -325,7 +325,7 @@ func (s *Switch) releaseHeldFrame(now time.Time, hf routing.HeldFrame) {
 		out = s.filter.EvaluateEgress(hf.Interface, hf.Ingress, hf.Frame)
 		if out.Decision != filter.DecisionAccept {
 			steps := routedSteps(nil, in, nil, out)
-			s.call.drops = append(s.call.drops, NeighborDrop{
+			s.call.drops = append(s.call.drops, neighborDrop{
 				Step: out.Steps[len(out.Steps)-1], Steps: steps,
 				Reason: out.Reason, Hold: hf.Token, Ingress: hf.Ingress,
 			})
@@ -351,7 +351,7 @@ func (s *Switch) releaseHeldFrame(now time.Time, hf routing.HeldFrame) {
 			s.recordHeldEgressDrop(hf, eg.Port, eg.Member, rule, eg.Dropped, res.Steps)
 			continue
 		}
-		if !s.emit(Emission{
+		if !s.emit(emission{
 			Port: eg.Port, Member: eg.Member, Frame: eg.Frame, PCP: eg.PCP,
 			Hold: hf.Token, Ingress: hf.Ingress,
 		}) {

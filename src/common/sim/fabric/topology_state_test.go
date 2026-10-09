@@ -10,6 +10,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
+	"go.aledante.io/FlowSeer/src/common/sim/device"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
@@ -347,7 +348,7 @@ func TestHostWithoutEthernetFactsLeavesLinkUnknownAndFloodsNothing(t *testing.T)
 	fab.Run(20)
 
 	journey := fab.Report()[fid-1]
-	var hop *vswitch.ForwardResult
+	var hop *device.Result
 	for _, entry := range journey.Entries {
 		if entry.Kind == fabric.EntryHop {
 			hop = entry.Result
@@ -459,7 +460,7 @@ func TestUncabledPortDropsDefinitelyAndOmittedPortIsUnresolved(t *testing.T) {
 		t.Errorf("port 4 issues = %+v, want one Incomplete adjacency-unresolved", unresolved)
 	}
 
-	hopTo := func(dst netaddr.MAC) (*vswitch.ForwardResult, fabric.Journey) {
+	hopTo := func(dst netaddr.MAC) (*device.Result, fabric.Journey) {
 		t.Helper()
 		fid, err := fab.Inject(fabric.Injection{
 			At:     fab.Snapshot().Clock,

@@ -77,7 +77,7 @@ func TestDeriveCapabilityMatrix(t *testing.T) {
 			for i, probe := range frames {
 				source.Receive(now.Add(time.Duration(i+1)*time.Second), probe.ingress, probe.frame)
 			}
-			fork := source.Fork()
+			fork := source.Fork().(*Switch)
 			derived, _, err := Derive(source, source.Spec())
 			if err != nil {
 				t.Fatal(err)

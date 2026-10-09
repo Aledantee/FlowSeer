@@ -13,6 +13,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
+	"go.aledante.io/FlowSeer/src/common/sim/device"
 	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/lag"
@@ -67,7 +68,7 @@ func issueCallFrame(t *testing.T, dst netip.Addr) ethernet.Frame {
 	return ethernet.Frame{Src: netaddr.MAC{2, 0, 0, 0, 0, 7}, Dst: netaddr.MAC{2, 0, 0, 0, 0, 1}, EtherType: ethernet.EtherTypeIPv4, Payload: payload}
 }
 
-func callHasIssue(res Output, code analysis.IssueCode) bool {
+func callHasIssue(res device.Output, code analysis.IssueCode) bool {
 	return slices.ContainsFunc(res.Metadata.Issues(), func(issue analysis.Issue) bool { return issue.Code == code })
 }
 
@@ -90,7 +91,7 @@ func TestPolicedDropCarriesNoEarlierIssue(t *testing.T) {
 }
 
 func TestReleaseChargesNoMulticastQueryToTheObservingFrame(t *testing.T) {
-	callOutputs := make(map[*Switch]Output)
+	callOutputs := make(map[*Switch]device.Output)
 	sw := issueCallSwitch(t)
 	t0 := time.Unix(100, 0)
 	group := netip.MustParseAddr("239.1.2.3")
@@ -158,7 +159,7 @@ func TestSelectMemberOutsideACallRaisesNothing(t *testing.T) {
 	if callHasIssue(res, IssueLAGRebalanceUnmodeled) {
 		t.Errorf("next frame issues = %+v, want no lag-rebalance-unmodeled", res.Metadata.Issues())
 	}
-	if _, err := sw.LinkChange(now, "in", port.Down, PointToPointTrue, 1_000_000_000); err != nil {
+	if _, err := sw.LinkChange(now, "in", port.Down, device.PointToPointTrue, 1_000_000_000); err != nil {
 		t.Fatal(err)
 	}
 	res = sw.Receive(now, "in", f)
@@ -180,7 +181,7 @@ func TestNoCallOutlivesItsEntry(t *testing.T) {
 		{"Advance", func(sw *Switch) { sw.Advance(now) }},
 		{"Start", func(sw *Switch) { sw.Start(now) }},
 		{"LinkChange", func(sw *Switch) {
-			if _, err := sw.LinkChange(now, "out", port.Down, PointToPointTrue, 1_000_000_000); err != nil {
+			if _, err := sw.LinkChange(now, "out", port.Down, device.PointToPointTrue, 1_000_000_000); err != nil {
 				t.Fatal(err)
 			}
 		}},

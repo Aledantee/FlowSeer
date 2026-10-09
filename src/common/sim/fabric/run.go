@@ -18,6 +18,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/udp"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
+	"go.aledante.io/FlowSeer/src/common/sim/device"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/mcast"
@@ -406,7 +407,7 @@ func (f *Fabric) Step() (Entry, bool) {
 
 	if arr.Kind == ArrivalWake {
 		delete(f.wakes, arr.Device)
-		sw := f.switches[arr.Device]
+		sw := f.devices[arr.Device]
 		if sw != nil {
 			out := sw.Advance(arr.At)
 			for _, em := range out.Emissions {
@@ -485,7 +486,7 @@ func (f *Fabric) Step() (Entry, bool) {
 		return entry, true
 	}
 
-	sw := f.switches[arr.Device]
+	sw := f.devices[arr.Device]
 	var inPorts []string
 	inPorts = append(inPorts, arr.Port)
 	if p, ok := sw.Ports().Port(arr.Port); ok && p.LagParent != "" {
@@ -522,13 +523,13 @@ func (f *Fabric) Step() (Entry, bool) {
 	// passed the original ingress policy, so a downstream switch must not charge
 	// its bytes again. A reflection carries OriginMirror for provenance but no
 	// mirror name; it is a first-class datagram the policer must still see.
-	var out vswitch.Output
+	var out device.Output
 	if journey.Origin.Mirror == "" {
 		out = sw.Receive(arr.At, arr.Port, arr.Frame)
 	} else {
 		out = sw.ReceiveMirrored(arr.At, arr.Port, arr.Frame)
 	}
-	res := out.ForwardResult
+	res := out.Result
 	for _, em := range out.Emissions {
 		f.injectEmission(arr.At, arr.Device, em)
 	}
@@ -1300,7 +1301,7 @@ func (f *Fabric) transmitCable(start time.Time, txEnd Endpoint, ref linkEndRef, 
 	return end
 }
 
-func (f *Fabric) injectEmission(now time.Time, device string, em vswitch.Emission) {
+func (f *Fabric) injectEmission(now time.Time, device string, em device.Emission) {
 	f.initRunState()
 
 	inj := Injection{
@@ -1388,7 +1389,7 @@ func (f *Fabric) findAndPopHeld(device string, frame ethernet.Frame) FrameID {
 	return 0
 }
 
-// recordNeighborFailure turns one [vswitch.NeighborDrop] reported for a held
+// recordNeighborFailure turns one [device.Drop] reported for a held
 // frame that reached no wire into the same kind of answer a live drop gets: a
 // counter, and a journey entry. Both the port and the reason come from the
 // drop itself: the switch knows which stage refused the frame and which port,
@@ -1406,7 +1407,7 @@ func (f *Fabric) findAndPopHeld(device string, frame ethernet.Frame) FrameID {
 // journey for it, the way injectEmission opens one for a released frame's own
 // injection, rather than attaching it to a frame journey it was never part
 // of.
-func (f *Fabric) recordNeighborFailure(now time.Time, device string, drop vswitch.NeighborDrop) {
+func (f *Fabric) recordNeighborFailure(now time.Time, device string, drop device.Drop) {
 	f.initRunState()
 
 	if drop.Port != "" {
@@ -1433,7 +1434,7 @@ func (f *Fabric) recordNeighborFailure(now time.Time, device string, drop vswitc
 }
 
 func (f *Fabric) scheduleWake(device string) {
-	sw, ok := f.switches[device]
+	sw, ok := f.devices[device]
 	if !ok {
 		return
 	}

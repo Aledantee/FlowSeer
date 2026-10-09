@@ -202,7 +202,7 @@ progression across devices and cables:
   (serialization 672 ns at 1 Gbit/s for the 84 wire octets of a 60-octet frame,
   wait 0, latency 0 on a 0 m cable).
 - `Hop`: Evaluates forwarding on `sw1:1/1/1` at `t0 + 672ns`. The entry's
-  `Result` retains the switch's `*vswitch.ForwardResult`, preserving domain
+  `Result` retains the switch's `*device.Result`, preserving domain
   bridge outcomes and analysis readiness metadata. Because `macH2` is
   unknown, the bridge floods VLAN 10 out `1/1/24` with a C-TAG of VID 10.
 - `Crossing`: Transmits the copy across the 300-meter trunk cable to

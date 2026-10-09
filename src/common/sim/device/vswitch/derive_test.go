@@ -12,6 +12,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
+	"go.aledante.io/FlowSeer/src/common/sim/device"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/loopprotect"
@@ -452,7 +453,7 @@ func TestDeriveEdgeCases(t *testing.T) {
 }
 
 func TestDerivedSwitchKeepsRootPortForwarding(t *testing.T) {
-	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
+	callOutputs := make(map[*vswitch.Switch]device.Output)
 	tbl := mustTable(t, port.NewBuilder().
 		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
 		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
@@ -513,7 +514,7 @@ func TestDerivedSwitchKeepsRootPortForwarding(t *testing.T) {
 // address the switch assigned does not read as a change that rebuilds the
 // layer.
 func TestDerivedSwitchKeepsRolesWithAssignedBridgeAddress(t *testing.T) {
-	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
+	callOutputs := make(map[*vswitch.Switch]device.Output)
 	tbl := mustTable(t, port.NewBuilder().
 		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
 		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
@@ -634,7 +635,7 @@ func TestDeriveRebuildsLoopProtectOnAdminStatusCycle(t *testing.T) {
 			precondition.Outcome, precondition.Reason, trace.Dropped, bridge.ReasonPortBlocked)
 	}
 
-	if _, err := sw.LinkChange(now, "1/1/1", port.Down, vswitch.PointToPointTrue, 0); err != nil {
+	if _, err := sw.LinkChange(now, "1/1/1", port.Down, device.PointToPointTrue, 0); err != nil {
 		t.Fatalf("LinkChange: %v", err)
 	}
 
@@ -704,7 +705,7 @@ func TestDeriveSwitchRoutingUpdated(t *testing.T) {
 // [TestDeriveKeepsObservedNeighborsAndDropsHeldFrames], which changes
 // nothing and requires the opposite, a resolved forward.
 func TestDeriveRebuildsRoutingWhenNeighborPolicyChanges(t *testing.T) {
-	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
+	callOutputs := make(map[*vswitch.Switch]device.Output)
 	cur := buildBaseRoutingSwitch(t)
 
 	dst := netip.MustParseAddr("10.0.20.77")
@@ -742,7 +743,7 @@ func TestDeriveRebuildsRoutingWhenNeighborPolicyChanges(t *testing.T) {
 // Derive retains the routing layer's neighbor table and hold queues when the
 // routing retention key is unchanged, and drops them when it is not.
 func TestDeriveRetainsRoutingStateAndHeldFramesUnderUnchangedKey(t *testing.T) {
-	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
+	callOutputs := make(map[*vswitch.Switch]device.Output)
 	cur := buildBaseRoutingSwitch(t)
 
 	dstA := netip.MustParseAddr("10.0.20.77")
@@ -790,7 +791,7 @@ func TestDeriveRetainsRoutingStateAndHeldFramesUnderUnchangedKey(t *testing.T) {
 }
 
 func TestDeriveFailsHeldFramesOnRoutingKeyChange(t *testing.T) {
-	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
+	callOutputs := make(map[*vswitch.Switch]device.Output)
 	cur := buildBaseRoutingSwitch(t)
 
 	dstB := netip.MustParseAddr("10.0.20.88")

@@ -123,8 +123,8 @@ func (f *Fabric) removeWakeArrival(device string) {
 }
 
 // initQueueIndexes ensures the key indexes exist before a keyed arrival is
-// pushed. A fabric built by New or Fork holds them already; a hand-built one
-// does not.
+// pushed. Fork leaves empty indexes unallocated, so copying an unused index
+// costs nothing until a keyed arrival needs it.
 func (f *Fabric) initQueueIndexes() {
 	if f.dequeueItems == nil {
 		f.dequeueItems = make(map[Endpoint]int)

@@ -4,6 +4,8 @@ import (
 	"maps"
 	"slices"
 	"time"
+
+	"go.aledante.io/FlowSeer/src/common/sim/device"
 )
 
 // Fork returns an independent executable copy of the switch. Construction
@@ -12,7 +14,7 @@ import (
 // and forwarding issues are deep-copied. Bridge selector, resolver, and gate
 // bindings are rebound to the fork's own cloned layers.
 // The call in progress is unset on the fork.
-func (s *Switch) Fork() *Switch {
+func (s *Switch) Fork() device.Device {
 	cp := &Switch{
 		cfg:                s.cfg,
 		ports:              s.ports,

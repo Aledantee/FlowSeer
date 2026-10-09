@@ -5,13 +5,14 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/sim/device"
 	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/loopprotect"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
 )
 
-// Emission describes an Ethernet frame to transmit out a port or member port.
-type Emission struct {
+// emission describes an Ethernet frame to transmit out a port or member port.
+type emission struct {
 	Port   string
 	Member string
 	Frame  ethernet.Frame
@@ -53,7 +54,7 @@ func (s *Switch) applySTPEffects(fx layer.Effects) {
 		// tagged, untagged where it is the port's untagged VLAN, and not at
 		// all where the port does not carry it.
 		if em.VID == 0 {
-			s.emit(Emission{Port: em.Port, Frame: em.Frame, Protocol: true})
+			s.emit(emission{Port: em.Port, Frame: em.Frame, Protocol: true})
 
 			continue
 		}
@@ -61,7 +62,7 @@ func (s *Switch) applySTPEffects(fx layer.Effects) {
 		if !ok {
 			continue
 		}
-		s.emit(Emission{Port: em.Port, Frame: egress, Protocol: true})
+		s.emit(emission{Port: em.Port, Frame: egress, Protocol: true})
 	}
 }
 
@@ -103,13 +104,13 @@ func (s *Switch) applyLoopProtectEffects(fx layer.Effects) {
 		if !ok {
 			continue
 		}
-		s.emit(Emission{Port: em.Port, Frame: egress, Protocol: true})
+		s.emit(emission{Port: em.Port, Frame: egress, Protocol: true})
 	}
 }
 
 func (s *Switch) applyLAGEffects(now time.Time, fx layer.Effects) {
 	for _, em := range fx.Emissions {
-		s.emit(Emission{Port: em.Port, Frame: em.Frame, Protocol: true})
+		s.emit(emission{Port: em.Port, Frame: em.Frame, Protocol: true})
 	}
 	for _, lagName := range fx.Changed {
 		s.updateLagState(now, lagName)
@@ -145,14 +146,14 @@ func (s *Switch) NextWake() (time.Time, bool) {
 
 // Mcheck triggers protocol migration checking on the named port, forcing it to
 // transmit RSTP BPDUs and restarting the migration delay.
-// It returns the emitted BPDUs in Output. Without spanning tree configuration,
-// Mcheck returns an empty Output.
-func (s *Switch) Mcheck(now time.Time, port string) Output {
+// It returns the emitted BPDUs in device.Output. Without spanning tree configuration,
+// Mcheck returns an empty device.Output.
+func (s *Switch) Mcheck(now time.Time, port string) device.Output {
 	c, end := s.beginCall(now, true)
 	defer end()
 
 	if s.stp == nil {
-		return c.output(ForwardResult{})
+		return c.output(forwardResult{})
 	}
 	resolvedPort := port
 	if p, ok := s.ports.Resolve(port); ok {
@@ -160,22 +161,22 @@ func (s *Switch) Mcheck(now time.Time, port string) Output {
 	}
 	fx := s.stp.Mcheck(now, resolvedPort)
 	s.applySTPEffects(fx)
-	return c.output(ForwardResult{})
+	return c.output(forwardResult{})
 }
 
 // ClearLoopProtect manually lifts the loop-protection action applied to the
-// named logical port. It returns an empty Output because clearing originates
+// named logical port. It returns an empty device.Output because clearing originates
 // no frame. An absent layer or untracked port is a no-op.
-func (s *Switch) ClearLoopProtect(now time.Time, port string) Output {
+func (s *Switch) ClearLoopProtect(now time.Time, port string) device.Output {
 	c, end := s.beginCall(now, true)
 	defer end()
 	if s.loopprotect != nil {
 		s.loopprotect.Clear(now, s.logicalIngress(port))
 	}
-	return c.output(ForwardResult{})
+	return c.output(forwardResult{})
 }
 
-func (s *Switch) emit(em Emission) bool {
+func (s *Switch) emit(em emission) bool {
 	if s.isMirrorOutputPort(em.Port) {
 		return false
 	}
