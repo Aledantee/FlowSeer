@@ -17,7 +17,6 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer/filter"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
-	"go.aledante.io/FlowSeer/src/common/sim/layer/traffic"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
@@ -209,7 +208,7 @@ func TestSwitchHoldsNoPendingOutput(t *testing.T) {
 	typ := reflect.TypeFor[Switch]()
 	for i := 0; i < typ.NumField(); i++ {
 		field := typ.Field(i)
-		if field.Type == reflect.TypeFor[[]emission]() || field.Type == reflect.TypeFor[[]traffic.Copy]() || field.Type == reflect.TypeFor[[]neighborDrop]() {
+		if field.Type == reflect.TypeFor[[]emission]() || field.Type == reflect.TypeFor[[]mirrorCopy]() || field.Type == reflect.TypeFor[[]neighborDrop]() {
 			t.Errorf("Switch field %s retains output of type %s", field.Name, field.Type)
 		}
 	}

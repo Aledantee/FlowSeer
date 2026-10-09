@@ -9,6 +9,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/loopprotect"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
+	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
 // emission describes an Ethernet frame to transmit out a port or member port.
@@ -179,6 +180,20 @@ func (s *Switch) ClearLoopProtect(now time.Time, port string) device.Output {
 func (s *Switch) emit(em emission) bool {
 	if s.isMirrorOutputPort(em.Port) {
 		return false
+	}
+	if p, ok := s.ports.Port(em.Port); ok && p.Kind == port.LAG && em.Member == "" {
+		var vid vlan.ID
+		for _, tag := range em.Frame.Tags {
+			if tag.TPID == uint16(ethernet.EtherTypeDot1Q) {
+				vid = tag.VID
+				break
+			}
+		}
+		member, ok := s.selectMember(s.call.now, em.Port, em.Frame, vid)
+		if !ok {
+			return false
+		}
+		em.Member = member
 	}
 	s.call.emissions = append(s.call.emissions, em)
 	return true

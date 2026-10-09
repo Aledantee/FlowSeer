@@ -24,7 +24,7 @@ import (
 type call struct {
 	hold                     routing.HoldToken
 	emissions                []emission
-	copies                   []traffic.Copy
+	copies                   []mirrorCopy
 	drops                    []neighborDrop
 	now                      time.Time
 	commit                   bool
@@ -32,6 +32,11 @@ type call struct {
 	mcastQueryUnobservedHits []mcastQueryUnobservedHit
 	neighborUnresolvedHits   []neighborUnresolvedHit
 	pvstBoundaryHits         map[pvstBoundaryHit]struct{}
+}
+
+type mirrorCopy struct {
+	traffic.Copy
+	Hold routing.HoldToken
 }
 
 func (s *Switch) beginCall(now time.Time, commit bool) (*call, func()) {

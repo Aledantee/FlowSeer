@@ -222,10 +222,15 @@ func (s *Switch) emitRouting(now time.Time, emissions []layer.Emission) {
 				return
 			}
 			p, _ := s.ports.Port(em.Port)
-			if p.Kind == port.LAG && !s.selectOrPeekMember(now, em.Port, frame, 0, true).OK {
-				return
+			member := ""
+			if p.Kind == port.LAG {
+				selected := s.selectOrPeekMember(now, em.Port, frame, 0, true)
+				if !selected.OK {
+					return
+				}
+				member = selected.Member
 			}
-			s.emit(emission{Port: em.Port, Frame: frame, Protocol: true})
+			s.emit(emission{Port: em.Port, Member: member, Frame: frame, Protocol: true})
 		}()
 	}
 }
@@ -333,6 +338,10 @@ func (s *Switch) releaseHeldFrame(now time.Time, hf routing.HeldFrame) {
 		}
 	}
 	res := s.putRoutedFrame(c, hf.Interface, "", hf.PCP, hf.DEI, hf.Frame, routedSteps(nil, in, nil, out), nil)
+	res = s.finishForward(now, "", hf.Frame, res, true)
+	for i := range c.copies {
+		c.copies[i].Hold = hf.Token
+	}
 	if len(res.Egress) == 0 {
 		reason := res.Reason
 		if reason == "" {

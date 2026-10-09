@@ -351,12 +351,9 @@ func TestMemberLinkDownMovesSelectionAndSTPPathCost(t *testing.T) {
 	}
 
 	sw := mustSwitch(t, cfg)
-	sw.Start(now)
-
-	dummyFrame := ethernet.Frame{Dst: netaddr.MAC{1}, Src: netaddr.MAC{2}}
-	mem, ok := sw.SelectMember(now, "lag1", dummyFrame, 10)
-	if !ok || mem != "1/1/1" {
-		t.Fatalf("SelectMember = (%q, %t), want (1/1/1, true)", mem, ok)
+	started := sw.Start(now)
+	if len(started.Emissions) != 1 || started.Emissions[0].Member != "1/1/1" {
+		t.Fatalf("Start emissions = %+v, want one on 1/1/1", started.Emissions)
 	}
 
 	roles := sw.Roles()
@@ -368,9 +365,9 @@ func TestMemberLinkDownMovesSelectionAndSTPPathCost(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	mem, ok = sw.SelectMember(now, "lag1", dummyFrame, 10)
-	if !ok || mem != "1/1/2" {
-		t.Fatalf("after link down, SelectMember = (%q, %t), want (1/1/2, true)", mem, ok)
+	afterDown := sw.Advance(now.Add(2 * time.Second))
+	if len(afterDown.Emissions) != 1 || afterDown.Emissions[0].Member != "1/1/2" {
+		t.Fatalf("after link down, emissions = %+v, want one on 1/1/2", afterDown.Emissions)
 	}
 
 	roles = sw.Roles()
@@ -378,12 +375,11 @@ func TestMemberLinkDownMovesSelectionAndSTPPathCost(t *testing.T) {
 		t.Errorf("after link down, lag1 PathCost = %d, want 20000 (1 Gbps)", roles["lag1"].PathCost)
 	}
 	// Both members down: lag1 has no enabled member
-	if _, err := sw.LinkChange(now, "1/1/2", port.Down, device.PointToPointTrue, 1_000_000_000); err != nil {
+	if _, err := sw.LinkChange(now.Add(3*time.Second), "1/1/2", port.Down, device.PointToPointTrue, 1_000_000_000); err != nil {
 		t.Fatal(err)
 	}
-	mem, ok = sw.SelectMember(now, "lag1", dummyFrame, 10)
-	if ok {
-		t.Fatalf("after all links down, SelectMember returned %q, want false", mem)
+	if out := sw.Advance(now.Add(4 * time.Second)); len(out.Emissions) != 0 {
+		t.Fatalf("after all links down, emissions = %+v, want none", out.Emissions)
 	}
 	p, _ := sw.Ports().Port("lag1")
 	if p.OperStatus != port.Down {

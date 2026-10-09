@@ -73,7 +73,7 @@ func (c *call) output(res forwardResult) device.Output {
 	if c.copies != nil {
 		out.Copies = make([]device.Copy, len(c.copies))
 		for i, cp := range c.copies {
-			out.Copies[i] = device.Copy{Mirror: cp.Mirror, Port: cp.Port, Member: cp.Member, VLAN: cp.VLAN, Frame: cp.Frame}
+			out.Copies[i] = device.Copy{Mirror: cp.Mirror, Port: cp.Port, Member: cp.Member, VLAN: cp.VLAN, Frame: cp.Frame, Hold: device.HoldToken(cp.Hold)}
 		}
 	}
 	if c.drops != nil {

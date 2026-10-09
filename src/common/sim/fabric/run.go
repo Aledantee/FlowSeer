@@ -859,35 +859,6 @@ func (f *Fabric) transmit(now time.Time, device, portName, memberName string, fr
 	outPort := portName
 	if memberName != "" {
 		outPort = memberName
-	} else if sw, ok := f.switches[device]; ok {
-		if p, ok := sw.Ports().Port(portName); ok && p.Kind == port.LAG {
-			var vid vlan.ID
-			for _, tag := range frame.Tags {
-				if tag.TPID == uint16(ethernet.EtherTypeDot1Q) {
-					vid = tag.VID
-					break
-				}
-			}
-			selected, ok := sw.SelectMember(now, portName, frame, vid)
-			if !ok {
-				// The switch takes the LAG's spanning tree link down with its
-				// last enabled member, so a protocol frame reaches here only
-				// if that invariant breaks; the drop names it rather than
-				// losing the frame in silence.
-				f.record(journey, Entry{
-					At:     now,
-					Kind:   EntryDrop,
-					Device: device,
-					Port:   portName,
-					Reason: bridge.ReasonNoMember,
-				})
-				f.countEgressDrop(device, portName, bridge.ReasonNoMember)
-
-				return
-			}
-			memberName = selected
-			outPort = memberName
-		}
 	}
 
 	rawOut, _ := frame.Encode()

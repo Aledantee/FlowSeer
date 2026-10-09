@@ -836,8 +836,8 @@ func TestDeriveInvalidatesLAGSelectionWhenMemberStateChanges(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			currentConfig := lagDeriveConfig(t, port.Up, port.Up)
 			current := mustSwitch(t, currentConfig)
-			if member, ok := current.SelectMember(fixedTime, "lag1", frame, 0); !ok || member != "member" {
-				t.Fatalf("current selection = (%q, %t), want member", member, ok)
+			if out := current.Receive(fixedTime, "in", frame); len(out.Egress) != 1 || out.Egress[0].Member != "member" {
+				t.Fatalf("current egress = %+v, want member", out.Egress)
 			}
 
 			targetConfig := lagDeriveConfig(t, test.admin, test.oper)
@@ -847,14 +847,13 @@ func TestDeriveInvalidatesLAGSelectionWhenMemberStateChanges(t *testing.T) {
 			}
 			fresh := mustSwitch(t, targetConfig)
 
-			derivedMember, derivedOK := derived.SelectMember(fixedTime, "lag1", frame, 0)
-			freshMember, freshOK := fresh.SelectMember(fixedTime, "lag1", frame, 0)
-			if derivedMember != freshMember || derivedOK != freshOK {
-				t.Errorf("derived selection = (%q, %t), fresh = (%q, %t)", derivedMember, derivedOK, freshMember, freshOK)
-			}
-
 			derivedResult := derived.Receive(fixedTime, "in", frame)
 			freshResult := fresh.Receive(fixedTime, "in", frame)
+			for _, eg := range derivedResult.Egress {
+				if eg.Member != "" || eg.Dropped == "" {
+					t.Errorf("derived egress = %+v, want refusal without a member", eg)
+				}
+			}
 			if !reflect.DeepEqual(derivedResult.Result, freshResult.Result) {
 				t.Errorf("derived forwarding = %+v, fresh = %+v", derivedResult.Result, freshResult.Result)
 			}

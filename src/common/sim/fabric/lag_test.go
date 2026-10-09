@@ -14,8 +14,95 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/lag"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
+
+func TestRoutedLAGSolicitationKeepsCommittedMember(t *testing.T) {
+	start := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	routerMAC := netaddr.MAC{0, 0, 0x5e, 0, 1, 1}
+	ports := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "in", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "prime", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "member-a", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "member-b", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}))
+	peerPorts := mustTable(t, port.NewBuilder().Add(port.Port{Name: "in", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+	cfg := statedPhysical(fabric.Config{
+		Start: start,
+		Switches: map[string]vswitch.Config{
+			"sw": {
+				MAC: routerMAC, Ports: ports,
+				Bridge: &bridge.Config{VLAN: &bridge.VLAN{Table: map[vlan.ID]string{20: "egress"}, Switchports: map[string]bridge.Switchport{
+					"prime": {Tagged: []vlan.ID{20}}, "lag1": {Tagged: []vlan.ID{20}},
+				}}},
+				LAG: &lag.Config{LAGs: map[string]lag.LAG{"lag1": {Mode: lag.BalanceSLB}}},
+				Routing: &routing.Config{VRFs: map[string]routing.VRF{routing.DefaultVRF: {Interfaces: map[string]routing.Interface{
+					"in":  {Port: "in", MAC: routerMAC, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.10.1/24")}},
+					"out": {Port: "lag1", VLAN: 20, MAC: routerMAC, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.20.1/24")}},
+				}}}},
+			},
+			"a": {Ports: peerPorts}, "b": {Ports: peerPorts},
+		},
+		Hosts: map[string]fabric.Host{"source": {Address: netaddr.MAC{2}}, "prime-source": {Address: netaddr.MAC{4}}},
+		Cables: []fabric.Cable{
+			{A: fabric.Endpoint{Node: "sw", Port: "in"}, B: fabric.Endpoint{Node: "source"}},
+			{A: fabric.Endpoint{Node: "sw", Port: "prime"}, B: fabric.Endpoint{Node: "prime-source"}},
+			{A: fabric.Endpoint{Node: "sw", Port: "member-a"}, B: fabric.Endpoint{Node: "a", Port: "in"}},
+			{A: fabric.Endpoint{Node: "sw", Port: "member-b"}, B: fabric.Endpoint{Node: "b", Port: "in"}},
+		},
+	})
+	target := cfg.Switches["sw"].Clone()
+	delete(target.Bridge.VLAN.Switchports, "lag1")
+	initial := cfg.Switches["sw"].Clone()
+	vrf := initial.Routing.VRFs[routing.DefaultVRF]
+	delete(vrf.Interfaces, "out")
+	initial.Routing.VRFs[routing.DefaultVRF] = vrf
+	cfg.Switches["sw"] = initial
+	fab, err := fabric.New(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	prime := fab.Switch("sw").Receive(start, "prime", ethernet.Frame{
+		Src: routerMAC, Dst: netaddr.MAC{0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+		Tags: []vlan.Tag{{TPID: uint16(ethernet.EtherTypeDot1Q), VID: 20}}, Payload: []byte("prime wire VLAN"),
+	})
+	if len(prime.Egress) != 1 || prime.Egress[0].Port != "lag1" || prime.Egress[0].Member != "member-a" {
+		t.Fatalf("prime = %+v, want lag1/member-a at VID 20", prime)
+	}
+	if err := fab.Configure("sw", target); err != nil {
+		t.Fatal(err)
+	}
+	payload, err := (ip.Header{Src: netip.MustParseAddr("10.0.10.7"), Dst: netip.MustParseAddr("10.0.20.7"), HopLimit: 64, Protocol: 17, V4: &ip.V4{}}).Encode([]byte("resolve"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = fab.Inject(fabric.Injection{At: start, Origin: fabric.Endpoint{Node: "sw", Port: "in"}, Frame: ethernet.Frame{Src: netaddr.MAC{2}, Dst: routerMAC, EtherType: ethernet.EtherTypeIPv4, Payload: payload}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	fab.Run(4)
+	if err := fab.Err(); err != nil {
+		t.Fatal(err)
+	}
+	crossings := 0
+	for _, journey := range fab.Report() {
+		if !journey.Protocol || journey.Injection.Frame.EtherType != ethernet.EtherTypeARP || !journey.Injection.At.Equal(start) {
+			continue
+		}
+		for _, entry := range journey.Entries {
+			if entry.Kind == fabric.EntryCrossing {
+				if entry.Device != "b" || entry.Port != "in" {
+					t.Fatalf("solicitation crossing = %+v, want peer b via committed member-b", entry)
+				}
+				crossings++
+			}
+		}
+	}
+	if crossings != 1 {
+		t.Fatalf("solicitation crossings = %d, want 1", crossings)
+	}
+}
 
 func newLagTopology(t *testing.T, start time.Time, lagA, lagB *lag.Config) (*fabric.Fabric, netaddr.MAC, netaddr.MAC) {
 	t.Helper()

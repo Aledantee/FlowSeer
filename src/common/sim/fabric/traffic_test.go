@@ -444,9 +444,10 @@ func TestOutputVLANMirrorTransmitsOnTracedLAGMember(t *testing.T) {
 				t.Fatalf("fabric.New: %v", err)
 			}
 
-			wantMember, ok := fab.Switch("sw1").SelectMember(t0, "lag1", frame, outputVLAN)
-			if !ok {
-				t.Fatal("mirror output has no selected member")
+			wantMember := "member-a"
+			preview := fab.Switch("sw1").Peek(t0, "in", frame)
+			if len(preview.Copies) != 1 || preview.Copies[0].Member != wantMember {
+				t.Fatalf("preview copies = %+v, want member-a", preview.Copies)
 			}
 			frameID, err := fab.Inject(fabric.Injection{At: t0, Origin: fabric.Endpoint{Node: "source"}, Frame: frame})
 			if err != nil {

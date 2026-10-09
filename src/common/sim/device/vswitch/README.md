@@ -149,7 +149,10 @@ copies alone, including when spanning tree, loop protection, routing, or
 a held-frame release would otherwise send there. A refused release becomes
 a `device.Drop` with reason `mirror-output`. Mirror selectors resolve the
 physical ingress to its logical port, including a received LACPDU's member
-(`mirror.go`, `TestMirrorCopiesLACPFromLogicalIngress`).
+(`mirror.go`, `TestMirrorCopiesLACPFromLogicalIngress`). A released frame
+also produces the copies selected by its successful egress. Each copy
+carries the held frame's token and owns its frame storage
+(`TestReleasedFrameIsMirroredOnEgress`).
 
 Open vSwitch reserves a mirror output port for mirror copies and runs
 no spanning tree on it. Keeping loop-protection probes off the port is the
@@ -391,10 +394,12 @@ so the host drives them through explicit calls:
 - `Roles()` exposes current port roles and forwarding states.
 - `LagInfo(lag)` returns the runtime aggregation status of the named LAG.
 - `MemberInfo(member)` returns the runtime aggregation status of the member port.
-- `SelectMember(now, lag, frame, vid)` commits an enabled member choice for a
-  frame egressing a LAG outside the bridge pipeline, such as a fabric
-  transmission. The bridge's own LAG egress commits exactly when the forwarding
-  call that produced it does (`Receive` commits, `Peek` does not).
+Every LAG egress, emission, and mirror copy carries its selected `Member`.
+The switch commits that choice when it produces the frame. `Peek` reports
+the choice without committing it. The fabric transmits on the returned
+member (`TestRoutedLAGEmissionMatrix` and
+`TestRoutedLAGSolicitationKeepsCommittedMember` in
+`src/common/sim/fabric/lag_test.go`).
 
 ## Construction specifications and trust metadata
 
@@ -506,7 +511,7 @@ results.
 Runtime hit sets belong to one call (`issues.go`, `call`). A held frame that
 releases when an ARP reply arrives has its own call, so its multicast query
 or LAG rebalance condition does not appear on the reply's result. Routing
-emissions and `SelectMember` also discard their own hits because they return
+emissions and `selectMember` also discard their own hits because they return
 no forwarding result. `Receive` starts with empty hit sets, so a policed
 drop cannot inherit an earlier held frame's unresolved neighbor.
 `issues_internal_test.go` checks these boundaries and cleanup at every entry.

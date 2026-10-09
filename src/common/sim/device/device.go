@@ -101,6 +101,9 @@ type Copy struct {
 	Member string
 	VLAN   vlan.ID
 	Frame  ethernet.Frame
+	// Hold identifies the released frame that produced this copy. Zero means
+	// the copy belongs to the current receive.
+	Hold HoldToken
 }
 
 // PointToPoint reports the operational duplex status of a link.

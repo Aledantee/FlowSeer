@@ -145,14 +145,14 @@ func TestSelectMemberOutsideACallRaisesNothing(t *testing.T) {
 	}
 	f := issueCallFrame(t, netip.MustParseAddr("10.0.20.77"))
 	t0 := time.Unix(100, 0)
-	if member, ok := sw.SelectMember(t0, "bond", f, 0); !ok || member == "" {
+	if member, ok := sw.selectMember(t0, "bond", f, 0); !ok || member == "" {
 		t.Fatalf("initial selection = %q/%v, want enabled member", member, ok)
 	}
 	now := t0.Add(11 * time.Second)
 	if sel := sw.lag.Peek(now, "bond", f, 0); !sel.OK || !sel.RebalanceUnmodeled {
 		t.Fatalf("aged selection = %+v, want enabled stale balanced selection", sel)
 	}
-	if member, ok := sw.SelectMember(now, "bond", f, 0); !ok || member == "" {
+	if member, ok := sw.selectMember(now, "bond", f, 0); !ok || member == "" {
 		t.Fatalf("aged selection = %q/%v, want enabled member", member, ok)
 	}
 	res := sw.Peek(now, "in", ethernet.Frame{})
@@ -196,7 +196,7 @@ func TestNoCallOutlivesItsEntry(t *testing.T) {
 				t.Errorf("derived switch call = %+v, want nil", next.call)
 			}
 		}},
-		{"SelectMember", func(sw *Switch) { sw.SelectMember(now, "absent", f, 0) }},
+		{"selectMember", func(sw *Switch) { sw.selectMember(now, "absent", f, 0) }},
 	}
 	if len(entries) != 10 {
 		t.Fatalf("entry cases = %d, want 10", len(entries))

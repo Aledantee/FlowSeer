@@ -131,22 +131,40 @@ func TestOutputVLANMirrorLAGSelectionUsesLogicalVLAN(t *testing.T) {
 						Members: map[string]lag.Member{"member-a": {}, "member-b": {}},
 					},
 				}},
-				Traffic: &traffic.Config{Mirrors: []traffic.Mirror{{
-					Name: "span", SelectAll: true, OutputVLAN: new(outputVLAN),
-				}}},
+				Traffic: &traffic.Config{Mirrors: []traffic.Mirror{{Name: "span", SelectAll: true, OutputVLAN: new(outputVLAN)}}},
 			}
 			sw := mustSwitch(t, cfg)
-
-			wantMember, ok := sw.SelectMember(fixedTime, "lag1", frame, outputVLAN)
-			if !ok {
-				t.Fatal("output VLAN has no selected LAG member")
+			primed := sw.Receive(fixedTime, "in", frame)
+			if len(primed.Copies) != 1 || primed.Copies[0].Member != "member-a" {
+				t.Fatalf("VLAN 99 copies = %+v, want member-a", primed.Copies)
 			}
-			inferredMember, ok := sw.SelectMember(fixedTime, "lag1", frame, 0)
-			if !ok || inferredMember == wantMember {
-				t.Fatalf("test does not distinguish logical VLAN selection: VLAN 99 = %q, VLAN 0 = %q", wantMember, inferredMember)
+			zeroCfg := cfg.Clone()
+			zeroCfg.Bridge = &bridge.Config{}
+			zeroCfg.Traffic = nil
+			zero, _, err := vswitch.Derive(sw, vswitch.ConstructionSpec{Config: zeroCfg})
+			if err != nil {
+				t.Fatal(err)
+			}
+			zeroOut := zero.Receive(fixedTime, "in", frame)
+			zeroMembers := 0
+			for _, eg := range zeroOut.Egress {
+				if eg.Port == "lag1" {
+					if eg.Member != "member-b" {
+						t.Fatalf("VID zero egress = %+v, want member-b", eg)
+					}
+					zeroMembers++
+				}
+			}
+			if zeroMembers != 1 {
+				t.Fatalf("VID zero LAG egresses = %d, want 1", zeroMembers)
+			}
+			sw, _, err = vswitch.Derive(zero, vswitch.ConstructionSpec{Config: cfg})
+			if err != nil {
+				t.Fatal(err)
 			}
 
 			res := captureOutput(callOutputs, sw, sw.Receive(fixedTime, "in", frame))
+			wantMember := "member-a"
 			step, ok := mirrorCopyStep(res.Steps)
 			if !ok {
 				t.Fatalf("steps = %+v, want mirror copy decision", res.Steps)
@@ -451,6 +469,42 @@ func TestMirrorCopiesLACPFromLogicalIngress(t *testing.T) {
 		if out.Outcome != trace.Consumed || len(out.Copies) != 1 || out.Copies[0].Port != "1/1/3" || !slices.Equal(out.Copies[0].Frame.Payload, f.Payload) {
 			t.Fatalf("LACP mirror = %+v, want member frame copied by lag1 selector", out)
 		}
+	}
+}
+
+func TestReleasedFrameIsMirroredOnEgress(t *testing.T) {
+	cfg, replyPort, replyTags, _, _, _ := routedEgressConfig(t, "routed port", "none")
+	b := port.NewBuilder()
+	for _, p := range cfg.Ports.Ports() {
+		b.Add(p)
+	}
+	b.Add(port.Port{Name: "mirror", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	cfg.Ports = mustTable(t, b)
+	cfg.Traffic = &traffic.Config{Mirrors: []traffic.Mirror{{Name: "span", SelectDstPorts: []string{"1/1/2"}, OutputPort: "mirror"}}}
+	sw := mustSwitch(t, cfg)
+	frame := ethernet.Frame{
+		Src: macH1, Dst: macRouter, EtherType: ethernet.EtherTypeIPv4,
+		Tags:    []vlan.Tag{{TPID: uint16(ethernet.EtherTypeDot1Q), VID: 10}},
+		Payload: makeIPv4Packet(t, ipH1, ipH2, 64, []byte("held mirror")),
+	}
+	held := sw.Receive(fixedTime, "1/1/1", frame)
+	if held.Outcome != trace.Held || held.Hold == 0 || len(held.Copies) != 0 {
+		t.Fatalf("held = %+v, want held token and no copies", held)
+	}
+	reply := makeARPReply(t, ipH2, netip.MustParseAddr("10.0.20.1"), macH2, macRouter)
+	reply.Tags = replyTags
+	released := sw.Receive(fixedTime.Add(time.Millisecond), replyPort, reply)
+	em := soleDataEmission(t, released.Emissions, macH2)
+	if len(released.Copies) != 1 {
+		t.Fatalf("released copies = %+v, want one", released.Copies)
+	}
+	cp := released.Copies[0]
+	if cp.Mirror != "span" || cp.Port != "mirror" || cp.Hold != held.Hold || cp.Frame.Src != em.Frame.Src || cp.Frame.Dst != em.Frame.Dst || !slices.Equal(cp.Frame.Payload, em.Frame.Payload) {
+		t.Fatalf("copy = %+v, want released frame with hold %d", cp, held.Hold)
+	}
+	cp.Frame.Payload[0] ^= 0xff
+	if slices.Equal(cp.Frame.Payload, em.Frame.Payload) {
+		t.Fatal("copy payload shares the release frame")
 	}
 }
 
