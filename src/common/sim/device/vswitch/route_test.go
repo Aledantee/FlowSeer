@@ -1,6 +1,7 @@
 package vswitch_test
 
 import (
+	"fmt"
 	"net/netip"
 	"slices"
 	"strconv"
@@ -1856,4 +1857,44 @@ func TestRoutedEgressNamesTheEqualCostCandidateSet(t *testing.T) {
 			t.Errorf("egress destination MAC = %s, want %s for candidate %d", res.Egress[0].Frame.Dst, wantMAC, chosen)
 		}
 	})
+}
+
+func TestConsumedRoutedNeighborRecordsMatchedVLAN(t *testing.T) {
+	for _, vid := range []vlan.ID{0, 10} {
+		t.Run(fmt.Sprint(vid), func(t *testing.T) {
+			cfg := buildRoutedPortSwitch(t).Spec().Config
+			vrf := cfg.Routing.VRFs[routing.DefaultVRF]
+			iface := vrf.Interfaces["1/1/1"]
+			iface.VLAN = vid
+			vrf.Interfaces["1/1/1"] = iface
+			cfg.Routing.VRFs[routing.DefaultVRF] = vrf
+			sw := mustSwitch(t, cfg)
+			frame := makeARPReply(t, ipH1, netip.MustParseAddr("10.0.10.1"), macH1, macRouter)
+			if vid != 0 {
+				frame.Tags = []vlan.Tag{{TPID: uint16(ethernet.EtherTypeDot1Q), VID: vid}}
+			}
+			for _, out := range []vswitch.Output{sw.Peek(fixedTime, "1/1/1", frame), sw.Receive(fixedTime, "1/1/1", frame)} {
+				if out.Outcome != trace.Consumed || out.FID != 0 {
+					t.Fatalf("output = %+v, want consumed with FID 0", out)
+				}
+				found := false
+				for _, step := range out.Steps {
+					if step.RuleID != routing.RuleClassify {
+						continue
+					}
+					for _, fact := range step.Inputs {
+						if fact.TypeID() == "routing.vlan" {
+							found = true
+							if got, want := fact.Canonical(), fmt.Sprint(vid); got != want {
+								t.Errorf("VLAN fact = %q, want %q", got, want)
+							}
+						}
+					}
+				}
+				if !found {
+					t.Fatal("consumed step has no VLAN fact")
+				}
+			}
+		})
+	}
 }

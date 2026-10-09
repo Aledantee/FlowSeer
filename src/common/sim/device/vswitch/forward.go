@@ -7,6 +7,7 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/lacp"
+	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/filter"
@@ -168,7 +169,7 @@ func (s *Switch) forwardRoutedPort(now time.Time, ingress string, f ethernet.Fra
 				if mutate {
 					s.receiveAndRelease(now, ifaceName, f)
 				}
-				res := consumedNeighbor(ifaceName, bridge.Ingress{Port: resolved.Name})
+				res := consumedNeighbor(ifaceName, bridge.Ingress{Port: resolved.Name}, vid)
 				s.forwardingDependencies(ingress).consult(&res)
 				res.ConsultScopes(append(portVLANScopes, ownershipScope)...)
 				return s.finishForward(now, ingress, f, res, mutate), routingScopes, true
@@ -204,6 +205,7 @@ func (s *Switch) forwardRoutedPort(now time.Time, ingress string, f ethernet.Fra
 			routeRes := s.routing.Route(now, ifaceName, f, mutate)
 			if mutate {
 				s.emitRouting(now, routeRes.Emissions)
+				s.settleRouting(now)
 			}
 			res := s.assembleRouteResult(s.call, resolved.Name, 0, pcp, dei, nil, ifaceName, ingressFilterRes, routeRes)
 			s.forwardingDependencies(ingress).consult(&res)
@@ -260,7 +262,7 @@ func (s *Switch) forwardBridge(now time.Time, ingress string, f ethernet.Frame, 
 				}
 				configured, _ := s.routing.Interface(iface)
 				if f.Dst == configured.MAC {
-					return s.finishForward(now, ingress, f, consumedNeighbor(iface, in), mutate)
+					return s.finishForward(now, ingress, f, consumedNeighbor(iface, in, in.FID), mutate)
 				}
 			}
 			if s.routing.Owns(iface, f) {
@@ -289,6 +291,7 @@ func (s *Switch) forwardBridge(now time.Time, ingress string, f ethernet.Frame, 
 				routeRes := s.routing.Route(now, iface, f, mutate)
 				if mutate {
 					s.emitRouting(now, routeRes.Emissions)
+					s.settleRouting(now)
 				}
 				res := s.assembleRouteResult(s.call, in.Port, in.FID, in.PCP, in.DEI, in.Steps, iface, ingressFilterRes, routeRes)
 				res.Consult(in.ConsultedPorts()...)
@@ -314,14 +317,14 @@ func (s *Switch) commitBridgeLearning(f ethernet.Frame, in bridge.Ingress, mutat
 	return s.bridge.Learn(in, f)
 }
 
-func consumedNeighbor(iface string, in bridge.Ingress) bridge.Result {
+func consumedNeighbor(iface string, in bridge.Ingress, vid vlan.ID) bridge.Result {
 	res := bridge.Result{Trace: trace.Trace{
 		Outcome: trace.Consumed,
 		Reason:  routing.ReasonNotRouted,
 		Steps: append(slices.Clone(in.Steps), trace.Step{
 			Layer: routing.LayerName, Op: trace.OpClassify, RuleID: routing.RuleClassify,
 			Subject: trace.Subject{Kind: "interface", Key: iface},
-			Inputs:  []trace.Fact{routing.PortFact(in.Port), routing.VLANFact(in.FID)},
+			Inputs:  []trace.Fact{routing.PortFact(in.Port), routing.VLANFact(vid)},
 		}),
 	}, Ingress: in.Port, FID: in.FID}
 	res.Consult(in.ConsultedPorts()...)

@@ -35,7 +35,7 @@ func TestBPDUOnUntrackedUpPortIsDropped(t *testing.T) {
 }
 
 func TestBPDURecordsEveryChangedTree(t *testing.T) {
-	for _, scenario := range []string{"msti-only", "vlan-one-in-msti", "shared-msti"} {
+	for _, scenario := range []string{"msti-only", "vlan-one-in-msti", "shared-msti", "msti-outside-table", "msti-vlan-unaware"} {
 		t.Run(scenario, func(t *testing.T) {
 			vids := []vlan.ID{10}
 			if scenario == "vlan-one-in-msti" {
@@ -47,6 +47,14 @@ func TestBPDURecordsEveryChangedTree(t *testing.T) {
 			region := &stp.MST{Name: "trace-region", Revision: 1, Instances: map[bpdu.MSTID]stp.Instance{1: {VLANs: vids}}}
 			table := map[vlan.ID]string{1: "native", 10: "ten", 20: "twenty"}
 			cfg := vswitch.Config{MAC: macRouter, Ports: mustTable(t, port.NewBuilder().Add(port.Port{Name: "p1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})), Bridge: &bridge.Config{VLAN: &bridge.VLAN{Table: table, Switchports: map[string]bridge.Switchport{"p1": {Tagged: []vlan.ID{1, 10, 20}}}}}, STP: &stp.Config{Address: macRouter, Priority: 32768, Ports: map[string]stp.Port{"p1": {}}, MST: region}}
+			if scenario == "msti-outside-table" {
+				delete(table, 10)
+				cfg.Bridge.VLAN.Switchports["p1"] = bridge.Switchport{Tagged: []vlan.ID{1, 20}}
+			}
+			if scenario == "msti-vlan-unaware" {
+				cfg.Bridge.VLAN = nil
+			}
+
 			sw := mustSwitch(t, cfg)
 			sw.Start(fixedTime)
 			beforeCIST := sw.Roles()["p1"]
@@ -2184,5 +2192,30 @@ func TestSSTPPortDownTracesTheSameUnderPeekAndForward(t *testing.T) {
 	}
 	if _, ok := findStep(peeked.Steps, "port.status.down"); !ok {
 		t.Errorf("no port.status.down step under Peek: %+v", peeked.Steps)
+	}
+}
+
+func TestSSTPRecordsTreeOutsideBridgeTable(t *testing.T) {
+	cfg := pvstSwitchConfig(t, 1, 1, 10)
+	delete(cfg.Bridge.VLAN.Table, 10)
+	cfg.Bridge.VLAN.Switchports["1/1/1"] = bridge.Switchport{PVID: new(vlan.ID(1)), Untagged: []vlan.ID{1}}
+	cfg.STP.Ports["1/1/1"] = stp.Port{BPDUGuard: true}
+	sw := mustSwitch(t, cfg)
+	sw.Start(fixedTime)
+	before := sw.TreeRoles()[10]["1/1/1"]
+	if before.Role != bpdu.RoleDesignated {
+		t.Fatalf("before role = %v, want Designated", before.Role)
+	}
+	out := sw.Receive(fixedTime, "1/1/1", pvstSSTPFrame(t, 10, 10, macH1))
+	after := sw.TreeRoles()[10]["1/1/1"]
+	if after.Role != bpdu.RoleDisabled {
+		t.Fatalf("after role = %v, want Disabled", after.Role)
+	}
+	step, ok := findStep(out.Steps, stp.RuleSSTPVLANNotAdmitted)
+	if !ok {
+		t.Fatalf("steps = %+v, want SSTP VLAN refusal", out.Steps)
+	}
+	if len(step.Outputs) != 3 || !trace.EqualFact(step.Outputs[2], stp.PortTransitionFact("1/1/1", "bpdu", before, after)) {
+		t.Errorf("outputs = %+v, want decision then VLAN 1 and VLAN 10 transitions", step.Outputs)
 	}
 }
