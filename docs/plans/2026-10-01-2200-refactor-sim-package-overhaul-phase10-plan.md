@@ -1021,3 +1021,15 @@ For the implementer:
   After U11, `go list -f '{{.ImportPath}}: {{join .Imports " "}}'
   ./src/common/sim/...` names the importers of each engine, which is the
   input the parent's question waits for.
+- U3 is blocked at `TestLinkChangeErrorReachesNew`. An invalid state fails
+  port-table construction with `port "p" has invalid oper status "invalid"`.
+  An absent cable endpoint fails `fabric.New` with
+  `cable 0 endpoint B: port "missing" not found on switch "sw"`.
+  `Switch.LinkChange` returns only these port-table errors
+  (`src/common/sim/device/vswitch/link.go:213`,
+  `src/common/sim/port/port.go:493`). Startup reads the constructed switch's
+  own ports (`src/common/sim/fabric/fabric.go:877`). Both fixture errors
+  occur before startup, so asserting either would pass while startup still
+  discards its link-report error. A fault-injection seam or moving the test
+  to construction from built devices would change the unit's specification.
+  U4 through U18 wait for this requirement to be settled.
