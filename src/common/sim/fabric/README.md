@@ -954,8 +954,10 @@ of seven stop reasons:
 A zero window skips fingerprints. A positive window enables convergence and
 cycle detection. Pending journeys count frames with live arrivals, queued
 transmissions or holds. A recorded outcome without live work does not keep
-the run pending. Status and issues merge retained journeys and folded flows,
-so retention does not change the run's trust result. An action error returns
+the run pending. Status and issues merge retained journeys, folded flows, and
+the issues of settled protocol journeys, which the fabric keeps as a set of
+distinct issues because it frees those journeys and they have no flow. So
+retention does not change the run's trust result (`TestSettledProtocolJourneyKeepsItsIssues`). An action error returns
 the completed steps, clock, issues and replay checkpoint with the error
 (`TestRunResultAcrossRetentions`, `TestActionErrorKeepsSteps` in the package tests).
 A scenario's actions belong to its run. Those that did not fire before the

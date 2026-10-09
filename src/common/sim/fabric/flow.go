@@ -2,6 +2,7 @@ package fabric
 
 import (
 	"maps"
+	"slices"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
@@ -58,6 +59,41 @@ func (s FlowStats) Clone() FlowStats {
 	return cp
 }
 
+// since returns what the fabric folded into the statistics after pre was read.
+// Offered, Lost, Unresolved, Rejected, the per-key counts, and the latency
+// count and sum only grow, so each subtracts. Held is a gauge and the latency
+// extremes do not subtract: both stay as they are, and the caller treats them
+// as unseparable when pre holds any.
+func (s FlowStats) since(pre FlowStats) FlowStats {
+	cp := s
+	cp.Offered -= pre.Offered
+	cp.Lost -= pre.Lost
+	cp.Unresolved -= pre.Unresolved
+	cp.Rejected -= pre.Rejected
+	cp.Delivered = countsSince(s.Delivered, pre.Delivered)
+	cp.Drops = countsSince(s.Drops, pre.Drops)
+	cp.Copies = countsSince(s.Copies, pre.Copies)
+	cp.Latency.Sum -= pre.Latency.Sum
+	cp.Latency.Count -= pre.Latency.Count
+
+	return cp
+}
+
+// countsSince returns the keys whose count grew past pre, with the growth.
+func countsSince[K comparable](counts, pre map[K]uint64) map[K]uint64 {
+	var out map[K]uint64
+	for key, n := range counts {
+		if n -= pre[key]; n > 0 {
+			if out == nil {
+				out = make(map[K]uint64)
+			}
+			out[key] = n
+		}
+	}
+
+	return out
+}
+
 // Flows returns an independent copy of every flow's statistics, keyed by flow
 // id. A run with no folded statistics or held flow returns nil.
 func (f *Fabric) Flows() map[FlowID]FlowStats {
@@ -87,6 +123,8 @@ func (f *Fabric) Flows() map[FlowID]FlowStats {
 
 // settle folds a journey once its last arrival, queued transmission, or hold
 // leaves. Aggregate and unretained protocol journeys release their traversal storage.
+// A protocol journey keeps its issues in the fabric's protocol set first, since
+// it has no flow to hold them.
 func (f *Fabric) settle(fid FrameID) {
 	j := f.journeys[fid]
 	if j == nil || j.settled || f.inflight[fid] > 0 {
@@ -97,6 +135,9 @@ func (f *Fabric) settle(fid FrameID) {
 		f.foldJourney(j)
 	}
 	delete(f.inflight, fid)
+	if j.Protocol {
+		f.foldProtocolIssues(j)
+	}
 	if j.Injection.Retention == RetainAggregate || j.Protocol {
 		delete(f.journeys, fid)
 		delete(f.entered, fid)
@@ -152,6 +193,17 @@ func (f *Fabric) foldJourney(j *journey) {
 	}
 
 	stats.Metadata = stats.Metadata.Merge(j.Metadata)
+}
+
+// foldProtocolIssues adds the journey's issues that the fabric does not hold
+// yet to the protocol set, so the set grows with the distinct issues and not
+// with the number of protocol frames.
+func (f *Fabric) foldProtocolIssues(j *journey) {
+	for _, iss := range j.Metadata.Issues() {
+		if !slices.ContainsFunc(f.protocolIssues, func(kept analysis.Issue) bool { return analysis.SameIssue(kept, iss) }) {
+			f.protocolIssues = append(f.protocolIssues, iss)
+		}
+	}
 }
 
 func (f *Fabric) flowAccumulator(id FlowID) *FlowStats {

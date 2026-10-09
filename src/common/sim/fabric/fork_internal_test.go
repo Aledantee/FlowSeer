@@ -117,8 +117,8 @@ func TestFabricFieldsAreClassifiedAndChecked(t *testing.T) {
 			checked++
 		}
 	}
-	if checked != 17 {
-		t.Fatalf("checked probes = %d, want 17", checked)
+	if checked != 18 {
+		t.Fatalf("checked probes = %d, want 18", checked)
 	}
 }
 

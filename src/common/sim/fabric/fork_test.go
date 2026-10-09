@@ -54,6 +54,7 @@ var fabricForkChecks = map[string]struct {
 	"inflight":        {classDeepCopied, probeFabricInflight},
 	"held":            {classDeepCopied, probeFabricHeld},
 	"flows":           {classDeepCopied, probeFabricFlows},
+	"protocolIssues":  {classDeepCopied, probeFabricProtocolIssues},
 	"touched":         {classResetOnFork, nil},
 	"err":             {classCopied, nil},
 	"attachments":     {classDeepCopied, probeFabricAttachments},
@@ -259,6 +260,17 @@ func probeFabricFlows(t *testing.T) {
 	(*fabric.ExportFabricFlows(fork))[1].Offered = 9
 	if (*fabric.ExportFabricFlows(fab))[1].Offered != 1 {
 		t.Error("source flow changed through fork")
+	}
+}
+
+func probeFabricProtocolIssues(t *testing.T) {
+	fab := newTestFabricForFork(t)
+	*fabric.ExportFabricProtocolIssues(fab) = []analysis.Issue{{Code: "source-code"}}
+	fork := fab.Fork()
+	(*fabric.ExportFabricProtocolIssues(fork))[0].Code = "fork-code"
+	*fabric.ExportFabricProtocolIssues(fork) = append(*fabric.ExportFabricProtocolIssues(fork), analysis.Issue{Code: "fork-only"})
+	if got := *fabric.ExportFabricProtocolIssues(fab); len(got) != 1 || got[0].Code != "source-code" {
+		t.Errorf("source protocol issues = %+v, changed through fork", got)
 	}
 }
 

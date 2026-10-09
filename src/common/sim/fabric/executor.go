@@ -320,6 +320,7 @@ func (f *Fabric) buildRunResult(stop StopReason, steps int, fingerprints, cycle 
 	for _, id := range slices.Sorted(maps.Keys(f.flows)) {
 		issues = append(issues, f.flows[id].Metadata.Issues()...)
 	}
+	issues = append(issues, f.protocolIssues...)
 	var uniqueIssues []analysis.Issue
 	for _, iss := range issues {
 		if !slices.ContainsFunc(uniqueIssues, func(kept analysis.Issue) bool { return analysis.SameIssue(kept, iss) }) {

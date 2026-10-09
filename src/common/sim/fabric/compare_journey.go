@@ -12,7 +12,15 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/device"
 )
 
-func diffFlowStats(a, b FlowStats) (analysis.Difference, string, bool) {
+// diffFlowStats compares what the scenario added to one flow on each side, the
+// statistics after the run less preA and preB, the statistics before it. The
+// held gauge and the latency extremes mix the earlier traffic with the
+// scenario's. Where either side held any before the run they cannot be
+// separated, so they are left out and the pair stays uncertain.
+func diffFlowStats(a, b, preA, preB FlowStats) (analysis.Difference, string, bool) {
+	a, b = a.since(preA), b.since(preB)
+	heldSeparable := preA.Held == 0 && preB.Held == 0
+	extremesSeparable := preA.Latency.Count == 0 && preB.Latency.Count == 0
 	fields := []struct {
 		name              string
 		equal             bool
@@ -24,10 +32,10 @@ func diffFlowStats(a, b FlowStats) (analysis.Difference, string, bool) {
 		{"Lost", a.Lost == b.Lost, a.Lost, b.Lost},
 		{"Unresolved", a.Unresolved == b.Unresolved, a.Unresolved, b.Unresolved},
 		{"Rejected", a.Rejected == b.Rejected, a.Rejected, b.Rejected},
-		{"Held", a.Held == b.Held, a.Held, b.Held},
+		{"Held", !heldSeparable || a.Held == b.Held, a.Held, b.Held},
 		{"Copies", maps.Equal(a.Copies, b.Copies), a.Copies, b.Copies},
-		{"Latency.Min", a.Latency.Min == b.Latency.Min, a.Latency.Min, b.Latency.Min},
-		{"Latency.Max", a.Latency.Max == b.Latency.Max, a.Latency.Max, b.Latency.Max},
+		{"Latency.Min", !extremesSeparable || a.Latency.Min == b.Latency.Min, a.Latency.Min, b.Latency.Min},
+		{"Latency.Max", !extremesSeparable || a.Latency.Max == b.Latency.Max, a.Latency.Max, b.Latency.Max},
 		{"Latency.Sum", a.Latency.Sum == b.Latency.Sum, a.Latency.Sum, b.Latency.Sum},
 		{"Latency.Count", a.Latency.Count == b.Latency.Count, a.Latency.Count, b.Latency.Count},
 	}
