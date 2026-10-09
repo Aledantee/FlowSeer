@@ -67,7 +67,7 @@ HOST_SCRIPT_PATTERNS = ("tools/test/*.sh", ".claude/skills/*/scripts/*.sh")
 # The patterns of a `case` arm, where `*` crosses `/`. fnmatchcase has the
 # same reading, and `glob` does not.
 HOOK_MARKDOWN = (".agents/*", ".claude/*", ".codex/*", "CLAUDE.md", "AGENTS.md", "docs/agent-knowledge.md", "tools/scripts/*")
-HOOK_TOOLING = (".agents/*", ".claude/*", ".codex/*", "tools/test/*", "tools/scripts/*", "uv.toml")
+HOOK_TOOLING = (".agents/*", ".claude/*", ".codex/*", "tools/scripts/*", "uv.toml")
 MIB = ("mibgen.yaml", "spec/mib/*", "src/protocol/snmp/cmd/mibgen/*", "src/protocol/smi/*")
 SERVICE_OTEL = (
     "go.mod",
@@ -75,7 +75,7 @@ SERVICE_OTEL = (
     "src/common/service/*.go",
     "src/common/service/test/integration/otel*",
     "src/common/service/test/integration/testdata/otel-collector.yaml",
-    "tools/test/service-otel-integration.sh",
+    "tools/scripts/verify/service_otel_integration.py",
 )
 GENERATED_GO = ("generated/*", "frontend/web/generated/*")
 GO_MODULE_FILES = ("go.mod", "go.sum", "*/go.mod", "*/go.sum")

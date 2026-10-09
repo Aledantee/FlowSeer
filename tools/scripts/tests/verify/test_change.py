@@ -134,23 +134,5 @@ class VerdictLineTest(support.VerifierCase):
         self.assertNotIn("FAILED", result.stderr)
 
 
-class GatesAgreeTest(support.VerifierCase):
-    @unittest.skipUnless(support.SHELL_VERIFIER.is_file(), "the shell verifier is gone, so there is nothing to compare")
-    def test_full_run_starts_the_same_gates_in_both_implementations(self):
-        commands = support.implementations()
-        self.assertEqual(len(commands), 2, commands)
-        logs = []
-        for index, command in enumerate(commands):
-            if index:
-                self.fresh()
-            self.command = command
-            self.populate_full()
-            self.commit_all("full")
-            self.passes("--full")
-            logs.append(self.calls())
-        self.assertTrue(logs[0])
-        self.assertEqual(logs[0], logs[1])
-
-
 if __name__ == "__main__":
     unittest.main()

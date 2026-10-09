@@ -27,6 +27,7 @@ class StopCheckTest(HookCase):
         output = hook.output(self.stop())
         self.assertNotIn("decision", output)
         self.assertIn("Edited but not verified", output["systemMessage"])
+        self.assertIn("uv run tools/scripts/run.py verify change -- <changed paths> before handoff.", output["systemMessage"])
         self.marker().unlink()
         self.assertEqual(hook.output(self.stop()), {})
 

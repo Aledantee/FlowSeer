@@ -9,7 +9,6 @@ from pathlib import Path
 import run
 
 REPO = Path(__file__).resolve().parents[4]
-WRAPPER = REPO / "tools" / "test" / "service-otel-integration.sh"
 RUN_PY = REPO / "tools" / "scripts" / "run.py"
 VERIFY_GROUP = REPO / "tools" / "scripts" / "verify" / "__init__.py"
 COMMAND = "service-otel-integration"
@@ -47,18 +46,16 @@ esac
 exit 99
 """
 
-# What the wrapper itself needs, with no docker among it.
-WRAPPER_TOOLS = ("bash", "cat", "jq", "git", "dirname", "basename", "grep", "awk", "sort", "sed")
+# What the command itself needs, with no docker among it. It starts only docker and go.
+WRAPPER_TOOLS = ("git",)
 
 
 def implementations() -> list[list[str]]:
-    """The argument lists that start the tier: the shell wrapper while it exists, and the command once registered.
+    """The argument lists that start the tier: the command once registered.
 
     An empty list fails, so a suite never passes with nothing to run.
     """
     found: list[list[str]] = []
-    if WRAPPER.exists():
-        found.append([str(WRAPPER)])
     if COMMAND in run.read_commands(VERIFY_GROUP):
         # Resolved here because a case may give the run a PATH that does not hold uv.
         found.append([shutil.which("uv") or "uv", "run", str(RUN_PY), "verify", COMMAND])
