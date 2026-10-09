@@ -32,6 +32,10 @@ if err != nil {
 fmt.Println(len(out.Emissions[0].Frame.Tags), out.Emissions[0].PCP) // 0 5
 ```
 
+`Fabric.Device` returns a fork, so the `Originate` call above evaluates the
+host without changing the fabric. Use `Inject` and `Run` to execute on the
+fabric's queue.
+
 `Originate` applies the host's VLAN form to the VID and retains the supplied
 PCP and DEI. PCP values above 7, a non-empty port, or a packet combined with
 frame fields are refused.
@@ -52,6 +56,7 @@ sequenceDiagram
 
 The [acceptance suite](accept_test.go) preserves VLAN, MAC, and IP check order.
 [host_test.go](host_test.go) checks exactly four local and foreign request cases
-and proves that hosts learn and resolve nothing. The advertisement's flags are
+and proves that hosts learn and resolve nothing. `TestHostStateReportsConfiguredNeighbors`
+checks that `State` carries a configured neighbor. The advertisement's flags are
 pinned to RFC 4861 section 4.4 in
 [routing/host_test.go](../../layer/routing/host_test.go).

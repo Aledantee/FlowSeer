@@ -8,7 +8,9 @@ or wall clocks.
 
 The example builds a switch with two access ports and one trunk port, forwards
 an untagged frame, derives an updated state, and compares forwarding behavior
-across the two states.
+across the two states. `Fabric.Device` returns a fork, so the receive, derive,
+and compare below leave the fabric untouched. Use `Inject` and `Run` to
+execute on the fabric's queue.
 
 ```go
 package main
