@@ -442,7 +442,9 @@ rather than whole-state fingerprints or shallow boolean equality:
   - `Equivalent` requires both sides' `Status` to be `Complete` and every
     behavioral observable to match.
   - `Different` requires a proven behavioral observable mismatch, naming the
-    first differing observable and carrying an immutable `ReplaySpec`.
+    first differing observable and carrying a `ReplaySpec` whose checkpoint
+    preserves the fabric's pre-action live state. Replay forks that checkpoint
+    on each call, including its cable crossing counts, and has no written form.
     Fabric comparisons also name a `DifferenceLocation`: journey, run, or
     snapshot area, subject, and exact field. Journey targets retain the
     injection index and UTC time plus mirror/release lineage.
@@ -499,7 +501,8 @@ bounded equivalence under a resource contract:
 - **Resource contract and asymmetric retention.** Discarded candidates (equivalent
   or inconclusive) record coverage accounting and a summary count only, without
   full execution traces. Only retained `Different` candidates (bounded by
-  `lim.MaxDifferences`) preserve their tuple identity, immutable `[2]ReplaySpec`,
+  `lim.MaxDifferences`) preserve their tuple identity, `[2]ReplaySpec` with
+  pre-action in-memory checkpoints for both fabrics,
   and first differing `Difference` observable. Zero retention keeps counts
   only, and `-1` retains all differences. Tested coverage includes errors.
 - **Deterministic counterexample minimization.** When a behavioral difference is

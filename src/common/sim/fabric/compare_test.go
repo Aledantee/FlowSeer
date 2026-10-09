@@ -2022,10 +2022,7 @@ func TestCompareReplayReproducesBothCurrentAndCandidate(t *testing.T) {
 		t.Errorf("Replay candidate Status = %v, want Complete", resB.Status)
 	}
 
-	repFabA, err := fabric.NewWithSpec(cmp.Replay[0].Spec)
-	if err != nil {
-		t.Fatalf("NewWithSpec current: %v", err)
-	}
+	repFabA := cmp.Replay[0].Checkpoint()
 	if _, err := repFabA.RunScenario(cmp.Replay[0].Scenario); err != nil {
 		t.Fatalf("RunScenario current: %v", err)
 	}
@@ -2034,10 +2031,7 @@ func TestCompareReplayReproducesBothCurrentAndCandidate(t *testing.T) {
 		t.Errorf("Replayed current journeys = %v, want 1 delivered journey", jA)
 	}
 
-	repFabB, err := fabric.NewWithSpec(cmp.Replay[1].Spec)
-	if err != nil {
-		t.Fatalf("NewWithSpec candidate: %v", err)
-	}
+	repFabB := cmp.Replay[1].Checkpoint()
 	if _, err := repFabB.RunScenario(cmp.Replay[1].Scenario); err != nil {
 		t.Fatalf("RunScenario candidate: %v", err)
 	}

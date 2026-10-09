@@ -219,11 +219,11 @@ func TestSearchDetectsDifferenceAndCapturesReplay(t *testing.T) {
 	if diff.Difference.Observable == "" {
 		t.Errorf("retained difference observable is empty")
 	}
-	if diff.Replay[0].Contract != fabric.ReplayContract {
-		t.Errorf("retained difference replay[0] contract = %q, want %q", diff.Replay[0].Contract, fabric.ReplayContract)
+	if diff.Replay[0].Checkpoint() == nil {
+		t.Errorf("retained difference replay[0] has no checkpoint")
 	}
-	if diff.Replay[1].Contract != fabric.ReplayContract {
-		t.Errorf("retained difference replay[1] contract = %q, want %q", diff.Replay[1].Contract, fabric.ReplayContract)
+	if diff.Replay[1].Checkpoint() == nil {
+		t.Errorf("retained difference replay[1] has no checkpoint")
 	}
 }
 

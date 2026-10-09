@@ -1,6 +1,7 @@
 package fabric_test
 
 import (
+	"reflect"
 	"slices"
 	"testing"
 	"time"
@@ -19,6 +20,164 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
+
+func steppedReplayFabric(t *testing.T) (*fabric.Fabric, fabric.Scenario) {
+	t.Helper()
+	fab, h1, h2 := newTwoSwitchTopology(t, cablemodel.Fault{Kind: cablemodel.FaultLoseSequence, Sequence: []uint{4}})
+	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
+	for i := range 3 {
+		if _, err := fab.Inject(fabric.Injection{At: t0.Add(time.Duration(i) * time.Second), Origin: fabric.Endpoint{Node: "h2"}, Frame: ethernet.Frame{Src: h2, Dst: h1, Payload: []byte("learn")}}); err != nil {
+			t.Fatal(err)
+		}
+		fab.Run(20)
+	}
+	history := fab.Report()
+	if len(history) != 3 {
+		t.Fatalf("history journeys = %d, want 3", len(history))
+	}
+	var crossings int
+	for _, j := range history {
+		if len(j.Deliveries) != 1 {
+			t.Fatalf("history journey = %+v, want one delivery", j)
+		}
+		for _, e := range j.Entries {
+			if e.Kind == fabric.EntryCrossing && e.Device == "sw1" && e.Port == "1/1/24" {
+				crossings++
+			}
+		}
+	}
+	if crossings != 3 {
+		t.Fatalf("history trunk crossings = %d, want 3", crossings)
+	}
+	entries := fab.Switch("sw1").Entries()
+	if len(entries) != 1 || entries[0].MAC != h2 || entries[0].Port != "1/1/24" {
+		t.Fatalf("learned FDB = %+v, want h2 on 1/1/24", entries)
+	}
+	return fab, fabric.Scenario{Name: "stepped-replay", Budget: 20, Actions: []fabric.Action{{At: t0.Add(3 * time.Second), Kind: fabric.ActionInject, Inject: &fabric.Injection{Origin: fabric.Endpoint{Node: "h1"}, Frame: ethernet.Frame{Src: h1, Dst: h2, Payload: []byte("fourth")}}}}}
+}
+
+func equalReplayResults(t *testing.T, a, b fabric.RunResult) {
+	t.Helper()
+	a.Replay, b.Replay = fabric.ReplaySpec{}, fabric.ReplaySpec{}
+	if !reflect.DeepEqual(a, b) {
+		t.Fatalf("replay result differs: steps/clock/stop = %d/%s/%s, want %d/%s/%s", b.Steps, b.Clock, b.Stop, a.Steps, a.Clock, a.Stop)
+	}
+}
+
+func assertSteppedReplayJourney(t *testing.T, replay fabric.ReplaySpec) {
+	t.Helper()
+	fab := replay.Checkpoint()
+	if fab == nil {
+		t.Fatal("replay has no checkpoint")
+	}
+	if got := fab.Report(); len(got) != 3 {
+		t.Fatalf("checkpoint journeys = %d, want 3", len(got))
+	}
+	entries := fab.Switch("sw1").Entries()
+	if len(entries) != 1 || entries[0].MAC != replay.Scenario.Actions[0].Inject.Frame.Dst || entries[0].Port != "1/1/24" {
+		t.Fatalf("replay checkpoint FDB = %+v, want learned destination on 1/1/24", entries)
+	}
+	if _, err := fab.RunScenario(replay.Scenario); err != nil {
+		t.Fatal(err)
+	}
+	journeys := fab.Report()
+	if len(journeys) != 4 {
+		t.Fatalf("replayed journeys = %d, want 4", len(journeys))
+	}
+	j := journeys[3]
+	if j.State != fabric.JourneyDropped || len(j.Deliveries) != 0 || j.Entries[len(j.Entries)-1].Kind != fabric.EntryLoss || j.Entries[len(j.Entries)-1].Reason != cablemodel.ReasonCableLoss {
+		t.Fatalf("replayed fourth journey = %+v, want cable loss without delivery", j)
+	}
+	var hops int
+	for _, e := range j.Entries {
+		if e.Kind == fabric.EntryHop {
+			hops++
+			if e.Result.Outcome != trace.Forwarded || len(e.Result.Egress) != 1 || e.Result.Egress[0].Port != "1/1/24" {
+				t.Fatalf("replayed fourth hop = %+v, want learned unicast on 1/1/24", e.Result)
+			}
+		}
+	}
+	if hops != 1 {
+		t.Fatalf("replayed fourth hops = %d, want 1", hops)
+	}
+}
+
+func TestReplayOfSteppedFabric(t *testing.T) {
+	fab, sc := steppedReplayFabric(t)
+	res, err := fab.RunScenario(sc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	j := fab.Report()[3]
+	if j.State != fabric.JourneyDropped || j.Entries[len(j.Entries)-1].Reason != cablemodel.ReasonCableLoss {
+		t.Fatalf("fourth journey = %+v, want cable loss", j)
+	}
+	var hops int
+	for _, e := range j.Entries {
+		if e.Kind == fabric.EntryHop {
+			hops++
+			if e.Result.Outcome != trace.Forwarded || len(e.Result.Egress) != 1 || e.Result.Egress[0].Port != "1/1/24" {
+				t.Fatalf("fourth hop = %+v, want learned unicast on 1/1/24", e.Result)
+			}
+		}
+	}
+	if hops != 1 {
+		t.Fatalf("fourth hops = %d, want 1", hops)
+	}
+	replayed, err := fabric.Replay(res.Replay)
+	if err != nil {
+		t.Fatal(err)
+	}
+	equalReplayResults(t, res, replayed)
+	assertSteppedReplayJourney(t, replayed.Replay)
+}
+
+func TestCompareReplayOfSteppedFabrics(t *testing.T) {
+	a, sc := steppedReplayFabric(t)
+	b, _ := steppedReplayFabric(t)
+	cmp := fabric.Compare(a, b, sc, sc.Budget)
+	if cmp.Err != nil {
+		t.Fatal(cmp.Err)
+	}
+	var checked int
+	for i, original := range []*fabric.Fabric{a, b} {
+		want, err := original.Fork().RunScenario(sc)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got, err := fabric.Replay(cmp.Replay[i])
+		if err != nil {
+			t.Fatal(err)
+		}
+		equalReplayResults(t, want, got)
+		assertSteppedReplayJourney(t, got.Replay)
+		checked++
+	}
+	if checked != 2 {
+		t.Fatalf("checked comparison sides = %d, want 2", checked)
+	}
+}
+
+func TestReplayRunsTwice(t *testing.T) {
+	fab, sc := steppedReplayFabric(t)
+	res, err := fab.RunScenario(sc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var checked int
+	for range 2 {
+		got, err := fabric.Replay(res.Replay)
+		if err != nil {
+			t.Fatal(err)
+		}
+		equalReplayResults(t, res, got)
+		assertSteppedReplayJourney(t, got.Replay)
+		checked++
+	}
+	if checked != 2 {
+		t.Fatalf("checked replay calls = %d, want 2", checked)
+	}
+}
 
 func buildReplayPorts(t *testing.T) port.Table {
 	t.Helper()
@@ -940,10 +1099,7 @@ func TestScenarioReplayConfigureEquality(t *testing.T) {
 		t.Errorf("res1.Fingerprints != res2.Fingerprints")
 	}
 
-	fab2, err := fabric.NewWithSpec(res1.Replay.Spec)
-	if err != nil {
-		t.Fatalf("NewWithSpec: %v", err)
-	}
+	fab2 := res1.Replay.Checkpoint()
 	if _, err := fab2.RunScenario(res1.Replay.Scenario); err != nil {
 		t.Fatalf("fab2.RunScenario: %v", err)
 	}

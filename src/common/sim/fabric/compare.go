@@ -32,8 +32,9 @@ type Comparison struct {
 // work, and Issues, then the final Snapshot behavioral state. Diagnostic metadata,
 // evidence, semantic trace text, and raw convergence diagnostics never cause a Different.
 // On Different, Difference names the first differing observable with both sides' values
-// and Replay carries immutable replay specifications for both fabrics ([0] for current,
-// [1] for candidate) to reproduce the divergence.
+// and Replay carries pre-action checkpoints for both fabrics ([0] for current,
+// [1] for candidate) to reproduce the divergence. Actions before either fabric's
+// clock are refused before either fork executes them.
 func Compare(a, b *Fabric, scenario Scenario, budget int) Comparison {
 	forkA := a.Fork()
 	forkB := b.Fork()
@@ -48,17 +49,13 @@ func Compare(a, b *Fabric, scenario Scenario, budget int) Comparison {
 
 	norm, err := normSc.Normalize()
 	replaySpecA := ReplaySpec{
-		Contract: ReplayContract,
-		Spec:     a.Spec(),
-		Scenario: normSc.Clone(),
+		checkpoint: a.Fork(),
+		Scenario:   normSc.Clone(),
 	}
 	replaySpecB := ReplaySpec{
-		Contract: ReplayContract,
-		Spec:     b.Spec(),
-		Scenario: normSc.Clone(),
+		checkpoint: b.Fork(),
+		Scenario:   normSc.Clone(),
 	}
-	replaySpecA.Scenario.Spec = ConstructionSpec{}
-	replaySpecB.Scenario.Spec = ConstructionSpec{}
 	replaySpecs := [2]ReplaySpec{replaySpecA, replaySpecB}
 	if err != nil {
 		return Comparison{
@@ -70,9 +67,12 @@ func Compare(a, b *Fabric, scenario Scenario, budget int) Comparison {
 
 	replaySpecA.Scenario = norm.Clone()
 	replaySpecB.Scenario = norm.Clone()
-	replaySpecA.Scenario.Spec = ConstructionSpec{}
-	replaySpecB.Scenario.Spec = ConstructionSpec{}
 	replaySpecs = [2]ReplaySpec{replaySpecA, replaySpecB}
+	for _, f := range []*Fabric{forkA, forkB} {
+		if err := f.validateActionTimes(norm.Actions); err != nil {
+			return Comparison{Disposition: analysis.Inconclusive, Replay: replaySpecs, Err: err}
+		}
+	}
 
 	runResA, injFIDsA, errA := runScenarioFork(forkA, norm.Budget, norm.Window, norm.Actions)
 	if errA != nil {

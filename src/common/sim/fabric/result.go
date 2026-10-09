@@ -44,16 +44,21 @@ type PendingWork struct {
 	Journeys int
 }
 
-// ReplayContract identifies the fabric replay specification schema version.
-const ReplayContract = "netsim-fabric/v1"
-
-// ReplaySpec captures the construction specification, contract version, and scenario needed to replay a run.
-// Spec is authoritative for the fabric topology; Scenario captures scheduled actions, budget, and window,
-// with its embedded Spec zeroed to eliminate topology divergence.
+// ReplaySpec holds an in-memory checkpoint taken before its scenario runs.
+// Replay forks the checkpoint on every call, preserving live state across repeated runs.
+// Concurrent replays are safe while Scenario is unchanged.
 type ReplaySpec struct {
-	Contract string
-	Spec     ConstructionSpec
-	Scenario Scenario
+	checkpoint *Fabric
+	Scenario   Scenario
+}
+
+// Checkpoint returns an independent fork of the pre-action fabric, or nil for a zero replay.
+// Changing the returned fabric does not change subsequent replays.
+func (s ReplaySpec) Checkpoint() *Fabric {
+	if s.checkpoint == nil {
+		return nil
+	}
+	return s.checkpoint.Fork()
 }
 
 // RunResult captures the complete outcome of executing a simulation run.

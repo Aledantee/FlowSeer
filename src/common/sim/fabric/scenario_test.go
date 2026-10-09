@@ -2,6 +2,7 @@ package fabric
 
 import (
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -19,7 +20,70 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
-func newTestTwoSwitchSTPFabric(t *testing.T, t0 time.Time) (*Fabric, Config) {
+func TestScenarioActionsBeforeFabricClock(t *testing.T) {
+	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
+	at := t0.Add(-time.Second)
+	frame := ethernet.Frame{Payload: []byte("before-clock")}
+	actions := []Action{
+		{At: at, Kind: ActionInject, Inject: &Injection{At: at, Origin: Endpoint{Node: "h1"}, Frame: frame}},
+		{At: at, Kind: ActionRecord, Record: &Record{At: at, Source: "capture", Origin: Endpoint{Node: "h1"}, Frame: &frame}},
+		{At: at, Kind: ActionFault, Fault: &FaultAction{A: Endpoint{Node: "h1"}, B: Endpoint{Node: "sw1", Port: "1/1/1"}, Fault: cablemodel.Fault{Kind: cablemodel.FaultCut}}},
+		{At: at, Kind: ActionConfigure, Configure: &ConfigureAction{Node: "sw1"}},
+		{At: at, Kind: ActionMcheck, Mcheck: &McheckAction{Node: "sw1", Port: "1/1/1"}},
+	}
+	laterFabric := func(t *testing.T, stepped bool) *Fabric {
+		t.Helper()
+		if !stepped {
+			return newTestHostSwitchFabric(t, t0)
+		}
+		fab := newTestHostSwitchFabric(t, at)
+		if _, err := fab.Inject(Injection{At: t0, Origin: Endpoint{Node: "h1"}, Frame: frame}); err != nil {
+			t.Fatal(err)
+		}
+		if res := fab.Run(10); res.Steps == 0 || !res.Clock.After(at) {
+			t.Fatalf("stepped setup = %+v, want steps and clock after action", res)
+		}
+		return fab
+	}
+	var checked int
+	for _, action := range actions {
+		for _, clock := range []struct {
+			name    string
+			stepped bool
+		}{{"constructed", false}, {"stepped", true}} {
+			t.Run(string(action.Kind)+"/"+clock.name, func(t *testing.T) {
+				if err := action.Validate(); err != nil {
+					t.Fatalf("action must be valid before checking clock: %v", err)
+				}
+				sc := Scenario{Name: "before-clock", Budget: 10, Actions: []Action{action}}
+				fab := laterFabric(t, clock.stepped)
+				if _, err := fab.RunScenario(sc); err == nil || !strings.HasPrefix(err.Error(), "action 0 at ") || !strings.Contains(err.Error(), "precedes fabric clock") {
+					t.Errorf("RunScenario error = %v, want precedes fabric clock", err)
+				}
+				checked++
+				for _, currentLater := range []bool{true, false} {
+					a := newTestHostSwitchFabric(t, at)
+					b := newTestHostSwitchFabric(t, at)
+					if currentLater {
+						a = laterFabric(t, clock.stepped)
+					} else {
+						b = laterFabric(t, clock.stepped)
+					}
+					cmp := Compare(a, b, sc, sc.Budget)
+					if cmp.Err == nil || !strings.HasPrefix(cmp.Err.Error(), "action 0 at ") || !strings.Contains(cmp.Err.Error(), "precedes fabric clock") {
+						t.Errorf("Compare currentLater=%t error = %v, want precedes fabric clock", currentLater, cmp.Err)
+					}
+					checked++
+				}
+			})
+		}
+	}
+	if checked != 30 {
+		t.Fatalf("checked execution clocks = %d, want 30", checked)
+	}
+}
+
+func newTestTwoSwitchSTPFabric(t *testing.T, t0 time.Time) *Fabric {
 	t.Helper()
 	mac1 := netaddr.MAC{0, 0, 0, 0, 1, 1}
 	mac2 := netaddr.MAC{0, 0, 0, 0, 1, 2}
@@ -75,12 +139,12 @@ func newTestTwoSwitchSTPFabric(t *testing.T, t0 time.Time) (*Fabric, Config) {
 	if err != nil {
 		t.Fatalf("New STP fabric: %v", err)
 	}
-	return fab, cfg
+	return fab
 }
 
 func TestScenarioSameTimeDeclarationOrder(t *testing.T) {
 	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
-	fab, cfg := newTestTwoHostFabric(t, t0)
+	fab := newTestTwoHostFabric(t, t0)
 
 	frame1 := ethernet.Frame{
 		Src:     netaddr.MAC{0, 0, 0, 0, 0, 1},
@@ -95,13 +159,6 @@ func TestScenarioSameTimeDeclarationOrder(t *testing.T) {
 
 	sc := Scenario{
 		Name: "same-time-order",
-		Spec: ConstructionSpec{
-			Start:         cfg.Start,
-			Switches:      fab.Spec().Switches,
-			Hosts:         cfg.Hosts,
-			Cables:        cfg.Cables,
-			PhyAssumption: cfg.PhyAssumption,
-		},
 		Actions: []Action{
 			{
 				At:   t0,
@@ -286,21 +343,6 @@ func TestScenarioValidateRefusalTable(t *testing.T) {
 			},
 		},
 		{
-			name: "action before Spec.Start",
-			sc: Scenario{
-				Name: "before-spec-start",
-				Spec: ConstructionSpec{Start: t0},
-				Actions: []Action{
-					{
-						At:     t0.Add(-time.Second),
-						Kind:   ActionInject,
-						Inject: validInject,
-					},
-				},
-				Budget: 10,
-			},
-		},
-		{
 			name: "duplicate numbered at and index",
 			sc: Scenario{
 				Name:   "duplicate-at-index",
@@ -381,7 +423,6 @@ func TestScenarioDiffEveryField(t *testing.T) {
 		Name:   "base-scenario",
 		Budget: 10,
 		Window: 3,
-		Spec:   ConstructionSpec{Start: t0},
 		Actions: []Action{
 			{
 				At:    t0,
@@ -473,7 +514,6 @@ func TestScenarioDiffScenariosRawVsNormalized(t *testing.T) {
 		Name:   "raw-scenario",
 		Budget: 10,
 		Window: 3,
-		Spec:   ConstructionSpec{Start: t0},
 		Actions: []Action{
 			{
 				At:   t0,
@@ -500,30 +540,21 @@ func TestScenarioDiffScenariosRawVsNormalized(t *testing.T) {
 	}
 }
 
-func TestReplayRefusesDifferentContract(t *testing.T) {
-	spec := ReplaySpec{
-		Contract: "netsim-fabric/v2-invalid",
-	}
+func TestReplayRefusesMissingCheckpoint(t *testing.T) {
+	spec := ReplaySpec{}
 
 	_, err := Replay(spec)
 	if err == nil {
-		t.Fatal("Replay succeeded with wrong contract, want error")
+		t.Fatal("Replay succeeded without checkpoint, want error")
 	}
 }
 
 func TestScenarioSpanningTreeWindowZeroStopsAtBudget(t *testing.T) {
 	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
-	fab, cfg := newTestTwoSwitchSTPFabric(t, t0)
+	fab := newTestTwoSwitchSTPFabric(t, t0)
 
 	sc := Scenario{
-		Name: "stp-window-zero",
-		Spec: ConstructionSpec{
-			Start:         cfg.Start,
-			Switches:      fab.Spec().Switches,
-			Hosts:         cfg.Hosts,
-			Cables:        cfg.Cables,
-			PhyAssumption: cfg.PhyAssumption,
-		},
+		Name:   "stp-window-zero",
 		Budget: 5,
 		Window: 0,
 	}
@@ -542,7 +573,7 @@ func TestScenarioSpanningTreeWindowZeroStopsAtBudget(t *testing.T) {
 
 func TestScenarioReplayDoubleExecutionEquality(t *testing.T) {
 	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
-	fab, cfg := newTestTwoSwitchSTPFabric(t, t0)
+	fab := newTestTwoSwitchSTPFabric(t, t0)
 
 	frame := ethernet.Frame{
 		Src:     netaddr.MAC{0, 0, 0, 0, 0, 1},
@@ -552,13 +583,6 @@ func TestScenarioReplayDoubleExecutionEquality(t *testing.T) {
 
 	sc := Scenario{
 		Name: "cut-and-inject",
-		Spec: ConstructionSpec{
-			Start:         cfg.Start,
-			Switches:      fab.Spec().Switches,
-			Hosts:         cfg.Hosts,
-			Cables:        cfg.Cables,
-			PhyAssumption: cfg.PhyAssumption,
-		},
 		Actions: []Action{
 			{
 				At:   t0.Add(time.Second),
@@ -603,11 +627,10 @@ func TestScenarioReplayDoubleExecutionEquality(t *testing.T) {
 	}
 
 	j1 := fab.Report()
-	fab2, err := NewWithSpec(res1.Replay.Spec)
-	if err != nil {
-		t.Fatalf("NewWithSpec: %v", err)
+	fab2 := res1.Replay.Checkpoint()
+	if _, err := fab2.RunScenario(res1.Replay.Scenario); err != nil {
+		t.Fatalf("RunScenario checkpoint: %v", err)
 	}
-	_, _ = fab2.RunScenario(res1.Replay.Scenario)
 	j2 := fab2.Report()
 
 	if len(j1) != len(j2) {
@@ -682,13 +705,6 @@ func TestScenarioReplaySeededFabricEquality(t *testing.T) {
 
 	sc := Scenario{
 		Name: "seeded-unicast",
-		Spec: ConstructionSpec{
-			Start:         cfg.Start,
-			Switches:      fab.Spec().Switches,
-			Hosts:         cfg.Hosts,
-			Cables:        cfg.Cables,
-			PhyAssumption: cfg.PhyAssumption,
-		},
 		Actions: []Action{
 			{
 				At:   t0.Add(time.Second),
@@ -724,11 +740,10 @@ func TestScenarioReplaySeededFabricEquality(t *testing.T) {
 	}
 
 	j1 := fab.Report()
-	fab2, err := NewWithSpec(res1.Replay.Spec)
-	if err != nil {
-		t.Fatalf("NewWithSpec: %v", err)
+	fab2 := res1.Replay.Checkpoint()
+	if _, err := fab2.RunScenario(res1.Replay.Scenario); err != nil {
+		t.Fatalf("RunScenario checkpoint: %v", err)
 	}
-	_, _ = fab2.RunScenario(res1.Replay.Scenario)
 	j2 := fab2.Report()
 
 	if len(j1) != len(j2) {
@@ -746,24 +761,15 @@ func TestScenarioReplaySeededFabricEquality(t *testing.T) {
 		}
 	}
 
-	// Dropping seeds from the recorded replay spec must fail to match seeded execution.
-	droppedSpec := res1.Replay
-	swSpec := droppedSpec.Spec.Switches["sw1"]
-	swSpec.Seeds = nil
-	droppedSpec.Spec.Switches["sw1"] = swSpec
-
-	droppedRes, err := Replay(droppedSpec)
+	// An unseeded checkpoint retains the flooding contrast to seeded unicast.
+	droppedFab, _ := newTestThreeHostFabric(t, t0)
+	droppedRes, err := droppedFab.RunScenario(res1.Replay.Scenario)
 	if err != nil {
-		t.Fatalf("Replay dropped seeds: %v", err)
+		t.Fatalf("RunScenario without seeds: %v", err)
 	}
 	if slices.Equal(res1.Fingerprints, droppedRes.Fingerprints) {
 		t.Errorf("expected fingerprints to differ when seeds are dropped")
 	}
-	droppedFab, err := NewWithSpec(droppedSpec.Spec)
-	if err != nil {
-		t.Fatalf("NewWithSpec dropped seeds: %v", err)
-	}
-	_, _ = droppedFab.RunScenario(droppedSpec.Scenario)
 	droppedJourneys := droppedFab.Report()
 	if len(droppedJourneys[0].Entries) == len(j1[0].Entries) {
 		t.Errorf("expected unseeded flooding to produce more journey entries than seeded unicast (%d == %d)", len(droppedJourneys[0].Entries), len(j1[0].Entries))
@@ -772,7 +778,7 @@ func TestScenarioReplaySeededFabricEquality(t *testing.T) {
 
 func TestScenarioMutationIndependence(t *testing.T) {
 	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
-	fab, cfg := newTestTwoHostFabric(t, t0)
+	fab := newTestTwoHostFabric(t, t0)
 
 	actions := []Action{
 		{
@@ -786,14 +792,7 @@ func TestScenarioMutationIndependence(t *testing.T) {
 	}
 
 	sc := Scenario{
-		Name: "mutation-isolation",
-		Spec: ConstructionSpec{
-			Start:         cfg.Start,
-			Switches:      fab.Spec().Switches,
-			Hosts:         cfg.Hosts,
-			Cables:        cfg.Cables,
-			PhyAssumption: cfg.PhyAssumption,
-		},
+		Name:    "mutation-isolation",
 		Actions: actions,
 		Budget:  10,
 	}
@@ -818,7 +817,7 @@ func TestScenarioMutationIndependence(t *testing.T) {
 
 func TestScenarioForkIsolation(t *testing.T) {
 	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
-	fab, _ := newTestTwoSwitchSTPFabric(t, t0)
+	fab := newTestTwoSwitchSTPFabric(t, t0)
 
 	// Step source once
 	fab.Step()
@@ -908,7 +907,6 @@ func TestScenarioConfigureTransientBetweenSwitches(t *testing.T) {
 
 	sc := Scenario{
 		Name: "vlan-migration",
-		Spec: fab.Spec(),
 		Actions: []Action{
 			{
 				At:   t1,
@@ -1074,7 +1072,6 @@ func TestConfigureActionValidateAndDiff(t *testing.T) {
 	scA := Scenario{
 		Name:    "configure-a",
 		Budget:  10,
-		Spec:    ConstructionSpec{Start: t0},
 		Actions: []Action{{At: t0, Index: 1, Kind: ActionConfigure, Configure: &ConfigureAction{Node: "sw1", Config: cfg1}}},
 	}
 	scB := scA.Clone()

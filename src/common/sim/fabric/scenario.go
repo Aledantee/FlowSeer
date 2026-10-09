@@ -414,18 +414,16 @@ func recordSummary(r *Record) string {
 	return fmt.Sprintf("source=%s,origin=%s", r.Source, r.Origin.Canonical())
 }
 
-// Scenario encapsulates an entire reproducible network simulation with actions and budgets.
+// Scenario declares timed actions, a step budget, and an observation window.
 type Scenario struct {
 	Name    string
-	Spec    ConstructionSpec
 	Actions []Action
 	Budget  int
 	Window  int
 }
 
 // Validate verifies that the scenario has a valid name, positive budget, non-negative window,
-// consistent action indices, unique (At, Index) pairs in numbered mode, and no actions scheduled
-// before the specification start time.
+// consistent action indices, and unique (At, Index) pairs in numbered mode.
 func (s Scenario) Validate() error {
 	numbered, err := s.validateHeader()
 	if err != nil {
@@ -435,9 +433,6 @@ func (s Scenario) Validate() error {
 	for i, a := range s.Actions {
 		if err := a.Validate(); err != nil {
 			return errs.Wrapf(err, "action %d invalid", i)
-		}
-		if !s.Spec.Start.IsZero() && a.At.Before(s.Spec.Start) {
-			return errs.Msgf("action %d at %s precedes spec start %s", i, a.At, s.Spec.Start)
 		}
 	}
 
@@ -486,15 +481,10 @@ func (s Scenario) validateHeader() (numbered bool, err error) {
 	return numCount > 0, nil
 }
 
-// Normalize normalizes the underlying specification and actions, assigns 1-based indices
+// Normalize normalizes actions, assigns 1-based indices
 // to unnumbered actions, and sorts actions by At then Index to guarantee declaration order.
 func (s Scenario) Normalize() (Scenario, error) {
 	numbered, err := s.validateHeader()
-	if err != nil {
-		return Scenario{}, err
-	}
-
-	normSpec, err := s.Spec.Normalize()
 	if err != nil {
 		return Scenario{}, err
 	}
@@ -520,7 +510,6 @@ func (s Scenario) Normalize() (Scenario, error) {
 
 	norm := Scenario{
 		Name:    s.Name,
-		Spec:    normSpec,
 		Actions: actions,
 		Budget:  s.Budget,
 		Window:  s.Window,
@@ -536,7 +525,6 @@ func (s Scenario) Normalize() (Scenario, error) {
 func (s Scenario) Clone() Scenario {
 	cp := Scenario{
 		Name:   s.Name,
-		Spec:   s.Spec.Clone(),
 		Budget: s.Budget,
 		Window: s.Window,
 	}
@@ -606,12 +594,6 @@ func DiffScenarios(a, b Scenario) ([]trace.Change, error) {
 			To:      scenarioWindowFact(normB.Window),
 		})
 	}
-
-	specChanges, err := DiffSpecs(normA.Spec, normB.Spec)
-	if err != nil {
-		return nil, err
-	}
-	changes = append(changes, specChanges...)
 
 	minLen := min(len(normA.Actions), len(normB.Actions))
 	for i := 0; i < minLen; i++ {

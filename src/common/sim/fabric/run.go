@@ -1113,6 +1113,7 @@ func (f *Fabric) Run(budget int) RunResult {
 }
 
 // RunScenario validates and executes a declared scenario under its specified budget and window.
+// It refuses any action before the fabric clock and retains a pre-action checkpoint for replay.
 // It refuses actions when the fabric has attached streams because their pull order does not account for action times.
 func (f *Fabric) RunScenario(s Scenario) (RunResult, error) {
 	norm, err := s.Normalize()
@@ -1122,43 +1123,43 @@ func (f *Fabric) RunScenario(s Scenario) (RunResult, error) {
 	if err := norm.Validate(); err != nil {
 		return RunResult{}, err
 	}
+	if err := f.validateActionTimes(norm.Actions); err != nil {
+		return RunResult{}, err
+	}
 	if len(f.attachments) > 0 && len(norm.Actions) > 0 {
 		return RunResult{}, errs.Msg("scenario actions cannot run with an attached stream")
 	}
 
-	initialSpec := f.Spec()
+	checkpoint := f.Fork()
 
 	res, err := f.runWithActions(norm.Budget, norm.Window, norm.Actions)
 	if err != nil {
 		return RunResult{}, err
 	}
-	replayScenario := norm.Clone()
-	replayScenario.Spec = ConstructionSpec{}
 	res.Replay = ReplaySpec{
-		Contract: ReplayContract,
-		Spec:     initialSpec,
-		Scenario: replayScenario,
+		checkpoint: checkpoint,
+		Scenario:   norm.Clone(),
 	}
 	return res, nil
 }
 
-// Replay executes a simulation from a recorded replay specification. Spec is the authoritative
-// construction specification for the fabric topology; any Spec declared on Scenario is ignored
-// to eliminate topology divergence.
+// Replay executes the scenario on a fresh fork of its checkpoint.
+// It refuses a zero replay, which has no checkpoint.
 func Replay(spec ReplaySpec) (RunResult, error) {
-	if spec.Contract != ReplayContract {
-		return RunResult{}, errs.New().
-			Attr("contract", spec.Contract).
-			Attr("expected", ReplayContract).
-			Msgf("replay refused: unexpected contract %q, want %q", spec.Contract, ReplayContract)
+	fab := spec.Checkpoint()
+	if fab == nil {
+		return RunResult{}, errs.Msg("replay refused: missing checkpoint")
 	}
-	fab, err := NewWithSpec(spec.Spec)
-	if err != nil {
-		return RunResult{}, err
+	return fab.RunScenario(spec.Scenario)
+}
+
+func (f *Fabric) validateActionTimes(actions []Action) error {
+	for i, a := range actions {
+		if a.At.Before(f.clock) {
+			return errs.Msgf("action %d at %s precedes fabric clock %s", i, a.At, f.clock)
+		}
 	}
-	scenario := spec.Scenario.Clone()
-	scenario.Spec = ConstructionSpec{}
-	return fab.RunScenario(scenario)
+	return nil
 }
 
 func (f *Fabric) applyAction(a Action) error {

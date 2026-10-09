@@ -18,7 +18,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
-func newTestTwoHostFabric(t *testing.T, t0 time.Time) (*Fabric, Config) {
+func newTestTwoHostFabric(t *testing.T, t0 time.Time) *Fabric {
 	t.Helper()
 	macH1 := netaddr.MAC{0, 0, 0, 0, 0, 1}
 	macH2 := netaddr.MAC{0, 0, 0, 0, 0, 2}
@@ -56,12 +56,12 @@ func newTestTwoHostFabric(t *testing.T, t0 time.Time) (*Fabric, Config) {
 	}); err != nil {
 		t.Fatalf("Learn: %v", err)
 	}
-	return fab, cfg
+	return fab
 }
 
 func TestRecordDecodedFrame(t *testing.T) {
 	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
-	fab, cfg := newTestTwoHostFabric(t, t0)
+	fab := newTestTwoHostFabric(t, t0)
 
 	frame := ethernet.Frame{
 		Src:     netaddr.MAC{0, 0, 0, 0, 0, 1},
@@ -78,13 +78,6 @@ func TestRecordDecodedFrame(t *testing.T) {
 
 	sc := Scenario{
 		Name: "record-decoded",
-		Spec: ConstructionSpec{
-			Start:         cfg.Start,
-			Switches:      fab.Spec().Switches,
-			Hosts:         cfg.Hosts,
-			Cables:        cfg.Cables,
-			PhyAssumption: cfg.PhyAssumption,
-		},
 		Actions: []Action{
 			{
 				At:     t0,
@@ -113,7 +106,7 @@ func TestRecordDecodedFrame(t *testing.T) {
 
 func TestRecordRawBytes(t *testing.T) {
 	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
-	fab, cfg := newTestTwoHostFabric(t, t0)
+	fab := newTestTwoHostFabric(t, t0)
 
 	frame := ethernet.Frame{
 		Src:     netaddr.MAC{0, 0, 0, 0, 0, 1},
@@ -134,13 +127,6 @@ func TestRecordRawBytes(t *testing.T) {
 
 	sc := Scenario{
 		Name: "record-raw-bytes",
-		Spec: ConstructionSpec{
-			Start:         cfg.Start,
-			Switches:      fab.Spec().Switches,
-			Hosts:         cfg.Hosts,
-			Cables:        cfg.Cables,
-			PhyAssumption: cfg.PhyAssumption,
-		},
 		Actions: []Action{
 			{
 				At:     t0,
@@ -169,7 +155,7 @@ func TestRecordRawBytes(t *testing.T) {
 
 func TestRecordTruncatedIssueAndState(t *testing.T) {
 	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
-	fab, cfg := newTestTwoHostFabric(t, t0)
+	fab := newTestTwoHostFabric(t, t0)
 
 	frame := ethernet.Frame{
 		Src:     netaddr.MAC{0, 0, 0, 0, 0, 1},
@@ -195,13 +181,6 @@ func TestRecordTruncatedIssueAndState(t *testing.T) {
 
 	sc := Scenario{
 		Name: "record-truncated",
-		Spec: ConstructionSpec{
-			Start:         cfg.Start,
-			Switches:      fab.Spec().Switches,
-			Hosts:         cfg.Hosts,
-			Cables:        cfg.Cables,
-			PhyAssumption: cfg.PhyAssumption,
-		},
 		Actions: []Action{
 			{
 				At:     t0,
@@ -247,7 +226,7 @@ func TestRecordTruncatedIssueAndState(t *testing.T) {
 
 func TestRecordUndecodableBytesError(t *testing.T) {
 	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
-	fab, cfg := newTestTwoHostFabric(t, t0)
+	fab := newTestTwoHostFabric(t, t0)
 
 	rec := Record{
 		At:     t0,
@@ -258,13 +237,6 @@ func TestRecordUndecodableBytesError(t *testing.T) {
 
 	sc := Scenario{
 		Name: "record-undecodable",
-		Spec: ConstructionSpec{
-			Start:         cfg.Start,
-			Switches:      fab.Spec().Switches,
-			Hosts:         cfg.Hosts,
-			Cables:        cfg.Cables,
-			PhyAssumption: cfg.PhyAssumption,
-		},
 		Actions: []Action{
 			{
 				At:     t0,

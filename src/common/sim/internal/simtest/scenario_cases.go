@@ -140,7 +140,6 @@ func casePlanningScenarioReplaysLinkFlap() Case {
 			sc := fabric.Scenario{
 				Name:   "scenario-replays-link-flap",
 				Budget: 20,
-				Spec:   spec,
 				Actions: []fabric.Action{
 					{
 						At:   linkFlapT0.Add(time.Second),
@@ -186,10 +185,7 @@ func casePlanningScenarioReplaysLinkFlap() Case {
 			}
 			j1 := report[0]
 
-			fab2, err := fabric.NewWithSpec(runRes.Replay.Spec)
-			if err != nil {
-				return ExecutionResult{}, err
-			}
+			fab2 := runRes.Replay.Checkpoint()
 			if _, err := fab2.RunScenario(runRes.Replay.Scenario); err != nil {
 				return ExecutionResult{}, err
 			}

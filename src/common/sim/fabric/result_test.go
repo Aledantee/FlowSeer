@@ -592,24 +592,17 @@ func TestPlainRunLeavesReplayZero(t *testing.T) {
 	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
 	fab := newTestHostSwitchFabric(t, t0)
 	res := fab.Run(10)
-	if res.Replay.Contract != "" || len(res.Replay.Spec.Switches) != 0 || res.Replay.Scenario.Name != "" {
+	if res.Replay.Checkpoint() != nil || res.Replay.Scenario.Name != "" {
 		t.Errorf("plain Run returned non-zero Replay: %+v", res.Replay)
 	}
 }
 
-func TestScenarioReplayZeroesScenarioSpec(t *testing.T) {
+func TestScenarioReplayHasCheckpoint(t *testing.T) {
 	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
-	fab, cfg := newTestTwoSwitchSTPFabric(t, t0)
+	fab := newTestTwoSwitchSTPFabric(t, t0)
 
 	sc := Scenario{
-		Name: "test-zeroes-scenario-spec",
-		Spec: ConstructionSpec{
-			Start:         cfg.Start,
-			Switches:      fab.Spec().Switches,
-			Hosts:         cfg.Hosts,
-			Cables:        cfg.Cables,
-			PhyAssumption: cfg.PhyAssumption,
-		},
+		Name:   "test-checkpoint",
 		Budget: 10,
 		Window: 1,
 	}
@@ -618,8 +611,8 @@ func TestScenarioReplayZeroesScenarioSpec(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RunScenario: %v", err)
 	}
-	if len(res.Replay.Scenario.Spec.Switches) != 0 || len(res.Replay.Scenario.Spec.Hosts) != 0 {
-		t.Errorf("res.Replay.Scenario.Spec is not empty: %+v", res.Replay.Scenario.Spec)
+	if res.Replay.Checkpoint() == nil {
+		t.Error("RunScenario replay has no checkpoint")
 	}
 }
 

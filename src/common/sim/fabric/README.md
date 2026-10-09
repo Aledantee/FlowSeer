@@ -917,8 +917,8 @@ of six stop reasons:
 
 ### Scenarios and replay
 
-`Scenario` bundles initial topology configuration with timed, sequenced
-actions: frame injections (`ActionInject`), link faults (`ActionFault`),
+`Scenario` declares timed, sequenced actions on an existing fabric:
+frame injections (`ActionInject`), link faults (`ActionFault`),
 switch reconfigurations (`ActionConfigure`), protocol migration checks
 (`ActionMcheck`), and recorded frames (`ActionRecord`):
 
@@ -927,7 +927,6 @@ sc := fabric.Scenario{
 	Name:   "trunk-flap-and-inject",
 	Budget: 50,
 	Window: 3,
-	Spec:   spec,
 	Actions: []fabric.Action{
 		{
 			At:   t0.Add(time.Second),
@@ -962,6 +961,17 @@ if err != nil {
 // Replay reproduces the identical simulation from res.Replay.
 replayRes, err := fabric.Replay(res.Replay)
 ```
+
+`RunScenario` and `Compare` refuse any action before the clock of the
+fabric it runs on. Each comparison side is checked against its own clock
+before either executes an action.
+
+`ReplaySpec` is an in-memory value holding a fork taken before the first
+action. It preserves learned state, queued work, and cable crossing counts.
+Every `Replay` call runs a fresh fork of that checkpoint, so the same value
+can run repeatedly. It has no serialized form. `ReplaySpec.Checkpoint()`
+returns an independent fork for inspecting or continuing that state
+(`replay_test.go`, `TestReplayOfSteppedFabric`).
 
 ### Reconfiguring a switch in a run
 
@@ -1079,7 +1089,6 @@ func main() {
 
 	sc := fabric.Scenario{
 		Name: "vlan-migration",
-		Spec: fab.Spec(),
 		Actions: []fabric.Action{
 			{
 				At:   t1,
@@ -1180,9 +1189,10 @@ The comparison evaluates three dispositions:
 - `analysis.Different`: The simulation results diverged at an observable behavior.
   `Comparison.Difference` names the first differing observable and the observed
   values on both sides (`Difference.Current` and `Difference.Expected`), and
-  `Comparison.Replay` is a `[2]ReplaySpec` carrying an immutable replay
-  specification for each side: `[0]` reconstructs the current fabric, `[1]` the
-  candidate, so a `Different` reproduces both sides of the divergence.
+  `Comparison.Replay` is a `[2]ReplaySpec` carrying a pre-action checkpoint
+  for each side: `[0]` holds the current fabric, `[1]` the candidate.
+  Replaying either forks that checkpoint, so a `Different` reproduces both
+  sides of the divergence, including their pre-existing live state.
   `Comparison.Location` identifies the exact behavioral field in a journey,
   run result, or snapshot (`comparison_location.go`). Journey locations retain
   injection index and UTC time plus parent-relative mirror/release lineage.

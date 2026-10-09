@@ -94,7 +94,9 @@ Every evaluated candidate increments exactly one of `EquivalentCount`,
 halt enumeration. `Result.Err` keeps the first error wrapped with its tuple.
 `Coverage.Tested + len(Result.Remainder)` equals the domain size, including
 errors. Retained differences carry independent candidates and both replay
-specifications. Discarded differences contribute to counts only.
+checkpoints. Each replay is an in-memory value preserving its fabric's
+pre-action live state, including learned records and cable crossing counts.
+It cannot be serialized. Discarded differences contribute to counts only.
 
 ## Exact minimization targets
 

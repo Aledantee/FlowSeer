@@ -703,10 +703,15 @@ example, and also asserts an FDB entry learned before the scenario
 forwards the replayed frame. It fails today, where the replay rebuilds
 from a specification. `TestCompareReplayOfSteppedFabrics`: the same
 through `Compare`, one replay per side. `TestReplayRunsTwice`: two
-replays of one value return equal results. The
+replays of one value return equal results. Since `RunResult` carries no
+journeys, the stepped replay tests run the checkpoint returned by the replay
+to assert learned unicast and position-four cable loss through its public report.
+The comparison and repeat loops assert two completed cases each. The
 before-start case of `Fb/scenario_test.go:286-298` runs through
 `RunScenario` with an inner time equal to its action time, once per
-action kind, so only the guard can refuse it. Expected to change:
+action kind, so only the guard can refuse it.
+The clock guard also runs on stepped fabrics and on each comparison side,
+with 30 execution-clock checks across the five action kinds. Expected to change:
 `Fb/compare_test.go:1952-2043`, `ST/scenario_cases.go:186`, which rebuilds
 from `Replay.Spec`, the four uses of `ReplayContract` in the tests of
 `search`, and three files that set or read the removed fields:
