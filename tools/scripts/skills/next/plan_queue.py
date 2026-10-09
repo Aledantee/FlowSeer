@@ -71,7 +71,7 @@ ORDER = ["land", "in-progress", "unchecked", "replan", "ready", "waiting", "reti
 # How far along a plan with work left is, furthest first. Two plans that
 # share a file are taken in this order whatever their groups' places.
 PROGRESS = ["land", "unchecked", "in-progress", "replan", "ready"]
-HARNESS = (".agents/", ".claude/", ".codex/", "tools/hooks/", "tools/scripts/", "docs/agent-", "AGENTS.md", "CLAUDE.md")
+HARNESS = (".agents/", ".claude/", ".codex/", "tools/scripts/", "docs/agent-", "AGENTS.md", "CLAUDE.md")
 UNIT_KEY = re.compile(r"^(After|Change|Tests|Verify):")
 PATH = re.compile(r"[\w@.*/-]*[\w*/]")
 

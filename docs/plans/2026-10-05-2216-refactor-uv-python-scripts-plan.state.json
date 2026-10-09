@@ -12,9 +12,7 @@
   "after": [],
   "landed": null,
   "phases": [
-    "docs/plans/2026-10-05-2216-refactor-uv-python-scripts-phase3-plan.md",
     "docs/plans/2026-10-05-2216-refactor-uv-python-scripts-phase4-plan.md",
-    "docs/plans/2026-10-05-2216-refactor-uv-python-scripts-phase5-plan.md",
     "docs/plans/2026-10-05-2216-refactor-uv-python-scripts-phase7-plan.md"
   ],
   "retired": [
@@ -40,6 +38,22 @@
       "landed": {
         "first": "4424d9b8",
         "last": "51222785"
+      }
+    },
+    {
+      "plan": "docs/plans/2026-10-05-2216-refactor-uv-python-scripts-phase5-plan.md",
+      "status": "implemented",
+      "landed": {
+        "first": "fcb0f0d2",
+        "last": "3d9e37a1"
+      }
+    },
+    {
+      "plan": "docs/plans/2026-10-05-2216-refactor-uv-python-scripts-phase3-plan.md",
+      "status": "implemented",
+      "landed": {
+        "first": "d99b72b8",
+        "last": "d6ea0d66"
       }
     }
   ]

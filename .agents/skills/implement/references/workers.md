@@ -36,7 +36,7 @@ Merge in the order the workers settle. After each report, check the worker's
 tree before reading its report as fact, as `delegate` describes. Verify that
 the commit it names exists, its tree is clean, and the two or three changes
 most expensive to get wrong are what the report says. Run
-`.claude/skills/delegate/scripts/orca-worker.sh check <slug>` before the
+`uv run tools/scripts/run.py delegate orca-worker check <slug>` before the
 merge. A non-zero result stops that unit's merge. Merge the worker's branch
 here. A branch that conflicts with one already merged goes back to its
 worker: run `git merge --abort`, `tell` the worker to rebase on the merged

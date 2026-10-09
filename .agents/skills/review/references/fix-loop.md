@@ -174,7 +174,7 @@ remedy is `review` again.
    extends the allowed file list and dispatches the worker again.
    The coordinating session does not make the fixes itself.
 2. Before each merge, run
-   `.claude/skills/delegate/scripts/orca-worker.sh check <slug>`. A non-zero
+   `uv run tools/scripts/run.py delegate orca-worker check <slug>`. A non-zero
    result stops the round. Merge each worker's branch, with the sandbox
    disabled when it touched `.claude/` or `.agents/` (`land`, step 3). After the merge commit
    exists, including a resolved conflict, run
