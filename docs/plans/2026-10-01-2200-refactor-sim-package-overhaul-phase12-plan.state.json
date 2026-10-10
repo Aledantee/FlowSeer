@@ -6,10 +6,10 @@
   "review_rounds": 0,
   "compound": null,
   "outcome": {
-    "units": 2,
+    "units": 12,
     "from": "2026-10-10T20:15:06Z",
-    "to": "2026-10-10T20:21:14Z",
-    "note": "Two units passed. Flow value move is committed but blocked by revive exported stutter diagnostics for flow.FlowID and flow.FlowStats. Fixed exported names and no-suppression boundary prevent a remedy. All later units remain pending and were not started."
+    "to": "2026-10-10T21:34:00Z",
+    "note": "U16 blocked: required flow-specific Unknown issue cannot use analysis.Status, which has no Unknown constant (report_test.go:75:24: undefined: analysis.Unknown). U8 U9 U15 U17 U18 U19 U20 U21 U22 pending. Passed units U1-U7 and U10-U14."
   },
   "superseded_by": null,
   "branch": "Aledantee/sim12-plan",
