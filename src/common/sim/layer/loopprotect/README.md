@@ -277,3 +277,17 @@ port can keep testing recovery. An applied `Disable` stops probes in this
 layer. A forwarding-denying action flushes learned entries for that port.
 `ClearLoopProtect` resolves a member to its logical port and returns an
 empty output ([loop protection tests](../../device/vswitch/loopprotect_test.go)).
+
+## Configuration diffs
+
+`Diff` compares normalized interval and port configurations
+([diff.go](diff.go)). VLAN members use quoted decimal coordinates and
+`loopprotect.vlan_id` facts. Replacing VLAN 10 with 20 emits
+`vlans["10"]: 10 -> nil` followed by `vlans["20"]: nil -> 20`.
+Reordering and duplicate-only edits produce no records
+([diff_coverage_test.go](diff_coverage_test.go)).
+
+A zero submitted recovery duration inherits three probe intervals. Changing
+interval from 1s to 2s therefore emits `interval: 1s -> 2s` followed by
+`recovery.duration: 3s -> 6s`. An explicit recovery duration stays unchanged
+([config_test.go](config_test.go), `TestDiffRecoveryDurationDependency`).

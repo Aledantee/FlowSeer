@@ -243,44 +243,37 @@ a switch comparison and the model-loading and forwarding metadata separately.
 
 ## Diff coverage
 
-[AssertDiffCoversConfig] walks a seeded `Config` by reflection — structs,
-non-nil pointers, map values, and slice elements — and for every leaf it
-finds, perturbs a fresh copy at that leaf alone and asserts the package's
-`Diff` reports at least one change. A leaf whose perturbation produced the
-same value fails outright rather than being skipped, because a check that
-plants a value proves nothing unless the plant is known to differ from what
-was there:
+[AssertMappedDiffCoverage] checks a fixed configuration fixture against the
+exported type shape before applying any slot-local setup. Every scalar,
+map identity, optional pointer and opaque Port table member has a submitted
+mutation and an independently specified ordered sequence. Missing seeds or
+mappings fail even when another populated branch reports changes.
 
 ```go
-seed := bridge.Config{VLAN: &bridge.VLAN{Table: map[vlan.ID]string{10: "ten"}}}
-normalize := func(c bridge.Config) bridge.Config { return c.Normalize(layer.Env{}) }
-simtest.AssertDiffCoversConfig(t, seed, normalize, bridge.Diff, nil)
+simtest.AssertMappedDiffCoverage(t, "bridge")
 ```
 
-The value chosen for each leaf matters: normalization can silently absorb a
-perturbation into a default that happens to equal the seed's own value (a
-non-default enum toggled to its zero value, a priority normalized from
-absence), which reads as "no arm" when the real defect is the fixture's
-choice of value, not a gap in `Diff`. Every layer's `Normalize` takes a
-`layer.Env`, so the `normalize` argument is a closure that supplies one, as in
-the example above. `lag`'s diff_coverage_test.go does the same with
-`layer.Env{}`.
+The mapping compares layer, subject kind, subject key, field and the TypeID
+and Canonical of both facts at each position. Empty sequences prove
+normalization no-ops. Identity replacements require both lifecycle records.
+Positional range changes preserve Start/End order. Occurrence changes can
+repeat identical records when the fixed expectation requires them.
 
-`port.Diff` takes a `Table` whose fields are unexported and built only
-through `NewBuilder`, so [AssertDiffCoversPort] walks the exported
-`port.Port` instead and builds each side's table through the builder,
-alongside fixed companion ports a perturbed field needs to stay valid (a
-paired LAG port for a member's `lag_parent`, for one).
+Every producer and wrapper uses exact matching. Missing delegated records fail
+even when capability presence and unrelated changes remain. The checker has
+no allowance facility.
+The literal counts are 627 registered paths, 627 concrete expectations and
+eight primary empty sequences (`TestMappedDiffManifest` in
+[diffcoverage_test.go](diffcoverage_test.go)).
 
-A leaf legitimately outside `Diff`'s contract — evidence that is provenance
-rather than compared configuration, one arm of a value that only applies
-under a specific discriminant like `Fault.Kind` — is named in the
-`exemptions` map with a reason, not silently skipped: an exemption naming a
-leaf the walk did not find fails, so a renamed or removed field cannot hide
-behind a stale exemption.
+Port tables retain their opaque contents during copying. Their seven member
+mutations rebuild both tables through `port.NewBuilder`, with a fixed LAG
+companion. Assembly raw fixtures include active fault sequence variants,
+provenance evidence and physical-assumption observations. These inputs
+exercise Normalize/Diff directly and do not claim construction validity.
 
 [AssertEveryDiffPackageIsCovered] walks `src/common/sim/device/vswitch/`,
-`src/common/sim/port/`, `src/common/sim/fabric/`, and the direct
+`src/common/sim/port/`, `src/common/sim/assembly/`, and the direct
 subdirectories of `src/common/sim/layer/` for a file named
 `diff.go` and fails on any path absent from the package's own
 `diffCoveredPackages` literal, and on any entry in that literal the walk did

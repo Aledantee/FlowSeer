@@ -69,11 +69,12 @@ func casePlanningPortVLANChange() Case {
 	}
 	pvid10 := NewFactExpectation(bridge.PVIDFact(vid10))
 	pvid20 := NewFactExpectation(bridge.PVIDFact(vid20))
-	vlans10 := NewFactExpectation(bridge.VLANsFact([]vlan.ID{vid10}))
-	vlans20 := NewFactExpectation(bridge.VLANsFact([]vlan.ID{vid20}))
+	vlans10 := FactExpectation{TypeID: "bridge.vlan_id", Canonical: "10"}
+	vlans20 := FactExpectation{TypeID: "bridge.vlan_id", Canonical: "20"}
 	expectedChanges := []ChangeExpectation{
 		expectedChange("vlan", trace.Subject{Kind: "port", Key: "1/1/1"}, "pvid", &pvid10, &pvid20),
-		expectedChange("vlan", trace.Subject{Kind: "port", Key: "1/1/1"}, "untagged_vlan_ids", &vlans10, &vlans20),
+		expectedChange("vlan", trace.Subject{Kind: "port", Key: "1/1/1"}, `untagged_vlan_ids["10"]`, &vlans10, nil),
+		expectedChange("vlan", trace.Subject{Kind: "port", Key: "1/1/1"}, `untagged_vlan_ids["20"]`, nil, &vlans20),
 	}
 
 	return Case{
@@ -81,7 +82,7 @@ func casePlanningPortVLANChange() Case {
 		UseCase:       UseCasePlanning,
 		Question:      "Does reconfiguring an access switchport from VLAN 10 to VLAN 20 alter forwarding behavior and emit typed configuration diff facts without string parsing?",
 		FalseAnswer:   "Silently ignoring the switchport reconfiguration, masking behavioral divergence behind identical prose strings, or requiring string parsing to observe diffs",
-		CurrentResult: "vswitch.Diff produces typed bridge.PVIDFact and bridge.VLANsFact change facts; vswitch.Compare detects forwarding divergence with the expected switch dropping traffic due to no-egress member ports in VLAN 20",
+		CurrentResult: "vswitch.Diff produces typed PVID and VLAN member facts. vswitch.Compare detects forwarding divergence with the expected switch dropping traffic due to no-egress member ports in VLAN 20",
 		ExpectedMetadata: &MetadataExpectation{
 			Status: analysis.Complete,
 			Scope:  analysis.NodeScope(""),

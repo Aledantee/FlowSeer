@@ -41,8 +41,22 @@ construction inputs and configuration behavior. Evidence catalogs and references
 produce no change in either, including evidence attached to switch issues and
 assumptions. `ConstructionSpec.Equal` includes that evidence.
 [construction_result_test.go](construction_result_test.go) checks both contracts.
-An address change carries its prefixes as the `trace.Fact` that `PrefixesFact`
-builds from the prefix strings, in the order given.
+Retained address changes emit one `fabric.prefix` removal or addition per
+unmatched value, with removals before additions. Wrapper keys are quoted,
+for example `attachments["edge.1"].addresses["192.0.2.1/24"]` and
+`ports["p.1"].speed_bps`. Host neighbors and accepted multicast MACs use the
+same bracket grammar. Retained cable faults report `fault.kind`, `fault.n`,
+then `fault.sequence["1"]` member changes. A physical assumption's lifecycle
+uses `phy_assumption.presence` with its snapshot. Retained assumptions report
+`phy_assumption.medium` followed by delegated `phy_assumption.ethernet.*`
+fields. [diff_coverage_test.go](diff_coverage_test.go) checks the complete
+257-slot mapping and 28 delegated correspondence cases.
+
+`DiffSpecs` sorts subjects stably and preserves each subject's local member
+sequence. Its `construction_inputs` records compare switch construction inputs
+separately from the configuration mapping. The ordering fixture in
+[construction_result_test.go](construction_result_test.go) uses valid filter
+ranges and a routing capability required by switch validation.
 Switch subjects and scenario operation subjects use quoted component keys from
 `trace.CompositeKey`, so a slash within an identifier stays part of that identifier.
 

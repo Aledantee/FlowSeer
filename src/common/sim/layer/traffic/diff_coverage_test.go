@@ -5,37 +5,13 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/internal/simtest"
-	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/traffic"
 )
 
 // TestDiffCoversEveryConfigField verifies that every exported traffic.Config field reaches
 // traffic.Diff.
 func TestDiffCoversEveryConfigField(t *testing.T) {
-	outputVLAN := vlan.ID(20)
-	seed := traffic.Config{
-		Mirrors: []traffic.Mirror{
-			{
-				Name:           "m1",
-				SelectAll:      true,
-				SelectSrcPorts: []string{"1/1/1"},
-				SelectDstPorts: []string{"1/1/2"},
-				SelectVLANs:    []vlan.ID{10},
-				OutputPort:     "1/1/3",
-				OutputVLAN:     &outputVLAN,
-				SnapLen:        128,
-			},
-		},
-		Policers: map[string]traffic.Policer{
-			"1/1/1": {RateBPS: 1_000_000, BurstOctets: 1500},
-		},
-		Queues: map[string]traffic.PortQueues{
-			"1/1/1": {MaxRateBPS: map[vlan.PCP]uint64{0: 1_000_000}, BufferOctets: map[vlan.PCP]uint64{0: 4096}},
-		},
-	}
-
-	normalize := func(c traffic.Config) traffic.Config { return c.Normalize(layer.Env{}) }
-	simtest.AssertDiffCoversConfig(t, seed, normalize, traffic.Diff, nil)
+	simtest.AssertMappedDiffCoverage(t, "traffic")
 }
 
 // TestDiffIgnoresMirrorSelectorOrder verifies traffic.Diff's self-normalization: two
@@ -48,6 +24,7 @@ func TestDiffIgnoresMirrorSelectorOrder(t *testing.T) {
 			{
 				Name:           "m1",
 				SelectSrcPorts: []string{"1/1/1", "1/1/2"},
+				SelectDstPorts: []string{"1/1/3", "1/1/4"},
 				SelectVLANs:    []vlan.ID{20, 10},
 			},
 		},
@@ -57,6 +34,7 @@ func TestDiffIgnoresMirrorSelectorOrder(t *testing.T) {
 			{
 				Name:           "m1",
 				SelectSrcPorts: []string{"1/1/2", "1/1/1"},
+				SelectDstPorts: []string{"1/1/4", "1/1/3"},
 				SelectVLANs:    []vlan.ID{10, 20},
 			},
 		},

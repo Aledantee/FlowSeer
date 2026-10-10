@@ -5,6 +5,8 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/sim/internal/simtest"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
@@ -30,8 +32,8 @@ func TestDiffDistinguishesVLANAwareness(t *testing.T) {
 	if len(changes) != 1 {
 		t.Fatalf("len(Diff()) = %d, want 1: %+v", len(changes), changes)
 	}
-	if got := changes[0]; got.Field != "vlan_awareness" || got.From.TypeID() != "bridge.bool" || got.To.TypeID() != "bridge.bool" || got.From.Canonical() != "false" || got.To.Canonical() != "true" {
-		t.Errorf("Diff()[0] = %+v, want vlan_awareness false -> true", got)
+	if got := changes[0]; got.Field != "vlan.presence" || got.From.TypeID() != "bridge.bool" || got.To.TypeID() != "bridge.bool" || got.From.Canonical() != "false" || got.To.Canonical() != "true" {
+		t.Errorf("Diff()[0] = %+v, want vlan.presence false -> true", got)
 	}
 }
 
@@ -112,10 +114,13 @@ func TestDiff(t *testing.T) {
 	if !hasChange("pvid", "port", "1/1/2") {
 		t.Errorf("missing port 1/1/2 pvid change")
 	}
-	if !hasChange("untagged_vlan_ids", "port", "1/1/2") {
+	if !hasChange(`untagged_vlan_ids["10"]`, "port", "1/1/2") {
 		t.Errorf("missing port 1/1/2 untagged_vlan_ids change")
 	}
-	if !hasChange("tagged_vlan_ids", "port", "1/1/2") {
+	if !hasChange(`untagged_vlan_ids["20"]`, "port", "1/1/2") {
+		t.Errorf("missing port 1/1/2 untagged VLAN addition")
+	}
+	if !hasChange(`tagged_vlan_ids["30"]`, "port", "1/1/2") {
 		t.Errorf("missing port 1/1/2 tagged_vlan_ids change")
 	}
 	if !hasChange("ingress_filtering", "port", "1/1/2") {
@@ -152,18 +157,10 @@ func TestDiffReportsFloodVLANsProtectedPortsAndForwardBPDU(t *testing.T) {
 		a := bridge.Config{FloodVLANs: []vlan.ID{20, 10}}
 		b := bridge.Config{FloodVLANs: []vlan.ID{30, 10}}
 		changes := bridge.Diff(a, b)
-		if len(changes) != 1 {
-			t.Fatalf("len(changes) = %d, want 1", len(changes))
-		}
-		ch := changes[0]
-		if ch.Field != "flood_vlans" || ch.Layer != bridge.LayerName {
-			t.Errorf("change = %+v, want flood_vlans at LayerRelay", ch)
-		}
-		wantFrom := []vlan.ID{10, 20}
-		wantTo := []vlan.ID{10, 30}
-		if !trace.EqualFact(ch.From, bridge.VLANsFact(wantFrom)) || !trace.EqualFact(ch.To, bridge.VLANsFact(wantTo)) {
-			t.Errorf("From = %v, To = %v, want From = %v, To = %v", ch.From, ch.To, wantFrom, wantTo)
-		}
+		assertBridgeChanges(t, changes, []simtest.ChangeExpectation{
+			{Layer: "relay", Subject: trace.Subject{Kind: "bridge"}, Field: `flood_vlans["20"]`, From: &simtest.FactExpectation{TypeID: "bridge.vlan_id", Canonical: "20"}},
+			{Layer: "relay", Subject: trace.Subject{Kind: "bridge"}, Field: `flood_vlans["30"]`, To: &simtest.FactExpectation{TypeID: "bridge.vlan_id", Canonical: "30"}},
+		})
 	})
 
 	t.Run("protected_ports order change reports nothing", func(t *testing.T) {
@@ -178,18 +175,10 @@ func TestDiffReportsFloodVLANsProtectedPortsAndForwardBPDU(t *testing.T) {
 		a := bridge.Config{ProtectedPorts: []string{"1/1/2", "1/1/1"}}
 		b := bridge.Config{ProtectedPorts: []string{"1/1/3", "1/1/1"}}
 		changes := bridge.Diff(a, b)
-		if len(changes) != 1 {
-			t.Fatalf("len(changes) = %d, want 1", len(changes))
-		}
-		ch := changes[0]
-		if ch.Field != "protected_ports" || ch.Layer != bridge.LayerName {
-			t.Errorf("change = %+v, want protected_ports at LayerRelay", ch)
-		}
-		wantFrom := []string{"1/1/1", "1/1/2"}
-		wantTo := []string{"1/1/1", "1/1/3"}
-		if !trace.EqualFact(ch.From, bridge.StringsFact(wantFrom)) || !trace.EqualFact(ch.To, bridge.StringsFact(wantTo)) {
-			t.Errorf("From = %v, To = %v, want From = %v, To = %v", ch.From, ch.To, wantFrom, wantTo)
-		}
+		assertBridgeChanges(t, changes, []simtest.ChangeExpectation{
+			{Layer: "relay", Subject: trace.Subject{Kind: "bridge"}, Field: `protected_ports["1/1/2"]`, From: &simtest.FactExpectation{TypeID: "bridge.port", Canonical: "1/1/2"}},
+			{Layer: "relay", Subject: trace.Subject{Kind: "bridge"}, Field: `protected_ports["1/1/3"]`, To: &simtest.FactExpectation{TypeID: "bridge.port", Canonical: "1/1/3"}},
+		})
 	})
 
 	t.Run("forward_bpdu change is reported", func(t *testing.T) {
@@ -223,8 +212,8 @@ func TestDiffTunnelAndPriorityTags(t *testing.T) {
 			t.Fatalf("len(changes) = %d, want 1", len(changes))
 		}
 		ch := changes[0]
-		if ch.Field != "tunnel" || ch.Layer != bridge.LayerNameVLAN {
-			t.Errorf("change = %+v, want field tunnel at LayerVLAN", ch)
+		if ch.Field != "tunnel.presence" || ch.Layer != bridge.LayerNameVLAN {
+			t.Errorf("change = %+v, want field tunnel.presence at LayerVLAN", ch)
 		}
 		if ch.From != nil {
 			t.Errorf("From = %v, want nil", ch.From)
@@ -318,12 +307,75 @@ func TestBridgeSnapshotFactsAreLosslessAndImmutable(t *testing.T) {
 
 	directA := configForTunnel([]vlan.ID{100})
 	directB := configForTunnel([]vlan.ID{200})
-	directFactA := bridge.Diff(directA, directB)[0].From
-	directFactB := bridge.Diff(directA, directB)[0].To
+	retained := bridge.Config{VLAN: &bridge.VLAN{Switchports: map[string]bridge.Switchport{"1/1/1": {}}}}
+	directFactA := bridge.Diff(retained, directA)[0].To
+	directFactB := bridge.Diff(retained, directB)[0].To
 	if directFactA.TypeID() != "bridge.tunnel" {
 		t.Errorf("TypeID() = %q, want bridge.tunnel", directFactA.TypeID())
 	}
 	if directFactA.Canonical() == directFactB.Canonical() {
 		t.Errorf("different tunnels share canonical form %q", directFactA.Canonical())
+	}
+}
+
+func assertBridgeChanges(t *testing.T, got []trace.Change, want []simtest.ChangeExpectation) {
+	t.Helper()
+	if len(got) != len(want) {
+		t.Fatalf("Diff records = %d, want %d: %+v", len(got), len(want), got)
+	}
+	for i, expected := range want {
+		if !expected.Matches(got[i]) {
+			t.Errorf("Diff[%d] = %+v, want %+v", i, got[i], expected)
+		}
+	}
+}
+
+func TestDiffRetainedTunnelMembers(t *testing.T) {
+	a := bridge.Config{VLAN: &bridge.VLAN{Switchports: map[string]bridge.Switchport{"1/1/1": {Tunnel: &bridge.Tunnel{VID: 30, CustomerVIDs: []vlan.ID{100}, TPID: 0}}}}}
+	b := bridge.Config{MaxEntries: 2, VLAN: &bridge.VLAN{Switchports: map[string]bridge.Switchport{"1/1/1": {Tunnel: &bridge.Tunnel{VID: 31, CustomerVIDs: []vlan.ID{200}, TPID: 33024}}}}}
+	want := []simtest.ChangeExpectation{
+		{Layer: "vlan", Subject: trace.Subject{Kind: "port", Key: "1/1/1"}, Field: "tunnel.vid", From: &simtest.FactExpectation{TypeID: "bridge.vlan_id", Canonical: "30"}, To: &simtest.FactExpectation{TypeID: "bridge.vlan_id", Canonical: "31"}},
+		{Layer: "vlan", Subject: trace.Subject{Kind: "port", Key: "1/1/1"}, Field: "tunnel.customer_vids[\"100\"]", From: &simtest.FactExpectation{TypeID: "bridge.vlan_id", Canonical: "100"}},
+		{Layer: "vlan", Subject: trace.Subject{Kind: "port", Key: "1/1/1"}, Field: "tunnel.customer_vids[\"200\"]", To: &simtest.FactExpectation{TypeID: "bridge.vlan_id", Canonical: "200"}},
+		{Layer: "vlan", Subject: trace.Subject{Kind: "port", Key: "1/1/1"}, Field: "tunnel.tpid", From: &simtest.FactExpectation{TypeID: "bridge.tpid", Canonical: "34984"}, To: &simtest.FactExpectation{TypeID: "bridge.tpid", Canonical: "33024"}},
+		{Layer: "relay", Subject: trace.Subject{Kind: "bridge", Key: ""}, Field: "max_entries", From: &simtest.FactExpectation{TypeID: "bridge.int", Canonical: "0"}, To: &simtest.FactExpectation{TypeID: "bridge.int", Canonical: "2"}},
+	}
+	hits := 0
+	for _, normalized := range []bool{false, true} {
+		from, to := a, b
+		if normalized {
+			from, to = from.Normalize(layer.Env{}), to.Normalize(layer.Env{})
+		}
+		hits++
+		assertBridgeChanges(t, bridge.Diff(from, to), want)
+	}
+	if hits != 2 {
+		t.Errorf("concrete tunnel expectations = %d, want 2", hits)
+	}
+}
+
+func TestDiffEffectiveTPID(t *testing.T) {
+	cases := []struct {
+		name string
+		to   uint16
+		want []simtest.ChangeExpectation
+	}{
+		{name: "default", to: 34984},
+		{name: "active", to: 33024, want: []simtest.ChangeExpectation{
+			{Layer: "vlan", Subject: trace.Subject{Kind: "port", Key: "1/1/1"}, Field: "tunnel.tpid", From: &simtest.FactExpectation{TypeID: "bridge.tpid", Canonical: "34984"}, To: &simtest.FactExpectation{TypeID: "bridge.tpid", Canonical: "33024"}},
+		}},
+	}
+	hits := 0
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			a := bridge.Config{VLAN: &bridge.VLAN{Switchports: map[string]bridge.Switchport{"1/1/1": {Tunnel: &bridge.Tunnel{VID: 30}}}}}
+			b := a.Clone()
+			b.VLAN.Switchports["1/1/1"].Tunnel.TPID = tc.to
+			hits++
+			assertBridgeChanges(t, bridge.Diff(a, b), tc.want)
+		})
+	}
+	if hits != 2 {
+		t.Errorf("concrete TPID expectations = %d, want 2", hits)
 	}
 }

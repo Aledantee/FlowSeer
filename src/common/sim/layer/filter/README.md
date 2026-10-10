@@ -61,6 +61,18 @@ records. `RetentionKey(cfg Config, env layer.Env) string` encodes the normalized
 inputs the layer depends on. `Layer.Clone` returns an independent deep copy of
 the layer with cloned rule sets and bindings.
 
+Retained rules report `action`, `match.protocol`, source and destination
+prefix members, source and destination range bounds, ICMP Type then Code,
+and TCP flag Mask then Value in that order. Prefix replacements remove old
+members before adding new ones, even when the addition sorts earlier.
+For example, a source range moving from 100-200 to 101-201 emits
+`match.src_ports[0].start` and then `match.src_ports[0].end`, with
+`filter.port` facts. Ranges pair by normalized position, so inserting a
+range can change later positions. Optional match members use nil facts
+when absent. Rule additions and removals keep the empty field and
+`filter.rule` snapshot. Stable subject sorting preserves the local record
+order ([diff.go](diff.go), [diff_test.go](diff_test.go)).
+
 `Normalize` masks prefixes, sorts the source and destination prefix and port
 range lists, and removes exact repeats. It preserves contained prefixes and
 overlapping ranges, and copies the protocol value so caller changes cannot

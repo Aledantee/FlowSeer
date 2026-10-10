@@ -497,6 +497,20 @@ solicits or holds a frame for an absent binding.
 
 ## State retention
 
+`Diff` reports retained interface prefix changes as individual
+`prefixes["192.0.2.1/24"]` fields with `routing.prefix` facts. Normalization
+sorts prefixes and preserves repeated values, so unmatched occurrences each
+emit a record. Replacing two equal prefixes emits two removals followed by
+two additions. Reordering equal collections emits nothing. Interface and
+VRF lifecycle snapshots still include the complete prefix list
+([diff.go](diff.go), [diff_coverage_test.go](diff_coverage_test.go)).
+
+Route identity is the prefix, next hop, and interface. Neighbor identity
+is the interface and address. Replacing either identity reports both the
+removed and added subjects. Retained routes report `preference` then
+`metric`, and retained neighbors report `mac`
+([config_test.go](config_test.go)).
+
 `RetentionKey(cfg Config, env layer.Env) string` encodes every normalized
 input the routing runtime state depends on: its own configuration as `Diff`
 sees it and the administrative and operational state of interfaces that reference

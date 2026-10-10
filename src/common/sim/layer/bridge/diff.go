@@ -33,6 +33,21 @@ func (f pvidFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) 
 // PVIDFact returns a trace.Fact wrapping a PVID.
 func PVIDFact(vid vlan.ID) trace.Fact { return pvidFact(vid) }
 
+type vlanIDFact vlan.ID
+
+func (f vlanIDFact) TypeID() string    { return "bridge.vlan_id" }
+func (f vlanIDFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
+
+type portFact string
+
+func (f portFact) TypeID() string    { return "bridge.port" }
+func (f portFact) Canonical() string { return string(f) }
+
+type tpidFact uint16
+
+func (f tpidFact) TypeID() string    { return "bridge.tpid" }
+func (f tpidFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
+
 type vlansFact string
 
 func (f vlansFact) TypeID() string    { return "bridge.vlans" }
@@ -141,7 +156,7 @@ func Diff(a, b Config) []trace.Change {
 		changes = append(changes, trace.Change{
 			Layer:   LayerNameVLAN,
 			Subject: trace.Subject{Kind: "bridge", Key: ""},
-			Field:   "vlan_awareness",
+			Field:   "vlan.presence",
 			From:    boolFact(a.VLAN != nil),
 			To:      boolFact(b.VLAN != nil),
 		})
@@ -314,31 +329,9 @@ func diffSwitchport(name string, aSw, bSw Switchport) []trace.Change {
 		})
 	}
 
-	if !slices.Equal(aSw.Tagged, bSw.Tagged) {
-		changes = append(changes, trace.Change{
-			Layer: LayerNameVLAN,
-			Subject: trace.Subject{
-				Kind: "port",
-				Key:  name,
-			},
-			Field: "tagged_vlan_ids",
-			From:  VLANsFact(slices.Clone(aSw.Tagged)),
-			To:    VLANsFact(slices.Clone(bSw.Tagged)),
-		})
-	}
+	changes = append(changes, diffVLANMembers(aSw.Tagged, bSw.Tagged, LayerNameVLAN, trace.Subject{Kind: "port", Key: name}, "tagged_vlan_ids")...)
 
-	if !slices.Equal(aSw.Untagged, bSw.Untagged) {
-		changes = append(changes, trace.Change{
-			Layer: LayerNameVLAN,
-			Subject: trace.Subject{
-				Kind: "port",
-				Key:  name,
-			},
-			Field: "untagged_vlan_ids",
-			From:  VLANsFact(slices.Clone(aSw.Untagged)),
-			To:    VLANsFact(slices.Clone(bSw.Untagged)),
-		})
-	}
+	changes = append(changes, diffVLANMembers(aSw.Untagged, bSw.Untagged, LayerNameVLAN, trace.Subject{Kind: "port", Key: name}, "untagged_vlan_ids")...)
 
 	if aSw.IngressFiltering != bSw.IngressFiltering {
 		changes = append(changes, trace.Change{
@@ -366,37 +359,31 @@ func diffSwitchport(name string, aSw, bSw Switchport) []trace.Change {
 		})
 	}
 
-	var (
-		tunnelChanged bool
-		fromTunnel    trace.Fact
-		toTunnel      trace.Fact
-	)
+	subject := trace.Subject{Kind: "port", Key: name}
 	if (aSw.Tunnel == nil) != (bSw.Tunnel == nil) {
-		tunnelChanged = true
-	} else if aSw.Tunnel != nil && bSw.Tunnel != nil {
-		if aSw.Tunnel.VID != bSw.Tunnel.VID ||
-			aSw.Tunnel.EffectiveTPID() != bSw.Tunnel.EffectiveTPID() ||
-			!slices.Equal(aSw.Tunnel.CustomerVIDs, bSw.Tunnel.CustomerVIDs) {
-			tunnelChanged = true
-		}
-	}
-	if tunnelChanged {
+		var from, to trace.Fact
 		if aSw.Tunnel != nil {
-			fromTunnel = snapshotTunnel(aSw.Tunnel)
+			from = snapshotTunnel(aSw.Tunnel)
 		}
 		if bSw.Tunnel != nil {
-			toTunnel = snapshotTunnel(bSw.Tunnel)
+			to = snapshotTunnel(bSw.Tunnel)
 		}
 		changes = append(changes, trace.Change{
-			Layer: LayerNameVLAN,
-			Subject: trace.Subject{
-				Kind: "port",
-				Key:  name,
-			},
-			Field: "tunnel",
-			From:  fromTunnel,
-			To:    toTunnel,
+			Layer: LayerNameVLAN, Subject: subject, Field: "tunnel.presence", From: from, To: to,
 		})
+	} else if aSw.Tunnel != nil {
+		a, b := aSw.Tunnel, bSw.Tunnel
+		if a.VID != b.VID {
+			changes = append(changes, trace.Change{
+				Layer: LayerNameVLAN, Subject: subject, Field: "tunnel.vid", From: vlanIDFact(a.VID), To: vlanIDFact(b.VID),
+			})
+		}
+		changes = append(changes, diffVLANMembers(a.CustomerVIDs, b.CustomerVIDs, LayerNameVLAN, subject, "tunnel.customer_vids")...)
+		if from, to := a.EffectiveTPID(), b.EffectiveTPID(); from != to {
+			changes = append(changes, trace.Change{
+				Layer: LayerNameVLAN, Subject: subject, Field: "tunnel.tpid", From: tpidFact(from), To: tpidFact(to),
+			})
+		}
 	}
 
 	if aSw.PriorityTags != bSw.PriorityTags {
@@ -443,30 +430,21 @@ func diffRelay(a, b Config) []trace.Change {
 		})
 	}
 
-	if !slices.Equal(a.FloodVLANs, b.FloodVLANs) {
-		changes = append(changes, trace.Change{
-			Layer: LayerName,
-			Subject: trace.Subject{
-				Kind: "bridge",
-				Key:  "",
-			},
-			Field: "flood_vlans",
-			From:  VLANsFact(slices.Clone(a.FloodVLANs)),
-			To:    VLANsFact(slices.Clone(b.FloodVLANs)),
-		})
-	}
+	changes = append(changes, diffVLANMembers(a.FloodVLANs, b.FloodVLANs, LayerName, trace.Subject{Kind: "bridge", Key: ""}, "flood_vlans")...)
 
-	if !slices.Equal(a.ProtectedPorts, b.ProtectedPorts) {
-		changes = append(changes, trace.Change{
-			Layer: LayerName,
-			Subject: trace.Subject{
-				Kind: "bridge",
-				Key:  "",
-			},
-			Field: "protected_ports",
-			From:  StringsFact(slices.Clone(a.ProtectedPorts)),
-			To:    StringsFact(slices.Clone(b.ProtectedPorts)),
-		})
+	for _, name := range a.ProtectedPorts {
+		if !slices.Contains(b.ProtectedPorts, name) {
+			changes = append(changes, trace.Change{
+				Layer: LayerName, Subject: trace.Subject{Kind: "bridge"}, Field: "protected_ports[" + strconv.Quote(name) + "]", From: portFact(name),
+			})
+		}
+	}
+	for _, name := range b.ProtectedPorts {
+		if !slices.Contains(a.ProtectedPorts, name) {
+			changes = append(changes, trace.Change{
+				Layer: LayerName, Subject: trace.Subject{Kind: "bridge"}, Field: "protected_ports[" + strconv.Quote(name) + "]", To: portFact(name),
+			})
+		}
 	}
 
 	if a.ForwardBPDU != b.ForwardBPDU {
@@ -482,5 +460,24 @@ func diffRelay(a, b Config) []trace.Change {
 		})
 	}
 
+	return changes
+}
+
+func diffVLANMembers(a, b []vlan.ID, layerName trace.Layer, subject trace.Subject, field string) []trace.Change {
+	var changes []trace.Change
+	for _, id := range a {
+		if !slices.Contains(b, id) {
+			changes = append(changes, trace.Change{
+				Layer: layerName, Subject: subject, Field: field + "[" + strconv.Quote(strconv.Itoa(int(id))) + "]", From: vlanIDFact(id),
+			})
+		}
+	}
+	for _, id := range b {
+		if !slices.Contains(a, id) {
+			changes = append(changes, trace.Change{
+				Layer: layerName, Subject: subject, Field: field + "[" + strconv.Quote(strconv.Itoa(int(id))) + "]", To: vlanIDFact(id),
+			})
+		}
+	}
 	return changes
 }

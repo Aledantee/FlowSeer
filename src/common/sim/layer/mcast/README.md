@@ -210,3 +210,16 @@ that sets the group timer, and not when the EXCLUDE state it belongs to
 ends. After a change to INCLUDE with no group query observed, `Resolve`
 reports the obligation pending for as long as a host keeps refreshing a
 source (`obligationPending` in `state.go`).
+
+## Configuration diffs
+
+`Diff` compares normalized VLAN configurations and effective flood policy
+([diff.go](diff.go)). Router ports use quoted canonical member coordinates
+and `mcast.router_port` facts. Replacing eth2 with eth3 emits
+`router_ports["eth2"]: eth2 -> nil` followed by
+`router_ports["eth3"]: nil -> eth3`. Old-only removals precede new-only
+additions in normalized order. Reordering and duplicate-only edits produce no
+records ([diff_coverage_test.go](diff_coverage_test.go)).
+
+Retained VLANs compare flood policy, fast leave, router members, then timer
+and query-count fields. VLAN addition and removal retain complete snapshots.

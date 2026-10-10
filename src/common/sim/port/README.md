@@ -48,6 +48,14 @@ kind becomes `Physical` and an unset admin or oper status becomes `Unknown`.
 A port forwards only when its admin and oper status are both `Up`. An `Unknown`
 status therefore does not forward.
 
+`Diff` matches normalized ports by name. A rename emits the old port's
+removal followed by the new port's addition, both with an empty field and
+the complete `port.port` snapshot. Retained names compare `ifindex`, `kind`,
+`admin_status`, `oper_status`, `mtu`, and `lag_parent` in that order.
+The coverage fixture rebuilds both tables through `NewBuilder` with an
+unchanged LAG companion so the renamed member remains valid
+([diff.go](diff.go), [diff_coverage_test.go](diff_coverage_test.go)).
+
 `WithOperStatus(name, state)` returns a table equal to the receiver except for
 that port's oper status, and stores an empty state as `Unknown`. It refuses a
 name the table lacks at field `ports.<name>` and a state outside `Unknown`,
