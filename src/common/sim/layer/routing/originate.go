@@ -53,6 +53,29 @@ func (l *Layer) Originate(now time.Time, vrf string, dst netip.Addr, protocol ui
 		}
 	}
 
+	srcAddr := originateSource(vrfState, dst, sel)
+	if !srcAddr.IsValid() {
+		res.Steps = []trace.Step{
+			{Layer: LayerName, Op: trace.OpLookup, RuleID: RuleNoRoute, Subject: trace.Subject{Kind: "vrf", Key: vrf}, Outputs: []trace.Fact{routeSnapshot(vrf, dst, nil)}},
+			{Layer: LayerName, Op: trace.OpDrop, RuleID: RuleNoRoute, Subject: trace.Subject{Kind: "vrf", Key: vrf}, Outputs: []trace.Fact{packetSnapshot("", ethernet.Frame{}, ip.Header{Dst: dst}, false, ReasonNoRoute)}},
+		}
+		res.Reason = ReasonNoRoute
+		return res
+	}
+
+	if sel == nil {
+		res.Steps = []trace.Step{
+			{Layer: LayerName, Op: trace.OpLookup, RuleID: RuleNoRoute, Subject: trace.Subject{Kind: "ip", Key: dst.String()}, Outputs: []trace.Fact{routeSnapshot(vrf, dst, nil)}},
+			{Layer: LayerName, Op: trace.OpDrop, RuleID: RuleNoRoute, Subject: trace.Subject{Kind: "vrf", Key: vrf}, Outputs: []trace.Fact{packetSnapshot("", ethernet.Frame{}, ip.Header{Src: srcAddr, Dst: dst}, false, ReasonNoRoute)}},
+		}
+		res.Reason = ReasonNoRoute
+		return res
+	}
+
+	return l.originateSelectedPacket(now, vrfState, dst, srcAddr, protocol, payload, sel, res, commit)
+}
+
+func originateSource(vrfState *vrfState, dst netip.Addr, sel *selection) netip.Addr {
 	ifaceNames := make([]string, 0, len(vrfState.interfaces))
 	for name := range vrfState.interfaces {
 		ifaceNames = append(ifaceNames, name)
@@ -102,24 +125,11 @@ func (l *Layer) Originate(now time.Time, vrf string, dst netip.Addr, protocol ui
 	if !srcAddr.IsValid() {
 		srcAddr = firstAddr
 	}
-	if !srcAddr.IsValid() {
-		res.Steps = []trace.Step{
-			{Layer: LayerName, Op: trace.OpLookup, RuleID: RuleNoRoute, Subject: trace.Subject{Kind: "vrf", Key: vrf}, Outputs: []trace.Fact{routeSnapshot(vrf, dst, nil)}},
-			{Layer: LayerName, Op: trace.OpDrop, RuleID: RuleNoRoute, Subject: trace.Subject{Kind: "vrf", Key: vrf}, Outputs: []trace.Fact{packetSnapshot("", ethernet.Frame{}, ip.Header{Dst: dst}, false, ReasonNoRoute)}},
-		}
-		res.Reason = ReasonNoRoute
-		return res
-	}
+	return srcAddr
+}
 
-	if sel == nil {
-		res.Steps = []trace.Step{
-			{Layer: LayerName, Op: trace.OpLookup, RuleID: RuleNoRoute, Subject: trace.Subject{Kind: "ip", Key: dst.String()}, Outputs: []trace.Fact{routeSnapshot(vrf, dst, nil)}},
-			{Layer: LayerName, Op: trace.OpDrop, RuleID: RuleNoRoute, Subject: trace.Subject{Kind: "vrf", Key: vrf}, Outputs: []trace.Fact{packetSnapshot("", ethernet.Frame{}, ip.Header{Src: srcAddr, Dst: dst}, false, ReasonNoRoute)}},
-		}
-		res.Reason = ReasonNoRoute
-		return res
-	}
-
+func (l *Layer) originateSelectedPacket(now time.Time, vrfState *vrfState, dst, srcAddr netip.Addr, protocol uint8, payload []byte, sel *selection, res Result, commit bool) Result {
+	vrf := res.VRF
 	matchedRoute := sel.route()
 	var steps []trace.Step
 	steps = append(steps, trace.Step{
@@ -130,11 +140,6 @@ func (l *Layer) Originate(now time.Time, vrf string, dst netip.Addr, protocol ui
 		Inputs:  []trace.Fact{packetSnapshot("", ethernet.Frame{}, ip.Header{Src: srcAddr, Dst: dst, HopLimit: 64}, true, "")},
 		Outputs: []trace.Fact{routeSnapshot(vrf, dst, sel)},
 	})
-
-	targetAddr := dst
-	if matchedRoute.resolvedNextHop.IsValid() {
-		targetAddr = matchedRoute.resolvedNextHop
-	}
 
 	targetIface := matchedRoute.Interface
 
@@ -175,6 +180,17 @@ func (l *Layer) Originate(now time.Time, vrf string, dst netip.Addr, protocol ui
 		return res
 	}
 
+	return l.resolveOriginatedPacket(now, vrfState, sel, hdr, etherType, payload, pktBytes, steps, res, commit)
+}
+
+func (l *Layer) resolveOriginatedPacket(now time.Time, vrfState *vrfState, sel *selection, hdr ip.Header, etherType ethernet.EtherType, payload, pktBytes []byte, steps []trace.Step, res Result, commit bool) Result {
+	vrf := res.VRF
+	dst := hdr.Dst
+	targetAddr := dst
+	if nextHop := sel.route().resolvedNextHop; nextHop.IsValid() {
+		targetAddr = nextHop
+	}
+	targetIface := sel.route().Interface
 	res.consult(NeighborLookupScope(l.nodeID, vrf, targetIface, targetAddr))
 	key := neighborKey{iface: targetIface, addr: targetAddr}
 	lookup := l.resolveNeighbor(vrfState, now, key, l.ifaces[targetIface], commit, func() heldEntry {

@@ -44,6 +44,19 @@ func (l *Layer) Route(now time.Time, iface string, f ethernet.Frame, commit bool
 		}
 	}
 
+	res := Result{VRF: vrfName}
+	hdr, payload, admitted := l.admitRoutePacket(vrfName, iface, f, &res)
+	if !admitted {
+		return res
+	}
+	sel := l.selectPacketRoute(vrfName, iface, f, hdr, &res)
+	if sel == nil {
+		return res
+	}
+	return l.resolvePacketRoute(now, iface, f, hdr, payload, sel, res, commit)
+}
+
+func (l *Layer) admitRoutePacket(vrfName, iface string, f ethernet.Frame, res *Result) (ip.Header, []byte, bool) {
 	vrf := l.vrfs[vrfName]
 	hdr, payload, err := ip.Decode(f.Payload)
 	// The egress frame keeps the EtherType, so a header whose family the
@@ -56,7 +69,6 @@ func (l *Layer) Route(now time.Time, iface string, f ethernet.Frame, commit bool
 	if err != nil {
 		classifyReason = ReasonBadHeader
 	}
-	res := Result{VRF: vrfName}
 	res.Steps = append(res.Steps, trace.Step{
 		Layer:   LayerName,
 		Op:      trace.OpClassify,
@@ -75,7 +87,7 @@ func (l *Layer) Route(now time.Time, iface string, f ethernet.Frame, commit bool
 			Subject: trace.Subject{Kind: "interface", Key: iface},
 			Outputs: []trace.Fact{packetSnapshot(iface, f, hdr, false, ReasonBadHeader)},
 		})
-		return res
+		return hdr, payload, false
 	}
 	res.consult(localAddressLookupScope(l.nodeID, vrfName, hdr.Dst))
 
@@ -89,7 +101,7 @@ func (l *Layer) Route(now time.Time, iface string, f ethernet.Frame, commit bool
 			Inputs:  []trace.Fact{packetSnapshot(iface, f, hdr, true, "")},
 			Outputs: []trace.Fact{routeSnapshot(vrfName, hdr.Dst, nil)},
 		})
-		return res
+		return hdr, payload, false
 	}
 
 	if hdr.HopLimit <= 1 {
@@ -101,15 +113,19 @@ func (l *Layer) Route(now time.Time, iface string, f ethernet.Frame, commit bool
 			Subject: trace.Subject{Kind: "ip", Key: hdr.Dst.String()},
 			Outputs: []trace.Fact{packetSnapshot(iface, f, hdr, false, ReasonTTLExpired)},
 		})
-		return res
+		return hdr, payload, false
 	}
 
+	return hdr, payload, true
+}
+
+func (l *Layer) selectPacketRoute(vrfName, iface string, f ethernet.Frame, hdr ip.Header, res *Result) *selection {
 	res.consult(RouteLookupScope(l.nodeID, vrfName, hdr.Dst))
 	var flowLabel uint32
 	if hdr.V6 != nil {
 		flowLabel = hdr.V6.FlowLabel
 	}
-	sel := selectRoute(vrf.lookup(hdr.Dst), hdr.Src, hdr.Dst, flowLabel)
+	sel := selectRoute(l.vrfs[vrfName].lookup(hdr.Dst), hdr.Src, hdr.Dst, flowLabel)
 	if sel == nil {
 		res.Reason = ReasonNoRoute
 		res.Steps = append(res.Steps,
@@ -129,20 +145,26 @@ func (l *Layer) Route(now time.Time, iface string, f ethernet.Frame, commit bool
 				Outputs: []trace.Fact{packetSnapshot(iface, f, hdr, false, ReasonNoRoute)},
 			},
 		)
-		return res
+		return nil
 	}
 
 	res.candidates = candidateSet(sel.candidates)
-	matchedRoute := sel.route()
 	res.Steps = append(res.Steps, trace.Step{
 		Layer:   LayerName,
 		Op:      trace.OpLookup,
-		RuleID:  trace.RuleID(matchedRoute.kind),
-		Subject: trace.Subject{Kind: "prefix", Key: matchedRoute.Prefix.String()},
+		RuleID:  trace.RuleID(sel.route().kind),
+		Subject: trace.Subject{Kind: "prefix", Key: sel.route().Prefix.String()},
 		Inputs:  []trace.Fact{packetSnapshot(iface, f, hdr, true, "")},
 		Outputs: []trace.Fact{routeSnapshot(vrfName, hdr.Dst, sel)},
 	})
 
+	return sel
+}
+
+func (l *Layer) resolvePacketRoute(now time.Time, iface string, f ethernet.Frame, hdr ip.Header, payload []byte, sel *selection, res Result, commit bool) Result {
+	vrfName := res.VRF
+	vrf := l.vrfs[vrfName]
+	matchedRoute := sel.route()
 	targetAddr := hdr.Dst
 	if matchedRoute.resolvedNextHop.IsValid() {
 		targetAddr = matchedRoute.resolvedNextHop

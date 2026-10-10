@@ -736,8 +736,8 @@ Verify: `uv run tools/scripts/run.py verify change -- src/common/sim/layer/routi
 ### U12. Decompose routing forwarding functions
 Files: src/common/sim/layer/routing/route.go, src/common/sim/layer/routing/originate.go
 After: U2
-Change: Extract packet-admission, selected-route and neighbor-resolution stages from Route/Originate, retaining side-effect and emission order. Helpers stay in the two moved files. Current source: layer.go:792-991, :1009-1215.
-Tests: standardSwitchConfig, mustNewRouting and encodeIPv4Packet enter Route in layer_test.go. Config literals and ethernet frames enter Originate in TestOriginate and TestOriginateRefusesAnUnencodableDatagramBeforeQueuingIt. Existing hold, unknown-input and flow-selection suites and all routing corpus cases stay unchanged. No fact or trace expectation changes.
+Change: Extract packet-admission, selected-route and neighbor-resolution stages from Route/Originate, retaining side-effect and emission order. Helpers stay in the two moved files. Current source: route.go Route/admitRoutePacket/selectPacketRoute/resolvePacketRoute and originate.go Originate/originateSource/originateSelectedPacket/resolveOriginatedPacket. Route is 24 lines and Originate is 47 lines. Each helper is at most 92 lines, including anonymous functions. The files are 255 and 263 lines.
+Tests: standardSwitchConfig, mustNewRouting and encodeIPv4Packet enter Route in layer_test.go. Config literals and ethernet frames enter Originate in TestOriginate and TestOriginateRefusesAnUnencodableDatagramBeforeQueuingIt. Existing hold, unknown-input and flow-selection suites and all routing corpus cases stay unchanged. No fact or trace expectation changes. No new tests are needed for this pure decomposition. Existing assertions are preserved. Mutating the forwarded hop-limit decrement to two fails TestRouteIPv4Connected at layer_test.go:165. Mutating the originated hop limit to 63 fails TestOriginate at layer_test.go:1060 and :1097. Restore each file from its saved good copy before the focused race suite.
 Verify: `uv run tools/scripts/run.py verify change -- src/common/sim/layer/routing`
 
 ### U13. Decompose BPDU application
