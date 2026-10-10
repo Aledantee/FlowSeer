@@ -101,3 +101,6 @@ The parent's requirements 4, 5, and the central half of 6 are claimed here.
   (`src/services/device/internal/host/host.go`, `forwarderGate`).
 - Which listener the handlers mount on depends on whether the central high
   availability plan's first phase has landed.
+
+- Parked by drive: What sustained rate, sustained duration, tenfold burst duration, offered-load concurrency, and recovery deadline must ingest prove? Work retained on `parked/edge-connect-p2-implement`. Options: define a numeric profile (testable acceptance) | leave ingest and host mounting blocked (no unproved capacity claim). Recommended: define a numeric profile, because the stop condition requires a pass or failure.
+- Parked by drive: Should a separate guardrail-reviewed task repair generated-module routing in `tools/scripts/verify/change.py` before full verification? Options: repair path normalization and rerun full verification (preserves the required gates) | retain partial work until that repair lands (no policy edit now). Recommended: repair, because `./generated/go/yang` bypasses the `generated/` prefix check and starts a prohibited broad race run.
