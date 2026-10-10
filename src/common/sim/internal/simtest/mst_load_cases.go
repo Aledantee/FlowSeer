@@ -155,11 +155,16 @@ func caseShadowingMSTModel(complete bool) Case {
 				return ExecutionResult{}, err
 			}
 			if complete {
+				checked := 0
 				for _, vid := range []uint16{10, 20} {
 					info := sw.TreeRoles()[vlan.ID(vid)]["p1"]
 					if info.Tree != (stp.TreeRef{Kind: stp.TreeMSTI, ID: vid / 10}) || info.Priority != 16 || info.PathCost != 7 {
 						return ExecutionResult{}, errs.Msgf("VLAN %d state = %+v, want reported MSTI priority 16 cost 7", vid, info)
 					}
+					checked++
+				}
+				if checked != 2 {
+					return ExecutionResult{}, errs.Msgf("VLAN state checks = %d, want 2", checked)
 				}
 			} else if sw.Config().STP != nil {
 				return ExecutionResult{}, errs.Msg("incomplete region retained STP")
