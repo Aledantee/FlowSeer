@@ -1,5 +1,3 @@
-// Package seglog encodes checksummed segment files and scans their valid
-// record prefixes in append order.
 package seglog
 
 import (
