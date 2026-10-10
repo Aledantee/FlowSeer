@@ -106,12 +106,10 @@ disagreement is evidence for a separate investigation, outside this graph.
   is selected. (decided by the user, 2026-10-10)
 - Define a uniform leaf-to-subject/field mapping and update capability Diff
   fields now. This proves attribution but changes trace consumers. The gate
-  must prove that the changed leaf is the one reported. The current check
-  accepts any change (`src/common/sim/internal/simtest/diffcoverage.go:490`),
-  and the perturbation solution's What it does not cover section names the
-  gap. Mapping and gate come first, then layer groups that leave the tree
-  green. Phase size and caller-visible mapping remain blockers below.
-  (decided by the user, 2026-10-10)
+  must prove that the changed leaf is the one reported. When this was
+  decided the check accepted any change. The attribution phase did the
+  work, mapping and gate first and then layer groups, in commits
+  `53940cf9` to `0f34b513`. (decided by the user, 2026-10-10)
 
 - Use `absent` for missing configured/connected next hops and `undecoded`
   for packet addresses that have not been decoded. The spelling dependency noted in the user Decision is settled here.
