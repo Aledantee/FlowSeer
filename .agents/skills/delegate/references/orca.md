@@ -151,6 +151,10 @@ the `codex`, `agy`, and `omp` lanes are unverified for a join.
 
 ## When a step fails
 
+`status` samples each live terminal five seconds apart, like `wait`.
+It prints `unknown` when the screens differ without a working hint.
+Read that lane's screen and wait for it before treating it as idle.
+
 - `start` says `the following arguments are required: --role`: pass a
   registry role name.
 - `start` says a lane with that name exists: a previous lane was not
@@ -207,13 +211,17 @@ the `codex`, `agy`, and `omp` lanes are unverified for a join.
   proof, since both also follow a failed screen read on a live lane.
   Confirm it with the `terminal` handle from the lane's state file under
   `<git common dir>/orca-workers/`, unsandboxed:
-  `orca terminal show --terminal <handle> --json` reads status `exited`.
+  `orca terminal show --terminal <handle> --json` reads status `exited`,
+  or returns the structured error `terminal_handle_stale`.
   Without that, report the lane and leave it. With it, park the lane. Commit
   the tree in the child, keep the commit on `parked/<slug>`, grade the lane
   `blocked`, and stop it. The report names the branch, where the work stays
   for a person to read. Whether `orca terminal close` succeeds on a
   terminal that has already exited is unverified. When `stop` then says the
-  terminal close failed, report the lane and leave it.
+  terminal close failed, report the lane and leave it. `stop` accepts the
+  structured `terminal_handle_stale` error as an already closed terminal,
+  logs the end, and keeps or removes the checkout as requested. An unknown
+  error or failed screen read is not proof that a terminal is closed.
 
   ```bash
   git -C <child> add -A

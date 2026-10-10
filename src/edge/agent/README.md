@@ -22,6 +22,7 @@ transport, and the orderings between them.
 | `internal/lanehost` | Contact with central and the freeze it drives, the device listing and what it onboards, and the per-operation device session factories |
 | `internal/capture` | The capture assignment stream loop, active session registry, engine runner, and chunk upload client |
 | `internal/syslogsource` | Sockets, mapping, and raw payload suppression for syslog ingestion from hosted network devices |
+| `internal/seglog` | Checksummed segment files bounded by bytes and age, with append-order delivery and deletion on acknowledgement. Nothing imports it yet. See [the package contract](internal/seglog/doc.go). |
 
 ## Which devices this edge serves
 

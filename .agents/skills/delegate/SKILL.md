@@ -174,6 +174,10 @@ uv run tools/scripts/run.py delegate orca-worker stop <slug> [--keep-worktree]  
 this branch with the brief on its screen; its JSON line names the branch
 (prefixed with the git user) and `run`.
 
+For a policy-surface unit, use `drive/references/policy-units.md`.
+Launcher permission prompts do not replace its review of the uncommitted
+diff, since the worker launch flags can bypass prompts.
+
 `stop <slug> --keep-worktree` closes the terminal and logs the lane's `end`
 but leaves the checkout, the branch, and the lane's state file, which
 `status` then prints as `kept`. It needs the grade and a clean, idle lane
@@ -280,8 +284,8 @@ order:
    A review lane's brief always carries that line, written `Checks already
    run: none` when empty, since a reviewer that finds no check named runs
    one itself.
-   A lane whose product is a report (`critique`, `research`, a review lane,
-   a review stage that also commits its verdict) gets a file path
+   Every stage worker, and every lane whose product is a report
+   (`critique`, `research`, a review lane), gets a file path
    under the session scratchpad directory: it writes the whole report
    there and prints only the path and the finding count, a review stage
    also its verdict. Read that file,
@@ -291,8 +295,7 @@ order:
    documents it), the `note` line of every landed unit, verbatim, and
    nothing else from the ledger.
 6. The boundaries: no edits outside the named files; no changes to
-   the policy surfaces `AGENTS.md`, Hard boundaries, names, to
-   `generated/`, or to `buf.lock`; no edit to a plan Decision marked
+   `generated/` or `buf.lock`; no edit to a plan Decision marked
    `decided by the user` (a finding or unit that needs one changed is a
    blocker); no plan labels in code; no running a `run.py hooks` command by
    hand (it waits on stdin). A unit worker's checks are
@@ -319,6 +322,10 @@ order:
    allowed by `fix-loop.md` step 1 reports a blocker naming the file and
    reason. A comment, skipped or weakened test, or partial change is not a
    fix.
+   Ordinary briefs forbid changes to policy surfaces named in `AGENTS.md`,
+   Hard boundaries. When a unit is explicitly authorized to edit one,
+   its brief follows `drive/references/policy-units.md` and requires an
+   uncommitted stop before that unit's commit.
 7. For every runtime: no questions; state a blocker and stop. A blocker
    or a claimed limit ("the API cannot", "this needs a credential") quotes
    the error, the documented statement, or the probe that showed it. A requirement
