@@ -260,6 +260,13 @@ a switch comparison and the model-loading and forwarding metadata separately.
 
 ## Diff coverage
 
+| File | Responsibility |
+| --- | --- |
+| [diffmapping_assembly.go](diffmapping_assembly.go) | Assembly seeds, mapping entries, and inactive fault controls. |
+| [diffmapping_assembly_expect.go](diffmapping_assembly_expect.go) | Independent ordered assembly diff expectations. |
+| [diffmapping_vswitch.go](diffmapping_vswitch.go) | Switch seeds and mapping entries. |
+| [diffmapping_vswitch_expect.go](diffmapping_vswitch_expect.go) | Independent ordered switch diff expectations. |
+
 [AssertMappedDiffCoverage] checks a fixed configuration fixture against the
 exported type shape before applying any slot-local setup. Every scalar,
 map identity, optional pointer and opaque Port table member has a submitted
