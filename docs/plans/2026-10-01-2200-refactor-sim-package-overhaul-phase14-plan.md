@@ -2486,11 +2486,11 @@ uv run tools/scripts/run.py verify change -- docs/plans/2026-10-01-2200-refactor
 
 - [x] Positional range and occurrence multiplicity decisions replace the open correspondence questions.
 - [x] Literal concrete-expectation counts cover all 627 type-driven slots and all 84 supplementary correspondence cases.
-- [ ] All six units pass their focused tests and every changed-path verifier.
-- [ ] The direction record and owner READMEs state the selected contract.
-- [ ] No temporary allowance survives and retention regressions stay green.
-- [ ] Record the six-unit implementation outcome with `plan record implemented`.
-- [ ] No plan labels enter code, comments, or commit messages.
+- [x] All six units pass their focused tests and every changed-path verifier.
+- [x] The direction record and owner READMEs state the selected contract.
+- [x] No temporary allowance survives and retention regressions stay green.
+- [x] Record the six-unit implementation outcome with `plan record implemented`.
+- [x] No plan labels enter code, comments, or commit messages.
 
 ## Open questions
 
