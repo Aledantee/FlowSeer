@@ -134,16 +134,14 @@ IEEE Std 802.3 (see Limits).
 - The class power table (`classPowerLevels` in `poe.go`) is unverified against
   IEEE Std 802.3.
 
-## Denied PoE port status
+## PoE allocation states
 
-The exported `PoeFacet.status` follows the allocation: a powered port is
-`DELIVERING_POWER`. A port with no attached device, or one denied for the
-group's budget or its own limit, is `SEARCHING`, the state RFC 3621's
-`pethPsePortDetectionStatus` gives a PSE port that is enabled and probing
-for a device, which fits a port that would be powered when capacity returns.
-A port whose delivery is disabled is `DISABLED`. A device of a class the
-port cannot source is `FAULT`. A port with no attached device exports no
-`power_class` and draws nothing from the budget ([PoE export](../../netmodel/export.go)).
+`Config.Allocate` reports granted power as `PowerDelivered`. A port with no
+attached device is `PowerNoDevice` and draws nothing from the group budget.
+An enabled port denied power receives `PowerDenied` with a `budget`,
+`limit`, or `class-unsupported` reason. A disabled port with an attached or
+unreported device receives `PowerDenied` with reason `disabled`
+([poe.go](poe.go), `Config.Allocate`).
 
 ## Configuration diffs
 
