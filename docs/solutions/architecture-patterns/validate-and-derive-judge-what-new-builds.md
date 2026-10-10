@@ -1,7 +1,7 @@
 ---
 title: Validate and Derive Judge What New Builds, Not What the Caller Wrote
 date: 2026-09-11
-last_verified: 2026-10-09
+last_verified: 2026-10-10
 category: architecture-patterns
 module: src/common/sim/device/vswitch
 problem_type: bug
@@ -19,6 +19,7 @@ applies_when:
   - "Carrying an assigned value from a current instance into a derived one whose new configuration may claim the value explicitly"
   - "A derived simulator state loses roles, timers, or learned entries for a configuration that did not change"
   - "A Validate runs before a Normalize and refuses a form that the standalone constructor, which normalizes first, accepts"
+  - "Checking reported capacity in a loader that omits invalid or incomplete contributions before constructing a smaller executable result"
 related_components: [routing, fabric, stp]
 tags: [derive, validate, assigned-defaults, key-space, netsim, determinism]
 ---
@@ -106,6 +107,37 @@ so a defaulted `CapturedLen` above a set `OriginalLen` is refused. Commits
 (`src/common/sim/fabric/record_test.go:104`). A route prefix and a fault
 parameter are the inputs that tell the two orders apart in
 `src/common/sim/assembly/normalize_first_test.go`.
+
+## Reported bounds survive omissions
+
+A bound on reported input belongs to the submitted form. Checking only the
+constructed result can accept an over-capacity report after another refusal
+shrinks it. The MST loader had this defect: 65 distinct admitted IDs became
+64 after a conflict, missing allocation, invalid priority or refused port.
+Empty allocations preserved the digest, so the identity check did not catch
+that loss (commit `b3ee57d5`). The completeness and capacity contract is
+stated in `src/common/sim/netmodel/README.md:148-158`. Loading uncertainty
+follows the accepted [model-loading direction](../../architecture/2026-09-10-virtual-device-direction.md#uncertainty-localization-and-model-loading).
+
+Count distinct admitted IDs in range before settings validation and fact
+resolution. Keep the final candidate check too. `loadMSTInstances` records
+`reported[row.GetMstId()] = true` before `validateMSTInstance`
+(`src/common/sim/netmodel/load_mst.go:229-232`). `loadMST` then checks both forms
+at `:38`:
+
+```go
+if reportedCount > bpdu.MaxMSTIRecords || len(m.Instances) > bpdu.MaxMSTIRecords {
+```
+
+`TestMSTInstanceCapacity` (`src/common/sim/netmodel/load_mst_test.go:394-463`)
+uses empty allocations and checks nine variants, including duplicates and
+refused domains that must not inflate the count. The public construction test
+at `src/common/sim/netmodel/load_stp_test.go:209-278` checks missing and refused
+ports. Commit `b3ee57d5` quotes the disabled-count mutation result:
+
+```text
+--- FAIL: TestMSTInstanceCapacity/conflict (0.00s)
+```
 
 ## What it does not cover
 

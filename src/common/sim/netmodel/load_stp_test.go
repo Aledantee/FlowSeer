@@ -1,0 +1,1457 @@
+package netmodel_test
+
+import (
+	"encoding/hex"
+	"fmt"
+	"slices"
+	"strconv"
+	"strings"
+	"testing"
+	"time"
+
+	"buf.build/go/protovalidate"
+	"google.golang.org/protobuf/types/known/durationpb"
+
+	addrv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/addr/v1"
+	interfacev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1"
+	ipv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/ip/v1"
+	packetv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/packet/v1"
+	stpv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/stp/v1"
+	"go.aledante.io/FlowSeer/src/common/net/netaddr"
+	"go.aledante.io/FlowSeer/src/common/sim/analysis"
+	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/stp"
+	"go.aledante.io/FlowSeer/src/common/sim/netmodel"
+	"go.aledante.io/FlowSeer/src/common/sim/trace"
+)
+
+func mstLoadInput(t *testing.T, mapped bool) netmodel.Input {
+	t.Helper()
+	digest := "ac36177f50283cd4b83821d8ab26de62"
+	if mapped {
+		digest = "9357ebb7a8d74dd5fef4f2bab50531aa"
+	}
+	b, err := hex.DecodeString(digest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	in := netmodel.Input{
+		Interfaces:  []*interfacev1.Interface{plainPhysicalInterface("p1")},
+		Want:        []trace.Layer{stp.LayerName},
+		BridgeState: validBridgeState(),
+		STPPorts: []*stpv1.PortState{stpv1.PortState_builder{
+			InterfaceName: ptr("p1"), Priority: ptr(uint32(64)), AdminPathCost: ptr(uint32(55)),
+		}.Build()},
+	}
+	in.BridgeState.SetProtocolVersion(stpv1.ProtocolVersion_PROTOCOL_VERSION_MSTP)
+	in.BridgeState.SetMstConfigId(stpv1.MstConfigId_builder{
+		Name: ptr("region"), RevisionLevel: ptr(uint32(0)), Digest: b,
+	}.Build())
+	in.BridgeState.SetMaxHops(20)
+	for _, id := range []uint32{1, 2} {
+		in.MSTInstances = append(in.MSTInstances, stpv1.MstInstance_builder{
+			NetworkInstance: ptr(netmodel.DefaultNetworkInstance), MstId: ptr(id), BridgeId: in.BridgeState.GetBridgeId(),
+		}.Build())
+		m := stpv1.MstVlanMap_builder{NetworkInstance: ptr(netmodel.DefaultNetworkInstance), MstId: ptr(id)}.Build()
+		if mapped {
+			m.SetVlanIds([]uint32{id * 10})
+		}
+		in.MSTVLANMaps = append(in.MSTVLANMaps, m)
+		in.MSTPorts = append(in.MSTPorts, stpv1.MstPort_builder{
+			MstId: ptr(id), InterfaceName: ptr("p1"), Priority: ptr(uint32(16)), AdminPathCost: ptr(uint32(7)), PathCost: ptr(uint32(99)),
+		}.Build())
+	}
+	return in
+}
+
+func requireMSTLoadIssue(t *testing.T, result netmodel.Result, path ...string) {
+	t.Helper()
+	scope := analysis.FieldScope(analysis.ProtocolScope("sw1", string(stp.LayerName), "0"), append([]string{"mst"}, path...)...)
+	if !slices.ContainsFunc(result.Metadata.Issues(), func(i analysis.Issue) bool {
+		return i.Scope == scope && len(i.Evidence) > 0
+	}) {
+		t.Fatalf("issues = %+v, want evidenced refusal at %s", result.Metadata.Issues(), scope)
+	}
+}
+
+func TestLoadMSTPortPriorityAndAdministrativeCost(t *testing.T) {
+	reached := 0
+	for _, priority := range []*uint32{nil, ptr(uint32(0)), ptr(uint32(16)), ptr(uint32(240))} {
+		name := "absent"
+		if priority != nil {
+			name = fmt.Sprint(*priority)
+		}
+		t.Run(name, func(t *testing.T) {
+			in := mstLoadInput(t, true)
+			row := in.MSTPorts[0]
+			row.ClearPriority()
+			want := uint8(64)
+			if priority != nil {
+				row.SetPriority(*priority)
+				want = uint8(*priority)
+			}
+			result := load(t, netmodel.SourceContext{DeviceID: "sw1"}, in)
+			sw, err := vswitch.NewWithSpec(result.Spec)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if result.Readiness() != analysis.Complete || !slices.Equal(result.Report.Capabilities, []trace.Layer{"relay", "stp"}) {
+				t.Fatalf("readiness/capabilities = %s/%v, want Complete/[relay stp]", result.Readiness(), result.Report.Capabilities)
+			}
+			cfg := sw.Config().STP
+			if cfg == nil || cfg.MST == nil {
+				t.Fatal("complete MST region unavailable")
+			}
+			p := cfg.MST.Instances[1].Ports["p1"]
+			if p.Priority != want || p.PriorityPresent != (priority != nil) || p.PathCost != 7 {
+				t.Fatalf("MST port = %+v, want priority %d presence %t cost 7", p, want, priority != nil)
+			}
+			info := sw.TreeRoles()[10]["p1"]
+			if info.Tree != (stp.TreeRef{Kind: stp.TreeMSTI, ID: 1}) || info.Priority != want || info.PathCost != 7 {
+				t.Fatalf("VLAN 10 state = %+v, want MSTI 1 priority %d cost 7", info, want)
+			}
+			if sibling := sw.TreeRoles()[20]["p1"]; sibling.Tree.ID != 2 || sibling.Priority != 16 || sibling.PathCost != 7 {
+				t.Fatalf("VLAN 20 sibling = %+v", sibling)
+			}
+			if priority == nil && !slices.ContainsFunc(result.Report.Defaults, func(d netmodel.Default) bool {
+				return d.Field == "priority" && d.Value == "64" && len(d.Evidence) > 0
+			}) {
+				t.Fatalf("defaults = %+v, want evidenced inherited priority 64", result.Report.Defaults)
+			}
+			if priority == nil {
+				scope := analysis.FieldScope(analysis.ProtocolScope("sw1", "stp", "0"), "mst", "instances", "1", "ports", "p1", "priority")
+				if !slices.ContainsFunc(result.Metadata.Assumptions(), func(a analysis.Assumption) bool {
+					return a.Scope == scope && a.Statement == "default value applied for priority: 64" && len(a.Evidence) > 0
+				}) {
+					t.Fatalf("assumptions = %+v, want evidenced inherited priority at %s", result.Metadata.Assumptions(), scope)
+				}
+			}
+			reached++
+		})
+	}
+	if reached != 4 {
+		t.Fatalf("reached %d cases, want 4", reached)
+	}
+}
+
+func TestLoadMSTPortRefusals(t *testing.T) {
+	rows := []struct {
+		name, field string
+		change      func(*netmodel.Input)
+	}{
+		{"id_absent", "mst_id", func(in *netmodel.Input) { in.MSTPorts[0].ClearMstId() }},
+		{"id_zero", "mst_id", func(in *netmodel.Input) { in.MSTPorts[0].SetMstId(0) }},
+		{"id4095", "mst_id", func(in *netmodel.Input) { in.MSTPorts[0].SetMstId(4095) }},
+		{"id65537", "mst_id", func(in *netmodel.Input) { in.MSTPorts[0].SetMstId(65537) }},
+		{"interface_absent", "interface_name", func(in *netmodel.Input) { in.MSTPorts[0].ClearInterfaceName() }},
+		{"interface_unknown", "interface_name", func(in *netmodel.Input) { in.MSTPorts[0].SetInterfaceName("unknown") }},
+		{"dangling", "mst_id", func(in *netmodel.Input) { in.MSTPorts[0].SetMstId(3) }},
+		{"priority1", "priority", func(in *netmodel.Input) { in.MSTPorts[0].SetPriority(1) }},
+		{"priority241", "priority", func(in *netmodel.Input) { in.MSTPorts[0].SetPriority(241) }},
+		{"priority256", "priority", func(in *netmodel.Input) { in.MSTPorts[0].SetPriority(256) }},
+		{"cost200000001", "admin_path_cost", func(in *netmodel.Input) { in.MSTPorts[0].SetAdminPathCost(200000001) }},
+		{"common_rejected", "interface_name", func(in *netmodel.Input) {
+			in.Interfaces = append(in.Interfaces, plainPhysicalInterface("bad"))
+			in.STPPorts = append(in.STPPorts, stpv1.PortState_builder{InterfaceName: ptr("bad"), Priority: ptr(uint32(1))}.Build())
+			in.MSTPorts[0].SetInterfaceName("bad")
+		}},
+		{"routed", "interface_name", func(in *netmodel.Input) {
+			p := plainPhysicalInterface("bad")
+			p.SetIp(ipv1.IpFacet_builder{NetworkInstance: ptr(netmodel.DefaultNetworkInstance)}.Build())
+			in.Interfaces = append(in.Interfaces, p)
+			in.Want = append(in.Want, routing.LayerName)
+			in.STPPorts = append(in.STPPorts, stpv1.PortState_builder{InterfaceName: ptr("bad")}.Build())
+			in.MSTPorts[0].SetInterfaceName("bad")
+		}},
+		{"lag_member", "interface_name", func(in *netmodel.Input) {
+			p := plainPhysicalInterface("bad")
+			p.GetPhysical().SetLagParentInterfaceName("lag1")
+			in.Interfaces = append(in.Interfaces, p, interfacev1.Interface_builder{
+				Name: ptr("lag1"), AdminStatus: interfacev1.AdminStatus_ADMIN_STATUS_UP.Enum(),
+				OperStatus: interfacev1.OperStatus_OPER_STATUS_UP.Enum(), Mtu: ptr(uint32(0)),
+				Lag: interfacev1.LagInterface_builder{}.Build(),
+			}.Build())
+			in.STPPorts = append(in.STPPorts, stpv1.PortState_builder{InterfaceName: ptr("bad")}.Build())
+			in.MSTPorts[0].SetInterfaceName("bad")
+		}},
+	}
+	reached := 0
+	for _, row := range rows {
+		t.Run(row.name, func(t *testing.T) {
+			in := mstLoadInput(t, false)
+			row.change(&in)
+			id, name := fmt.Sprint(in.MSTPorts[0].GetMstId()), in.MSTPorts[0].GetInterfaceName()
+			result := load(t, netmodel.SourceContext{DeviceID: "sw1"}, in)
+			sw, err := vswitch.NewWithSpec(result.Spec)
+			if err != nil {
+				t.Fatal(err)
+			}
+			cfg := sw.Config().STP
+			if cfg == nil || cfg.MST == nil || cfg.MST.Instances[2].Ports["p1"].PathCost != 7 {
+				t.Fatal("empty-allocation sibling unavailable")
+			}
+			if _, ok := cfg.MST.Instances[1]; ok {
+				t.Fatal("instance with missing/refused port survived")
+			}
+			requireMSTLoadIssue(t, result, "instances", id, "ports", name, row.field)
+			if result.Readiness() == analysis.Complete {
+				t.Fatal("refusal reported Complete")
+			}
+			reached++
+		})
+	}
+	if reached != 14 {
+		t.Fatalf("reached %d cases, want 14", reached)
+	}
+}
+
+func TestLoadMSTReportedCapacityBeforePortOmission(t *testing.T) {
+	reached := 0
+	for _, variant := range []string{"missing", "refused"} {
+		t.Run(variant, func(t *testing.T) {
+			in := mstLoadInput(t, false)
+			for id := uint32(3); id <= 65; id++ {
+				in.MSTInstances = append(in.MSTInstances, stpv1.MstInstance_builder{
+					NetworkInstance: ptr(netmodel.DefaultNetworkInstance), MstId: ptr(id), BridgeId: in.BridgeState.GetBridgeId(),
+				}.Build())
+				in.MSTVLANMaps = append(in.MSTVLANMaps, stpv1.MstVlanMap_builder{
+					NetworkInstance: ptr(netmodel.DefaultNetworkInstance), MstId: ptr(id),
+				}.Build())
+				in.MSTPorts = append(in.MSTPorts, stpv1.MstPort_builder{
+					MstId: ptr(id), InterfaceName: ptr("p1"), Priority: ptr(uint32(16)), AdminPathCost: ptr(uint32(7)),
+				}.Build())
+			}
+			for _, row := range in.MSTInstances {
+				if err := protovalidate.Validate(row); err != nil {
+					t.Fatal(err)
+				}
+			}
+			for _, row := range in.MSTVLANMaps {
+				if err := protovalidate.Validate(row); err != nil {
+					t.Fatal(err)
+				}
+			}
+			for _, row := range in.MSTPorts {
+				if err := protovalidate.Validate(row); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if variant == "missing" {
+				in.MSTPorts = in.MSTPorts[:64]
+			} else {
+				in.MSTPorts[64].SetPriority(1)
+			}
+			result := load(t, netmodel.SourceContext{DeviceID: "sw1"}, in)
+			sw, err := vswitch.NewWithSpec(result.Spec)
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, hasSTPSource := result.Report.CapabilitySources[stp.LayerName]
+			if sw.Config().STP != nil || slices.Contains(result.Report.Capabilities, stp.LayerName) || hasSTPSource {
+				t.Fatal("over-capacity reported region retained STP capability after port omission")
+			}
+			if result.Readiness() != analysis.Incomplete {
+				t.Fatalf("readiness = %s, want Incomplete", result.Readiness())
+			}
+			scope := analysis.FieldScope(analysis.ProtocolScope("sw1", string(stp.LayerName), "0"), "mst", "instances")
+			if !slices.ContainsFunc(result.Metadata.Issues(), func(i analysis.Issue) bool {
+				return i.Code == netmodel.IssueIncompleteMSTRegion && i.Status == analysis.Incomplete && i.Scope == scope && len(i.Evidence) > 0 && strings.Contains(i.Message, "more than 64")
+			}) {
+				t.Fatalf("issues = %+v, want evidenced capacity refusal", result.Metadata.Issues())
+			}
+			for _, path := range [][]string{{"instances", "1"}, {"vlan_maps", "1"}, {"instances", "1", "ports", "p1"}, {"instances", "65", "ports", "p1"}} {
+				requireMSTLoadIssue(t, result, path...)
+			}
+			if variant == "refused" {
+				requireMSTLoadIssue(t, result, "instances", "65", "ports", "p1", "priority")
+			}
+			reached++
+		})
+	}
+	if reached != 2 {
+		t.Fatalf("reached %d cases, want 2", reached)
+	}
+}
+
+func TestLoadMSTMissingSettingsAndFinalDigest(t *testing.T) {
+	reached := 0
+	for _, mapped := range []bool{false, true} {
+		for _, variant := range []string{"missing_row", "refused_row", "absent_cost", "zero_cost"} {
+			t.Run(fmt.Sprintf("%s/mapped=%t", variant, mapped), func(t *testing.T) {
+				in := mstLoadInput(t, mapped)
+				switch variant {
+				case "missing_row":
+					in.MSTPorts = in.MSTPorts[1:]
+				case "refused_row":
+					in.MSTPorts[0].SetPriority(1)
+				case "absent_cost":
+					in.MSTPorts[0].ClearAdminPathCost()
+				case "zero_cost":
+					in.MSTPorts[0].SetAdminPathCost(0)
+				}
+				result := load(t, netmodel.SourceContext{DeviceID: "sw1"}, in)
+				sw, err := vswitch.NewWithSpec(result.Spec)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if variant == "zero_cost" {
+					cfg := sw.Config().STP
+					if cfg == nil || cfg.MST == nil || cfg.MST.Instances[1].Ports["p1"].PathCost != 0 || result.Readiness() != analysis.Complete {
+						t.Fatalf("config/readiness = %+v/%s, want explicit zero and Complete", cfg, result.Readiness())
+					}
+					if mapped && sw.TreeRoles()[10]["p1"].PathCost != 55 {
+						t.Fatal("explicit automatic cost did not execute common cost 55")
+					}
+				} else {
+					requireMSTLoadIssue(t, result, "instances", "1", "ports", "p1")
+					requireMSTLoadIssue(t, result, "vlan_maps", "1")
+					if result.Readiness() != analysis.Incomplete {
+						t.Fatalf("readiness = %s, want Incomplete", result.Readiness())
+					}
+					if mapped {
+						if sw.Config().STP != nil || slices.Contains(result.Report.Capabilities, stp.LayerName) || result.Report.CapabilitySources[stp.LayerName] != "" {
+							t.Fatal("digest-changing omission retained STP capability")
+						}
+						requireMSTLoadIssue(t, result, "mst_config_id", "digest")
+					} else {
+						cfg := sw.Config().STP
+						if cfg == nil || cfg.MST == nil || len(cfg.MST.Instances) != 1 || cfg.MST.Instances[2].Ports["p1"].PathCost != 7 {
+							t.Fatal("empty-allocation sibling unavailable")
+						}
+					}
+				}
+				reached++
+			})
+		}
+	}
+	if reached != 8 {
+		t.Fatalf("reached %d cases, want 8", reached)
+	}
+}
+
+func TestLoadMSTPortConflictsAndAmbiguousOwner(t *testing.T) {
+	reached := 0
+	for _, variant := range []string{"identical", "observations", "priority_conflict", "presence_conflict", "cost_conflict", "named_owner"} {
+		for _, reverse := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/reverse=%t", variant, reverse), func(t *testing.T) {
+				in := mstLoadInput(t, false)
+				other := stpv1.MstPort_builder{MstId: ptr(uint32(1)), InterfaceName: ptr("p1"), Priority: ptr(uint32(16)), AdminPathCost: ptr(uint32(7))}.Build()
+				switch variant {
+				case "observations":
+					other.SetPathCost(100)
+					other.SetDesignatedCost(99)
+				case "priority_conflict":
+					other.SetPriority(32)
+				case "presence_conflict":
+					other.ClearPriority()
+				case "cost_conflict":
+					other.SetAdminPathCost(8)
+				case "named_owner":
+					owner := stpv1.MstInstance_builder{NetworkInstance: ptr("blue"), MstId: ptr(uint32(1)), BridgeId: in.BridgeState.GetBridgeId()}.Build()
+					in.MSTInstances = append(in.MSTInstances, owner)
+				}
+				in.MSTPorts = append(in.MSTPorts, other)
+				if reverse {
+					slices.Reverse(in.MSTPorts)
+					slices.Reverse(in.MSTInstances)
+				}
+				result := load(t, netmodel.SourceContext{DeviceID: "sw1"}, in)
+				sw, err := vswitch.NewWithSpec(result.Spec)
+				if err != nil {
+					t.Fatal(err)
+				}
+				cfg := sw.Config().STP
+				if cfg == nil || cfg.MST == nil || cfg.MST.Instances[2].Ports["p1"].PathCost != 7 {
+					t.Fatal("valid sibling lost")
+				}
+				kept := variant == "identical" || variant == "observations"
+				_, exists := cfg.MST.Instances[1]
+				if exists != kept {
+					t.Fatalf("instance retained = %t, want %t", exists, kept)
+				}
+				if kept {
+					if cfg.MST.Instances[1].Ports["p1"].PathCost != 7 || result.Readiness() != analysis.Complete {
+						t.Fatal("identical executable facts changed")
+					}
+				} else {
+					requireMSTLoadIssue(t, result, "instances", "1", "ports", "p1")
+					requireMSTLoadIssue(t, result, "instances", "1")
+					if variant != "named_owner" && result.Readiness() != analysis.Unstable {
+						t.Fatalf("readiness = %s, want Unstable", result.Readiness())
+					}
+				}
+				reached++
+			})
+		}
+	}
+	if reached != 12 {
+		t.Fatalf("reached %d cases, want 12", reached)
+	}
+}
+
+func TestRSTPPortPriorityAdmission(t *testing.T) {
+	reached := 0
+	for _, priority := range []*uint32{nil, ptr(uint32(0)), ptr(uint32(16)), ptr(uint32(240)), ptr(uint32(1)), ptr(uint32(15)), ptr(uint32(241)), ptr(uint32(255)), ptr(uint32(256))} {
+		name := "absent"
+		if priority != nil {
+			name = fmt.Sprintf("priority=%d", *priority)
+		}
+		t.Run(name, func(t *testing.T) {
+			result := load(t, netmodel.SourceContext{DeviceID: "sw1"}, netmodel.Input{
+				Interfaces:  []*interfacev1.Interface{plainPhysicalInterface("eth1"), plainPhysicalInterface("eth2")},
+				BridgeState: validBridgeState(), Want: []trace.Layer{stp.LayerName},
+				STPPorts: []*stpv1.PortState{
+					stpv1.PortState_builder{InterfaceName: ptr("eth1"), Priority: priority}.Build(),
+					stpv1.PortState_builder{InterfaceName: ptr("eth2"), Priority: ptr(uint32(64))}.Build(),
+				},
+			})
+			cfg := result.Spec.Config.STP
+			valid := priority == nil || *priority <= 240 && *priority%16 == 0
+			p, exists := cfg.Ports["eth1"]
+			if exists != valid {
+				t.Errorf("port retained = %t, want %t: %+v", exists, valid, cfg.Ports)
+			}
+			if valid {
+				want := stp.DefaultPortPriority
+				if priority != nil {
+					want = uint8(*priority)
+				}
+				if p.Priority != want || !p.PriorityPresent {
+					t.Errorf("normalized port = %+v, want priority %d present=true", p, want)
+				}
+				if priority == nil && !slices.ContainsFunc(result.Report.Defaults, func(d netmodel.Default) bool {
+					return d.Port == "eth1" && d.Field == "port_priority" && d.Value == strconv.FormatUint(uint64(stp.DefaultPortPriority), 10) && len(d.Evidence) > 0
+				}) {
+					t.Errorf("absent priority lacks evidenced default: %+v", result.Report.Defaults)
+				}
+			} else if !slices.ContainsFunc(result.Metadata.Issues(), func(issue analysis.Issue) bool {
+				return issue.Code == netmodel.IssueInvalidPortPriority && issue.Scope == analysis.FieldScope(analysis.ProtocolScope("sw1", string(stp.LayerName), "0"), "ports", "eth1") && len(issue.Evidence) > 0
+			}) {
+				t.Errorf("missing evidenced port refusal: %+v", result.Metadata.Issues())
+			}
+			if sibling, ok := cfg.Ports["eth2"]; !ok || sibling.Priority != 64 || !sibling.PriorityPresent {
+				t.Errorf("valid sibling lost: %+v", cfg.Ports)
+			}
+			if _, err := vswitch.NewWithSpec(result.Spec); err != nil {
+				t.Fatalf("construct: %v", err)
+			}
+			reached++
+		})
+	}
+	if reached != 9 {
+		t.Errorf("reached %d priority cases, want 9", reached)
+	}
+}
+
+func TestLoadRequiresExplicitRSTPBridgeProtocol(t *testing.T) {
+	priority := uint32(32768)
+	bridgeID := stpv1.BridgeId_builder{
+		Priority: &priority,
+		Address:  addrv1.Eui48Address_builder{Octets: []byte{0, 1, 2, 3, 4, 5}}.Build(),
+	}.Build()
+
+	tests := []struct {
+		name    string
+		version *stpv1.ProtocolVersion
+		status  analysis.Status
+		issue   analysis.IssueCode
+	}{
+		{name: "missing", status: analysis.Incomplete, issue: netmodel.IssueMissingSTPProtocolVersion},
+		{name: "unspecified", version: ptr(stpv1.ProtocolVersion_PROTOCOL_VERSION_UNSPECIFIED), status: analysis.Incomplete, issue: netmodel.IssueMissingSTPProtocolVersion},
+		{name: "legacy STP", version: ptr(stpv1.ProtocolVersion_PROTOCOL_VERSION_STP), status: analysis.Unsupported, issue: netmodel.IssueUnsupportedSTPProtocolVersion},
+		{name: "unknown", version: ptr(stpv1.ProtocolVersion(99)), status: analysis.Unsupported, issue: netmodel.IssueUnsupportedSTPProtocolVersion},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			state := stpv1.BridgeState_builder{
+				NetworkInstance: ptr(netmodel.DefaultNetworkInstance),
+				ProtocolVersion: test.version,
+				BridgeId:        bridgeID,
+			}.Build()
+			result := load(t, netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot", Context: "stp-version"}, (netmodel.Input{
+				Interfaces:  []*interfacev1.Interface{plainPhysicalInterface("1/1/1")},
+				BridgeState: state,
+				Want:        []trace.Layer{stp.LayerName},
+			}))
+
+			if result.Spec.Config.STP != nil || slices.Contains(result.Report.Capabilities, stp.LayerName) {
+				t.Errorf("unsupported STP protocol constructed a layer: config=%+v capabilities=%v", result.Spec.Config.STP, result.Report.Capabilities)
+			}
+			if result.Readiness() != test.status {
+				t.Errorf("readiness = %s, want %s", result.Readiness(), test.status)
+			}
+			if !slices.ContainsFunc(result.Metadata.Issues(), func(issue analysis.Issue) bool {
+				return issue.Code == test.issue && issue.Status == test.status && len(issue.Evidence) > 0
+			}) {
+				t.Errorf("issues = %+v, want evidenced %s at %s", result.Metadata.Issues(), test.issue, test.status)
+			}
+		})
+	}
+}
+
+func TestLoadRejectsPresentZeroSTPBridgeTimers(t *testing.T) {
+	protocol := stpv1.ProtocolVersion_PROTOCOL_VERSION_RSTP
+	priority := uint32(32768)
+	bridgeID := stpv1.BridgeId_builder{
+		Priority: &priority,
+		Address:  addrv1.Eui48Address_builder{Octets: []byte{0, 1, 2, 3, 4, 5}}.Build(),
+	}.Build()
+	zero := durationpb.New(0)
+	tests := []struct {
+		name  string
+		field string
+		set   func(*stpv1.BridgeState_builder)
+	}{
+		{
+			name:  "hello time",
+			field: "bridge_hello_time",
+			set: func(builder *stpv1.BridgeState_builder) {
+				builder.BridgeHelloTime = zero
+			},
+		},
+		{
+			name:  "max age",
+			field: "bridge_max_age",
+			set: func(builder *stpv1.BridgeState_builder) {
+				builder.BridgeMaxAge = zero
+			},
+		},
+		{
+			name:  "forward delay",
+			field: "bridge_forward_delay",
+			set: func(builder *stpv1.BridgeState_builder) {
+				builder.BridgeForwardDelay = zero
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			builder := stpv1.BridgeState_builder{
+				NetworkInstance: ptr(netmodel.DefaultNetworkInstance),
+				ProtocolVersion: &protocol,
+				BridgeId:        bridgeID,
+			}
+			test.set(&builder)
+			input := netmodel.Input{
+				Interfaces:  []*interfacev1.Interface{plainPhysicalInterface("1/1/1")},
+				BridgeState: builder.Build(),
+				Want:        []trace.Layer{stp.LayerName},
+			}
+			validateInput(t, input)
+
+			result := load(t, netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot", Context: "zero-stp-timer"}, input)
+			if result.Spec.Config.STP != nil || slices.Contains(result.Report.Capabilities, stp.LayerName) {
+				t.Errorf("present zero %s constructed an STP layer: config=%+v capabilities=%v", test.field, result.Spec.Config.STP, result.Report.Capabilities)
+			}
+			if result.Readiness() != analysis.Unsupported {
+				t.Errorf("readiness = %s, want Unsupported", result.Readiness())
+			}
+			if slices.ContainsFunc(result.Report.Defaults, func(got netmodel.Default) bool {
+				return got.Field == test.field
+			}) {
+				t.Errorf("present zero %s reported as an absent-field default: %+v", test.field, result.Report.Defaults)
+			}
+
+			issueIndex := slices.IndexFunc(result.Metadata.Issues(), func(issue analysis.Issue) bool {
+				return issue.Code == netmodel.IssueInvalidSTPBridgeTimer &&
+					issue.Scope.Compare(analysis.ProtocolScope("sw1", string(stp.LayerName), "0")) == 0
+			})
+			if issueIndex < 0 {
+				t.Fatalf("issues = %+v, want %s scoped to sw1", result.Metadata.Issues(), netmodel.IssueInvalidSTPBridgeTimer)
+			}
+			issue := result.Metadata.Issues()[issueIndex]
+			if len(issue.Evidence) == 0 {
+				t.Fatalf("issue %s has no evidence", issue.Code)
+			}
+			if _, ok := result.Metadata.Evidence().Lookup(issue.Evidence[0]); !ok {
+				t.Errorf("issue %s evidence is absent from catalog", issue.Code)
+			}
+		})
+	}
+}
+
+func TestLoadInvalidSTPBridgeSkipsEveryPortRow(t *testing.T) {
+	protocol := stpv1.ProtocolVersion_PROTOCOL_VERSION_RSTP
+	priority := uint32(32767)
+	bridgeState := stpv1.BridgeState_builder{
+		NetworkInstance: ptr(netmodel.DefaultNetworkInstance),
+		ProtocolVersion: &protocol,
+		BridgeId: stpv1.BridgeId_builder{
+			Priority: &priority,
+			Address: addrv1.Eui48Address_builder{
+				Octets: []byte{0x00, 0x11, 0x22, 0x33, 0x44, 0x55},
+			}.Build(),
+		}.Build(),
+	}.Build()
+	portA := "1/1/1"
+	portB := "1/1/2"
+	result := load(t, netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot"}, (netmodel.Input{
+		Interfaces:  []*interfacev1.Interface{plainPhysicalInterface(portA), plainPhysicalInterface(portB)},
+		BridgeState: bridgeState,
+		STPPorts: []*stpv1.PortState{
+			stpv1.PortState_builder{InterfaceName: &portA}.Build(),
+			nil,
+			stpv1.PortState_builder{InterfaceName: &portB}.Build(),
+		},
+		Want: []trace.Layer{stp.LayerName},
+	}))
+
+	if result.Spec.Config.STP != nil {
+		t.Errorf("STP = %+v, want invalid bridge omitted", result.Spec.Config.STP)
+	}
+	for _, name := range []string{portA, portB} {
+		if !slices.ContainsFunc(result.Report.Skipped, func(skip netmodel.Skipped) bool {
+			return skip.Port == name && skip.What == "stp_port" && len(skip.Evidence) > 0
+		}) {
+			t.Errorf("skipped = %+v, want evidenced stp_port omission on %q", result.Report.Skipped, name)
+		}
+	}
+}
+
+func TestLoadRequestedSTPWithoutBridgeStateReportsConstructedCapabilities(t *testing.T) {
+	result := load(t, netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot", Context: "missing-bridge"}, (netmodel.Input{
+		Interfaces: []*interfacev1.Interface{plainPhysicalInterface("1/1/1")},
+		STPPorts: []*stpv1.PortState{
+			stpv1.PortState_builder{InterfaceName: ptr("1/1/1")}.Build(),
+		},
+		Want: []trace.Layer{stp.LayerName},
+	}))
+
+	if slices.Contains(result.Report.Capabilities, stp.LayerName) {
+		t.Errorf("reported capabilities = %v, includes unconstructed STP", result.Report.Capabilities)
+	}
+	if result.Spec.Config.STP != nil {
+		t.Errorf("STP config = %+v, want nil", result.Spec.Config.STP)
+	}
+	if result.Readiness() == analysis.Complete {
+		t.Fatal("readiness = Complete, want scoped omission")
+	}
+	for _, want := range []struct {
+		port string
+		what string
+	}{
+		{what: "stp_bridge"},
+		{port: "1/1/1", what: "stp_port"},
+	} {
+		if !slices.ContainsFunc(result.Report.Skipped, func(skip netmodel.Skipped) bool {
+			return skip.Port == want.port && skip.What == want.what && len(skip.Evidence) > 0
+		}) {
+			t.Errorf("skipped = %+v, want evidenced %s omission on %q", result.Report.Skipped, want.what, want.port)
+		}
+	}
+}
+
+func TestLoadOrphanSTPRowsAreScopedOmissions(t *testing.T) {
+	name := "1/1/1"
+	result := load(t, netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot", Context: "orphan-stp-row"}, (netmodel.Input{
+		Interfaces: []*interfacev1.Interface{plainPhysicalInterface(name)},
+		STPPorts: []*stpv1.PortState{
+			stpv1.PortState_builder{InterfaceName: &name}.Build(),
+		},
+	}))
+
+	if slices.Contains(result.Report.Capabilities, stp.LayerName) || result.Spec.Config.STP != nil {
+		t.Errorf("orphan row constructed or reported STP: capabilities=%v config=%+v", result.Report.Capabilities, result.Spec.Config.STP)
+	}
+	if result.Readiness() == analysis.Complete {
+		t.Fatal("readiness = Complete, want scoped orphan-row omission")
+	}
+	if !slices.ContainsFunc(result.Report.Skipped, func(skip netmodel.Skipped) bool {
+		return skip.Port == name && skip.What == "stp_port" && len(skip.Evidence) > 0
+	}) {
+		t.Errorf("skipped = %+v, want evidenced stp_port omission on %q", result.Report.Skipped, name)
+	}
+}
+
+// TestLoad_STPWalkSkipsRoutedPort pins that a routed port, whether routed
+// directly or through an accepted sub-interface, is skipped from the
+// spanning tree port table. Switch validation refuses a routed port
+// configured as an STP port; without the skip the load would fail outright
+// for a device that reports spanning tree state on every port including a
+// routed one.
+func TestLoad_STPWalkSkipsRoutedPort(t *testing.T) {
+	for _, test := range []struct {
+		name       string
+		ifaces     []*interfacev1.Interface
+		routedPort string
+	}{
+		{
+			name:       "DirectlyRouted",
+			ifaces:     []*interfacev1.Interface{routedPhysicalInterface("eth1")},
+			routedPort: "eth1",
+		},
+		{
+			name: "RoutedSubInterfaceParent",
+			ifaces: []*interfacev1.Interface{
+				plainPhysicalInterface("eth1"),
+				subInterface("eth1.10", "eth1", vlanTag(packetv1.EtherType_ETHER_TYPE_DOT1Q, 10)),
+			},
+			routedPort: "eth1",
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			portName := test.routedPort
+			ps := stpv1.PortState_builder{InterfaceName: &portName}.Build()
+
+			input := netmodel.Input{
+				Interfaces:  test.ifaces,
+				BridgeState: validBridgeState(),
+				STPPorts:    []*stpv1.PortState{ps},
+			}
+			validateInput(t, input)
+			loaded := load(t, netmodel.SourceContext{DeviceID: "sw1"}, input)
+
+			if cfg := loaded.Spec.Config; cfg.STP != nil {
+				if _, ok := cfg.STP.Ports[test.routedPort]; ok {
+					t.Errorf("STP port table must not hold routed port %s", test.routedPort)
+				}
+			}
+
+			wantScope := analysis.FieldScope(analysis.ProtocolScope("sw1", string(stp.LayerName), "0"), "ports", test.routedPort)
+			if !slices.ContainsFunc(loaded.Report.Skipped, func(skip netmodel.Skipped) bool {
+				return skip.Port == test.routedPort && skip.What == "stp_port" && skip.Scope.Compare(wantScope) == 0
+			}) {
+				t.Errorf("skipped = %+v, want stp_port skip at %s", loaded.Report.Skipped, wantScope)
+			}
+
+			if err := loaded.Spec.Config.Validate(); err != nil {
+				t.Errorf("cfg.Validate failed: %v", err)
+			}
+		})
+	}
+}
+
+func TestLoadStpRingConfiguration(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		priority uint32
+		address  []byte
+	}{
+		{"sw1", 4096, []byte{0, 0, 0, 0, 1, 1}},
+		{"sw2", 12288, []byte{0, 0, 0, 0, 1, 2}},
+		{"sw3", 8192, []byte{0, 0, 0, 0, 1, 3}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			bridgeState := validBridgeState()
+			bridgeState.SetBridgeId(stpv1.BridgeId_builder{Priority: ptr(tc.priority), Address: addrv1.Eui48Address_builder{Octets: tc.address}.Build()}.Build())
+			bridgeState.SetBridgeHelloTime(durationpb.New(2 * time.Second))
+			bridgeState.SetBridgeMaxAge(durationpb.New(20 * time.Second))
+			bridgeState.SetBridgeForwardDelay(durationpb.New(15 * time.Second))
+			bridgeState.SetTxHoldCount(6)
+			var portStates []*stpv1.PortState
+			for _, name := range []string{"1/1/2", "1/1/3"} {
+				portStates = append(portStates, stpv1.PortState_builder{
+					InterfaceName: ptr(name), Priority: ptr(uint32(128)), AdminPathCost: ptr(uint32(0)),
+					AdminEdge: ptr(false), AutoEdge: ptr(false), PointToPoint: stpv1.PointToPointMode_POINT_TO_POINT_MODE_AUTO.Enum(),
+				}.Build())
+			}
+			in := netmodel.Input{Interfaces: []*interfacev1.Interface{plainPhysicalInterface("1/1/1"), plainPhysicalInterface("1/1/2"), plainPhysicalInterface("1/1/3")}, BridgeState: bridgeState, STPPorts: portStates}
+			validateInput(t, in)
+			res := load(t, netmodel.SourceContext{DeviceID: tc.name}, in)
+			if res.Spec.Config.STP == nil {
+				t.Fatal("loaded STP configuration is nil")
+			}
+			want := stp.Config{
+				Priority: uint16(tc.priority), PriorityPresent: true,
+				Address: netaddr.MAC(tc.address), HelloTime: 2 * time.Second, MaxAge: 20 * time.Second, ForwardDelay: 15 * time.Second, TxHoldCount: 6,
+				Ports: map[string]stp.Port{"1/1/2": {Priority: 128, PriorityPresent: true}, "1/1/3": {Priority: 128, PriorityPresent: true}},
+			}
+			if diff := stp.Diff(want, *res.Spec.Config.STP); len(diff) != 0 {
+				t.Errorf("loaded STP configuration differs from literal expectation: %+v", diff)
+			}
+		})
+	}
+}
+
+func TestStpLoad_LagMemberSkipped(t *testing.T) {
+	adminUp := interfacev1.AdminStatus_ADMIN_STATUS_UP
+	operUp := interfacev1.OperStatus_OPER_STATUS_UP
+	lagParent := "lg1"
+	p1Name := "1/1/1"
+	p2Name := "1/1/2"
+	lgName := "lg1"
+
+	ifaces := []*interfacev1.Interface{
+		interfacev1.Interface_builder{
+			Name:        &lgName,
+			AdminStatus: &adminUp,
+			OperStatus:  &operUp,
+			Lag:         interfacev1.LagInterface_builder{}.Build(),
+		}.Build(),
+		interfacev1.Interface_builder{
+			Name:        &p1Name,
+			AdminStatus: &adminUp,
+			OperStatus:  &operUp,
+			Physical: interfacev1.PhysicalInterface_builder{
+				LagParentInterfaceName: &lagParent,
+			}.Build(),
+		}.Build(),
+		interfacev1.Interface_builder{
+			Name:        &p2Name,
+			AdminStatus: &adminUp,
+			OperStatus:  &operUp,
+			Physical:    interfacev1.PhysicalInterface_builder{}.Build(),
+		}.Build(),
+	}
+
+	prio := uint32(32768)
+	protocol := stpv1.ProtocolVersion_PROTOCOL_VERSION_RSTP
+	addr := addrv1.Eui48Address_builder{Octets: []byte{0, 0, 0, 0, 1, 1}}.Build()
+	bridgeID := stpv1.BridgeId_builder{Priority: &prio, Address: addr}.Build()
+	bridgeState := stpv1.BridgeState_builder{
+		NetworkInstance: ptr(netmodel.DefaultNetworkInstance),
+		ProtocolVersion: &protocol,
+		BridgeId:        bridgeID,
+	}.Build()
+	if err := protovalidate.Validate(bridgeState); err != nil {
+		t.Fatalf("bridge state validation failed: %v", err)
+	}
+
+	portPrio := uint32(128)
+	adminCost0 := uint32(0)
+	cost := uint32(20000)
+	roleRoot := stpv1.PortRole_PORT_ROLE_ROOT
+	fwd := stpv1.ForwardingState_FORWARDING_STATE_FORWARDING
+
+	psMember := stpv1.PortState_builder{
+		InterfaceName: &p1Name,
+		Priority:      &portPrio,
+		AdminPathCost: &adminCost0,
+		PathCost:      &cost,
+		Role:          &roleRoot,
+		State:         &fwd,
+	}.Build()
+	psRegular := stpv1.PortState_builder{
+		InterfaceName: &p2Name,
+		Priority:      &portPrio,
+		AdminPathCost: &adminCost0,
+		PathCost:      &cost,
+		Role:          &roleRoot,
+		State:         &fwd,
+	}.Build()
+
+	for _, ps := range []*stpv1.PortState{psMember, psRegular} {
+		if err := protovalidate.Validate(ps); err != nil {
+			t.Fatalf("port state %s validation failed: %v", ps.GetInterfaceName(), err)
+		}
+	}
+
+	now := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
+	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, netmodel.Input{Interfaces: ifaces, BridgeState: bridgeState, STPPorts: []*stpv1.PortState{psMember, psRegular}})
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	cfg := res.Spec.Config
+	report := res.Report
+
+	foundSkipped := false
+	for _, s := range report.Skipped {
+		if s.Port == "1/1/1" && s.What == "stp_port" {
+			foundSkipped = true
+			break
+		}
+	}
+	if !foundSkipped {
+		t.Errorf("expected LAG member 1/1/1 to be skipped in report: %+v", report.Skipped)
+	}
+
+	if _, ok := cfg.STP.Ports["1/1/1"]; ok {
+		t.Errorf("expected LAG member 1/1/1 to be excluded from STP ports")
+	}
+	if _, ok := cfg.STP.Ports["1/1/2"]; !ok {
+		t.Errorf("expected regular port 1/1/2 to be included in STP ports")
+	}
+}
+
+func TestStpLoad_AbsentPortSkipped(t *testing.T) {
+	adminUp := interfacev1.AdminStatus_ADMIN_STATUS_UP
+	operUp := interfacev1.OperStatus_OPER_STATUS_UP
+	p1Name := "1/1/1"
+	pAbsent := "1/1/99"
+
+	ifaces := []*interfacev1.Interface{
+		interfacev1.Interface_builder{
+			Name:        &p1Name,
+			AdminStatus: &adminUp,
+			OperStatus:  &operUp,
+			Physical:    interfacev1.PhysicalInterface_builder{}.Build(),
+		}.Build(),
+	}
+
+	prio := uint32(32768)
+	protocol := stpv1.ProtocolVersion_PROTOCOL_VERSION_RSTP
+	addr := addrv1.Eui48Address_builder{Octets: []byte{0, 0, 0, 0, 1, 1}}.Build()
+	bridgeID := stpv1.BridgeId_builder{Priority: &prio, Address: addr}.Build()
+	bridgeState := stpv1.BridgeState_builder{NetworkInstance: ptr(netmodel.DefaultNetworkInstance), ProtocolVersion: &protocol, BridgeId: bridgeID}.Build()
+	if err := protovalidate.Validate(bridgeState); err != nil {
+		t.Fatalf("bridge state validation failed: %v", err)
+	}
+
+	portPrio := uint32(128)
+	adminCost0 := uint32(0)
+	cost := uint32(20000)
+	roleDesig := stpv1.PortRole_PORT_ROLE_DESIGNATED
+	fwd := stpv1.ForwardingState_FORWARDING_STATE_FORWARDING
+
+	psAbsent := stpv1.PortState_builder{
+		InterfaceName: &pAbsent,
+		Priority:      &portPrio,
+		AdminPathCost: &adminCost0,
+		PathCost:      &cost,
+		Role:          &roleDesig,
+		State:         &fwd,
+	}.Build()
+	if err := protovalidate.Validate(psAbsent); err != nil {
+		t.Fatalf("port state validation failed: %v", err)
+	}
+
+	now := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
+	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, netmodel.Input{Interfaces: ifaces, BridgeState: bridgeState, STPPorts: []*stpv1.PortState{psAbsent}})
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	cfg := res.Spec.Config
+	report := res.Report
+
+	foundSkipped := false
+	for _, s := range report.Skipped {
+		if s.Port == "1/1/99" && s.What == "stp_port" {
+			foundSkipped = true
+			break
+		}
+	}
+	if !foundSkipped {
+		t.Errorf("expected absent port 1/1/99 to be skipped: %+v", report.Skipped)
+	}
+	if _, ok := cfg.STP.Ports["1/1/99"]; ok {
+		t.Errorf("expected absent port 1/1/99 to be excluded from STP ports")
+	}
+}
+
+func TestStpLoad_MissingAdminPathCostReported(t *testing.T) {
+	adminUp := interfacev1.AdminStatus_ADMIN_STATUS_UP
+	operUp := interfacev1.OperStatus_OPER_STATUS_UP
+	p1Name := "1/1/1"
+
+	ifaces := []*interfacev1.Interface{
+		interfacev1.Interface_builder{
+			Name:        &p1Name,
+			AdminStatus: &adminUp,
+			OperStatus:  &operUp,
+			Physical:    interfacev1.PhysicalInterface_builder{}.Build(),
+		}.Build(),
+	}
+
+	prio := uint32(32768)
+	protocol := stpv1.ProtocolVersion_PROTOCOL_VERSION_RSTP
+	addr := addrv1.Eui48Address_builder{Octets: []byte{0, 0, 0, 0, 1, 1}}.Build()
+	bridgeID := stpv1.BridgeId_builder{Priority: &prio, Address: addr}.Build()
+	bridgeState := stpv1.BridgeState_builder{NetworkInstance: ptr(netmodel.DefaultNetworkInstance), ProtocolVersion: &protocol, BridgeId: bridgeID}.Build()
+	if err := protovalidate.Validate(bridgeState); err != nil {
+		t.Fatalf("bridge state validation failed: %v", err)
+	}
+
+	portPrio := uint32(128)
+	cost := uint32(20000)
+	roleDesig := stpv1.PortRole_PORT_ROLE_DESIGNATED
+	fwd := stpv1.ForwardingState_FORWARDING_STATE_FORWARDING
+
+	// Deliberately omit AdminPathCost
+	psWithoutAdminCost := stpv1.PortState_builder{
+		InterfaceName: &p1Name,
+		Priority:      &portPrio,
+		PathCost:      &cost,
+		Role:          &roleDesig,
+		State:         &fwd,
+	}.Build()
+	if err := protovalidate.Validate(psWithoutAdminCost); err != nil {
+		t.Fatalf("port state validation failed: %v", err)
+	}
+
+	now := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
+	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, netmodel.Input{Interfaces: ifaces, BridgeState: bridgeState, STPPorts: []*stpv1.PortState{psWithoutAdminCost}})
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	cfg := res.Spec.Config
+	report := res.Report
+
+	foundDefault := false
+	for _, d := range report.Defaults {
+		if d.Port == "1/1/1" && d.Field == "admin_path_cost" && d.Value == "0" {
+			foundDefault = true
+			break
+		}
+	}
+	if !foundDefault {
+		t.Errorf("expected default for admin_path_cost reported: %+v", report.Defaults)
+	}
+
+	if portCfg, ok := cfg.STP.Ports["1/1/1"]; !ok || portCfg.PathCost != 0 {
+		t.Errorf("got STP port 1/1/1 PathCost %v (exists=%t), want 0", portCfg.PathCost, ok)
+	}
+}
+
+// TestLoadSkipsBridgeWithoutAddress guards the loader against a bridge state
+// the wire would refuse: without an address the layer cannot be configured,
+// so the report says so and no spanning tree layer is built.
+func TestLoadSkipsBridgeWithoutAddress(t *testing.T) {
+	name := "1/1/1"
+	adminUp := interfacev1.AdminStatus_ADMIN_STATUS_UP
+	operUp := interfacev1.OperStatus_OPER_STATUS_UP
+	ifaces := []*interfacev1.Interface{
+		interfacev1.Interface_builder{
+			Name:        &name,
+			AdminStatus: &adminUp,
+			OperStatus:  &operUp,
+			Physical:    interfacev1.PhysicalInterface_builder{}.Build(),
+		}.Build(),
+	}
+	prio := uint32(32768)
+	protocol := stpv1.ProtocolVersion_PROTOCOL_VERSION_RSTP
+	bridgeState := stpv1.BridgeState_builder{
+		NetworkInstance: ptr(netmodel.DefaultNetworkInstance),
+		ProtocolVersion: &protocol,
+		BridgeId:        stpv1.BridgeId_builder{Priority: &prio}.Build(),
+	}.Build()
+
+	now := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
+	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, netmodel.Input{Interfaces: ifaces, BridgeState: bridgeState})
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	cfg := res.Spec.Config
+	report := res.Report
+	if cfg.STP != nil {
+		t.Errorf("Load built a spanning tree layer from a bridge without an address")
+	}
+	found := false
+	for _, s := range report.Skipped {
+		if s.What == "stp_bridge" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("report.Skipped = %+v, want an stp_bridge entry", report.Skipped)
+	}
+}
+
+// A bridge state with tx_hold_count 4 and a port state with auto_edge true load
+// into spanning tree configuration with TxHoldCount 4 and Port.AutoEdge true.
+func TestStpLoad_TxHoldCountAndAutoEdge(t *testing.T) {
+	adminUp := interfacev1.AdminStatus_ADMIN_STATUS_UP
+	operUp := interfacev1.OperStatus_OPER_STATUS_UP
+	p1Name := "1/1/1"
+
+	ifaces := []*interfacev1.Interface{
+		interfacev1.Interface_builder{
+			Name:        &p1Name,
+			AdminStatus: &adminUp,
+			OperStatus:  &operUp,
+			Physical:    interfacev1.PhysicalInterface_builder{}.Build(),
+		}.Build(),
+	}
+
+	prio := uint32(32768)
+	protocol := stpv1.ProtocolVersion_PROTOCOL_VERSION_RSTP
+	addr := addrv1.Eui48Address_builder{Octets: []byte{0, 0, 0, 0, 1, 1}}.Build()
+	bridgeID := stpv1.BridgeId_builder{Priority: &prio, Address: addr}.Build()
+	txHold4 := uint32(4)
+	bridgeState := stpv1.BridgeState_builder{
+		NetworkInstance: ptr(netmodel.DefaultNetworkInstance),
+		ProtocolVersion: &protocol,
+		BridgeId:        bridgeID,
+		TxHoldCount:     &txHold4,
+	}.Build()
+	if err := protovalidate.Validate(bridgeState); err != nil {
+		t.Fatalf("bridge state validation failed: %v", err)
+	}
+
+	portPrio := uint32(128)
+	adminCost0 := uint32(0)
+	cost := uint32(20000)
+	roleDesig := stpv1.PortRole_PORT_ROLE_DESIGNATED
+	fwd := stpv1.ForwardingState_FORWARDING_STATE_FORWARDING
+	autoEdgeTrue := true
+
+	ps := stpv1.PortState_builder{
+		InterfaceName: &p1Name,
+		Priority:      &portPrio,
+		AdminPathCost: &adminCost0,
+		PathCost:      &cost,
+		Role:          &roleDesig,
+		State:         &fwd,
+		AutoEdge:      &autoEdgeTrue,
+	}.Build()
+	if err := protovalidate.Validate(ps); err != nil {
+		t.Fatalf("port state validation failed: %v", err)
+	}
+
+	now := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
+	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, netmodel.Input{Interfaces: ifaces, BridgeState: bridgeState, STPPorts: []*stpv1.PortState{ps}})
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	cfg := res.Spec.Config
+
+	if cfg.STP == nil {
+		t.Fatal("Load returned nil STP config")
+	}
+	if cfg.STP.TxHoldCount != 4 {
+		t.Errorf("TxHoldCount = %d, want 4", cfg.STP.TxHoldCount)
+	}
+	if !cfg.STP.Ports["1/1/1"].AutoEdge {
+		t.Errorf("port 1/1/1 AutoEdge = false, want true")
+	}
+}
+
+// An absent tx_hold_count on a bridge state loads with default 6 recorded in
+// the loader report defaults.
+func TestStpLoad_AbsentTxHoldCountReportedDefault(t *testing.T) {
+	adminUp := interfacev1.AdminStatus_ADMIN_STATUS_UP
+	operUp := interfacev1.OperStatus_OPER_STATUS_UP
+	p1Name := "1/1/1"
+
+	ifaces := []*interfacev1.Interface{
+		interfacev1.Interface_builder{
+			Name:        &p1Name,
+			AdminStatus: &adminUp,
+			OperStatus:  &operUp,
+			Physical:    interfacev1.PhysicalInterface_builder{}.Build(),
+		}.Build(),
+	}
+
+	prio := uint32(32768)
+	protocol := stpv1.ProtocolVersion_PROTOCOL_VERSION_RSTP
+	addr := addrv1.Eui48Address_builder{Octets: []byte{0, 0, 0, 0, 1, 1}}.Build()
+	bridgeID := stpv1.BridgeId_builder{Priority: &prio, Address: addr}.Build()
+	bridgeState := stpv1.BridgeState_builder{
+		NetworkInstance: ptr(netmodel.DefaultNetworkInstance),
+		ProtocolVersion: &protocol,
+		BridgeId:        bridgeID,
+	}.Build()
+	if err := protovalidate.Validate(bridgeState); err != nil {
+		t.Fatalf("bridge state validation failed: %v", err)
+	}
+
+	now := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
+	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, netmodel.Input{Interfaces: ifaces, BridgeState: bridgeState})
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	cfg := res.Spec.Config
+	report := res.Report
+
+	if cfg.STP == nil {
+		t.Fatal("Load returned nil STP config")
+	}
+
+	foundDefault := false
+	if cfg.STP.TxHoldCount != stp.DefaultTxHoldCount {
+		t.Errorf("tx hold count = %d, want %d", cfg.STP.TxHoldCount, stp.DefaultTxHoldCount)
+	}
+	for _, d := range report.Defaults {
+		if d.Field == "tx_hold_count" && d.Value == strconv.FormatUint(uint64(stp.DefaultTxHoldCount), 10) {
+			foundDefault = true
+			break
+		}
+	}
+	if !foundDefault {
+		t.Errorf("expected default for tx_hold_count reported: %+v", report.Defaults)
+	}
+}
+
+func TestStpLoadPreservesExplicitZeroPrioritiesAndReportsTimerDefaults(t *testing.T) {
+	name := "1/1/1"
+	protocol := stpv1.ProtocolVersion_PROTOCOL_VERSION_RSTP
+	zero := uint32(0)
+	bridgeState := stpv1.BridgeState_builder{
+		NetworkInstance: ptr(netmodel.DefaultNetworkInstance),
+		ProtocolVersion: &protocol,
+		BridgeId: stpv1.BridgeId_builder{
+			Priority: &zero,
+			Address:  addrv1.Eui48Address_builder{Octets: []byte{0, 1, 2, 3, 4, 5}}.Build(),
+		}.Build(),
+	}.Build()
+	portState := stpv1.PortState_builder{
+		InterfaceName: &name,
+		Priority:      &zero,
+	}.Build()
+
+	result, err := netmodel.Load(
+		time.Date(2026, 9, 12, 12, 0, 0, 0, time.UTC),
+		netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot", Context: "zero-priorities"}, netmodel.Input{Interfaces: []*interfacev1.Interface{plainPhysicalInterface(name)}, BridgeState: bridgeState, STPPorts: []*stpv1.PortState{portState}, Want: []trace.Layer{stp.LayerName}},
+	)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if result.Spec.Config.STP == nil {
+		t.Fatal("STP config is nil")
+	}
+	if cfg := result.Spec.Config.STP; cfg.Priority != 0 || !cfg.PriorityPresent {
+		t.Errorf("bridge priority = (%d, present=%t), want explicit zero", cfg.Priority, cfg.PriorityPresent)
+	}
+	if cfg := result.Spec.Config.STP.Ports[name]; cfg.Priority != 0 || !cfg.PriorityPresent {
+		t.Errorf("port priority = (%d, present=%t), want explicit zero", cfg.Priority, cfg.PriorityPresent)
+	}
+	sw, err := vswitch.NewWithSpec(result.Spec)
+	if err != nil {
+		t.Fatalf("NewWithSpec: %v", err)
+	}
+	constructed := sw.Config().STP
+	if constructed == nil || constructed.Priority != 0 || constructed.Ports[name].Priority != 0 {
+		t.Errorf("constructed STP priorities = %+v, want explicit bridge and port zero", constructed)
+	}
+
+	wantDefaults := map[string]string{
+		"bridge_hello_time":    "2s",
+		"bridge_max_age":       "20s",
+		"bridge_forward_delay": "15s",
+		"tx_hold_count":        strconv.FormatUint(uint64(stp.DefaultTxHoldCount), 10),
+	}
+	for field, value := range wantDefaults {
+		if !slices.ContainsFunc(result.Report.Defaults, func(got netmodel.Default) bool {
+			return got.Field == field && got.Value == value && len(got.Evidence) > 0
+		}) {
+			t.Errorf("defaults = %+v, want evidenced %s=%s", result.Report.Defaults, field, value)
+		}
+		statement := "default value applied for " + field + ": " + value
+		if !slices.ContainsFunc(result.Metadata.Assumptions(), func(got analysis.Assumption) bool {
+			return got.Statement == statement && len(got.Evidence) > 0
+		}) {
+			t.Errorf("assumptions = %+v, want %q", result.Metadata.Assumptions(), statement)
+		}
+	}
+	for _, field := range []string{"bridge_priority", "port_priority"} {
+		if slices.ContainsFunc(result.Report.Defaults, func(got netmodel.Default) bool { return got.Field == field }) {
+			t.Errorf("explicit zero %s was reported as defaulted", field)
+		}
+	}
+}
+
+func TestStpLoadDefaultsOnlyAbsentPriorities(t *testing.T) {
+	name := "1/1/1"
+	protocol := stpv1.ProtocolVersion_PROTOCOL_VERSION_RSTP
+	bridgeState := stpv1.BridgeState_builder{
+		NetworkInstance: ptr(netmodel.DefaultNetworkInstance),
+		ProtocolVersion: &protocol,
+		BridgeId: stpv1.BridgeId_builder{
+			Address: addrv1.Eui48Address_builder{Octets: []byte{0, 1, 2, 3, 4, 5}}.Build(),
+		}.Build(),
+	}.Build()
+	portState := stpv1.PortState_builder{InterfaceName: &name}.Build()
+
+	result, err := netmodel.Load(
+		time.Date(2026, 9, 12, 12, 0, 0, 0, time.UTC),
+		netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot", Context: "absent-priorities"}, netmodel.Input{Interfaces: []*interfacev1.Interface{plainPhysicalInterface(name)}, BridgeState: bridgeState, STPPorts: []*stpv1.PortState{portState}, Want: []trace.Layer{stp.LayerName}},
+	)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	for field, value := range map[string]string{
+		"bridge_priority": "32768",
+		"port_priority":   "128",
+	} {
+		if !slices.ContainsFunc(result.Report.Defaults, func(got netmodel.Default) bool {
+			return got.Field == field && got.Value == value && len(got.Evidence) > 0
+		}) {
+			t.Errorf("defaults = %+v, want evidenced %s=%s", result.Report.Defaults, field, value)
+		}
+	}
+
+	sw, err := vswitch.NewWithSpec(result.Spec)
+	if err != nil {
+		t.Fatalf("NewWithSpec: %v", err)
+	}
+	cfg := sw.Config().STP
+	if cfg == nil {
+		t.Fatal("constructed STP config is nil")
+	}
+	if cfg.Priority != stp.DefaultBridgePriority {
+		t.Errorf("constructed bridge priority = %d, want %d", cfg.Priority, stp.DefaultBridgePriority)
+	}
+	if got := cfg.Ports[name].Priority; got != stp.DefaultPortPriority {
+		t.Errorf("constructed port priority = %d, want %d", got, stp.DefaultPortPriority)
+	}
+}
+
+func TestStpLoadSkipsAdminPathCostAboveMaximum(t *testing.T) {
+	t.Parallel()
+
+	name := "1/1/1"
+	validName := "1/1/2"
+	protocol := stpv1.ProtocolVersion_PROTOCOL_VERSION_RSTP
+	priority := uint32(32768)
+	adminPathCost := uint32(200_000_001)
+	validAdminPathCost := stp.MaxPathCost
+	bridgeState := stpv1.BridgeState_builder{
+		NetworkInstance: ptr(netmodel.DefaultNetworkInstance),
+		ProtocolVersion: &protocol,
+		BridgeId: stpv1.BridgeId_builder{
+			Priority: &priority,
+			Address:  addrv1.Eui48Address_builder{Octets: []byte{0, 1, 2, 3, 4, 5}}.Build(),
+		}.Build(),
+	}.Build()
+	portState := stpv1.PortState_builder{
+		InterfaceName: &name,
+		AdminPathCost: &adminPathCost,
+	}.Build()
+	validPortState := stpv1.PortState_builder{
+		InterfaceName: &validName,
+		AdminPathCost: &validAdminPathCost,
+	}.Build()
+
+	result, err := netmodel.Load(
+		time.Date(2026, 9, 12, 12, 0, 0, 0, time.UTC),
+		netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot", Context: "invalid-admin-path-cost"}, netmodel.Input{Interfaces: []*interfacev1.Interface{plainPhysicalInterface(name), plainPhysicalInterface(validName)}, BridgeState: bridgeState, STPPorts: []*stpv1.PortState{portState, validPortState}, Want: []trace.Layer{stp.LayerName}},
+	)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if result.Spec.Config.STP == nil {
+		t.Fatal("STP config is nil")
+	}
+	if _, ok := result.Spec.Config.STP.Ports[name]; ok {
+		t.Errorf("STP config contains port with unsupported admin path cost")
+	}
+	if got, ok := result.Spec.Config.STP.Ports[validName]; !ok || got.PathCost != stp.MaxPathCost {
+		t.Errorf("valid sibling STP port = (%+v, present=%t), want maximum path cost", got, ok)
+	}
+
+	scope := analysis.FieldScope(analysis.ProtocolScope("sw1", string(stp.LayerName), "0"), "ports", name)
+	if !slices.ContainsFunc(result.Report.Skipped, func(got netmodel.Skipped) bool {
+		return got.Scope == scope && got.Port == name && got.What == "stp_port" && len(got.Evidence) > 0
+	}) {
+		t.Errorf("skipped = %+v, want evidenced port-scoped STP row", result.Report.Skipped)
+	}
+	if !slices.ContainsFunc(result.Metadata.IssuesFor(scope), func(got analysis.Issue) bool {
+		return got.Code == analysis.IssueCode("netmodel.stp.invalid_admin_path_cost") &&
+			got.Status == analysis.Unsupported && len(got.Evidence) > 0
+	}) {
+		t.Errorf("issues = %+v, want evidenced unsupported admin path cost", result.Metadata.IssuesFor(scope))
+	}
+	if got := result.Metadata.StatusFor(analysis.PortScope("sw1", validName)); got != analysis.Complete {
+		t.Errorf("valid sibling status = %v, want Complete", got)
+	}
+}
+
+func TestStpLoadRecordsFallbackForInvalidTxHoldCount(t *testing.T) {
+	t.Parallel()
+
+	name := "1/1/1"
+	protocol := stpv1.ProtocolVersion_PROTOCOL_VERSION_RSTP
+	priority := uint32(32768)
+	invalidTxHoldCount := uint32(11)
+	bridgeState := stpv1.BridgeState_builder{
+		NetworkInstance: ptr(netmodel.DefaultNetworkInstance),
+		ProtocolVersion: &protocol,
+		BridgeId: stpv1.BridgeId_builder{
+			Priority: &priority,
+			Address:  addrv1.Eui48Address_builder{Octets: []byte{0, 1, 2, 3, 4, 5}}.Build(),
+		}.Build(),
+		TxHoldCount: &invalidTxHoldCount,
+	}.Build()
+
+	result, err := netmodel.Load(
+		time.Date(2026, 9, 12, 12, 0, 0, 0, time.UTC),
+		netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot", Context: "invalid-tx-hold-count"}, netmodel.Input{Interfaces: []*interfacev1.Interface{plainPhysicalInterface(name)}, BridgeState: bridgeState, Want: []trace.Layer{stp.LayerName}},
+	)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if result.Spec.Config.STP == nil {
+		t.Fatal("STP config is nil")
+	}
+	if got := result.Spec.Config.STP.TxHoldCount; got != stp.DefaultTxHoldCount {
+		t.Errorf("tx hold count = %d, want fallback %d", got, stp.DefaultTxHoldCount)
+	}
+	if !slices.ContainsFunc(result.Report.Skipped, func(got netmodel.Skipped) bool {
+		return got.Scope == analysis.ProtocolScope("sw1", string(stp.LayerName), "0") &&
+			got.What == "stp_tx_hold_count" && len(got.Evidence) > 0
+	}) {
+		t.Errorf("skipped = %+v, want evidenced invalid tx_hold_count", result.Report.Skipped)
+	}
+	if !slices.ContainsFunc(result.Metadata.Issues(), func(got analysis.Issue) bool {
+		return got.Code == netmodel.IssueInvalidTxHoldCount && got.Status == analysis.Unsupported && len(got.Evidence) > 0
+	}) {
+		t.Errorf("issues = %+v, want evidenced invalid tx_hold_count", result.Metadata.Issues())
+	}
+	if !slices.ContainsFunc(result.Report.Defaults, func(got netmodel.Default) bool {
+		return got.Field == "tx_hold_count" && got.Value == strconv.FormatUint(uint64(stp.DefaultTxHoldCount), 10) && len(got.Evidence) > 0
+	}) {
+		t.Errorf("defaults = %+v, want evidenced tx_hold_count fallback", result.Report.Defaults)
+	}
+	if !slices.ContainsFunc(result.Metadata.Assumptions(), func(got analysis.Assumption) bool {
+		return got.Statement == "default value applied for tx_hold_count: "+strconv.FormatUint(uint64(stp.DefaultTxHoldCount), 10) && len(got.Evidence) > 0
+	}) {
+		t.Errorf("assumptions = %+v, want evidenced tx_hold_count fallback", result.Metadata.Assumptions())
+	}
+}
+
+func TestStpLoadClassifiesInvalidEffectiveTimerRelations(t *testing.T) {
+	t.Parallel()
+
+	for _, test := range []struct {
+		name         string
+		helloTime    time.Duration
+		maxAge       time.Duration
+		forwardDelay time.Duration
+	}{
+		{name: "explicit minimum violation", helloTime: 3 * time.Second, maxAge: 6 * time.Second, forwardDelay: 4 * time.Second},
+		{name: "explicit maximum violation", helloTime: time.Second, maxAge: 7 * time.Second, forwardDelay: 4 * time.Second},
+		{name: "explicit hello against default max", helloTime: 10 * time.Second},
+		{name: "explicit max against default forward", maxAge: 40 * time.Second},
+	} {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			protocol := stpv1.ProtocolVersion_PROTOCOL_VERSION_RSTP
+			priority := uint32(32768)
+			builder := stpv1.BridgeState_builder{
+				NetworkInstance: ptr(netmodel.DefaultNetworkInstance),
+				ProtocolVersion: &protocol,
+				BridgeId: stpv1.BridgeId_builder{
+					Priority: &priority,
+					Address:  addrv1.Eui48Address_builder{Octets: []byte{0, 1, 2, 3, 4, 5}}.Build(),
+				}.Build(),
+			}
+			if test.helloTime != 0 {
+				builder.BridgeHelloTime = durationpb.New(test.helloTime)
+			}
+			if test.maxAge != 0 {
+				builder.BridgeMaxAge = durationpb.New(test.maxAge)
+			}
+			if test.forwardDelay != 0 {
+				builder.BridgeForwardDelay = durationpb.New(test.forwardDelay)
+			}
+			input := netmodel.Input{
+				Interfaces:  []*interfacev1.Interface{plainPhysicalInterface("1/1/1")},
+				BridgeState: builder.Build(),
+			}
+			validateInput(t, input)
+			result := load(t, netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot", Context: test.name}, input)
+
+			if result.Spec.Config.STP != nil {
+				t.Errorf("STP config = %+v, want invalid layer omitted", result.Spec.Config.STP)
+			}
+			if slices.Contains(result.Report.Capabilities, stp.LayerName) {
+				t.Errorf("capabilities = %v, want STP omitted", result.Report.Capabilities)
+			}
+			if !slices.ContainsFunc(result.Report.Skipped, func(skipped netmodel.Skipped) bool {
+				return skipped.What == "stp_bridge" && len(skipped.Evidence) > 0
+			}) {
+				t.Errorf("skipped = %+v, want evidenced STP bridge input", result.Report.Skipped)
+			}
+			if !slices.ContainsFunc(result.Metadata.Issues(), func(issue analysis.Issue) bool {
+				return issue.Code == netmodel.IssueInvalidSTPBridgeTimer &&
+					issue.Status == analysis.Unsupported && len(issue.Evidence) > 0
+			}) {
+				t.Errorf("issues = %+v, want evidenced Unsupported timer relation", result.Metadata.Issues())
+			}
+		})
+	}
+}

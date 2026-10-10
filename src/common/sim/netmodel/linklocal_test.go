@@ -14,20 +14,20 @@ import (
 // TestLoadRoutingKeepsLinkLocalPrefixOnEachInterface proves a shared link-local
 // subnet does not conflict across interfaces in one VRF.
 func TestLoadRoutingKeepsLinkLocalPrefixOnEachInterface(t *testing.T) {
-	input := loadInput{}
+	input := netmodel.Input{}
 	for i, name := range []string{"eth1", "eth2"} {
 		iface := routedPhysicalInterface(name)
 		iface.SetIp(ipv1.IpFacet_builder{NetworkInstance: new("default"), Ipv6: ipv1.Ipv6Facet_builder{}.Build()}.Build())
-		input.ifaces = append(input.ifaces, iface)
+		input.Interfaces = append(input.Interfaces, iface)
 		addr := [16]byte{0xfe, 0x80}
 		addr[15] = byte(i + 1)
-		input.addrs = append(input.addrs, ipv1.InterfaceAddress_builder{
+		input.Addresses = append(input.Addresses, ipv1.InterfaceAddress_builder{
 			InterfaceName: &name,
 			Address:       protoIPv6Addr(addr),
 			Prefix:        protoIPv6Prefix([16]byte{0xfe, 0x80}, 64),
 		}.Build())
 	}
-	loaded := input.load(t, netmodel.SourceContext{DeviceID: "sw1"})
+	loaded := load(t, netmodel.SourceContext{DeviceID: "sw1"}, input)
 	if loaded.Spec.Config.Routing == nil {
 		t.Fatal("missing routing config")
 	}

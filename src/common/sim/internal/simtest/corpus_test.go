@@ -586,8 +586,8 @@ func TestRegistryDeterministicOrdering(t *testing.T) {
 	r := simtest.DefaultRegistry()
 	allCases := r.All()
 
-	if len(allCases) != 39 {
-		t.Fatalf("DefaultRegistry contains %d cases, want 39", len(allCases))
+	if len(allCases) != 41 {
+		t.Fatalf("DefaultRegistry contains %d cases, want 41", len(allCases))
 	}
 
 	for i := 1; i < len(allCases); i++ {
@@ -624,6 +624,8 @@ func TestRegistryDeterministicOrdering(t *testing.T) {
 	wantShadowing := []string{
 		"topology-shadowing/mst-region-boundary",
 		"topology-shadowing/mst-region-boundary-vlan20-crosses-l1",
+		"topology-shadowing/mstp-model-complete-region",
+		"topology-shadowing/mstp-model-incomplete-region",
 		"topology-shadowing/partial-model-unknown-port",
 		"topology-shadowing/uncabled-port-definite-drop",
 		"topology-shadowing/unknown-uplink-stp",
@@ -1504,7 +1506,7 @@ func TestCorpusReceiveOutcomes(t *testing.T) {
 			checked++
 		}
 	}
-	if checked != 39 {
-		t.Errorf("cases reaching concrete expectations = %d, want 39", checked)
+	if checked != 41 {
+		t.Errorf("cases reaching concrete expectations = %d, want 41", checked)
 	}
 }

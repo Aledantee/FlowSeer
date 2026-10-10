@@ -139,20 +139,20 @@ func TestForwardIncludesOnlyTheConsultedFDBConflict(t *testing.T) {
 	active := switchingv1.FdbEntryStatus_FDB_ENTRY_STATUS_ACTIVE
 	static := switchingv1.FdbEntryKind_FDB_ENTRY_KIND_STATIC
 	mac := []byte{0x00, 0x11, 0x22, 0x33, 0x44, 0x03}
-	input := loadInput{
-		ifaces: []*interfacev1.Interface{
+	input := netmodel.Input{
+		Interfaces: []*interfacev1.Interface{
 			reportedAccess(portA, vid),
 			reportedAccess(portB, vid),
 			reportedAccess(portC, vid),
 		},
-		vlans: []*switchingv1.Vlan{switchingv1.Vlan_builder{NetworkInstance: ptr("default"), Id: &vid, Name: ptr("ten")}.Build()},
-		fdb: []*switchingv1.FdbEntry{
+		VLANs: []*switchingv1.Vlan{switchingv1.Vlan_builder{NetworkInstance: ptr("default"), Id: &vid, Name: ptr("ten")}.Build()},
+		FDB: []*switchingv1.FdbEntry{
 			switchingv1.FdbEntry_builder{NetworkInstance: ptr("default"), VlanId: &vid, InterfaceName: &portB, Mac: addrv1.Eui48Address_builder{Octets: mac}.Build(), Kind: &static, Status: &active}.Build(),
 			switchingv1.FdbEntry_builder{NetworkInstance: ptr("default"), VlanId: &vid, InterfaceName: &portC, Mac: addrv1.Eui48Address_builder{Octets: mac}.Build(), Kind: &static, Status: &active}.Build(),
 		},
 	}
-	input.validate(t)
-	loaded := input.load(t, netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot", Context: "node-conflict"})
+	validateInput(t, input)
+	loaded := load(t, netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot", Context: "node-conflict"}, input)
 	sw, err := vswitch.NewWithSpec(loaded.Spec)
 	if err != nil {
 		t.Fatalf("NewWithSpec: %v", err)
@@ -247,20 +247,20 @@ func TestConstructionSpecMetadataIsCloneIsolatedAndDeterministic(t *testing.T) {
 func loadSwitchWithPortConflict(t *testing.T) (*vswitch.Switch, netmodel.Result) {
 	t.Helper()
 	conflictPort := "1/1/3"
-	input := loadInput{
-		ifaces: []*interfacev1.Interface{
+	input := netmodel.Input{
+		Interfaces: []*interfacev1.Interface{
 			plainPhysicalInterface("1/1/1"),
 			plainPhysicalInterface("1/1/2"),
 			plainPhysicalInterface("1/1/3"),
 		},
-		bridgeState: validBridgeState(),
-		stpPorts: []*stpv1.PortState{
+		BridgeState: validBridgeState(),
+		STPPorts: []*stpv1.PortState{
 			stpv1.PortState_builder{InterfaceName: &conflictPort, Priority: ptr(uint32(64)), AdminPathCost: ptr(uint32(10))}.Build(),
 			stpv1.PortState_builder{InterfaceName: &conflictPort, Priority: ptr(uint32(128)), AdminPathCost: ptr(uint32(20))}.Build(),
 		},
 	}
-	input.validate(t)
-	loaded := input.load(t, netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot", Context: "port-conflict"})
+	validateInput(t, input)
+	loaded := load(t, netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot", Context: "port-conflict"}, input)
 	sw, err := vswitch.NewWithSpec(loaded.Spec)
 	if err != nil {
 		t.Fatalf("NewWithSpec: %v", err)
