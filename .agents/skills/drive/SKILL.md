@@ -110,6 +110,10 @@ The brief follows `delegate` and adds:
   skill is no reason to pick `claude`.
 - A decision the skill would put to the user is a blocker to state and stop
   on.
+- A report file under the session scratchpad directory for every stage,
+  including implement and compound (`delegate`, Write the brief, item 4).
+- When a unit's Files line names a policy surface, load
+  `references/policy-units.md` before dispatching it.
 - The worker budget: the stage's share of the cap from `delegate`'s Wave
   size, read just before the dispatch, less one for the stage worker, at
   least one. It may hold that many workers of its own (`implement`'s waves,
@@ -133,8 +137,11 @@ state. Re-plan needs both a non-implemented status and ready state. Review
 accepts both accepted verdicts. Compound checks `compound`, independently
 of `outcome`.
 
-On `done` without the stage's report on the screen, wait again without
+On `done` without the stage's report file, wait again without
 `--until`.
+On an idle worker reporting an uncommitted policy unit, follow
+`references/policy-units.md` before the tree check or stage completion
+check below. Resume the stage after the approved unit is committed.
 
 After each stage:
 
@@ -236,6 +243,11 @@ lane is live, run `land` once in this session on the phases owed. A phase that p
 land, since parking removes its worktree (`references/parking.md`). A
 fast-forward the harness refuses goes into step 5's
 report and the drive continues. Any other stop in `land` stops the drive.
+After a land merges `main`, inspect the merge's changed paths under
+`.agents/skills/` and `tools/scripts/`. When either changed, reload `drive`,
+`delegate`, `land`, and the next stage's skill before dispatch. Start no new
+lane from a branch older than that merge. A kept lane must merge this
+checkout's HEAD before running its next stage.
 A pending fast-forward can outlive this session, so step 5 reads it off
 the branch rather than from memory.
 
@@ -271,8 +283,11 @@ runtime does not hand off.
 Park a plan when its worker stops on a decision that is the user's (a ruling
 that changes other units, the wire, or an accepted record; a design question
 in a re-plan; a direction record awaiting acceptance), on a `blocked` unit,
-on a review that ends in `rework` or `fixes needed` after its loop, or on a change to a policy
-surface. A `rework` that names the round limit parks with the options
+on a review that ends in `rework` or `fixes needed` after its loop.
+Policy-surface units follow `references/policy-units.md` instead.
+Test placement or setup that preserves the proof under
+`implement/references/test-placement.md` is a coordinator ruling to report,
+not a parked design question. A `rework` that names the round limit parks with the options
 `review/references/fix-loop.md`, When to stop, lists: `plan`, dropping or
 replacing the mechanism, or stopping. When both rounds were on one
 mechanism, it parks with `plan` or stopping. No park offers a further
@@ -287,8 +302,9 @@ Stop when every plan in scope has its three fields set, when only parked or
 waiting plans remain, when no pool is usable, or when the verifier is red on
 a merged union. Asking `drive` to run a parent is the user's answer for its
 phase lands (step 3). A plan without phases lands only from the question
-below, since a merge into `main` lands for every worktree; a policy-surface
-change stays a parked question.
+below, since a merge into `main` lands for every worktree.
+An unresolved policy-unit review retains its lanes and question as
+`references/policy-units.md` describes.
 
 Report, outcome first: plans landed with their commit ranges, review
 verdicts, and per-unit ledger result; plans parked with the question each

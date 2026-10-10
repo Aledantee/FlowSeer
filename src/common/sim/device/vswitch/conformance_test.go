@@ -292,27 +292,18 @@ func TestPlanningConformance(t *testing.T) {
 		t.Errorf("Expected outcome = %v, want %v", res.Comparison.Expected.Outcome, trace.Dropped)
 	}
 
-	// Verify typed facts in diff without string parsing.
-	var pvidFound, vlansFound bool
-	for _, chg := range res.Changes {
-		if chg.Subject.Kind == "port" && chg.Subject.Key == "1/1/1" {
-			if chg.Field == "pvid" {
-				if trace.EqualFact(chg.From, bridge.PVIDFact(10)) && trace.EqualFact(chg.To, bridge.PVIDFact(20)) {
-					pvidFound = true
-				}
-			}
-			if chg.Field == "untagged_vlan_ids" {
-				if trace.EqualFact(chg.From, bridge.VLANsFact([]vlan.ID{10})) && trace.EqualFact(chg.To, bridge.VLANsFact([]vlan.ID{20})) {
-					vlansFound = true
-				}
-			}
+	if len(res.Changes) != 3 {
+		t.Fatalf("diff records = %d, want 3", len(res.Changes))
+	}
+	want := []simtest.ChangeExpectation{
+		{Layer: "vlan", Subject: trace.Subject{Kind: "port", Key: "1/1/1"}, Field: "pvid", From: &simtest.FactExpectation{TypeID: "bridge.pvid", Canonical: "10"}, To: &simtest.FactExpectation{TypeID: "bridge.pvid", Canonical: "20"}},
+		{Layer: "vlan", Subject: trace.Subject{Kind: "port", Key: "1/1/1"}, Field: `untagged_vlan_ids["10"]`, From: &simtest.FactExpectation{TypeID: "bridge.vlan_id", Canonical: "10"}},
+		{Layer: "vlan", Subject: trace.Subject{Kind: "port", Key: "1/1/1"}, Field: `untagged_vlan_ids["20"]`, To: &simtest.FactExpectation{TypeID: "bridge.vlan_id", Canonical: "20"}},
+	}
+	for i, expected := range want {
+		if !expected.Matches(res.Changes[i]) {
+			t.Errorf("diff[%d] = %+v, want %+v", i, res.Changes[i], expected)
 		}
-	}
-	if !pvidFound {
-		t.Error("diff did not emit expected typed bridge.PVIDFact(10 -> 20)")
-	}
-	if !vlansFound {
-		t.Error("diff did not emit expected typed bridge.VLANsFact([10] -> [20])")
 	}
 }
 

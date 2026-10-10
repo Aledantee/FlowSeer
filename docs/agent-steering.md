@@ -1,6 +1,6 @@
 ---
 name: Agent steering
-last_updated: 2026-10-08
+last_updated: 2026-10-10
 ---
 
 # Agent steering
@@ -489,6 +489,25 @@ As of 2026-10-08 the three new frame phases each hold four units and spans
 under an hour (`ef7897c1`, `a1194999`, `aa6336d0`). The uv scripts Phase 2
 note holds six units over thirteen hours (`b8648d37`). A verification span
 alone does not establish a session boundary, so the trigger stays at six.
+As of 2026-10-10 the simulation Phase 10 outcome holds eighteen units over
+nine hours (`ef213026`) and Phase 11 holds eleven over two hours
+(`51a10ed1`). Neither outcome establishes a session boundary or separates
+original scope from review additions. There is no run of one- or two-unit
+phases in the new outcomes. The trigger stays at six.
+
+Launcher checks include a live start because controlled replies missed the
+terminal shape accepted by
+[`orca_worker.py`](../tools/scripts/skills/delegate/orca_worker.py).
+`plan` specifies that check and `implement` requires it when omitted.
+Every stage returns a report file because a terminal screen can lose the
+beginning of a report. Policy units stop uncommitted for review of their
+exact blobs, since launcher permission prompts cannot establish approval.
+The procedure is in
+[`policy-units.md`](../.agents/skills/drive/references/policy-units.md).
+Test placement and setup changes preserve the proof under
+[`test-placement.md`](../.agents/skills/implement/references/test-placement.md).
+Removing a parked requirement updates its phase and parent together so
+the next stage does not implement the dropped work.
 
 Look up third-party library docs through Context7 when it is connected, and
 nowhere else through a dedicated skill. `plan` and `implement` name the

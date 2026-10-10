@@ -123,7 +123,19 @@ drawn now so that extraction touches `fabric` and nothing else.
 - `Config` with `Normalize` and `Validate`, each taking the same
   `layer.Env` (node identity, port table, device address, resolved speeds),
   and `Clone`, which takes nothing.
-- `Diff(a, b Config) []trace.Change`. A change's subject key of several
+- `Diff(a, b Config) []trace.Change` compares effective values after owner
+  normalization. Each named member has its own field and typed facts, so
+  consumers can locate the change. Static members use dots, keyed and
+  scalar-set members use Go-quoted bracket coordinates such as
+  `attachments["edge.1"].vlan`, and structured ranges use normalized
+  positions such as `match.src_ports[0].start`. Capability lifecycle uses
+  `presence` or a nested `.presence` suffix. Expectations are complete
+  ordered sequences, including empty normalized no-ops and both records
+  of an identity replacement. Ranges compare common normalized positions,
+  Start then End, with nil/member facts at unmatched tails. Sort-only
+  multisets emit a value-fact removal or addition for each unmatched
+  occurrence, including repeated records when multiplicity changes.
+  A change's subject key of several
   parts comes from `trace.CompositeKey`, which quotes each part with
   `strconv.Quote` and joins them with `/`, since port names hold `/`.
 - `New(cfg, env)` returning the runtime layer, `Clone` on it, and for a layer

@@ -59,6 +59,11 @@ func (f intFact) Canonical() string { return strconv.Itoa(int(f)) }
 // String returns the decimal string representation of the value.
 func (f intFact) String() string { return strconv.Itoa(int(f)) }
 
+type routerPortFact string
+
+func (f routerPortFact) TypeID() string    { return "mcast.router_port" }
+func (f routerPortFact) Canonical() string { return string(f) }
+
 type routerPortsFact string
 
 func (f routerPortsFact) TypeID() string    { return "mcast.router_ports" }
@@ -111,8 +116,15 @@ func Diff(a, b Config) []trace.Change {
 			changes = append(changes, vlanChange(vid, "fast_leave", boolFact(aCfg.FastLeave), boolFact(bCfg.FastLeave)))
 		}
 
-		if !slices.Equal(aCfg.RouterPorts, bCfg.RouterPorts) {
-			changes = append(changes, vlanChange(vid, "router_ports", RouterPortsFact(aCfg.RouterPorts), RouterPortsFact(bCfg.RouterPorts)))
+		for _, member := range aCfg.RouterPorts {
+			if !slices.Contains(bCfg.RouterPorts, member) {
+				changes = append(changes, vlanChange(vid, "router_ports["+strconv.Quote(member)+"]", routerPortFact(member), nil))
+			}
+		}
+		for _, member := range bCfg.RouterPorts {
+			if !slices.Contains(aCfg.RouterPorts, member) {
+				changes = append(changes, vlanChange(vid, "router_ports["+strconv.Quote(member)+"]", nil, routerPortFact(member)))
+			}
 		}
 		if aCfg.MembershipInterval != bCfg.MembershipInterval {
 			changes = append(changes, vlanChange(vid, "membership_interval", durationFact(aCfg.MembershipInterval), durationFact(bCfg.MembershipInterval)))

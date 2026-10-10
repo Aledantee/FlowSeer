@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"net/netip"
 	"slices"
+	"strconv"
 
 	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 
@@ -66,22 +67,17 @@ func DiffSpecs(a, b ConstructionSpec) ([]trace.Change, error) {
 		})
 	}
 
-	slices.SortFunc(changes, func(a, b trace.Change) int {
-		if order := a.Subject.Compare(b.Subject); order != 0 {
-			return order
-		}
-		return cmp.Compare(a.Field, b.Field)
+	slices.SortStableFunc(changes, func(a, b trace.Change) int {
+		return a.Subject.Compare(b.Subject)
 	})
 
 	return changes, nil
 }
 
-// Diff computes the differences between two fabric configurations, reporting switch differences,
-// cable additions, removals, and modifications, host additions, removals, moves, and field changes
-// (an accepted multicast MAC added or removed is one change under "accept.multicast.<mac>"),
-// reflector additions, removals, and field changes (a port or an attachment added, removed, or
-// changed), fabric.Uncabled entries added or removed, and a change of the physical assumption as one
-// fabric field. Evidence references produce no change.
+// Diff compares effective fabric configurations in deterministic owner traversal order.
+// Collection members use quoted bracket keys. Retained faults and physical assumptions
+// report member facts, while subject and named assumption lifecycle retain snapshots.
+// Evidence references produce no change.
 func Diff(a, b Config) []trace.Change {
 	a = a.Normalize()
 	b = b.Normalize()
@@ -96,14 +92,18 @@ func Diff(a, b Config) []trace.Change {
 			To:      newStartFact(b.Start),
 		})
 	}
-	if !a.PhyAssumption.Equal(b.PhyAssumption) {
-		changes = append(changes, trace.Change{
-			Layer:   fabric.Layer,
-			Subject: trace.Subject{Kind: "fabric"},
-			Field:   "phy_assumption",
-			From:    phyAssumptionSnapshot(a.PhyAssumption),
-			To:      phyAssumptionSnapshot(b.PhyAssumption),
-		})
+	if (a.PhyAssumption == nil) != (b.PhyAssumption == nil) {
+		changes = append(changes, trace.Change{Layer: fabric.Layer, Subject: trace.Subject{Kind: "fabric"}, Field: "phy_assumption.presence", From: phyAssumptionSnapshot(a.PhyAssumption), To: phyAssumptionSnapshot(b.PhyAssumption)})
+	} else if a.PhyAssumption != nil {
+		if a.PhyAssumption.Medium != b.PhyAssumption.Medium {
+			changes = append(changes, trace.Change{Layer: fabric.Layer, Subject: trace.Subject{Kind: "fabric"}, Field: "phy_assumption.medium", From: a.PhyAssumption.Medium, To: b.PhyAssumption.Medium})
+		}
+		for _, ch := range phy.Diff(phy.Config{Ethernet: map[string]phy.Ethernet{"assumption": a.PhyAssumption.Ethernet}}, phy.Config{Ethernet: map[string]phy.Ethernet{"assumption": b.PhyAssumption.Ethernet}}) {
+			ch.Layer = fabric.Layer
+			ch.Subject = trace.Subject{Kind: "fabric"}
+			ch.Field = "phy_assumption.ethernet." + ch.Field
+			changes = append(changes, ch)
+		}
 	}
 	changes = append(changes, diffUncabled(a.Uncabled, b.Uncabled)...)
 
@@ -115,11 +115,6 @@ func Diff(a, b Config) []trace.Change {
 	return changes
 }
 
-// diffPorts reports a reflector's port changes under the reflector subject,
-// reusing phy's own per-field Ethernet comparison and walking ports in sorted
-// name order the way phy.Diff already does. An added or removed port reports
-// its Ethernet snapshot under "ports.<name>"; a changed one reports phy's own
-// field name under "ports.<name>.<field>", such as "ports.p1.speed_bps".
 func diffPorts(changes *[]trace.Change, reflectorName string, a, b map[string]phy.Ethernet) {
 	subject := trace.Subject{Kind: "reflector", Key: reflectorName}
 
@@ -127,9 +122,9 @@ func diffPorts(changes *[]trace.Change, reflectorName string, a, b map[string]ph
 		portName := ch.Subject.Key
 		ch.Subject = subject
 		if ch.Field == "" {
-			ch.Field = "ports." + portName
+			ch.Field = "ports[" + strconv.Quote(portName) + "]"
 		} else {
-			ch.Field = "ports." + portName + "." + ch.Field
+			ch.Field = "ports[" + strconv.Quote(portName) + "]." + ch.Field
 		}
 		*changes = append(*changes, ch)
 	}
@@ -188,21 +183,16 @@ func diffHostAccept(changes *[]trace.Change, name string, a, b hostmodel.Accept)
 	}
 	for _, mac := range a.Multicast {
 		if !slices.Contains(b.Multicast, mac) {
-			*changes = append(*changes, trace.Change{Layer: fabric.Layer, Subject: subject, Field: "accept.multicast." + mac.String(), From: macFact(mac)})
+			*changes = append(*changes, trace.Change{Layer: fabric.Layer, Subject: subject, Field: "accept.multicast[" + strconv.Quote(mac.String()) + "]", From: macFact(mac)})
 		}
 	}
 	for _, mac := range b.Multicast {
 		if !slices.Contains(a.Multicast, mac) {
-			*changes = append(*changes, trace.Change{Layer: fabric.Layer, Subject: subject, Field: "accept.multicast." + mac.String(), To: macFact(mac)})
+			*changes = append(*changes, trace.Change{Layer: fabric.Layer, Subject: subject, Field: "accept.multicast[" + strconv.Quote(mac.String()) + "]", To: macFact(mac)})
 		}
 	}
 }
 
-// diffAttachments reports a reflector's attachment changes under the reflector subject,
-// walked in sorted attachment-name order so a report names the same field on every run.
-// An added or removed attachment reports its whole snapshot under "attachments.<name>"; a
-// changed one reports each differing sub-field under "attachments.<name>.port",
-// ".vlan", or ".addresses".
 func diffAttachments(changes *[]trace.Change, reflectorName string, a, b map[string]reflectormodel.Attachment) {
 	subject := trace.Subject{Kind: "reflector", Key: reflectorName}
 
@@ -222,7 +212,7 @@ func diffAttachments(changes *[]trace.Change, reflectorName string, a, b map[str
 	for _, name := range sortedNames {
 		attA, inA := a[name]
 		attB, inB := b[name]
-		field := "attachments." + name
+		field := "attachments[" + strconv.Quote(name) + "]"
 		switch {
 		case inA && !inB:
 			*changes = append(*changes, trace.Change{Layer: fabric.Layer, Subject: subject, Field: field, From: attachmentSnapshot(attA), To: nil})
@@ -242,11 +232,7 @@ func diffAttachments(changes *[]trace.Change, reflectorName string, a, b map[str
 				}
 				*changes = append(*changes, trace.Change{Layer: fabric.Layer, Subject: subject, Field: field + ".vlan", From: fromVal, To: toVal})
 			}
-			pfxA := sortedPrefixStrings(attA.Addresses)
-			pfxB := sortedPrefixStrings(attB.Addresses)
-			if !slices.Equal(pfxA, pfxB) {
-				*changes = append(*changes, trace.Change{Layer: fabric.Layer, Subject: subject, Field: field + ".addresses", From: PrefixesFact(pfxA), To: PrefixesFact(pfxB)})
-			}
+			diffAddresses(changes, subject, field+".addresses", attA.Addresses, attB.Addresses)
 		}
 	}
 }
@@ -256,33 +242,14 @@ func diffHostIP(changes *[]trace.Change, name string, a, b *hostmodel.IP) {
 		return
 	}
 
-	var (
-		pfxA []string
-		pfxB []string
-	)
+	var addressesA, addressesB []netip.Prefix
 	if a != nil {
-		pfxA = sortedPrefixStrings(a.Addresses)
+		addressesA = a.Addresses
 	}
 	if b != nil {
-		pfxB = sortedPrefixStrings(b.Addresses)
+		addressesB = b.Addresses
 	}
-
-	if !slices.Equal(pfxA, pfxB) {
-		var fromVal, toVal trace.Fact
-		if a != nil {
-			fromVal = PrefixesFact(pfxA)
-		}
-		if b != nil {
-			toVal = PrefixesFact(pfxB)
-		}
-		*changes = append(*changes, trace.Change{
-			Layer:   fabric.Layer,
-			Subject: trace.Subject{Kind: "host", Key: name},
-			Field:   "addresses",
-			From:    fromVal,
-			To:      toVal,
-		})
-	}
+	diffAddresses(changes, trace.Subject{Kind: "host", Key: name}, "addresses", addressesA, addressesB)
 
 	var (
 		gwA netip.Addr
@@ -341,7 +308,7 @@ func diffHostIP(changes *[]trace.Change, name string, a, b *hostmodel.IP) {
 	for _, addr := range sortedAddrs {
 		macA, inA := nbrA[addr]
 		macB, inB := nbrB[addr]
-		field := "neighbors." + addr.String()
+		field := "neighbors[" + strconv.Quote(addr.String()) + "]"
 		switch {
 		case inA && !inB:
 			*changes = append(*changes, trace.Change{
@@ -441,10 +408,6 @@ func normalizedFault(f cablemodel.Fault) cablemodel.Fault {
 	}
 
 	return f
-}
-
-func sameFault(a, b cablemodel.Fault) bool {
-	return a.Kind == b.Kind && a.N == b.N && slices.Equal(a.Sequence, b.Sequence)
 }
 
 func samePtr[T comparable](a, b *T) bool {
@@ -593,14 +556,22 @@ func diffCables(a, b Config) []trace.Change {
 				To:      topSpeedFact(cB.TopSpeedBPS),
 			})
 		}
-		if !sameFault(cA.Fault, cB.Fault) {
-			changes = append(changes, trace.Change{
-				Layer:   fabric.Layer,
-				Subject: trace.Subject{Kind: "cable", Key: key},
-				Field:   "fault",
-				From:    faultSnapshot(cA.Fault),
-				To:      faultSnapshot(cB.Fault),
-			})
+		subject := trace.Subject{Kind: "cable", Key: key}
+		if cA.Fault.Kind != cB.Fault.Kind {
+			changes = append(changes, trace.Change{Layer: fabric.Layer, Subject: subject, Field: "fault.kind", From: faultKindFact(cA.Fault.Kind), To: faultKindFact(cB.Fault.Kind)})
+		}
+		if cA.Fault.N != cB.Fault.N {
+			changes = append(changes, trace.Change{Layer: fabric.Layer, Subject: subject, Field: "fault.n", From: faultNFact(cA.Fault.N), To: faultNFact(cB.Fault.N)})
+		}
+		for _, position := range cA.Fault.Sequence {
+			if !slices.Contains(cB.Fault.Sequence, position) {
+				changes = append(changes, trace.Change{Layer: fabric.Layer, Subject: subject, Field: "fault.sequence[" + strconv.Quote(strconv.FormatUint(uint64(position), 10)) + "]", From: faultPositionFact(position)})
+			}
+		}
+		for _, position := range cB.Fault.Sequence {
+			if !slices.Contains(cA.Fault.Sequence, position) {
+				changes = append(changes, trace.Change{Layer: fabric.Layer, Subject: subject, Field: "fault.sequence[" + strconv.Quote(strconv.FormatUint(uint64(position), 10)) + "]", To: faultPositionFact(position)})
+			}
 		}
 	}
 
@@ -751,3 +722,36 @@ func diffReflectors(a, b Config) []trace.Change {
 	}
 	return changes
 }
+
+func diffAddresses(changes *[]trace.Change, subject trace.Subject, field string, a, b []netip.Prefix) {
+	for _, prefix := range a {
+		if !slices.Contains(b, prefix) {
+			*changes = append(*changes, trace.Change{Layer: fabric.Layer, Subject: subject, Field: field + "[" + strconv.Quote(prefix.String()) + "]", From: prefixFact(prefix)})
+		}
+	}
+	for _, prefix := range b {
+		if !slices.Contains(a, prefix) {
+			*changes = append(*changes, trace.Change{Layer: fabric.Layer, Subject: subject, Field: field + "[" + strconv.Quote(prefix.String()) + "]", To: prefixFact(prefix)})
+		}
+	}
+}
+
+type prefixFact netip.Prefix
+
+func (f prefixFact) TypeID() string    { return "fabric.prefix" }
+func (f prefixFact) Canonical() string { return netip.Prefix(f).String() }
+
+type faultKindFact cablemodel.FaultKind
+
+func (f faultKindFact) TypeID() string    { return "fabric.fault_kind" }
+func (f faultKindFact) Canonical() string { return string(f) }
+
+type faultNFact uint
+
+func (f faultNFact) TypeID() string    { return "fabric.fault_n" }
+func (f faultNFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
+
+type faultPositionFact uint
+
+func (f faultPositionFact) TypeID() string    { return "fabric.fault_position" }
+func (f faultPositionFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }

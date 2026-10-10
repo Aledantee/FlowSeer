@@ -60,6 +60,11 @@ type portsFact string
 func (f portsFact) TypeID() string    { return "traffic.ports" }
 func (f portsFact) Canonical() string { return string(f) }
 
+type portFact string
+
+func (f portFact) TypeID() string    { return "traffic.port" }
+func (f portFact) Canonical() string { return string(f) }
+
 // PortsFact returns an immutable, injective snapshot of port names in their supplied order.
 func PortsFact(ports []string) trace.Fact {
 	var out strings.Builder
@@ -244,14 +249,33 @@ func diffMirror(changes []trace.Change, name string, a, b Mirror) []trace.Change
 	if a.SelectAll != b.SelectAll {
 		appendChange("select_all", selectAllFact(a.SelectAll), selectAllFact(b.SelectAll))
 	}
-	if !slices.Equal(a.SelectSrcPorts, b.SelectSrcPorts) {
-		appendChange("select_src_ports", PortsFact(a.SelectSrcPorts), PortsFact(b.SelectSrcPorts))
+	for _, selector := range []struct {
+		field string
+		a, b  []string
+	}{
+		{"select_src_ports", a.SelectSrcPorts, b.SelectSrcPorts},
+		{"select_dst_ports", a.SelectDstPorts, b.SelectDstPorts},
+	} {
+		for _, name := range selector.a {
+			if !slices.Contains(selector.b, name) {
+				appendChange(selector.field+"["+strconv.Quote(name)+"]", portFact(name), nil)
+			}
+		}
+		for _, name := range selector.b {
+			if !slices.Contains(selector.a, name) {
+				appendChange(selector.field+"["+strconv.Quote(name)+"]", nil, portFact(name))
+			}
+		}
 	}
-	if !slices.Equal(a.SelectDstPorts, b.SelectDstPorts) {
-		appendChange("select_dst_ports", PortsFact(a.SelectDstPorts), PortsFact(b.SelectDstPorts))
+	for _, id := range a.SelectVLANs {
+		if !slices.Contains(b.SelectVLANs, id) {
+			appendChange("select_vlans["+strconv.Quote(strconv.Itoa(int(id)))+"]", outputVLANFact(id), nil)
+		}
 	}
-	if !slices.Equal(a.SelectVLANs, b.SelectVLANs) {
-		appendChange("select_vlans", VLANsFact(a.SelectVLANs), VLANsFact(b.SelectVLANs))
+	for _, id := range b.SelectVLANs {
+		if !slices.Contains(a.SelectVLANs, id) {
+			appendChange("select_vlans["+strconv.Quote(strconv.Itoa(int(id)))+"]", nil, outputVLANFact(id))
+		}
 	}
 	if a.OutputPort != b.OutputPort {
 		appendChange("output_port", outputPortFact(a.OutputPort), outputPortFact(b.OutputPort))

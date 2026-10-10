@@ -461,17 +461,16 @@ func casePlanningFilterRuleChange() Case {
 			[]FactExpectation{matchFact}, []FactExpectation{denyRuleDec}),
 	}
 
-	protoUDP := uint8(17)
+	ruleSnap := FactExpectation{TypeID: "filter.rule", Canonical: `name="deny-mdns-unicast";action="drop";proto=17;src=[];dst=[10.0.20.0/24];src_ports=[];dst_ports=[5353-5353];icmp=none;tcp_flags=none`}
 	denyRule := filter.Rule{
 		Name:   "deny-mdns-unicast",
 		Action: filter.Drop,
 		Match: filter.Match{
-			Protocol: &protoUDP,
+			Protocol: new(uint8(17)),
 			Dst:      []netip.Prefix{netip.MustParsePrefix("10.0.20.0/24")},
 			DstPorts: []filter.PortRange{{Start: 5353, End: 5353}},
 		},
 	}
-	ruleSnap := NewFactExpectation(filter.SnapshotRule(denyRule))
 	expectedChanges := []ChangeExpectation{
 		expectedChange("filter", trace.Subject{Kind: "rule", Key: `"lan-in"/"deny-mdns-unicast"`}, "", nil, &ruleSnap),
 	}

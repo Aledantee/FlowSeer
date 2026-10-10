@@ -404,7 +404,7 @@ func TestHostAcceptFieldMatrix(t *testing.T) {
 	}{
 		{name: "setting promiscuous", accept: hostmodel.Accept{Promiscuous: true}, wantField: "accept.promiscuous"},
 		{name: "setting all-multicast", accept: hostmodel.Accept{AllMulticast: true}, wantField: "accept.all_multicast"},
-		{name: "listing a multicast MAC", accept: hostmodel.Accept{Multicast: []netaddr.MAC{groupA}}, wantField: "accept.multicast." + groupA.String()},
+		{name: "listing a multicast MAC", accept: hostmodel.Accept{Multicast: []netaddr.MAC{groupA}}, wantField: `accept.multicast["` + groupA.String() + `"]`},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -421,7 +421,19 @@ func TestHostAcceptFieldMatrix(t *testing.T) {
 				t.Fatalf("DiffSpecs: %v", err)
 			}
 			if len(changes) != 1 || changes[0].Subject != (trace.Subject{Kind: "host", Key: "h1"}) || changes[0].Field != tc.wantField {
-				t.Errorf("DiffSpecs = %+v, want one host h1 %s change", changes, tc.wantField)
+				t.Fatalf("DiffSpecs = %+v, want one host h1 %s change", changes, tc.wantField)
+			}
+
+			ch := changes[0]
+			if ch.Layer != fabric.Layer {
+				t.Errorf("layer = %q, want fabric", ch.Layer)
+			}
+			if len(tc.accept.Multicast) != 0 {
+				if ch.From != nil || ch.To == nil || ch.To.TypeID() != "fabric.mac" || ch.To.Canonical() != groupA.String() {
+					t.Errorf("multicast facts = %v -> %v, want nil -> fabric.mac %s", ch.From, ch.To, groupA)
+				}
+			} else if ch.From == nil || ch.To == nil || ch.From.TypeID() != "fabric.bool" || ch.From.Canonical() != "false" || ch.To.TypeID() != "fabric.bool" || ch.To.Canonical() != "true" {
+				t.Errorf("accept facts = %v -> %v, want fabric.bool false -> true", ch.From, ch.To)
 			}
 
 			fab, err := assembly.NewWithSpec(b)

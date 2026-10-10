@@ -442,13 +442,13 @@ func TestCompareAndDiffDetectVlanAndCableFaultChange(t *testing.T) {
 			}
 		}
 		if ch.Subject.Kind == "cable" && ch.Subject.Key == "sw1:1/1/24-sw2:1/1/24" {
-			if ch.Field == "fault" && ch.Layer == fabric.Layer {
+			if ch.Field == "fault.kind" && ch.Layer == fabric.Layer {
 				foundCableFaultChange = true
-				if ch.From.TypeID() != "fabric.fault" || !strings.Contains(ch.From.Canonical(), string(cablemodel.FaultNone)) {
-					t.Errorf("cable fault From = %v:%q, want FaultNone snapshot", ch.From.TypeID(), ch.From.Canonical())
+				if ch.From.TypeID() != "fabric.fault_kind" || ch.From.Canonical() != string(cablemodel.FaultNone) {
+					t.Errorf("cable fault From = %v:%q, want FaultNone member", ch.From.TypeID(), ch.From.Canonical())
 				}
-				if ch.To.TypeID() != "fabric.fault" || !strings.Contains(ch.To.Canonical(), string(cablemodel.FaultCut)) {
-					t.Errorf("cable fault To = %v:%q, want FaultCut snapshot", ch.To.TypeID(), ch.To.Canonical())
+				if ch.To.TypeID() != "fabric.fault_kind" || ch.To.Canonical() != string(cablemodel.FaultCut) {
+					t.Errorf("cable fault To = %v:%q, want FaultCut member", ch.To.TypeID(), ch.To.Canonical())
 				}
 			}
 		}

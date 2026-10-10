@@ -38,6 +38,11 @@ func (f recoveryModeFact) TypeID() string { return "loopprotect.recovery_mode" }
 // Canonical returns the recovery mode string.
 func (f recoveryModeFact) Canonical() string { return string(f) }
 
+type vlanIDFact vlan.ID
+
+func (f vlanIDFact) TypeID() string    { return "loopprotect.vlan_id" }
+func (f vlanIDFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
+
 // vlanListFact wraps a set of VLAN identifiers as a trace.Fact.
 type vlanListFact []vlan.ID
 
@@ -135,11 +140,15 @@ func diffPort(ap, bp Port, subject trace.Subject) []trace.Change {
 			From: durationFact(ap.Recovery.Duration), To: durationFact(bp.Recovery.Duration),
 		})
 	}
-	if !slices.Equal(ap.VLANs, bp.VLANs) {
-		changes = append(changes, trace.Change{
-			Layer: LayerName, Subject: subject, Field: "vlans",
-			From: vlanListFact(ap.VLANs), To: vlanListFact(bp.VLANs),
-		})
+	for _, member := range ap.VLANs {
+		if !slices.Contains(bp.VLANs, member) {
+			changes = append(changes, trace.Change{Layer: LayerName, Subject: subject, Field: "vlans[" + strconv.Quote(strconv.Itoa(int(member))) + "]", From: vlanIDFact(member)})
+		}
+	}
+	for _, member := range bp.VLANs {
+		if !slices.Contains(ap.VLANs, member) {
+			changes = append(changes, trace.Change{Layer: LayerName, Subject: subject, Field: "vlans[" + strconv.Quote(strconv.Itoa(int(member))) + "]", To: vlanIDFact(member)})
+		}
 	}
 
 	return changes

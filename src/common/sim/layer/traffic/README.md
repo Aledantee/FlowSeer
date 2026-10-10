@@ -104,6 +104,18 @@ boundaries.
 
 ## State retention
 
+`Diff` compares normalized selectors as sets. Replacing source port `eth2`
+with `eth3` emits `select_src_ports["eth2"]` with `traffic.port(eth2)`
+to nil, then `select_src_ports["eth3"]` with nil to `traffic.port(eth3)`.
+Destination selectors use `select_dst_ports["<name>"]`, and VLAN selectors
+use `select_vlans["<id>"]` with `traffic.output_vlan` facts. Each selector
+family reports sorted removals before sorted additions so a replacement's
+two records stay together. Reordering or repeating a selector is silent.
+Mirror renames retain the removed/added snapshot pair at the empty field.
+Policer `rate` and `burst`, and per-PCP `max_rate` and `buffer_octets`,
+keep their scalar fields ([diff.go](diff.go),
+[diff_coverage_test.go](diff_coverage_test.go)).
+
 `RetentionKey(cfg Config, env layer.Env) string` encodes the normalized traffic configuration
 as `Diff` sees it, each queue's rate and stated buffer included.
 `Layer.Retain` carries over active token buckets from a previous layer for policers

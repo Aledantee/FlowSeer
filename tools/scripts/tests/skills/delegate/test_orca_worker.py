@@ -83,6 +83,10 @@ elif len(args) >= 2 and args[0] == "terminal" and args[1] == "read":
     else:
         print(pointer_file.read_text() if pointer_file.exists() else "")
 elif len(args) >= 2 and args[0] == "terminal" and args[1] == "close":
+    if failure == "terminal-stale":
+        # Orca 1.4.221 returns this error for a handle it no longer knows.
+        print(json.dumps({{"ok": False, "error": {{"code": "terminal_handle_stale", "message": "terminal_handle_stale"}}}}))
+        sys.exit(1)
     if failure == "terminal-close" or os.environ.get("ORCA_STUB_CLOSE_FAIL") == "1":
         print("injected close failure", file=sys.stderr)
         sys.exit(1)
@@ -790,6 +794,59 @@ else:
         self.assertTrue(state_file.exists())
         self.assertTrue(child_path.exists())
         self.assertNotIn("worktree rm", self.orca_calls())
+
+    def test_stop_keeps_a_lane_when_its_terminal_handle_is_stale(self):
+        state_file, child_path, _ = self.graded_lane()
+        self.env["ORCA_STUB_FAIL"] = "terminal-stale"
+        result = self.command("stop", "l1", "--keep-worktree")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        state = json.loads(state_file.read_text())
+        self.assertTrue(state["kept"])
+        self.assertEqual(state["terminal"], "")
+        self.assertTrue(child_path.exists())
+        events = [json.loads(line) for line in self.runlog.read_text().splitlines()]
+        self.assertEqual([event["event"] for event in events], ["grade", "end"])
+        self.assertIn("already closed", result.stderr)
+
+    def test_status_reports_unknown_when_two_screens_differ(self):
+        state = {"terminal": "term-1", "cli": "codex", "path": "checkout"}
+        state_dir = self.root / "states"
+        state_dir.mkdir()
+        (state_dir / "l1.json").touch()
+        worker = mock.Mock(state_dir=state_dir)
+        worker.state.return_value = state
+        output = io.StringIO()
+        with mock.patch.object(orca_worker.time, "sleep"), mock.patch.object(orca_worker, "Worker", return_value=worker):
+            with mock.patch.object(orca_worker, "screen", side_effect=["reading input", "running check"]):
+                with contextlib.redirect_stdout(output):
+                    self.assertEqual(orca_worker.main(["status"]), 0)
+        self.assertIn("codex unknown checkout", output.getvalue())
+
+    def test_stop_removes_a_lane_when_its_terminal_handle_is_stale(self):
+        state_file, _, _ = self.graded_lane()
+        self.env["ORCA_STUB_FAIL"] = "terminal-stale"
+        result = self.command("stop", "l1")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(state_file.exists())
+        self.assertIn("worktree rm --worktree id:wt-1", self.orca_calls())
+        events = [json.loads(line) for line in self.runlog.read_text().splitlines()]
+        self.assertEqual([event["event"] for event in events], ["grade", "end"])
+
+    def test_status_reports_working_when_either_screen_shows_a_turn(self):
+        state = {"terminal": "term-1", "cli": "codex", "path": "checkout"}
+        state_dir = self.root / "states"
+        state_dir.mkdir()
+        (state_dir / "l1.json").touch()
+        worker = mock.Mock(state_dir=state_dir)
+        worker.state.return_value = state
+        for screens in (["esc to interrupt", "finished"], ["starting", "esc to cancel"]):
+            with self.subTest(screens=screens):
+                output = io.StringIO()
+                with mock.patch.object(orca_worker.time, "sleep"), mock.patch.object(orca_worker, "Worker", return_value=worker):
+                    with mock.patch.object(orca_worker, "screen", side_effect=screens):
+                        with contextlib.redirect_stdout(output):
+                            self.assertEqual(orca_worker.main(["status"]), 0)
+                self.assertIn("codex working checkout", output.getvalue())
 
     def live_lane(self):
         child_path = self.root / "child-l1"

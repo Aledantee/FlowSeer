@@ -50,7 +50,12 @@ Write the user's answer into the plan's Decisions, ending it with
 `(decided by the user, <YYYY-MM-DD>)` so workers leave it alone
 (`delegate`, Write the brief, item 6), and remove
 its `Parked by drive:` line in the same commit. Run the verifier on the plan
-path; the plan rejoins the next round. A phase parked with a
+path; the plan rejoins the next round.
+When the answer removes a requirement, edit the phase and its parent in
+the same commit. Put the dropped work under Out of scope and name its new
+owner when deferred. Check that no unit still cites the removed requirement
+and verify both plan paths. A standalone plan needs only its own edit.
+A phase parked with a
 `parked/<slug>` branch resumes from it: its next stage worker, whichever
 stage parked, starts from that branch merged with this branch's `HEAD`, so
 units that passed there are not redone and a review reads the record of

@@ -5,9 +5,11 @@ import (
 	"testing"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/sim/internal/simtest"
 	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
+	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
 var gigabitCapable = []uint64{10_000_000, 100_000_000, 1_000_000_000}
@@ -589,59 +591,30 @@ func TestDiff(t *testing.T) {
 		}
 
 		diffs := phy.Diff(a, b)
-		ethFields := make(map[string]bool)
-		poePortFields := make(map[string]bool)
-		poeGroupFields := make(map[string]bool)
-
-		for _, d := range diffs {
-			if d.From == nil || d.To == nil {
-				t.Errorf("field %q has nil fact: From=%v To=%v", d.Field, d.From, d.To)
-			}
-			if d.From.TypeID() == "" || d.To.TypeID() == "" {
-				t.Errorf("field %q fact has empty TypeID", d.Field)
-			}
-			if d.Layer == phy.LayerName {
-				ethFields[d.Field] = true
-			}
-			if d.Layer == phy.LayerNamePoE && d.Subject.Kind == "port" {
-				poePortFields[d.Field] = true
-			}
-			if d.Layer == phy.LayerNamePoE && d.Subject.Kind == "pse_group" {
-				poeGroupFields[d.Field] = true
-			}
+		want := []simtest.ChangeExpectation{
+			{Layer: "ethernet", Subject: trace.Subject{Kind: "port", Key: "1/1/1"}, Field: "speed_bps", From: &simtest.FactExpectation{TypeID: "phy.speed_bps", Canonical: "10000000"}, To: &simtest.FactExpectation{TypeID: "phy.speed_bps", Canonical: "100000000"}},
+			{Layer: "ethernet", Subject: trace.Subject{Kind: "port", Key: "1/1/1"}, Field: "duplex", From: &simtest.FactExpectation{TypeID: "phy.duplex", Canonical: "Half"}, To: &simtest.FactExpectation{TypeID: "phy.duplex", Canonical: "Full"}},
+			{Layer: "ethernet", Subject: trace.Subject{Kind: "port", Key: "1/1/1"}, Field: "auto_negotiation_enabled", From: &simtest.FactExpectation{TypeID: "phy.bool", Canonical: "false"}, To: &simtest.FactExpectation{TypeID: "phy.bool", Canonical: "true"}},
+			{Layer: "ethernet", Subject: trace.Subject{Kind: "port", Key: "1/1/1"}, Field: "supported_speeds_bps[\"10000000\"]", From: &simtest.FactExpectation{TypeID: "phy.speed_bps", Canonical: "10000000"}},
+			{Layer: "ethernet", Subject: trace.Subject{Kind: "port", Key: "1/1/1"}, Field: "supported_speeds_bps[\"1000000000\"]", To: &simtest.FactExpectation{TypeID: "phy.speed_bps", Canonical: "1000000000"}},
+			{Layer: "ethernet", Subject: trace.Subject{Kind: "port", Key: "1/1/1"}, Field: "auto_negotiation_supported", From: &simtest.FactExpectation{TypeID: "phy.capability", Canonical: "Supported"}, To: &simtest.FactExpectation{TypeID: "phy.capability", Canonical: "Unsupported"}},
+			{Layer: "ethernet", Subject: trace.Subject{Kind: "port", Key: "1/1/1"}, Field: "observed_speed_bps", From: &simtest.FactExpectation{TypeID: "phy.speed_bps", Canonical: "10000000"}, To: &simtest.FactExpectation{TypeID: "phy.speed_bps", Canonical: "100000000"}},
+			{Layer: "ethernet", Subject: trace.Subject{Kind: "port", Key: "1/1/1"}, Field: "observed_duplex", From: &simtest.FactExpectation{TypeID: "phy.duplex", Canonical: "Half"}, To: &simtest.FactExpectation{TypeID: "phy.duplex", Canonical: "Full"}},
+			{Layer: "poe", Subject: trace.Subject{Kind: "pse_group", Key: "1"}, Field: "power_nanowatts", From: &simtest.FactExpectation{TypeID: "phy.power_nw", Canonical: "50000000000"}, To: &simtest.FactExpectation{TypeID: "phy.power_nw", Canonical: "100000000000"}},
+			{Layer: "poe", Subject: trace.Subject{Kind: "port", Key: "1/1/1"}, Field: "max_class", From: &simtest.FactExpectation{TypeID: "phy.class", Canonical: "4"}, To: &simtest.FactExpectation{TypeID: "phy.class", Canonical: "8"}},
+			{Layer: "poe", Subject: trace.Subject{Kind: "port", Key: "1/1/1"}, Field: "enabled", From: &simtest.FactExpectation{TypeID: "phy.bool", Canonical: "true"}, To: &simtest.FactExpectation{TypeID: "phy.bool", Canonical: "false"}},
+			{Layer: "poe", Subject: trace.Subject{Kind: "port", Key: "1/1/1"}, Field: "power_limit_nanowatts", From: &simtest.FactExpectation{TypeID: "phy.power_nw", Canonical: "15400000000"}, To: &simtest.FactExpectation{TypeID: "phy.power_nw", Canonical: "30000000000"}},
+			{Layer: "poe", Subject: trace.Subject{Kind: "port", Key: "1/1/1"}, Field: "priority", From: &simtest.FactExpectation{TypeID: "phy.priority", Canonical: "Low"}, To: &simtest.FactExpectation{TypeID: "phy.priority", Canonical: "High"}},
+			{Layer: "poe", Subject: trace.Subject{Kind: "port", Key: "1/1/1"}, Field: "pd", From: &simtest.FactExpectation{TypeID: "phy.pd_state", Canonical: "Attached"}, To: &simtest.FactExpectation{TypeID: "phy.pd_state", Canonical: "Absent"}},
+			{Layer: "poe", Subject: trace.Subject{Kind: "port", Key: "1/1/1"}, Field: "pd_class", From: &simtest.FactExpectation{TypeID: "phy.class", Canonical: "1"}, To: &simtest.FactExpectation{TypeID: "phy.class", Canonical: "2"}},
 		}
-
-		expectedEth := []string{
-			"speed_bps",
-			"duplex",
-			"auto_negotiation_enabled",
-			"supported_speeds_bps",
-			"auto_negotiation_supported",
-			"observed_speed_bps",
-			"observed_duplex",
+		if len(diffs) != 15 {
+			t.Fatalf("Diff records = %d, want 15: %+v", len(diffs), diffs)
 		}
-		for _, f := range expectedEth {
-			if !ethFields[f] {
-				t.Errorf("diff missing ethernet field %q; seen: %v", f, ethFields)
+		for i, expected := range want {
+			if !expected.Matches(diffs[i]) {
+				t.Errorf("Diff[%d] = %+v, want %+v", i, diffs[i], expected)
 			}
-		}
-
-		expectedPoePort := []string{
-			"max_class",
-			"enabled",
-			"power_limit_nanowatts",
-			"priority",
-			"pd",
-			"pd_class",
-		}
-		for _, f := range expectedPoePort {
-			if !poePortFields[f] {
-				t.Errorf("diff missing poe port field %q; seen: %v", f, poePortFields)
-			}
-		}
-
-		if !poeGroupFields["power_nanowatts"] {
-			t.Errorf("diff missing poe group field power_nanowatts; seen: %v", poeGroupFields)
 		}
 	})
 

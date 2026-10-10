@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/sim/internal/simtest"
 	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/mcast"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
@@ -147,7 +148,9 @@ func TestDiff(t *testing.T) {
 	wantFields := []string{
 		"flood_unregistered",
 		"fast_leave",
-		"router_ports",
+		`router_ports["1/1/1"]`,
+		`router_ports["1/1/2"]`,
+		`router_ports["1/1/4"]`,
 		"membership_interval",
 		"router_port_interval",
 		"last_member_query_interval",
@@ -166,11 +169,18 @@ func TestDiff(t *testing.T) {
 		t.Errorf("change fields = %v, want %v", gotFields, wantFields)
 	}
 
-	routers := changes[2]
-	if routers.From == nil || routers.To == nil ||
-		!trace.EqualFact(routers.From, mcast.RouterPortsFact([]string{"1/1/1", "1/1/2"})) ||
-		!trace.EqualFact(routers.To, mcast.RouterPortsFact([]string{"1/1/4"})) {
-		t.Errorf("router_ports change = (%v, %v), want sorted port sets", routers.From, routers.To)
+	wantRouters := []simtest.ChangeExpectation{
+		{Layer: "mcast", Subject: trace.Subject{Kind: "vlan", Key: "10"}, Field: `router_ports["1/1/1"]`, From: &simtest.FactExpectation{TypeID: "mcast.router_port", Canonical: "1/1/1"}},
+		{Layer: "mcast", Subject: trace.Subject{Kind: "vlan", Key: "10"}, Field: `router_ports["1/1/2"]`, From: &simtest.FactExpectation{TypeID: "mcast.router_port", Canonical: "1/1/2"}},
+		{Layer: "mcast", Subject: trace.Subject{Kind: "vlan", Key: "10"}, Field: `router_ports["1/1/4"]`, To: &simtest.FactExpectation{TypeID: "mcast.router_port", Canonical: "1/1/4"}},
+	}
+	if len(changes) != 11 {
+		t.Fatalf("diff records = %d, want 11", len(changes))
+	}
+	for i, expected := range wantRouters {
+		if !expected.Matches(changes[i+2]) {
+			t.Errorf("router member[%d] = %+v, want %+v", i, changes[i+2], expected)
+		}
 	}
 	for i, c := range changes {
 		if c.From != nil && c.From.TypeID() == "" {
@@ -180,11 +190,11 @@ func TestDiff(t *testing.T) {
 			t.Errorf("change[%d].To has empty TypeID", i)
 		}
 	}
-	if changes[7].Subject.Key != "30" || changes[7].To != nil {
-		t.Errorf("removed VLAN change = %+v, want VLAN 30 removal", changes[7])
+	if changes[9].Subject.Key != "30" || changes[9].To != nil {
+		t.Errorf("removed VLAN change = %+v, want VLAN 30 removal", changes[9])
 	}
-	if changes[8].Subject.Key != "20" || changes[8].From != nil {
-		t.Errorf("added VLAN change = %+v, want VLAN 20 addition", changes[8])
+	if changes[10].Subject.Key != "20" || changes[10].From != nil {
+		t.Errorf("added VLAN change = %+v, want VLAN 20 addition", changes[10])
 	}
 }
 

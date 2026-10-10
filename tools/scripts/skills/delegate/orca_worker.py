@@ -442,8 +442,16 @@ class Worker:
             raise WorkerError(f"{branch} has commits that are not merged into {checked(['git', 'branch', '--show-current'])} or kept on parked/{args.lane}; merge it first, park it with 'git branch parked/{args.lane} {branch}', or remove the lane by hand in Orca")
         head = checked(["git", "rev-parse", branch])
         if not kept:
-            if run(["orca", "terminal", "close", "--terminal", term, "--json"]).returncode:
-                raise WorkerError(f"terminal close failed for {args.lane}; nothing removed")
+            closed = run(["orca", "terminal", "close", "--terminal", term, "--json"])
+            if closed.returncode:
+                try:
+                    error = json.loads(closed.stdout).get("error", {})
+                    stale = isinstance(error, dict) and error.get("code") == "terminal_handle_stale"
+                except (ValueError, AttributeError):
+                    stale = False
+                if not stale:
+                    raise WorkerError(f"terminal close failed for {args.lane}; nothing removed")
+                print(f"orca-worker: {args.lane} terminal already closed (terminal_handle_stale)", file=sys.stderr)
             self.log("end", "--run", run_id, "--head", head)
         if args.keep_worktree:
             state.update(terminal="", kept=True)
@@ -532,7 +540,13 @@ def main(argv: list[str]) -> int:
                     status = "unavailable-terminal"
                 else:
                     try:
-                        status = "working" if working(screen(state["terminal"])) else "idle"
+                        first = screen(state["terminal"])
+                        time.sleep(5)
+                        second = screen(state["terminal"])
+                        if working(first) or working(second):
+                            status = "working"
+                        else:
+                            status = "idle" if first == second else "unknown"
                     except WorkerError:
                         status = "gone"
                 print(f"{path.stem} {state['cli']} {status} {state['path']}")

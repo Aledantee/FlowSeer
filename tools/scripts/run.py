@@ -18,6 +18,7 @@ from pathlib import Path
 SCRIPTS = Path(__file__).resolve().parent
 SKILLS = "skills"
 NOT_GROUPS = frozenset({"lib", "tests", SKILLS})
+PROTECTIVE_HOOKS = frozenset({"worktree-guard", "pre-tool-policy", "protect-generated-bash"})
 
 
 class RegistryError(Exception):
@@ -124,7 +125,15 @@ def main(argv: list[str], scripts: Path = SCRIPTS) -> int:
     if len(argv) >= 2 and argv[1] in groups.get(argv[0], {}):
         if str(scripts) not in sys.path:
             sys.path.insert(0, str(scripts))
-        return importlib.import_module(groups[argv[0]][argv[1]]).main(argv[2:])
+        try:
+            return importlib.import_module(groups[argv[0]][argv[1]]).main(argv[2:])
+        except Exception:
+            if argv[0] != "hooks" or argv[1] not in PROTECTIVE_HOOKS:
+                raise
+            from lib import hookio
+
+            hookio.deny(f"FlowSeer hook {argv[1]} could not complete; refusing the tool call.")
+            return 0
     print(f"run.py: unknown command: {' '.join(argv) or '(none)'}", file=sys.stderr)
     print("\n".join(registry_lines(groups)), file=sys.stderr)
     return 2

@@ -23,6 +23,12 @@ Run `verify ledger set <unit> in_progress` when the unit is dispatched, before
 its branch is merged: `passed` counts the commits after the `HEAD` that
 call recorded, and a unit marked after its merge has none.
 
+When Files names a policy surface, follow
+`drive/references/policy-units.md` before dispatch and before the normal
+clean-tree check below. A delegated coordinator forwards the uncommitted
+unit's report to the driving conversation for approval and stops with the
+lanes retained. It resumes this wave only after the approved unit commits.
+
 The brief carries the plan path, the unit's text, the conventions for its
 files, the focused test command, and the ledger notes of landed units. It
 asks for the per-test mutation lines step 2.3 of the skill puts in the

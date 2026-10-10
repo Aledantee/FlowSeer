@@ -169,14 +169,15 @@ func diffEthernet(a, b map[string]Ethernet) []trace.Change {
 				To:      boolFact(to),
 			})
 		}
-		if !slices.Equal(ae.SupportedSpeedsBPS, be.SupportedSpeedsBPS) {
-			changes = append(changes, trace.Change{
-				Layer:   LayerName,
-				Subject: trace.Subject{Kind: "port", Key: name},
-				Field:   "supported_speeds_bps",
-				From:    SpeedsFact(ae.SupportedSpeedsBPS),
-				To:      SpeedsFact(be.SupportedSpeedsBPS),
-			})
+		for _, member := range ae.SupportedSpeedsBPS {
+			if !slices.Contains(be.SupportedSpeedsBPS, member) {
+				changes = append(changes, trace.Change{Layer: LayerName, Subject: trace.Subject{Kind: "port", Key: name}, Field: "supported_speeds_bps[" + strconv.Quote(strconv.FormatUint(member, 10)) + "]", From: speedFact(member)})
+			}
+		}
+		for _, member := range be.SupportedSpeedsBPS {
+			if !slices.Contains(ae.SupportedSpeedsBPS, member) {
+				changes = append(changes, trace.Change{Layer: LayerName, Subject: trace.Subject{Kind: "port", Key: name}, Field: "supported_speeds_bps[" + strconv.Quote(strconv.FormatUint(member, 10)) + "]", To: speedFact(member)})
+			}
 		}
 		if ae.AutoNegotiationSupported != be.AutoNegotiationSupported {
 			changes = append(changes, trace.Change{

@@ -57,6 +57,13 @@ before U10 starts.
   packages inside a wave, which `go list -deps` confirms for the layer
   packages (only `traffic` imports a sibling, `bridge`). U13 returns to
   `layer/stp`, which no other open phase owns.
+- The simulation targets the highest granularity it can report. For every
+  frame it must say what path the frame took, where it was dropped, and
+  why. Where a design choice trades detail for a smaller output or less
+  code, the detailed reading wins: a record per member over a snapshot, a
+  distinct reason over a shared one, a named location over an aggregate.
+  The close-out phase writes this into the virtual device direction record
+  so it outlives this plan (decided by the user, 2026-10-10).
 
 ## Requirements
 

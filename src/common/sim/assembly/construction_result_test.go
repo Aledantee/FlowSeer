@@ -1,6 +1,7 @@
 package assembly_test
 
 import (
+	"net/netip"
 	"testing"
 	"time"
 
@@ -15,7 +16,10 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/device"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 	"go.aledante.io/FlowSeer/src/common/sim/fabric"
+	"go.aledante.io/FlowSeer/src/common/sim/internal/simtest"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/filter"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
 	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
@@ -604,5 +608,38 @@ func TestFabricPerHopReadinessMetadataPropagation(t *testing.T) {
 	}
 	if resUp.Metadata.Status() != analysis.Complete {
 		t.Errorf("journey 2 hop result status = %v, want Complete", resUp.Metadata.Status())
+	}
+}
+
+func TestDiffSpecsPreservesDelegatedMemberOrder(t *testing.T) {
+	a := assembly.ConstructionSpec{Switches: map[string]vswitch.ConstructionSpec{
+		"sw1": {NodeID: "sw1", Config: vswitch.Config{MAC: netaddr.MAC{2, 0, 0, 0, 0, 1}, Routing: &routing.Config{}, Filter: &filter.Config{Sets: map[string]filter.RuleSet{
+			"ingress": {Default: filter.Drop, Rules: []filter.Rule{{Name: "rule1", Action: filter.Accept, Match: filter.Match{Src: []netip.Prefix{netip.MustParsePrefix("198.51.100.0/24")}, SrcPorts: []filter.PortRange{{Start: 100, End: 200}}}}}},
+		}}}},
+	}}
+	b := a.Clone()
+	rule := &b.Switches["sw1"].Config.Filter.Sets["ingress"].Rules[0]
+	rule.Match.Src = []netip.Prefix{netip.MustParsePrefix("192.0.2.0/24")}
+	rule.Match.SrcPorts = []filter.PortRange{{Start: 101, End: 201}}
+	got, err := assembly.DiffSpecs(a, b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fact := func(id, value string) *simtest.FactExpectation {
+		return &simtest.FactExpectation{TypeID: id, Canonical: value}
+	}
+	want := []simtest.ChangeExpectation{
+		{Layer: "filter", Subject: trace.Subject{Kind: "rule", Key: `"sw1"/"\"ingress\"/\"rule1\""`}, Field: `match.src["198.51.100.0/24"]`, From: fact("filter.prefix", "198.51.100.0/24")},
+		{Layer: "filter", Subject: trace.Subject{Kind: "rule", Key: `"sw1"/"\"ingress\"/\"rule1\""`}, Field: `match.src["192.0.2.0/24"]`, To: fact("filter.prefix", "192.0.2.0/24")},
+		{Layer: "filter", Subject: trace.Subject{Kind: "rule", Key: `"sw1"/"\"ingress\"/\"rule1\""`}, Field: "match.src_ports[0].start", From: fact("filter.port", "100"), To: fact("filter.port", "101")},
+		{Layer: "filter", Subject: trace.Subject{Kind: "rule", Key: `"sw1"/"\"ingress\"/\"rule1\""`}, Field: "match.src_ports[0].end", From: fact("filter.port", "200"), To: fact("filter.port", "201")},
+	}
+	if len(got) != 4 {
+		t.Fatalf("DiffSpecs records = %d, want 4: %+v", len(got), got)
+	}
+	for i, expected := range want {
+		if !expected.Matches(got[i]) {
+			t.Errorf("record[%d] = %+v, want %+v", i, got[i], expected)
+		}
 	}
 }

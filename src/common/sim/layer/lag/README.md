@@ -165,6 +165,13 @@ member names separately, for example `"lag1"/"1/1/1"`, so names containing
 separators remain distinct (`TestDiffMemberSubjectKeysAreInjectiveAcrossLAGs`
 in [diff_injectivity_test.go](diff_injectivity_test.go)).
 
+Changing a member's map key reports its removal followed by its addition,
+with empty fields and `lag.member` facts. Delay changes retain `up_delay`
+and `down_delay`, with `lag.duration` facts such as `2s` to `3s`.
+[diff_coverage_test.go](diff_coverage_test.go) checks every configuration
+leaf against an independent ordered sequence, including member identity
+replacement and normalized defaults.
+
 ## BalanceSLB hash input
 
 The distribution choice is left open by `AX` 6.2.4. `hashSLB` in

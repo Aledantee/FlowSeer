@@ -185,7 +185,7 @@ func diffCapabilities(a, b Config) []trace.Change {
 					Kind: "capability",
 					Key:  string(l),
 				},
-				Field: "",
+				Field: "presence",
 				From:  layerFact(l),
 				To:    nil,
 			})
@@ -196,7 +196,7 @@ func diffCapabilities(a, b Config) []trace.Change {
 					Kind: "capability",
 					Key:  string(l),
 				},
-				Field: "",
+				Field: "presence",
 				From:  nil,
 				To:    layerFact(l),
 			})

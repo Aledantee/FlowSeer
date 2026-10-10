@@ -18,6 +18,7 @@ func TestFactTypeIDsUnique(t *testing.T) {
 		portFact(""),
 		macFact{},
 		prefixesFact(""),
+		prefixFact{},
 		addrFact{},
 		routeInterfaceFact(""),
 		routePreferenceFact(0),

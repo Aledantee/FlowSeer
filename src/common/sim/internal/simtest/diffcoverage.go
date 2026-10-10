@@ -1,6 +1,7 @@
 package simtest
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/netip"
 	"os"
@@ -8,11 +9,13 @@ import (
 	"reflect"
 	"runtime"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
@@ -410,6 +413,613 @@ func mutateArrayLeaf(v reflect.Value) error {
 	return nil
 }
 
+type mappedEntry struct {
+	Path, Producer, Setup, Before, After string
+	Reason                               string
+}
+
+type changeRecord struct {
+	Layer, Kind, Key, Field string
+	From, To                *[2]string
+}
+
+type diffMapping struct {
+	owner       string
+	seed        reflect.Value
+	normalize   func(reflect.Value) reflect.Value
+	diff        func(reflect.Value, reflect.Value) []trace.Change
+	entries     []mappedEntry
+	expectation func(string, *int) ([]changeRecord, error)
+}
+
+func newDiffMapping[C any](owner string, zero C, fixture string, normalize func(C) C, diff func(C, C) []trace.Change, entries []mappedEntry, expectation func(string, *int) ([]changeRecord, error)) (diffMapping, error) {
+	seed := reflect.New(reflect.TypeOf(zero)).Elem()
+	if err := decodeMappedValue(seed, fixture); err != nil {
+		return diffMapping{}, errs.Wrapf(err, "%s seed", owner)
+	}
+	return diffMapping{owner, seed, func(v reflect.Value) reflect.Value { return reflect.ValueOf(normalize(v.Interface().(C))) }, func(a, b reflect.Value) []trace.Change { return diff(a.Interface().(C), b.Interface().(C)) }, entries, expectation}, nil
+}
+
+func diffMappingFor(owner string) (diffMapping, error) {
+	switch owner {
+	case "bridge":
+		return bridgeDiffMapping()
+	case "phy":
+		return phyDiffMapping()
+	case "loopprotect":
+		return loopprotectDiffMapping()
+	case "mcast":
+		return mcastDiffMapping()
+	case "lag":
+		return lagDiffMapping()
+	case "stp":
+		return stpDiffMapping()
+	case "filter":
+		return filterDiffMapping()
+	case "routing":
+		return routingDiffMapping()
+	case "traffic":
+		return trafficDiffMapping()
+	case "port":
+		return portDiffMapping()
+	case "vswitch":
+		return vswitchDiffMapping()
+	case "assembly":
+		return assemblyDiffMapping()
+	default:
+		return diffMapping{}, errs.Msgf("unknown diff owner %s", owner)
+	}
+}
+
+// AssertMappedDiffCoverage checks every submitted mutation and its independent sequence.
+func AssertMappedDiffCoverage(t *testing.T, owner string) {
+	t.Helper()
+	m, err := diffMappingFor(owner)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := mappedSeedProblems(m); err != nil {
+		t.Fatal(err)
+	}
+	counts := map[string]int{"bridge": 20, "phy": 23, "loopprotect": 6, "mcast": 9, "lag": 18, "stp": 38, "filter": 23, "routing": 19, "traffic": 17, "port": 7, "vswitch": 190, "assembly": 257}
+	if len(m.entries) != counts[owner] {
+		t.Fatalf("registered %d paths, want %d", len(m.entries), counts[owner])
+	}
+	hits := 0
+	for _, e := range m.entries {
+		t.Run(e.Path, func(t *testing.T) {
+			if err := checkMappedLeaf(m, e, &hits); err != nil {
+				t.Error(err)
+			}
+		})
+	}
+	if hits != counts[owner] {
+		t.Errorf("concrete expectations reached %d, want %d", hits, counts[owner])
+	}
+	if owner == "assembly" {
+		assertInactiveFaultCoverage(t, m)
+	}
+}
+
+func decodeMappedValue(v reflect.Value, raw string) error {
+	var value any
+	decoder := json.NewDecoder(strings.NewReader(raw))
+	decoder.UseNumber()
+	if err := decoder.Decode(&value); err != nil {
+		return errs.Wrap(err, "decode fixture")
+	}
+	cp := reflect.New(v.Type()).Elem()
+	if err := assignMappedValue(cp, value); err != nil {
+		return err
+	}
+	v.Set(cp)
+	return nil
+}
+
+func assignMappedValue(v reflect.Value, value any) error {
+	if value == nil {
+		v.SetZero()
+		return nil
+	}
+	if v.Kind() == reflect.Pointer {
+		v.Set(reflect.New(v.Type().Elem()))
+		return assignMappedValue(v.Elem(), value)
+	}
+	if s, ok := value.(string); ok {
+		switch v.Type() {
+		case reflect.TypeOf(time.Duration(0)):
+			d, err := time.ParseDuration(s)
+			if err != nil {
+				return err
+			}
+			v.SetInt(int64(d))
+			return nil
+		case reflect.TypeOf(time.Time{}):
+			d, err := time.Parse(time.RFC3339, s)
+			if err != nil {
+				return err
+			}
+			v.Set(reflect.ValueOf(d))
+			return nil
+		case reflect.TypeOf(netaddr.MAC{}):
+			d, err := netaddr.Parse(s)
+			if err != nil {
+				return err
+			}
+			v.Set(reflect.ValueOf(d))
+			return nil
+		case reflect.TypeOf(netip.Addr{}):
+			d, err := netip.ParseAddr(s)
+			if err != nil {
+				return err
+			}
+			v.Set(reflect.ValueOf(d))
+			return nil
+		case reflect.TypeOf(netip.Prefix{}):
+			d, err := netip.ParsePrefix(s)
+			if err != nil {
+				return err
+			}
+			v.Set(reflect.ValueOf(d))
+			return nil
+		}
+	}
+	if v.Type() == reflect.TypeOf(port.Table{}) {
+		var ports []port.Port
+		p := reflect.ValueOf(&ports).Elem()
+		if err := assignMappedValue(p, value); err != nil {
+			return err
+		}
+		b := port.NewBuilder()
+		for _, p := range ports {
+			b.Add(p)
+		}
+		table, err := b.Build()
+		if err != nil {
+			return err
+		}
+		v.Set(reflect.ValueOf(table))
+		return nil
+	}
+	switch v.Kind() {
+	case reflect.Struct:
+		fields, ok := value.(map[string]any)
+		if !ok {
+			return errs.Msgf("expected object for %s", v.Type())
+		}
+		names := make([]string, 0, len(fields))
+		for name := range fields {
+			names = append(names, name)
+		}
+		slices.Sort(names)
+		for _, name := range names {
+			f := v.FieldByName(name)
+			if !f.IsValid() {
+				return errs.Msgf("unknown fixture member %s.%s", v.Type(), name)
+			}
+			if err := assignMappedValue(f, fields[name]); err != nil {
+				return errs.Wrapf(err, "member %s", name)
+			}
+		}
+	case reflect.Map:
+		fields, ok := value.(map[string]any)
+		if !ok {
+			return errs.Msgf("expected map for %s", v.Type())
+		}
+		v.Set(reflect.MakeMap(v.Type()))
+		names := make([]string, 0, len(fields))
+		for name := range fields {
+			names = append(names, name)
+		}
+		slices.Sort(names)
+		for _, name := range names {
+			key, err := mappedKey(v.Type().Key(), name)
+			if err != nil {
+				return err
+			}
+			val := reflect.New(v.Type().Elem()).Elem()
+			if err := assignMappedValue(val, fields[name]); err != nil {
+				return err
+			}
+			v.SetMapIndex(key, val)
+		}
+	case reflect.Slice:
+		values, ok := value.([]any)
+		if !ok {
+			return errs.Msgf("expected list for %s", v.Type())
+		}
+		v.Set(reflect.MakeSlice(v.Type(), len(values), len(values)))
+		for i, item := range values {
+			if err := assignMappedValue(v.Index(i), item); err != nil {
+				return err
+			}
+		}
+	case reflect.String:
+		s, ok := value.(string)
+		if !ok {
+			return errs.Msgf("expected string for %s", v.Type())
+		}
+		v.SetString(s)
+	case reflect.Bool:
+		b, ok := value.(bool)
+		if !ok {
+			return errs.Msgf("expected bool for %s", v.Type())
+		}
+		v.SetBool(b)
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		n, ok := value.(json.Number)
+		if !ok {
+			return errs.Msgf("expected integer for %s", v.Type())
+		}
+		i, err := n.Int64()
+		if err != nil {
+			return err
+		}
+		v.SetInt(i)
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		n, ok := value.(json.Number)
+		if !ok {
+			return errs.Msgf("expected unsigned integer for %s", v.Type())
+		}
+		i, err := strconv.ParseUint(string(n), 10, 64)
+		if err != nil {
+			return err
+		}
+		v.SetUint(i)
+	case reflect.Float32, reflect.Float64:
+		n, ok := value.(json.Number)
+		if !ok {
+			return errs.Msgf("expected number for %s", v.Type())
+		}
+		f, err := n.Float64()
+		if err != nil {
+			return err
+		}
+		v.SetFloat(f)
+	default:
+		return errs.Msgf("unsupported mapped leaf %s", v.Type())
+	}
+	return nil
+}
+
+func mappedKey(t reflect.Type, text string) (reflect.Value, error) {
+	v := reflect.New(t).Elem()
+	var value any = text
+	if t.Kind() != reflect.String && t != reflect.TypeOf(netip.Addr{}) {
+		value = json.Number(text)
+	}
+	return v, assignMappedValue(v, value)
+}
+
+// mappedPathTokens keeps periods inside collection keys distinct from member separators.
+func mappedPathTokens(path string) []string {
+	var tokens []string
+	for len(path) > 0 {
+		if path[0] == '.' {
+			path = path[1:]
+			continue
+		}
+		if path[0] == '[' {
+			i := strings.IndexByte(path, ']')
+			tokens = append(tokens, path[:i+1])
+			path = path[i+1:]
+			continue
+		}
+		i := strings.IndexAny(path, ".[")
+		if i < 0 {
+			i = len(path)
+		}
+		tokens = append(tokens, path[:i])
+		path = path[i:]
+	}
+	return tokens
+}
+
+func editMappedPath(v reflect.Value, tokens []string, raw string) error {
+	if len(tokens) > 0 && tokens[0] == "@present" {
+		tokens = tokens[1:]
+	}
+	if len(tokens) == 0 {
+		return decodeMappedValue(v, raw)
+	}
+	if v.Kind() == reflect.Pointer {
+		if v.IsNil() {
+			return errs.Msgf("required seed branch %s is nil", v.Type())
+		}
+		return editMappedPath(v.Elem(), tokens, raw)
+	}
+	token := tokens[0]
+	if v.Type() == reflect.TypeOf(port.Table{}) {
+		if token != "Ports()" {
+			return errs.Msgf("opaque table requires Ports() adapter")
+		}
+		ports := v.Interface().(port.Table).Ports()
+		name := strings.Trim(tokens[1], "[]")
+		found := false
+		for i := range ports {
+			if ports[i].Name == name {
+				found = true
+				if err := editMappedPath(reflect.ValueOf(&ports[i]).Elem(), tokens[2:], raw); err != nil {
+					return err
+				}
+				break
+			}
+		}
+		if !found {
+			return errs.Msgf("required table port %s absent", name)
+		}
+		b := port.NewBuilder()
+		for _, p := range ports {
+			b.Add(p)
+		}
+		table, err := b.Build()
+		if err != nil {
+			return err
+		}
+		v.Set(reflect.ValueOf(table))
+		return nil
+	}
+	switch v.Kind() {
+	case reflect.Struct:
+		f := v.FieldByName(token)
+		if !f.IsValid() {
+			return errs.Msgf("unknown mapped member %s.%s", v.Type(), token)
+		}
+		return editMappedPath(f, tokens[1:], raw)
+	case reflect.Map:
+		key, err := mappedKey(v.Type().Key(), strings.Trim(token, "[]"))
+		if err != nil {
+			return err
+		}
+		val := v.MapIndex(key)
+		if !val.IsValid() {
+			return errs.Msgf("required map key %s absent", token)
+		}
+		if len(tokens) == 2 && tokens[1] == "@key" {
+			newKey := reflect.New(v.Type().Key()).Elem()
+			if err := decodeMappedValue(newKey, raw); err != nil {
+				return err
+			}
+			if reflect.DeepEqual(key.Interface(), newKey.Interface()) {
+				return errs.Msg("map key mutation did not change value")
+			}
+			v.SetMapIndex(newKey, deepCopyValue(val))
+			v.SetMapIndex(key, reflect.Value{})
+			return nil
+		}
+		cp := reflect.New(val.Type()).Elem()
+		cp.Set(deepCopyValue(val))
+		if err := editMappedPath(cp, tokens[1:], raw); err != nil {
+			return err
+		}
+		v.SetMapIndex(key, cp)
+		return nil
+	case reflect.Slice:
+		i, err := strconv.Atoi(strings.Trim(token, "[]"))
+		if err != nil {
+			return err
+		}
+		if i >= v.Len() {
+			return errs.Msgf("required slice member %s absent", token)
+		}
+		return editMappedPath(v.Index(i), tokens[1:], raw)
+	default:
+		return errs.Msgf("unsupported mapped navigation through %s", v.Type())
+	}
+}
+
+func prepareMappedInputs(m diffMapping, e mappedEntry) (reflect.Value, reflect.Value, error) {
+	a := deepCopyValue(m.seed)
+	prefix := m.owner + ".Config."
+	tokens := mappedPathTokens(strings.TrimPrefix(e.Path, prefix))
+	switch e.Setup {
+	case "sequence":
+		if err := editMappedPath(a, mappedPathTokens("Cables[0].Cable.Fault.Kind"), `"LoseSequence"`); err != nil {
+			return a, a, err
+		}
+	case "fault-none":
+		if err := editMappedPath(a, mappedPathTokens("Cables[0].Cable.Fault.Kind"), `"None"`); err != nil {
+			return a, a, err
+		}
+	case "switch-key":
+		if err := editMappedPath(a, mappedPathTokens("Switches[sw1]"), `{"MAC":"02:00:00:00:00:01"}`); err != nil {
+			return a, a, err
+		}
+	case "port-wrapper":
+		p := ""
+		if m.owner == "assembly" {
+			p = "Switches[sw1]."
+		}
+		if err := editMappedPath(a, mappedPathTokens(p+"Ports"), `[{"Name":"1/1/1","IfIndex":1,"Kind":"Other","AdminStatus":"Up","OperStatus":"Up","MTU":1500,"LagParent":"lag1"},{"Name":"lag1","Kind":"Lag","AdminStatus":"Up","OperStatus":"Up"}]`); err != nil {
+			return a, a, err
+		}
+		if err := editMappedPath(a, mappedPathTokens(p+"LAG.LAGs[lag1].Members"), `{"1/1/1":{"Priority":128,"Key":1},"1/1/2":{"Priority":128,"Key":1}}`); err != nil {
+			return a, a, err
+		}
+	}
+	if !strings.HasSuffix(e.Path, ".@key") {
+		if err := editMappedPath(a, tokens, e.Before); err != nil {
+			return a, a, err
+		}
+	}
+	b := deepCopyValue(a)
+	if err := editMappedPath(b, tokens, e.After); err != nil {
+		return a, b, err
+	}
+	if reflect.DeepEqual(a.Interface(), b.Interface()) {
+		return a, b, errs.Msgf("mutation of %s did not change submitted input", e.Path)
+	}
+	return a, b, nil
+}
+
+func checkMappedLeaf(m diffMapping, e mappedEntry, hits *int) error {
+	a, b, err := prepareMappedInputs(m, e)
+	if err != nil {
+		return errs.Wrapf(err, "%s", e.Path)
+	}
+	want, err := m.expectation(e.Path, hits)
+	if err != nil {
+		return err
+	}
+	got := m.diff(m.normalize(a), m.normalize(b))
+	if len(want) == 0 {
+		if e.Reason == "" {
+			return errs.Msgf("empty expectation for %s has no disposition reason", e.Path)
+		}
+		return matchMappedChanges(got, want)
+	}
+	return matchMappedChanges(got, want)
+}
+
+func matchMappedChanges(got []trace.Change, want []changeRecord) error {
+	if len(got) != len(want) {
+		return errs.Msgf("diff records %d, want %d", len(got), len(want))
+	}
+	for i, expected := range want {
+		actual := got[i]
+		if string(actual.Layer) != expected.Layer || actual.Subject.Kind != expected.Kind || actual.Subject.Key != expected.Key || actual.Field != expected.Field || !matchesMappedFact(actual.From, expected.From) || !matchesMappedFact(actual.To, expected.To) {
+			return errs.Msgf("diff record %d = (%s, %s, %q, %q, %v, %v), want %+v", i, actual.Layer, actual.Subject.Kind, actual.Subject.Key, actual.Field, actual.From, actual.To, expected)
+		}
+	}
+	return nil
+}
+
+func matchesMappedFact(got trace.Fact, want *[2]string) bool {
+	if got == nil || want == nil {
+		return got == nil && want == nil
+	}
+	return got.TypeID() == want[0] && got.Canonical() == want[1]
+}
+
+func structuralMappedPaths(t reflect.Type, path string, out *[]string) {
+	if t == reflect.TypeOf(port.Table{}) {
+		structuralMappedPaths(reflect.TypeOf(port.Port{}), path+".Ports()[*]", out)
+		return
+	}
+	if atomicLeafTypes[t] || t == reflect.TypeOf(netaddr.MAC{}) {
+		*out = append(*out, path)
+		return
+	}
+	switch t.Kind() {
+	case reflect.Pointer:
+		*out = append(*out, path+".@present")
+		structuralMappedPaths(t.Elem(), path, out)
+	case reflect.Map:
+		*out = append(*out, path+"[*].@key")
+		structuralMappedPaths(t.Elem(), path+"[*]", out)
+	case reflect.Slice:
+		structuralMappedPaths(t.Elem(), path+"[*]", out)
+	case reflect.Struct:
+		for i := 0; i < t.NumField(); i++ {
+			if t.Field(i).IsExported() {
+				structuralMappedPaths(t.Field(i).Type, path+"."+t.Field(i).Name, out)
+			}
+		}
+	default:
+		*out = append(*out, path)
+	}
+}
+
+func structuralMappedPath(path string) string {
+	tokens := mappedPathTokens(path)
+	var b strings.Builder
+	for _, token := range tokens {
+		if strings.HasPrefix(token, "[") {
+			b.WriteString("[*]")
+		} else {
+			if b.Len() > 0 {
+				b.WriteByte('.')
+			}
+			b.WriteString(token)
+		}
+	}
+	return b.String()
+}
+
+func mappedSeedProblems(m diffMapping) error {
+	var structural []string
+	structuralMappedPaths(m.seed.Type(), m.owner+".Config", &structural)
+	registered := make(map[string]bool)
+	for _, e := range m.entries {
+		p := structuralMappedPath(e.Path)
+		if registered[p] {
+			return errs.Msgf("duplicate structural mapping %s", p)
+		}
+		registered[p] = true
+	}
+	for _, path := range structural {
+		if !registered[path] {
+			return errs.Msgf("unmapped structural path %s", path)
+		}
+	}
+	for path := range registered {
+		if !slices.Contains(structural, path) {
+			return errs.Msgf("mapping names absent structural path %s", path)
+		}
+	}
+	// No slot-local override runs until the complete common input is checked.
+	for _, e := range m.entries {
+		if strings.HasSuffix(e.Path, ".@key") {
+			continue
+		}
+		tokens := mappedPathTokens(strings.TrimPrefix(e.Path, m.owner+".Config."))
+		if err := probeMappedPath(m.seed, tokens); err != nil {
+			return errs.Wrapf(err, "%s", e.Path)
+		}
+	}
+	return nil
+}
+
+func probeMappedPath(v reflect.Value, tokens []string) error {
+	if v.Kind() == reflect.Pointer {
+		if v.IsNil() {
+			return errs.Msgf("required seed branch %s is nil", v.Type())
+		}
+		return probeMappedPath(v.Elem(), tokens)
+	}
+	if len(tokens) == 0 || tokens[0] == "@present" {
+		return nil
+	}
+	token := tokens[0]
+	if v.Type() == reflect.TypeOf(port.Table{}) {
+		for _, p := range v.Interface().(port.Table).Ports() {
+			if p.Name == strings.Trim(tokens[1], "[]") {
+				return probeMappedPath(reflect.ValueOf(p), tokens[2:])
+			}
+		}
+		return errs.Msgf("required opaque port %s absent", tokens[1])
+	}
+	switch v.Kind() {
+	case reflect.Struct:
+		f := v.FieldByName(token)
+		if !f.IsValid() {
+			return errs.Msgf("unknown member %s", token)
+		}
+		return probeMappedPath(f, tokens[1:])
+	case reflect.Map:
+		key, err := mappedKey(v.Type().Key(), strings.Trim(token, "[]"))
+		if err != nil {
+			return err
+		}
+		value := v.MapIndex(key)
+		if !value.IsValid() {
+			return errs.Msgf("required map seed %s absent", token)
+		}
+		return probeMappedPath(value, tokens[1:])
+	case reflect.Slice:
+		i, err := strconv.Atoi(strings.Trim(token, "[]"))
+		if err != nil {
+			return err
+		}
+		if i >= v.Len() {
+			return errs.Msgf("required slice seed %s absent", token)
+		}
+		return probeMappedPath(v.Index(i), tokens[1:])
+	default:
+		return errs.Msgf("unsupported seed navigation %s", v.Type())
+	}
+}
+
 func alternateAddr(orig netip.Addr) netip.Addr {
 	alt := netip.MustParseAddr("192.0.2.9")
 	if orig == alt {
@@ -460,12 +1070,9 @@ func exemptionProblems(found []coverageLeaf, exemptions map[string]string) []str
 	return problems
 }
 
-// checkLeaf perturbs a fresh deep copy of seed at l alone, normalizes both sides through
-// normalize, and reports an error unless diff detects the change — or reports a
-// mutation-strategy error first if the perturbation did not actually produce a different
-// value. The pure return value lets a test check the result directly without a nested
-// subtest whose failure would also fail the outer test.
-func checkLeaf[C any](seed C, seedVal reflect.Value, l coverageLeaf, normalize func(C) C, diff func(a, b C) []trace.Change) error {
+// checkLeaf compares a submitted scalar mutation against independently supplied facts.
+// Its returned error lets fixture tests assert failure without a failing nested test.
+func checkLeaf[C any](seed C, seedVal reflect.Value, l coverageLeaf, normalize func(C) C, diff func(a, b C) []trace.Change, want []changeRecord) error {
 	perturbedRoot := deepCopyValue(seedVal)
 	leafVal, commit := navigateForMutation(perturbedRoot, l.path)
 	origLeafVal := navigateReadOnly(seedVal, l.path)
@@ -487,77 +1094,7 @@ func checkLeaf[C any](seed C, seedVal reflect.Value, l coverageLeaf, normalize f
 		return errs.Msgf("perturbed copy is %T, want %T", perturbedRoot.Interface(), seed)
 	}
 
-	if changes := diff(normalize(seed), normalize(perturbed)); len(changes) == 0 {
-		return errs.Msgf("diff reported no change after perturbing %s", l.displayPath)
-	}
-	return nil
-}
-
-// AssertDiffCoversConfig walks seed by reflection and, for every leaf not named in
-// exemptions, perturbs a fresh deep copy's value at that leaf alone, normalizes both
-// sides through normalize, and fails unless diff reports at least one change. It fails
-// outright, rather than skipping, a leaf whose perturbation did not actually change the
-// value: a check that plants a value proves nothing unless the plant is known to differ
-// from what was there. Every key in exemptions must name a leaf the walk actually found,
-// and carry a non-empty reason, or the exemption itself fails.
-func AssertDiffCoversConfig[C any](t *testing.T, seed C, normalize func(C) C, diff func(a, b C) []trace.Change, exemptions map[string]string) {
-	t.Helper()
-
-	leaves, seedVal, err := leavesOrEmpty(seed)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, msg := range exemptionProblems(leaves, exemptions) {
-		t.Error(msg)
-	}
-
-	for _, l := range leaves {
-		l := l
-		if _, exempt := exemptions[l.matchPath]; exempt {
-			continue
-		}
-		t.Run(l.displayPath, func(t *testing.T) {
-			t.Helper()
-			if err := checkLeaf(seed, seedVal, l, normalize, diff); err != nil {
-				t.Error(err)
-			}
-		})
-	}
-}
-
-// AssertDiffCoversPort is port's variant of AssertDiffCoversConfig: port.Diff takes a
-// Table whose fields are unexported and built only through NewBuilder, so this walks the
-// exported port.Port instead and builds each side's single-port Table through the
-// builder, alongside companions (a paired LAG port for a member's lag_parent leaf, for
-// example) that stay fixed across every perturbation.
-func AssertDiffCoversPort(t *testing.T, seed port.Port, companions []port.Port, exemptions map[string]string) {
-	t.Helper()
-
-	leaves, seedVal, err := leavesOrEmpty(seed)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, msg := range exemptionProblems(leaves, exemptions) {
-		t.Error(msg)
-	}
-
-	diff := func(a, b port.Port) []trace.Change {
-		return port.Diff(mustBuildPortTable(a, companions), mustBuildPortTable(b, companions))
-	}
-	normalize := func(p port.Port) port.Port { return p }
-
-	for _, l := range leaves {
-		l := l
-		if _, exempt := exemptions[l.matchPath]; exempt {
-			continue
-		}
-		t.Run(l.displayPath, func(t *testing.T) {
-			t.Helper()
-			if err := checkLeaf(seed, seedVal, l, normalize, diff); err != nil {
-				t.Error(err)
-			}
-		})
-	}
+	return matchMappedChanges(diff(normalize(seed), normalize(perturbed)), want)
 }
 
 // mustBuildPortTable builds a Table from p and its fixed companions. It panics if a
