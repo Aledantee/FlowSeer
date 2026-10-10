@@ -6,33 +6,28 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 )
 
-// BridgeDiffAllowance returns no exceptions for this exact producer.
-func BridgeDiffAllowance() DiffAllowance {
-	return DiffAllowance{}
-}
-
 func bridgeDiffMapping() (diffMapping, error) {
 	return newDiffMapping("bridge", bridge.Config{}, `{"AgingTime":"300s","MaxEntries":1024,"FloodVLANs":[10],"ProtectedPorts":["1/1/1"],"ForwardBPDU":true,"VLAN":{"Table":{"10":"ten"},"Switchports":{"1/1/1":{"PVID":10,"Tagged":[20],"Untagged":[10],"IngressFiltering":true,"Admission":"TaggedOnly","Tunnel":{"VID":30,"CustomerVIDs":[100],"TPID":34984},"PriorityTags":"IfNonzero"}}}}`, func(c bridge.Config) bridge.Config { return c.Normalize(layer.Env{}) }, bridge.Diff, []mappedEntry{
-		{Path: "bridge.Config.AgingTime", Producer: "bridge", AllowancePath: "bridge.Config.AgingTime", Setup: "", Before: `"300s"`, After: `"301s"`},
-		{Path: "bridge.Config.MaxEntries", Producer: "bridge", AllowancePath: "bridge.Config.MaxEntries", Setup: "", Before: `1024`, After: `1025`},
-		{Path: "bridge.Config.FloodVLANs[0]", Producer: "bridge", AllowancePath: "bridge.Config.FloodVLANs[0]", Setup: "", Before: `10`, After: `11`},
-		{Path: "bridge.Config.ProtectedPorts[0]", Producer: "bridge", AllowancePath: "bridge.Config.ProtectedPorts[0]", Setup: "", Before: `"1/1/1"`, After: `"1/1/2"`},
-		{Path: "bridge.Config.ForwardBPDU", Producer: "bridge", AllowancePath: "bridge.Config.ForwardBPDU", Setup: "", Before: `true`, After: `false`},
-		{Path: "bridge.Config.VLAN.Table[10]", Producer: "bridge", AllowancePath: "bridge.Config.VLAN.Table[10]", Setup: "", Before: `"ten"`, After: `"eleven"`},
-		{Path: "bridge.Config.VLAN.Switchports[1/1/1].PVID", Producer: "bridge", AllowancePath: "bridge.Config.VLAN.Switchports[1/1/1].PVID", Setup: "", Before: `10`, After: `11`},
-		{Path: "bridge.Config.VLAN.Switchports[1/1/1].Tagged[0]", Producer: "bridge", AllowancePath: "bridge.Config.VLAN.Switchports[1/1/1].Tagged[0]", Setup: "", Before: `20`, After: `21`},
-		{Path: "bridge.Config.VLAN.Switchports[1/1/1].Untagged[0]", Producer: "bridge", AllowancePath: "bridge.Config.VLAN.Switchports[1/1/1].Untagged[0]", Setup: "", Before: `10`, After: `11`},
-		{Path: "bridge.Config.VLAN.Switchports[1/1/1].IngressFiltering", Producer: "bridge", AllowancePath: "bridge.Config.VLAN.Switchports[1/1/1].IngressFiltering", Setup: "", Before: `true`, After: `false`},
-		{Path: "bridge.Config.VLAN.Switchports[1/1/1].Admission", Producer: "bridge", AllowancePath: "bridge.Config.VLAN.Switchports[1/1/1].Admission", Setup: "", Before: `"TaggedOnly"`, After: `"All"`},
-		{Path: "bridge.Config.VLAN.Switchports[1/1/1].PriorityTags", Producer: "bridge", AllowancePath: "bridge.Config.VLAN.Switchports[1/1/1].PriorityTags", Setup: "", Before: `"IfNonzero"`, After: `"Never"`},
-		{Path: "bridge.Config.VLAN.Switchports[1/1/1].Tunnel.VID", Producer: "bridge", AllowancePath: "bridge.Config.VLAN.Switchports[1/1/1].Tunnel.VID", Setup: "", Before: `30`, After: `31`},
-		{Path: "bridge.Config.VLAN.Switchports[1/1/1].Tunnel.CustomerVIDs[0]", Producer: "bridge", AllowancePath: "bridge.Config.VLAN.Switchports[1/1/1].Tunnel.CustomerVIDs[0]", Setup: "", Before: `100`, After: `101`},
-		{Path: "bridge.Config.VLAN.Switchports[1/1/1].Tunnel.TPID", Producer: "bridge", AllowancePath: "bridge.Config.VLAN.Switchports[1/1/1].Tunnel.TPID", Setup: "", Before: `0`, After: `34984`, Reason: "TPID zero and 34984 have the same effective value"},
-		{Path: "bridge.Config.VLAN.@present", Producer: "bridge", AllowancePath: "bridge.Config.VLAN.@present", Setup: "", Before: `{"Table":{"10":"ten"},"Switchports":{"1/1/1":{"PVID":10,"Tagged":[20],"Untagged":[10],"IngressFiltering":true,"Admission":"TaggedOnly","Tunnel":{"VID":30,"CustomerVIDs":[100],"TPID":34984},"PriorityTags":"IfNonzero"}}}`, After: `null`},
-		{Path: "bridge.Config.VLAN.Table[10].@key", Producer: "bridge", AllowancePath: "bridge.Config.VLAN.Table[10].@key", Setup: "", Before: `10`, After: `11`},
-		{Path: "bridge.Config.VLAN.Switchports[1/1/1].@key", Producer: "bridge", AllowancePath: "bridge.Config.VLAN.Switchports[1/1/1].@key", Setup: "", Before: `"1/1/1"`, After: `"1/1/2"`},
-		{Path: "bridge.Config.VLAN.Switchports[1/1/1].PVID.@present", Producer: "bridge", AllowancePath: "bridge.Config.VLAN.Switchports[1/1/1].PVID.@present", Setup: "", Before: `10`, After: `null`},
-		{Path: "bridge.Config.VLAN.Switchports[1/1/1].Tunnel.@present", Producer: "bridge", AllowancePath: "bridge.Config.VLAN.Switchports[1/1/1].Tunnel.@present", Setup: "", Before: `{"VID":30,"CustomerVIDs":[100],"TPID":34984}`, After: `null`},
+		{Path: "bridge.Config.AgingTime", Producer: "bridge", Setup: "", Before: `"300s"`, After: `"301s"`},
+		{Path: "bridge.Config.MaxEntries", Producer: "bridge", Setup: "", Before: `1024`, After: `1025`},
+		{Path: "bridge.Config.FloodVLANs[0]", Producer: "bridge", Setup: "", Before: `10`, After: `11`},
+		{Path: "bridge.Config.ProtectedPorts[0]", Producer: "bridge", Setup: "", Before: `"1/1/1"`, After: `"1/1/2"`},
+		{Path: "bridge.Config.ForwardBPDU", Producer: "bridge", Setup: "", Before: `true`, After: `false`},
+		{Path: "bridge.Config.VLAN.Table[10]", Producer: "bridge", Setup: "", Before: `"ten"`, After: `"eleven"`},
+		{Path: "bridge.Config.VLAN.Switchports[1/1/1].PVID", Producer: "bridge", Setup: "", Before: `10`, After: `11`},
+		{Path: "bridge.Config.VLAN.Switchports[1/1/1].Tagged[0]", Producer: "bridge", Setup: "", Before: `20`, After: `21`},
+		{Path: "bridge.Config.VLAN.Switchports[1/1/1].Untagged[0]", Producer: "bridge", Setup: "", Before: `10`, After: `11`},
+		{Path: "bridge.Config.VLAN.Switchports[1/1/1].IngressFiltering", Producer: "bridge", Setup: "", Before: `true`, After: `false`},
+		{Path: "bridge.Config.VLAN.Switchports[1/1/1].Admission", Producer: "bridge", Setup: "", Before: `"TaggedOnly"`, After: `"All"`},
+		{Path: "bridge.Config.VLAN.Switchports[1/1/1].PriorityTags", Producer: "bridge", Setup: "", Before: `"IfNonzero"`, After: `"Never"`},
+		{Path: "bridge.Config.VLAN.Switchports[1/1/1].Tunnel.VID", Producer: "bridge", Setup: "", Before: `30`, After: `31`},
+		{Path: "bridge.Config.VLAN.Switchports[1/1/1].Tunnel.CustomerVIDs[0]", Producer: "bridge", Setup: "", Before: `100`, After: `101`},
+		{Path: "bridge.Config.VLAN.Switchports[1/1/1].Tunnel.TPID", Producer: "bridge", Setup: "", Before: `0`, After: `34984`, Reason: "TPID zero and 34984 have the same effective value"},
+		{Path: "bridge.Config.VLAN.@present", Producer: "bridge", Setup: "", Before: `{"Table":{"10":"ten"},"Switchports":{"1/1/1":{"PVID":10,"Tagged":[20],"Untagged":[10],"IngressFiltering":true,"Admission":"TaggedOnly","Tunnel":{"VID":30,"CustomerVIDs":[100],"TPID":34984},"PriorityTags":"IfNonzero"}}}`, After: `null`},
+		{Path: "bridge.Config.VLAN.Table[10].@key", Producer: "bridge", Setup: "", Before: `10`, After: `11`},
+		{Path: "bridge.Config.VLAN.Switchports[1/1/1].@key", Producer: "bridge", Setup: "", Before: `"1/1/1"`, After: `"1/1/2"`},
+		{Path: "bridge.Config.VLAN.Switchports[1/1/1].PVID.@present", Producer: "bridge", Setup: "", Before: `10`, After: `null`},
+		{Path: "bridge.Config.VLAN.Switchports[1/1/1].Tunnel.@present", Producer: "bridge", Setup: "", Before: `{"VID":30,"CustomerVIDs":[100],"TPID":34984}`, After: `null`},
 	}, bridgeDiffExpectation)
 }
 

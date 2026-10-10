@@ -6,36 +6,31 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
 )
 
-// PhyDiffAllowance returns no exceptions for this exact producer.
-func PhyDiffAllowance() DiffAllowance {
-	return DiffAllowance{}
-}
-
 func phyDiffMapping() (diffMapping, error) {
 	return newDiffMapping("phy", phy.Config{}, `{"Ethernet":{"1/1/1":{"SupportedSpeedsBPS":[1000000000],"AutoNegotiationSupported":"Supported","Setting":{"SpeedBPS":1000000000,"Duplex":"Full","AutoNegotiation":true},"Observed":{"SpeedBPS":1000000000,"Duplex":"Full"}}},"PoE":{"Groups":{"g1":{"PowerNanowatts":370000000000}},"Ports":{"1/1/1":{"Group":"g1","MaxClass":4,"Enabled":true,"Limit":5000000000,"Priority":"High","PD":"Attached","PDClass":4}}}}`, func(c phy.Config) phy.Config { return c.Normalize(layer.Env{}) }, phy.Diff, []mappedEntry{
-		{Path: "phy.Config.Ethernet[1/1/1].Setting.SpeedBPS", Producer: "phy", AllowancePath: "phy.Config.Ethernet[1/1/1].Setting.SpeedBPS", Setup: "", Before: `1000000000`, After: `1000000001`},
-		{Path: "phy.Config.Ethernet[1/1/1].Setting.Duplex", Producer: "phy", AllowancePath: "phy.Config.Ethernet[1/1/1].Setting.Duplex", Setup: "", Before: `"Full"`, After: `"Half"`},
-		{Path: "phy.Config.Ethernet[1/1/1].Setting.AutoNegotiation", Producer: "phy", AllowancePath: "phy.Config.Ethernet[1/1/1].Setting.AutoNegotiation", Setup: "", Before: `true`, After: `false`},
-		{Path: "phy.Config.Ethernet[1/1/1].AutoNegotiationSupported", Producer: "phy", AllowancePath: "phy.Config.Ethernet[1/1/1].AutoNegotiationSupported", Setup: "", Before: `"Supported"`, After: `"Unsupported"`},
-		{Path: "phy.Config.Ethernet[1/1/1].Observed.SpeedBPS", Producer: "phy", AllowancePath: "phy.Config.Ethernet[1/1/1].Observed.SpeedBPS", Setup: "", Before: `1000000000`, After: `1000000001`},
-		{Path: "phy.Config.Ethernet[1/1/1].Observed.Duplex", Producer: "phy", AllowancePath: "phy.Config.Ethernet[1/1/1].Observed.Duplex", Setup: "", Before: `"Full"`, After: `"Half"`},
-		{Path: "phy.Config.Ethernet[1/1/1].SupportedSpeedsBPS[0]", Producer: "phy", AllowancePath: "phy.Config.Ethernet[1/1/1].SupportedSpeedsBPS[0]", Setup: "", Before: `1000000000`, After: `10000000000`},
-		{Path: "phy.Config.PoE.Groups[g1].PowerNanowatts", Producer: "phy", AllowancePath: "phy.Config.PoE.Groups[g1].PowerNanowatts", Setup: "", Before: `370000000000`, After: `370000000001`},
-		{Path: "phy.Config.PoE.Ports[1/1/1].Group", Producer: "phy", AllowancePath: "phy.Config.PoE.Ports[1/1/1].Group", Setup: "", Before: `"g1"`, After: `"g2"`},
-		{Path: "phy.Config.PoE.Ports[1/1/1].MaxClass", Producer: "phy", AllowancePath: "phy.Config.PoE.Ports[1/1/1].MaxClass", Setup: "", Before: `4`, After: `5`},
-		{Path: "phy.Config.PoE.Ports[1/1/1].Enabled", Producer: "phy", AllowancePath: "phy.Config.PoE.Ports[1/1/1].Enabled", Setup: "", Before: `true`, After: `false`},
-		{Path: "phy.Config.PoE.Ports[1/1/1].Limit", Producer: "phy", AllowancePath: "phy.Config.PoE.Ports[1/1/1].Limit", Setup: "", Before: `5000000000`, After: `5000000001`},
-		{Path: "phy.Config.PoE.Ports[1/1/1].Priority", Producer: "phy", AllowancePath: "phy.Config.PoE.Ports[1/1/1].Priority", Setup: "", Before: `"High"`, After: `"Low"`},
-		{Path: "phy.Config.PoE.Ports[1/1/1].PD", Producer: "phy", AllowancePath: "phy.Config.PoE.Ports[1/1/1].PD", Setup: "", Before: `"Attached"`, After: `"Absent"`},
-		{Path: "phy.Config.PoE.Ports[1/1/1].PDClass", Producer: "phy", AllowancePath: "phy.Config.PoE.Ports[1/1/1].PDClass", Setup: "", Before: `4`, After: `5`},
-		{Path: "phy.Config.Ethernet[1/1/1].@key", Producer: "phy", AllowancePath: "phy.Config.Ethernet[1/1/1].@key", Setup: "", Before: `"1/1/1"`, After: `"1/1/2"`},
-		{Path: "phy.Config.Ethernet[1/1/1].Setting.@present", Producer: "phy", AllowancePath: "phy.Config.Ethernet[1/1/1].Setting.@present", Setup: "", Before: `{"SpeedBPS":1000000000,"Duplex":"Full","AutoNegotiation":true}`, After: `null`},
-		{Path: "phy.Config.Ethernet[1/1/1].Observed.@present", Producer: "phy", AllowancePath: "phy.Config.Ethernet[1/1/1].Observed.@present", Setup: "", Before: `{"SpeedBPS":1000000000,"Duplex":"Full"}`, After: `null`},
-		{Path: "phy.Config.PoE.@present", Producer: "phy", AllowancePath: "phy.Config.PoE.@present", Setup: "", Before: `{"Groups":{"g1":{"PowerNanowatts":370000000000}},"Ports":{"1/1/1":{"Group":"g1","MaxClass":4,"Enabled":true,"Limit":5000000000,"Priority":"High","PD":"Attached","PDClass":4}}}`, After: `null`},
-		{Path: "phy.Config.PoE.Groups[g1].@key", Producer: "phy", AllowancePath: "phy.Config.PoE.Groups[g1].@key", Setup: "", Before: `"g1"`, After: `"g2"`},
-		{Path: "phy.Config.PoE.Ports[1/1/1].@key", Producer: "phy", AllowancePath: "phy.Config.PoE.Ports[1/1/1].@key", Setup: "", Before: `"1/1/1"`, After: `"1/1/2"`},
-		{Path: "phy.Config.PoE.Ports[1/1/1].Limit.@present", Producer: "phy", AllowancePath: "phy.Config.PoE.Ports[1/1/1].Limit.@present", Setup: "", Before: `5000000000`, After: `null`},
-		{Path: "phy.Config.PoE.Ports[1/1/1].PDClass.@present", Producer: "phy", AllowancePath: "phy.Config.PoE.Ports[1/1/1].PDClass.@present", Setup: "", Before: `4`, After: `null`},
+		{Path: "phy.Config.Ethernet[1/1/1].Setting.SpeedBPS", Producer: "phy", Setup: "", Before: `1000000000`, After: `1000000001`},
+		{Path: "phy.Config.Ethernet[1/1/1].Setting.Duplex", Producer: "phy", Setup: "", Before: `"Full"`, After: `"Half"`},
+		{Path: "phy.Config.Ethernet[1/1/1].Setting.AutoNegotiation", Producer: "phy", Setup: "", Before: `true`, After: `false`},
+		{Path: "phy.Config.Ethernet[1/1/1].AutoNegotiationSupported", Producer: "phy", Setup: "", Before: `"Supported"`, After: `"Unsupported"`},
+		{Path: "phy.Config.Ethernet[1/1/1].Observed.SpeedBPS", Producer: "phy", Setup: "", Before: `1000000000`, After: `1000000001`},
+		{Path: "phy.Config.Ethernet[1/1/1].Observed.Duplex", Producer: "phy", Setup: "", Before: `"Full"`, After: `"Half"`},
+		{Path: "phy.Config.Ethernet[1/1/1].SupportedSpeedsBPS[0]", Producer: "phy", Setup: "", Before: `1000000000`, After: `10000000000`},
+		{Path: "phy.Config.PoE.Groups[g1].PowerNanowatts", Producer: "phy", Setup: "", Before: `370000000000`, After: `370000000001`},
+		{Path: "phy.Config.PoE.Ports[1/1/1].Group", Producer: "phy", Setup: "", Before: `"g1"`, After: `"g2"`},
+		{Path: "phy.Config.PoE.Ports[1/1/1].MaxClass", Producer: "phy", Setup: "", Before: `4`, After: `5`},
+		{Path: "phy.Config.PoE.Ports[1/1/1].Enabled", Producer: "phy", Setup: "", Before: `true`, After: `false`},
+		{Path: "phy.Config.PoE.Ports[1/1/1].Limit", Producer: "phy", Setup: "", Before: `5000000000`, After: `5000000001`},
+		{Path: "phy.Config.PoE.Ports[1/1/1].Priority", Producer: "phy", Setup: "", Before: `"High"`, After: `"Low"`},
+		{Path: "phy.Config.PoE.Ports[1/1/1].PD", Producer: "phy", Setup: "", Before: `"Attached"`, After: `"Absent"`},
+		{Path: "phy.Config.PoE.Ports[1/1/1].PDClass", Producer: "phy", Setup: "", Before: `4`, After: `5`},
+		{Path: "phy.Config.Ethernet[1/1/1].@key", Producer: "phy", Setup: "", Before: `"1/1/1"`, After: `"1/1/2"`},
+		{Path: "phy.Config.Ethernet[1/1/1].Setting.@present", Producer: "phy", Setup: "", Before: `{"SpeedBPS":1000000000,"Duplex":"Full","AutoNegotiation":true}`, After: `null`},
+		{Path: "phy.Config.Ethernet[1/1/1].Observed.@present", Producer: "phy", Setup: "", Before: `{"SpeedBPS":1000000000,"Duplex":"Full"}`, After: `null`},
+		{Path: "phy.Config.PoE.@present", Producer: "phy", Setup: "", Before: `{"Groups":{"g1":{"PowerNanowatts":370000000000}},"Ports":{"1/1/1":{"Group":"g1","MaxClass":4,"Enabled":true,"Limit":5000000000,"Priority":"High","PD":"Attached","PDClass":4}}}`, After: `null`},
+		{Path: "phy.Config.PoE.Groups[g1].@key", Producer: "phy", Setup: "", Before: `"g1"`, After: `"g2"`},
+		{Path: "phy.Config.PoE.Ports[1/1/1].@key", Producer: "phy", Setup: "", Before: `"1/1/1"`, After: `"1/1/2"`},
+		{Path: "phy.Config.PoE.Ports[1/1/1].Limit.@present", Producer: "phy", Setup: "", Before: `5000000000`, After: `null`},
+		{Path: "phy.Config.PoE.Ports[1/1/1].PDClass.@present", Producer: "phy", Setup: "", Before: `4`, After: `null`},
 	}, phyDiffExpectation)
 }
 

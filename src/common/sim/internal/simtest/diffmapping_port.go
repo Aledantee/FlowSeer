@@ -6,22 +6,17 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
-// PortDiffAllowance returns no exceptions for this exact producer.
-func PortDiffAllowance() DiffAllowance {
-	return DiffAllowance{}
-}
-
 func portDiffMapping() (diffMapping, error) {
 	return newDiffMapping("port", port.Port{}, `{"Name":"1/1/1","IfIndex":1,"Kind":"Other","AdminStatus":"Up","OperStatus":"Up","MTU":1500,"LagParent":"lag1"}`, func(c port.Port) port.Port { return c }, func(a, b port.Port) []trace.Change {
 		return port.Diff(mustBuildPortTable(a, []port.Port{{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up}}), mustBuildPortTable(b, []port.Port{{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up}}))
 	}, []mappedEntry{
-		{Path: "port.Config.Name", Producer: "port", AllowancePath: "port.Config.Name", Setup: "", Before: `"1/1/1"`, After: `"1/1/2"`},
-		{Path: "port.Config.IfIndex", Producer: "port", AllowancePath: "port.Config.IfIndex", Setup: "", Before: `1`, After: `2`},
-		{Path: "port.Config.Kind", Producer: "port", AllowancePath: "port.Config.Kind", Setup: "", Before: `"Other"`, After: `"Physical"`},
-		{Path: "port.Config.AdminStatus", Producer: "port", AllowancePath: "port.Config.AdminStatus", Setup: "", Before: `"Up"`, After: `"Down"`},
-		{Path: "port.Config.OperStatus", Producer: "port", AllowancePath: "port.Config.OperStatus", Setup: "", Before: `"Up"`, After: `"Down"`},
-		{Path: "port.Config.MTU", Producer: "port", AllowancePath: "port.Config.MTU", Setup: "", Before: `1500`, After: `1501`},
-		{Path: "port.Config.LagParent", Producer: "port", AllowancePath: "port.Config.LagParent", Setup: "", Before: `"lag1"`, After: `""`},
+		{Path: "port.Config.Name", Producer: "port", Setup: "", Before: `"1/1/1"`, After: `"1/1/2"`},
+		{Path: "port.Config.IfIndex", Producer: "port", Setup: "", Before: `1`, After: `2`},
+		{Path: "port.Config.Kind", Producer: "port", Setup: "", Before: `"Other"`, After: `"Physical"`},
+		{Path: "port.Config.AdminStatus", Producer: "port", Setup: "", Before: `"Up"`, After: `"Down"`},
+		{Path: "port.Config.OperStatus", Producer: "port", Setup: "", Before: `"Up"`, After: `"Down"`},
+		{Path: "port.Config.MTU", Producer: "port", Setup: "", Before: `1500`, After: `1501`},
+		{Path: "port.Config.LagParent", Producer: "port", Setup: "", Before: `"lag1"`, After: `""`},
 	}, portDiffExpectation)
 }
 

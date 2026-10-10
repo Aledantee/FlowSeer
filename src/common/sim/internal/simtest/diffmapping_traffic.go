@@ -6,30 +6,25 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer/traffic"
 )
 
-// TrafficDiffAllowance returns no exceptions for this exact producer.
-func TrafficDiffAllowance() DiffAllowance {
-	return DiffAllowance{}
-}
-
 func trafficDiffMapping() (diffMapping, error) {
 	return newDiffMapping("traffic", traffic.Config{}, `{"Mirrors":[{"Name":"m1","SelectAll":true,"SelectSrcPorts":["1/1/1"],"SelectDstPorts":["1/1/2"],"SelectVLANs":[10],"OutputPort":"1/1/3","OutputVLAN":20,"SnapLen":128}],"Policers":{"1/1/1":{"RateBPS":1000000,"BurstOctets":1500}},"Queues":{"1/1/1":{"MaxRateBPS":{"0":1000000},"BufferOctets":{"0":4096}}}}`, func(c traffic.Config) traffic.Config { return c.Normalize(layer.Env{}) }, traffic.Diff, []mappedEntry{
-		{Path: "traffic.Config.Mirrors[0].Name", Producer: "traffic", AllowancePath: "traffic.Config.Mirrors[0].Name", Setup: "", Before: `"m1"`, After: `"m2"`},
-		{Path: "traffic.Config.Mirrors[0].SelectAll", Producer: "traffic", AllowancePath: "traffic.Config.Mirrors[0].SelectAll", Setup: "", Before: `true`, After: `false`},
-		{Path: "traffic.Config.Mirrors[0].OutputPort", Producer: "traffic", AllowancePath: "traffic.Config.Mirrors[0].OutputPort", Setup: "", Before: `"1/1/3"`, After: `"1/1/4"`},
-		{Path: "traffic.Config.Mirrors[0].OutputVLAN", Producer: "traffic", AllowancePath: "traffic.Config.Mirrors[0].OutputVLAN", Setup: "", Before: `20`, After: `21`},
-		{Path: "traffic.Config.Mirrors[0].SnapLen", Producer: "traffic", AllowancePath: "traffic.Config.Mirrors[0].SnapLen", Setup: "", Before: `128`, After: `129`},
-		{Path: "traffic.Config.Mirrors[0].SelectSrcPorts[0]", Producer: "traffic", AllowancePath: "traffic.Config.Mirrors[0].SelectSrcPorts[0]", Setup: "", Before: `"1/1/1"`, After: `"1/1/2"`},
-		{Path: "traffic.Config.Mirrors[0].SelectDstPorts[0]", Producer: "traffic", AllowancePath: "traffic.Config.Mirrors[0].SelectDstPorts[0]", Setup: "", Before: `"1/1/2"`, After: `"1/1/3"`},
-		{Path: "traffic.Config.Mirrors[0].SelectVLANs[0]", Producer: "traffic", AllowancePath: "traffic.Config.Mirrors[0].SelectVLANs[0]", Setup: "", Before: `10`, After: `11`},
-		{Path: "traffic.Config.Policers[1/1/1].RateBPS", Producer: "traffic", AllowancePath: "traffic.Config.Policers[1/1/1].RateBPS", Setup: "", Before: `1000000`, After: `1000001`},
-		{Path: "traffic.Config.Policers[1/1/1].BurstOctets", Producer: "traffic", AllowancePath: "traffic.Config.Policers[1/1/1].BurstOctets", Setup: "", Before: `1500`, After: `1501`},
-		{Path: "traffic.Config.Queues[1/1/1].MaxRateBPS[0]", Producer: "traffic", AllowancePath: "traffic.Config.Queues[1/1/1].MaxRateBPS[0]", Setup: "", Before: `1000000`, After: `1000001`},
-		{Path: "traffic.Config.Queues[1/1/1].BufferOctets[0]", Producer: "traffic", AllowancePath: "traffic.Config.Queues[1/1/1].BufferOctets[0]", Setup: "", Before: `4096`, After: `4097`},
-		{Path: "traffic.Config.Mirrors[0].OutputVLAN.@present", Producer: "traffic", AllowancePath: "traffic.Config.Mirrors[0].OutputVLAN.@present", Setup: "", Before: `20`, After: `null`},
-		{Path: "traffic.Config.Policers[1/1/1].@key", Producer: "traffic", AllowancePath: "traffic.Config.Policers[1/1/1].@key", Setup: "", Before: `"1/1/1"`, After: `"1/1/2"`},
-		{Path: "traffic.Config.Queues[1/1/1].@key", Producer: "traffic", AllowancePath: "traffic.Config.Queues[1/1/1].@key", Setup: "", Before: `"1/1/1"`, After: `"1/1/2"`},
-		{Path: "traffic.Config.Queues[1/1/1].MaxRateBPS[0].@key", Producer: "traffic", AllowancePath: "traffic.Config.Queues[1/1/1].MaxRateBPS[0].@key", Setup: "", Before: `0`, After: `1`},
-		{Path: "traffic.Config.Queues[1/1/1].BufferOctets[0].@key", Producer: "traffic", AllowancePath: "traffic.Config.Queues[1/1/1].BufferOctets[0].@key", Setup: "", Before: `0`, After: `1`},
+		{Path: "traffic.Config.Mirrors[0].Name", Producer: "traffic", Setup: "", Before: `"m1"`, After: `"m2"`},
+		{Path: "traffic.Config.Mirrors[0].SelectAll", Producer: "traffic", Setup: "", Before: `true`, After: `false`},
+		{Path: "traffic.Config.Mirrors[0].OutputPort", Producer: "traffic", Setup: "", Before: `"1/1/3"`, After: `"1/1/4"`},
+		{Path: "traffic.Config.Mirrors[0].OutputVLAN", Producer: "traffic", Setup: "", Before: `20`, After: `21`},
+		{Path: "traffic.Config.Mirrors[0].SnapLen", Producer: "traffic", Setup: "", Before: `128`, After: `129`},
+		{Path: "traffic.Config.Mirrors[0].SelectSrcPorts[0]", Producer: "traffic", Setup: "", Before: `"1/1/1"`, After: `"1/1/2"`},
+		{Path: "traffic.Config.Mirrors[0].SelectDstPorts[0]", Producer: "traffic", Setup: "", Before: `"1/1/2"`, After: `"1/1/3"`},
+		{Path: "traffic.Config.Mirrors[0].SelectVLANs[0]", Producer: "traffic", Setup: "", Before: `10`, After: `11`},
+		{Path: "traffic.Config.Policers[1/1/1].RateBPS", Producer: "traffic", Setup: "", Before: `1000000`, After: `1000001`},
+		{Path: "traffic.Config.Policers[1/1/1].BurstOctets", Producer: "traffic", Setup: "", Before: `1500`, After: `1501`},
+		{Path: "traffic.Config.Queues[1/1/1].MaxRateBPS[0]", Producer: "traffic", Setup: "", Before: `1000000`, After: `1000001`},
+		{Path: "traffic.Config.Queues[1/1/1].BufferOctets[0]", Producer: "traffic", Setup: "", Before: `4096`, After: `4097`},
+		{Path: "traffic.Config.Mirrors[0].OutputVLAN.@present", Producer: "traffic", Setup: "", Before: `20`, After: `null`},
+		{Path: "traffic.Config.Policers[1/1/1].@key", Producer: "traffic", Setup: "", Before: `"1/1/1"`, After: `"1/1/2"`},
+		{Path: "traffic.Config.Queues[1/1/1].@key", Producer: "traffic", Setup: "", Before: `"1/1/1"`, After: `"1/1/2"`},
+		{Path: "traffic.Config.Queues[1/1/1].MaxRateBPS[0].@key", Producer: "traffic", Setup: "", Before: `0`, After: `1`},
+		{Path: "traffic.Config.Queues[1/1/1].BufferOctets[0].@key", Producer: "traffic", Setup: "", Before: `0`, After: `1`},
 	}, trafficDiffExpectation)
 }
 

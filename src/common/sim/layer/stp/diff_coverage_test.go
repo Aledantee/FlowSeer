@@ -16,7 +16,7 @@ import (
 // this fixture never calls; Diff and Normalize take the raw struct, so seeding both
 // together reaches every leaf of each in one pass.
 func TestDiffCoversEveryConfigField(t *testing.T) {
-	simtest.AssertMappedDiffCoverage(t, "stp", simtest.StpDiffAllowance())
+	simtest.AssertMappedDiffCoverage(t, "stp")
 }
 
 func TestDiffCoverageRejectsOmittedPointToPoint(t *testing.T) {

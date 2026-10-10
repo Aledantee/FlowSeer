@@ -31,36 +31,31 @@ func optionalFilterAdditionExpectation(path string, hits *int) ([]changeRecord, 
 	}
 }
 
-// FilterDiffAllowance returns no exceptions for this exact producer.
-func FilterDiffAllowance() DiffAllowance {
-	return DiffAllowance{}
-}
-
 func filterDiffMapping() (diffMapping, error) {
 	return newDiffMapping("filter", filter.Config{}, `{"Sets":{"set1":{"Stateful":true,"Default":"drop","Rules":[{"Name":"rule1","Action":"accept","Match":{"Protocol":6,"Src":["10.0.1.0/24"],"Dst":["10.0.2.0/24"],"SrcPorts":[{"Start":1000,"End":2000}],"DstPorts":[{"Start":80,"End":80}],"ICMP":{"Type":8,"Code":0},"TCPFlags":{"Mask":2,"Value":2}}}]}},"Bindings":[{"Interface":"vlan10","Direction":"in","Set":"set1"}]}`, func(c filter.Config) filter.Config { return c.Normalize(layer.Env{}) }, filter.Diff, []mappedEntry{
-		{Path: "filter.Config.Sets[set1].Stateful", Producer: "filter", AllowancePath: "filter.Config.Sets[set1].Stateful", Setup: "", Before: `true`, After: `false`},
-		{Path: "filter.Config.Sets[set1].Default", Producer: "filter", AllowancePath: "filter.Config.Sets[set1].Default", Setup: "", Before: `"drop"`, After: `"accept"`},
-		{Path: "filter.Config.Sets[set1].Rules[0].Name", Producer: "filter", AllowancePath: "filter.Config.Sets[set1].Rules[0].Name", Setup: "", Before: `"rule1"`, After: `"rule2"`},
-		{Path: "filter.Config.Sets[set1].Rules[0].Action", Producer: "filter", AllowancePath: "filter.Config.Sets[set1].Rules[0].Action", Setup: "", Before: `"accept"`, After: `"drop"`},
-		{Path: "filter.Config.Sets[set1].Rules[0].Match.Protocol", Producer: "filter", AllowancePath: "filter.Config.Sets[set1].Rules[0].Match.Protocol", Setup: "", Before: `6`, After: `17`},
-		{Path: "filter.Config.Sets[set1].Rules[0].Match.Src[0]", Producer: "filter", AllowancePath: "filter.Config.Sets[set1].Rules[0].Match.Src[0]", Setup: "", Before: `"10.0.1.0/24"`, After: `"192.0.2.0/25"`},
-		{Path: "filter.Config.Sets[set1].Rules[0].Match.Dst[0]", Producer: "filter", AllowancePath: "filter.Config.Sets[set1].Rules[0].Match.Dst[0]", Setup: "", Before: `"10.0.2.0/24"`, After: `"192.0.2.0/25"`},
-		{Path: "filter.Config.Sets[set1].Rules[0].Match.SrcPorts[0].Start", Producer: "filter", AllowancePath: "filter.Config.Sets[set1].Rules[0].Match.SrcPorts[0].Start", Setup: "", Before: `1000`, After: `1001`},
-		{Path: "filter.Config.Sets[set1].Rules[0].Match.SrcPorts[0].End", Producer: "filter", AllowancePath: "filter.Config.Sets[set1].Rules[0].Match.SrcPorts[0].End", Setup: "", Before: `2000`, After: `2001`},
-		{Path: "filter.Config.Sets[set1].Rules[0].Match.DstPorts[0].Start", Producer: "filter", AllowancePath: "filter.Config.Sets[set1].Rules[0].Match.DstPorts[0].Start", Setup: "", Before: `80`, After: `81`},
-		{Path: "filter.Config.Sets[set1].Rules[0].Match.DstPorts[0].End", Producer: "filter", AllowancePath: "filter.Config.Sets[set1].Rules[0].Match.DstPorts[0].End", Setup: "", Before: `80`, After: `81`},
-		{Path: "filter.Config.Sets[set1].Rules[0].Match.ICMP.Type", Producer: "filter", AllowancePath: "filter.Config.Sets[set1].Rules[0].Match.ICMP.Type", Setup: "", Before: `8`, After: `9`},
-		{Path: "filter.Config.Sets[set1].Rules[0].Match.ICMP.Code", Producer: "filter", AllowancePath: "filter.Config.Sets[set1].Rules[0].Match.ICMP.Code", Setup: "", Before: `0`, After: `1`},
-		{Path: "filter.Config.Sets[set1].Rules[0].Match.TCPFlags.Mask", Producer: "filter", AllowancePath: "filter.Config.Sets[set1].Rules[0].Match.TCPFlags.Mask", Setup: "", Before: `2`, After: `18`},
-		{Path: "filter.Config.Sets[set1].Rules[0].Match.TCPFlags.Value", Producer: "filter", AllowancePath: "filter.Config.Sets[set1].Rules[0].Match.TCPFlags.Value", Setup: "", Before: `2`, After: `0`},
-		{Path: "filter.Config.Bindings[0].Interface", Producer: "filter", AllowancePath: "filter.Config.Bindings[0].Interface", Setup: "", Before: `"vlan10"`, After: `"vlan11"`},
-		{Path: "filter.Config.Bindings[0].Direction", Producer: "filter", AllowancePath: "filter.Config.Bindings[0].Direction", Setup: "", Before: `"in"`, After: `"out"`},
-		{Path: "filter.Config.Bindings[0].Set", Producer: "filter", AllowancePath: "filter.Config.Bindings[0].Set", Setup: "", Before: `"set1"`, After: `"set2"`},
-		{Path: "filter.Config.Sets[set1].@key", Producer: "filter", AllowancePath: "filter.Config.Sets[set1].@key", Setup: "", Before: `"set1"`, After: `"set2"`},
-		{Path: "filter.Config.Sets[set1].Rules[0].Match.Protocol.@present", Producer: "filter", AllowancePath: "filter.Config.Sets[set1].Rules[0].Match.Protocol.@present", Setup: "", Before: `6`, After: `null`},
-		{Path: "filter.Config.Sets[set1].Rules[0].Match.ICMP.@present", Producer: "filter", AllowancePath: "filter.Config.Sets[set1].Rules[0].Match.ICMP.@present", Setup: "", Before: `{"Type":8,"Code":0}`, After: `null`},
-		{Path: "filter.Config.Sets[set1].Rules[0].Match.ICMP.Code.@present", Producer: "filter", AllowancePath: "filter.Config.Sets[set1].Rules[0].Match.ICMP.Code.@present", Setup: "", Before: `0`, After: `null`},
-		{Path: "filter.Config.Sets[set1].Rules[0].Match.TCPFlags.@present", Producer: "filter", AllowancePath: "filter.Config.Sets[set1].Rules[0].Match.TCPFlags.@present", Setup: "", Before: `{"Mask":2,"Value":2}`, After: `null`},
+		{Path: "filter.Config.Sets[set1].Stateful", Producer: "filter", Setup: "", Before: `true`, After: `false`},
+		{Path: "filter.Config.Sets[set1].Default", Producer: "filter", Setup: "", Before: `"drop"`, After: `"accept"`},
+		{Path: "filter.Config.Sets[set1].Rules[0].Name", Producer: "filter", Setup: "", Before: `"rule1"`, After: `"rule2"`},
+		{Path: "filter.Config.Sets[set1].Rules[0].Action", Producer: "filter", Setup: "", Before: `"accept"`, After: `"drop"`},
+		{Path: "filter.Config.Sets[set1].Rules[0].Match.Protocol", Producer: "filter", Setup: "", Before: `6`, After: `17`},
+		{Path: "filter.Config.Sets[set1].Rules[0].Match.Src[0]", Producer: "filter", Setup: "", Before: `"10.0.1.0/24"`, After: `"192.0.2.0/25"`},
+		{Path: "filter.Config.Sets[set1].Rules[0].Match.Dst[0]", Producer: "filter", Setup: "", Before: `"10.0.2.0/24"`, After: `"192.0.2.0/25"`},
+		{Path: "filter.Config.Sets[set1].Rules[0].Match.SrcPorts[0].Start", Producer: "filter", Setup: "", Before: `1000`, After: `1001`},
+		{Path: "filter.Config.Sets[set1].Rules[0].Match.SrcPorts[0].End", Producer: "filter", Setup: "", Before: `2000`, After: `2001`},
+		{Path: "filter.Config.Sets[set1].Rules[0].Match.DstPorts[0].Start", Producer: "filter", Setup: "", Before: `80`, After: `81`},
+		{Path: "filter.Config.Sets[set1].Rules[0].Match.DstPorts[0].End", Producer: "filter", Setup: "", Before: `80`, After: `81`},
+		{Path: "filter.Config.Sets[set1].Rules[0].Match.ICMP.Type", Producer: "filter", Setup: "", Before: `8`, After: `9`},
+		{Path: "filter.Config.Sets[set1].Rules[0].Match.ICMP.Code", Producer: "filter", Setup: "", Before: `0`, After: `1`},
+		{Path: "filter.Config.Sets[set1].Rules[0].Match.TCPFlags.Mask", Producer: "filter", Setup: "", Before: `2`, After: `18`},
+		{Path: "filter.Config.Sets[set1].Rules[0].Match.TCPFlags.Value", Producer: "filter", Setup: "", Before: `2`, After: `0`},
+		{Path: "filter.Config.Bindings[0].Interface", Producer: "filter", Setup: "", Before: `"vlan10"`, After: `"vlan11"`},
+		{Path: "filter.Config.Bindings[0].Direction", Producer: "filter", Setup: "", Before: `"in"`, After: `"out"`},
+		{Path: "filter.Config.Bindings[0].Set", Producer: "filter", Setup: "", Before: `"set1"`, After: `"set2"`},
+		{Path: "filter.Config.Sets[set1].@key", Producer: "filter", Setup: "", Before: `"set1"`, After: `"set2"`},
+		{Path: "filter.Config.Sets[set1].Rules[0].Match.Protocol.@present", Producer: "filter", Setup: "", Before: `6`, After: `null`},
+		{Path: "filter.Config.Sets[set1].Rules[0].Match.ICMP.@present", Producer: "filter", Setup: "", Before: `{"Type":8,"Code":0}`, After: `null`},
+		{Path: "filter.Config.Sets[set1].Rules[0].Match.ICMP.Code.@present", Producer: "filter", Setup: "", Before: `0`, After: `null`},
+		{Path: "filter.Config.Sets[set1].Rules[0].Match.TCPFlags.@present", Producer: "filter", Setup: "", Before: `{"Mask":2,"Value":2}`, After: `null`},
 	}, filterDiffExpectation)
 }
 

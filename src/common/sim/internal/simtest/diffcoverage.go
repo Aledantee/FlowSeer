@@ -413,17 +413,9 @@ func mutateArrayLeaf(v reflect.Value) error {
 	return nil
 }
 
-// DiffAllowance bounds a temporary producer exception to named layers and paths.
-// It is safe for concurrent reads.
-type DiffAllowance struct {
-	Producer string
-	Layers   []string
-	Paths    []string
-}
-
 type mappedEntry struct {
-	Path, Producer, AllowancePath, Setup, Before, After string
-	Reason                                              string
+	Path, Producer, Setup, Before, After string
+	Reason                               string
 }
 
 type changeRecord struct {
@@ -480,8 +472,7 @@ func diffMappingFor(owner string) (diffMapping, error) {
 }
 
 // AssertMappedDiffCoverage checks every submitted mutation and its independent sequence.
-// Allowances apply only to their producing owner, layer and literal path.
-func AssertMappedDiffCoverage(t *testing.T, owner string, allowances ...DiffAllowance) {
+func AssertMappedDiffCoverage(t *testing.T, owner string) {
 	t.Helper()
 	m, err := diffMappingFor(owner)
 	if err != nil {
@@ -497,7 +488,7 @@ func AssertMappedDiffCoverage(t *testing.T, owner string, allowances ...DiffAllo
 	hits := 0
 	for _, e := range m.entries {
 		t.Run(e.Path, func(t *testing.T) {
-			if err := checkMappedLeaf(m, e, allowances, &hits); err != nil {
+			if err := checkMappedLeaf(m, e, &hits); err != nil {
 				t.Error(err)
 			}
 		})
@@ -861,7 +852,7 @@ func prepareMappedInputs(m diffMapping, e mappedEntry) (reflect.Value, reflect.V
 	return a, b, nil
 }
 
-func checkMappedLeaf(m diffMapping, e mappedEntry, allowances []DiffAllowance, hits *int) error {
+func checkMappedLeaf(m diffMapping, e mappedEntry, hits *int) error {
 	a, b, err := prepareMappedInputs(m, e)
 	if err != nil {
 		return errs.Wrapf(err, "%s", e.Path)
@@ -877,102 +868,7 @@ func checkMappedLeaf(m diffMapping, e mappedEntry, allowances []DiffAllowance, h
 		}
 		return matchMappedChanges(got, want)
 	}
-	switch e.Path {
-	case "vswitch.Config.Bridge.VLAN.@present", "assembly.Config.Switches[sw1].Bridge.VLAN.@present":
-		return matchCapabilityMapping(got, want, "vswitch.Config.Bridge.@present", "bridge", "bridge.Config.VLAN.@present", allowances)
-	case "vswitch.Config.Phy.PoE.@present", "assembly.Config.Switches[sw1].Phy.PoE.@present":
-		return matchCapabilityMapping(got, want, "vswitch.Config.Phy.@present", "phy", "phy.Config.PoE.@present", allowances)
-	}
-	if e.Producer == "vswitch" && strings.HasSuffix(e.Path, ".@present") {
-		producer, path := "bridge", "bridge.Config.VLAN.@present"
-		if strings.HasSuffix(e.Path, ".STP.@present") {
-			producer, path = "stp", "stp.Config.Address"
-		}
-		return matchCapabilityMapping(got, want, e.AllowancePath, producer, path, allowances)
-	}
-	var allowedLayers []string
-	for _, allowance := range allowances {
-		if allowance.Producer == e.Producer && slices.Contains(allowance.Paths, strings.ReplaceAll(e.AllowancePath, "Sets[ingress]", "Sets[set1]")) {
-			allowedLayers = allowance.Layers
-			break
-		}
-	}
-	if len(allowedLayers) == 0 {
-		return matchMappedChanges(got, want)
-	}
-	// A pending producer can retain coarse records only in its own emitted layers.
-	for _, record := range want {
-		if !slices.Contains(allowedLayers, record.Layer) {
-			return matchMappedChanges(got, want)
-		}
-	}
-	if len(got) == 0 {
-		return errs.Msgf("diff reported no change after perturbing %s", e.Path)
-	}
-	for _, record := range got {
-		if !slices.Contains(allowedLayers, string(record.Layer)) {
-			return errs.Msgf("allowance for %s cannot admit layer %s", e.Producer, record.Layer)
-		}
-	}
-	return nil
-}
-
-func matchCapabilityMapping(got []trace.Change, want []changeRecord, capabilityPath, producer, path string, allowances []DiffAllowance) error {
-	var capabilityGot, delegatedGot []trace.Change
-	var capabilityWant, delegatedWant []changeRecord
-	for _, record := range want {
-		if record.Kind == "capability" {
-			capabilityWant = append(capabilityWant, record)
-		} else {
-			delegatedWant = append(delegatedWant, record)
-		}
-	}
-	for _, record := range got {
-		if record.Subject.Kind == "capability" {
-			if len(delegatedGot) != 0 {
-				return errs.Msg("capability records follow delegated records")
-			}
-			capabilityGot = append(capabilityGot, record)
-		} else {
-			delegatedGot = append(delegatedGot, record)
-		}
-	}
-	allowed := func(producer, path, layer string) bool {
-		for _, allowance := range allowances {
-			if allowance.Producer == producer && slices.Contains(allowance.Paths, path) && slices.Contains(allowance.Layers, layer) {
-				return true
-			}
-		}
-		return false
-	}
-	for i, record := range capabilityWant {
-		if !allowed("vswitch", capabilityPath, record.Layer) {
-			return matchMappedChanges(got, want)
-		}
-		if i >= len(capabilityGot) || string(capabilityGot[i].Layer) != record.Layer || capabilityGot[i].Subject.Kind != record.Kind || capabilityGot[i].Subject.Key != record.Key {
-			return errs.Msgf("missing allowed capability record %s/%s", record.Layer, record.Key)
-		}
-	}
-	if len(capabilityGot) != len(capabilityWant) {
-		return errs.Msg("unexpected capability record")
-	}
-	if len(delegatedWant) == 0 {
-		return matchMappedChanges(delegatedGot, nil)
-	}
-	for _, record := range delegatedWant {
-		if !allowed(producer, path, record.Layer) {
-			return matchMappedChanges(delegatedGot, delegatedWant)
-		}
-	}
-	if len(delegatedGot) == 0 {
-		return errs.Msgf("missing delegated %s records", producer)
-	}
-	for _, record := range delegatedGot {
-		if !allowed(producer, path, string(record.Layer)) {
-			return errs.Msgf("delegated allowance for %s cannot admit layer %s", producer, record.Layer)
-		}
-	}
-	return nil
+	return matchMappedChanges(got, want)
 }
 
 func matchMappedChanges(got []trace.Change, want []changeRecord) error {

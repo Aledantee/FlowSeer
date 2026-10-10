@@ -525,7 +525,8 @@ all-hosts clause. But 224.0.0.5 maps to `01:00:5e:00:00:05`, which the host
 does not take, so the packet is refused.
 
 `assembly.Diff` reports `accept.promiscuous` and `accept.all_multicast` as host fields,
-and each multicast MAC added or removed as `accept.multicast.<mac>`.
+and each multicast MAC added or removed with a quoted key, such as
+`accept.multicast["01:00:5e:00:00:01"]`.
 Validation refuses a unicast entry in `Accept.Multicast`, naming its submitted
 position, such as `hosts.h1.accept.multicast.0`.
 
@@ -554,22 +555,20 @@ same allocator a switch and a host share. See [Reflector
 acceptance](#reflector-acceptance) for what an arriving frame does at a
 reflector.
 
-`assembly.Diff` reports a reflector under subject kind `reflector`, keyed by its name,
-with an added or removed reflector's whole configuration on `From` or `To` as
-a `fabric.reflector` snapshot. A changed `Address` reports field `address`. A
-changed port or attachment reports a field relative to the reflector subject,
-not the `reflectors.<name>.` prefix a validation error carries: an added or
-removed port reports field `ports.<name>` with the port's `phy.Ethernet`
-snapshot, and a changed one reports `ports.<name>.<field>` for whichever of
-phy's own field names differs, such as `ports.p1.speed_bps`. An added or
-removed attachment reports field `attachments.<name>` with a
-`fabric.reflector_attachment` snapshot, and a changed one reports
-`attachments.<name>.port`,
-`attachments.<name>.vlan`, or `attachments.<name>.addresses` for whichever
-field differs. This is the same relative-versus-dotted split the host section
-above describes: a changed VLAN is field `attachments.a.vlan` under subject
-`{reflector, r1}`, while the validation error for the same attachment names
-the dotted `reflectors.r1.attachments.a.vlan`.
+`assembly.Diff` reports a reflector under subject kind `reflector`, keyed by
+its name. Added and removed reflectors carry a `fabric.reflector` snapshot.
+A retained reflector's address uses field `address`. Port lifecycle fields
+use quoted keys such as `ports["p.1"]` with a `phy.ethernet` snapshot.
+Retained ports delegate PHY member fields, for example
+`ports["p.1"].speed_bps`.
+
+Attachment lifecycle fields use `attachments["edge.1"]` with a
+`fabric.reflector_attachment` snapshot. Retained attachments report `.port`,
+`.vlan`, and individual `.addresses["192.0.2.1/24"]` members. Address removals
+precede additions and carry `fabric.prefix` facts. These fields are relative
+to the reflector subject. Validation errors retain dotted submitted paths
+such as `reflectors.r1.attachments.a.vlan`.
+[Reflector diff tests](reflector_diff_test.go) check the fields and typed facts.
 
 ## Reflector acceptance
 

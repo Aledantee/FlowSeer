@@ -14,7 +14,7 @@ import (
 // TestDiffCoversEveryConfigField verifies that every exported loopprotect.Config field
 // reaches loopprotect.Diff.
 func TestDiffCoversEveryConfigField(t *testing.T) {
-	simtest.AssertMappedDiffCoverage(t, "loopprotect", simtest.LoopprotectDiffAllowance())
+	simtest.AssertMappedDiffCoverage(t, "loopprotect")
 }
 
 func TestDiffCollectionCorrespondence(t *testing.T) {

@@ -17,7 +17,7 @@ import (
 // TestDiffCoversEveryConfigField verifies that every exported bridge.Config field reaches
 // bridge.Diff.
 func TestDiffCoversEveryConfigField(t *testing.T) {
-	simtest.AssertMappedDiffCoverage(t, "bridge", simtest.BridgeDiffAllowance())
+	simtest.AssertMappedDiffCoverage(t, "bridge")
 }
 
 // TestRetentionKeyCoversEveryConfigField verifies that every exported bridge.Config field

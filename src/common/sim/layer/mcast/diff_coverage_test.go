@@ -14,7 +14,7 @@ import (
 // TestDiffCoversEveryConfigField verifies that every exported mcast.Config field reaches
 // mcast.Diff.
 func TestDiffCoversEveryConfigField(t *testing.T) {
-	simtest.AssertMappedDiffCoverage(t, "mcast", simtest.McastDiffAllowance())
+	simtest.AssertMappedDiffCoverage(t, "mcast")
 }
 
 func TestDiffCollectionCorrespondence(t *testing.T) {

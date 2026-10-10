@@ -40,7 +40,7 @@ func TestMappedTPIDEffectiveAndActiveControls(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			entry := mappedEntry{Path: tc.path, Producer: "bridge", AllowancePath: "bridge.Config.VLAN.Switchports[1/1/1].Tunnel.TPID", Before: tc.before, After: tc.after}
+			entry := mappedEntry{Path: tc.path, Producer: "bridge", Before: tc.before, After: tc.after}
 			m.expectation = func(path string, hits *int) ([]changeRecord, error) {
 				if path != tc.path {
 					return nil, errs.Msgf("unknown TPID control %s", path)
@@ -48,7 +48,7 @@ func TestMappedTPIDEffectiveAndActiveControls(t *testing.T) {
 				*hits++
 				return []changeRecord{{Layer: "vlan", Kind: "port", Key: tc.key, Field: "tunnel.tpid", From: &[2]string{"bridge.tpid", tc.from}, To: &[2]string{"bridge.tpid", tc.to}}}, nil
 			}
-			if err := checkMappedLeaf(m, entry, []DiffAllowance{BridgeDiffAllowance()}, &hits); err != nil {
+			if err := checkMappedLeaf(m, entry, &hits); err != nil {
 				t.Error(err)
 			}
 		})
@@ -98,14 +98,14 @@ func TestMappedOptionalFilterAggregateSequences(t *testing.T) {
 				t.Errorf("addition sequence = %+v, want %+v", additions, tc.addition)
 			}
 			hits := 0
-			if err := checkMappedLeaf(m, entry, allDiffAllowances(), &hits); err != nil {
+			if err := checkMappedLeaf(m, entry, &hits); err != nil {
 				t.Fatal(err)
 			}
 			reverse := entry
 			reverse.Before = "null"
 			reverse.After = tc.populated
 			m.expectation = optionalFilterAdditionExpectation
-			if err := checkMappedLeaf(m, reverse, allDiffAllowances(), &hits); err != nil {
+			if err := checkMappedLeaf(m, reverse, &hits); err != nil {
 				t.Fatal(err)
 			}
 			for _, sequence := range [][]changeRecord{tc.removal, tc.addition} {
@@ -227,10 +227,6 @@ func TestCheckLeafExactFixtures(t *testing.T) {
 	}
 }
 
-func allDiffAllowances() []DiffAllowance {
-	return []DiffAllowance{BridgeDiffAllowance(), PhyDiffAllowance(), LoopprotectDiffAllowance(), McastDiffAllowance(), LagDiffAllowance(), StpDiffAllowance(), FilterDiffAllowance(), RoutingDiffAllowance(), TrafficDiffAllowance(), PortDiffAllowance(), VswitchDiffAllowance(), AssemblyDiffAllowance()}
-}
-
 func TestMappedDiffManifest(t *testing.T) {
 	registered, hits, empty := 0, 0, 0
 	for _, owner := range []string{"bridge", "phy", "loopprotect", "mcast", "lag", "stp", "filter", "routing", "traffic", "port", "vswitch", "assembly"} {
@@ -244,7 +240,7 @@ func TestMappedDiffManifest(t *testing.T) {
 		registered += len(m.entries)
 		for _, e := range m.entries {
 			t.Run(e.Path, func(t *testing.T) {
-				if err := checkMappedLeaf(m, e, allDiffAllowances(), &hits); err != nil {
+				if err := checkMappedLeaf(m, e, &hits); err != nil {
 					t.Error(err)
 				}
 				n := 0
@@ -379,7 +375,7 @@ func TestMappedSeedAndMutationGuards(t *testing.T) {
 	}
 }
 
-func TestMappedAllowanceDoesNotCoverMigratedProducer(t *testing.T) {
+func TestMappedExactSequenceRejectsMissingProducer(t *testing.T) {
 	m, err := vswitchDiffMapping()
 	if err != nil {
 		t.Fatal(err)
@@ -395,8 +391,8 @@ func TestMappedAllowanceDoesNotCoverMigratedProducer(t *testing.T) {
 				return []trace.Change{{Layer: "relay", Subject: trace.Subject{Kind: "capability", Key: "relay"}, Field: "presence", To: diffFixtureFact("allowed")}, {Layer: "vlan", Subject: trace.Subject{Kind: "capability", Key: "vlan"}, Field: "presence", To: diffFixtureFact("allowed")}}
 			}
 			hits := 0
-			if err := checkMappedLeaf(m, entry, []DiffAllowance{VswitchDiffAllowance()}, &hits); err == nil {
-				t.Error("presence allowance admitted missing migrated bridge arm")
+			if err := checkMappedLeaf(m, entry, &hits); err == nil {
+				t.Error("exact matcher admitted missing bridge arm")
 			}
 		})
 	}
@@ -601,7 +597,7 @@ func TestMappedNestedCapabilityProducerPartitions(t *testing.T) {
 				t.Fatal("missing declared nested lifecycle slot")
 			}
 			original := m.diff
-			for _, variant := range []string{"baseline", "missing", "wrong", "capability-key", "order", "no-allowance", "exact-no-allowance"} {
+			for _, variant := range []string{"baseline", "missing", "wrong", "capability-key", "order", "capability-field", "exact-sequence"} {
 				t.Run(variant, func(t *testing.T) {
 					m.diff = func(a, b reflect.Value) []trace.Change {
 						got := original(a, b)
@@ -615,21 +611,17 @@ func TestMappedNestedCapabilityProducerPartitions(t *testing.T) {
 							got[1].Field = "wrong-delegated-field"
 						case "capability-key":
 							got[0].Subject.Key = "wrong-capability"
-						case "no-allowance":
+						case "capability-field":
 							got[0].Field = ""
 						case "order":
 							got[1], got[2] = got[2], got[1]
 						}
 						return got
 					}
-					allowances := []DiffAllowance{VswitchDiffAllowance()}
-					if variant == "no-allowance" || variant == "exact-no-allowance" {
-						allowances = nil
-					}
 					n := 0
-					err := checkMappedLeaf(m, entry, allowances, &n)
+					err := checkMappedLeaf(m, entry, &n)
 					hits += n
-					if variant == "baseline" || variant == "exact-no-allowance" {
+					if variant == "baseline" || variant == "exact-sequence" {
 						if err != nil {
 							t.Error(err)
 						}

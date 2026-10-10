@@ -814,8 +814,8 @@ func TestPhyAssumptionRecordsOneAssumptionPerFilledLink(t *testing.T) {
 		t.Errorf("Spec() = cable %+v, host %+v, assumption %+v; want configured values and the assumption", spec.Cables[1], spec.Hosts["h2"], spec.PhyAssumption)
 	}
 	changes := assembly.Diff(stated, assumed)
-	if len(changes) != 1 || changes[0].Subject.Kind != "fabric" || changes[0].Field != "phy_assumption" {
-		t.Errorf("Diff = %+v, want the phy_assumption field only", changes)
+	if len(changes) != 1 || changes[0].Subject.Kind != "fabric" || changes[0].Field != "phy_assumption.presence" {
+		t.Errorf("Diff = %+v, want the phy_assumption.presence field only", changes)
 	}
 }
 
@@ -984,7 +984,7 @@ func TestAddedFabricFieldsFieldMatrix(t *testing.T) {
 		{
 			name:        "setting the physical assumption",
 			mutate:      func(s *assembly.ConstructionSpec) { s.PhyAssumption = gigabitCopper() },
-			wantChanges: 1, wantKind: "fabric", wantField: "phy_assumption",
+			wantChanges: 1, wantKind: "fabric", wantField: "phy_assumption.presence",
 		},
 		{
 			name: "changing the assumed medium",
@@ -992,7 +992,7 @@ func TestAddedFabricFieldsFieldMatrix(t *testing.T) {
 				s.PhyAssumption = gigabitCopper()
 				s.PhyAssumption.Medium = cablemodel.Twinax
 			},
-			wantChanges: 1, wantKind: "fabric", wantField: "phy_assumption",
+			wantChanges: 1, wantKind: "fabric", wantField: "phy_assumption.presence",
 		},
 		{
 			name:        "citing evidence on a cable",

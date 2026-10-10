@@ -13,7 +13,7 @@ import (
 // TestDiffCoversEveryConfigField verifies that every exported lag.Config field reaches
 // lag.Diff.
 func TestDiffCoversEveryConfigField(t *testing.T) {
-	simtest.AssertMappedDiffCoverage(t, "lag", simtest.LagDiffAllowance())
+	simtest.AssertMappedDiffCoverage(t, "lag")
 }
 
 func TestDiffCoverageRejectsOmittedDelays(t *testing.T) {

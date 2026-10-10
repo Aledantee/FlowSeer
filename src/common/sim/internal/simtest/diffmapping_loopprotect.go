@@ -6,19 +6,14 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer/loopprotect"
 )
 
-// LoopprotectDiffAllowance returns no exceptions for this exact producer.
-func LoopprotectDiffAllowance() DiffAllowance {
-	return DiffAllowance{}
-}
-
 func loopprotectDiffMapping() (diffMapping, error) {
 	return newDiffMapping("loopprotect", loopprotect.Config{}, `{"Interval":"5s","Ports":{"1/1/1":{"Action":"Block","Recovery":{"Mode":"Timer","Duration":"30s"},"VLANs":[10]}}}`, func(c loopprotect.Config) loopprotect.Config { return c.Normalize(layer.Env{}) }, loopprotect.Diff, []mappedEntry{
-		{Path: "loopprotect.Config.Interval", Producer: "loopprotect", AllowancePath: "loopprotect.Config.Interval", Setup: "", Before: `"5s"`, After: `"6s"`},
-		{Path: "loopprotect.Config.Ports[1/1/1].Action", Producer: "loopprotect", AllowancePath: "loopprotect.Config.Ports[1/1/1].Action", Setup: "", Before: `"Block"`, After: `"Disable"`},
-		{Path: "loopprotect.Config.Ports[1/1/1].Recovery.Mode", Producer: "loopprotect", AllowancePath: "loopprotect.Config.Ports[1/1/1].Recovery.Mode", Setup: "", Before: `"Timer"`, After: `"Manual"`},
-		{Path: "loopprotect.Config.Ports[1/1/1].Recovery.Duration", Producer: "loopprotect", AllowancePath: "loopprotect.Config.Ports[1/1/1].Recovery.Duration", Setup: "", Before: `"30s"`, After: `"31s"`},
-		{Path: "loopprotect.Config.Ports[1/1/1].VLANs[0]", Producer: "loopprotect", AllowancePath: "loopprotect.Config.Ports[1/1/1].VLANs[0]", Setup: "", Before: `10`, After: `11`},
-		{Path: "loopprotect.Config.Ports[1/1/1].@key", Producer: "loopprotect", AllowancePath: "loopprotect.Config.Ports[1/1/1].@key", Setup: "", Before: `"1/1/1"`, After: `"1/1/2"`},
+		{Path: "loopprotect.Config.Interval", Producer: "loopprotect", Setup: "", Before: `"5s"`, After: `"6s"`},
+		{Path: "loopprotect.Config.Ports[1/1/1].Action", Producer: "loopprotect", Setup: "", Before: `"Block"`, After: `"Disable"`},
+		{Path: "loopprotect.Config.Ports[1/1/1].Recovery.Mode", Producer: "loopprotect", Setup: "", Before: `"Timer"`, After: `"Manual"`},
+		{Path: "loopprotect.Config.Ports[1/1/1].Recovery.Duration", Producer: "loopprotect", Setup: "", Before: `"30s"`, After: `"31s"`},
+		{Path: "loopprotect.Config.Ports[1/1/1].VLANs[0]", Producer: "loopprotect", Setup: "", Before: `10`, After: `11`},
+		{Path: "loopprotect.Config.Ports[1/1/1].@key", Producer: "loopprotect", Setup: "", Before: `"1/1/1"`, After: `"1/1/2"`},
 	}, loopprotectDiffExpectation)
 }
 

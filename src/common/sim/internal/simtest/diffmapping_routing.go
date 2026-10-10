@@ -6,32 +6,27 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
 )
 
-// RoutingDiffAllowance returns no exceptions for this exact producer.
-func RoutingDiffAllowance() DiffAllowance {
-	return DiffAllowance{}
-}
-
 func routingDiffMapping() (diffMapping, error) {
 	return newDiffMapping("routing", routing.Config{}, `{"ClearRouterFlag":false,"VRFs":{"default":{"Interfaces":{"vlan10":{"VLAN":10,"Port":"1/1/1","MAC":"02:00:00:00:00:01","Prefixes":["10.0.10.1/24"]}},"Routes":[{"Prefix":"10.0.20.0/24","NextHop":"10.0.10.7","Interface":"vlan10","Preference":1,"Metric":10}],"Neighbors":[{"Interface":"vlan10","Addr":"10.0.10.7","MAC":"02:00:00:00:00:02"}],"NeighborPolicy":{"Mode":"disabled","ReachableTime":"30s","RetransTimer":"3s","HoldDepth":4}}}}`, func(c routing.Config) routing.Config { return c.Normalize(layer.Env{}) }, routing.Diff, []mappedEntry{
-		{Path: "routing.Config.ClearRouterFlag", Producer: "routing", AllowancePath: "routing.Config.ClearRouterFlag", Setup: "", Before: `false`, After: `true`},
-		{Path: "routing.Config.VRFs[default].Interfaces[vlan10].VLAN", Producer: "routing", AllowancePath: "routing.Config.VRFs[default].Interfaces[vlan10].VLAN", Setup: "", Before: `10`, After: `11`},
-		{Path: "routing.Config.VRFs[default].Interfaces[vlan10].Port", Producer: "routing", AllowancePath: "routing.Config.VRFs[default].Interfaces[vlan10].Port", Setup: "", Before: `"1/1/1"`, After: `"1/1/2"`},
-		{Path: "routing.Config.VRFs[default].Interfaces[vlan10].MAC", Producer: "routing", AllowancePath: "routing.Config.VRFs[default].Interfaces[vlan10].MAC", Setup: "", Before: `"02:00:00:00:00:01"`, After: `"02:00:00:00:00:02"`},
-		{Path: "routing.Config.VRFs[default].Interfaces[vlan10].Prefixes[0]", Producer: "routing", AllowancePath: "routing.Config.VRFs[default].Interfaces[vlan10].Prefixes[0]", Setup: "", Before: `"10.0.10.1/24"`, After: `"192.0.2.0/25"`},
-		{Path: "routing.Config.VRFs[default].Routes[0].Prefix", Producer: "routing", AllowancePath: "routing.Config.VRFs[default].Routes[0].Prefix", Setup: "", Before: `"10.0.20.0/24"`, After: `"192.0.2.0/25"`},
-		{Path: "routing.Config.VRFs[default].Routes[0].NextHop", Producer: "routing", AllowancePath: "routing.Config.VRFs[default].Routes[0].NextHop", Setup: "", Before: `"10.0.10.7"`, After: `"10.0.10.8"`},
-		{Path: "routing.Config.VRFs[default].Routes[0].Interface", Producer: "routing", AllowancePath: "routing.Config.VRFs[default].Routes[0].Interface", Setup: "", Before: `"vlan10"`, After: `"vlan11"`},
-		{Path: "routing.Config.VRFs[default].Routes[0].Preference", Producer: "routing", AllowancePath: "routing.Config.VRFs[default].Routes[0].Preference", Setup: "", Before: `1`, After: `2`},
-		{Path: "routing.Config.VRFs[default].Routes[0].Metric", Producer: "routing", AllowancePath: "routing.Config.VRFs[default].Routes[0].Metric", Setup: "", Before: `10`, After: `11`},
-		{Path: "routing.Config.VRFs[default].Neighbors[0].Interface", Producer: "routing", AllowancePath: "routing.Config.VRFs[default].Neighbors[0].Interface", Setup: "", Before: `"vlan10"`, After: `"vlan11"`},
-		{Path: "routing.Config.VRFs[default].Neighbors[0].Addr", Producer: "routing", AllowancePath: "routing.Config.VRFs[default].Neighbors[0].Addr", Setup: "", Before: `"10.0.10.7"`, After: `"10.0.10.8"`},
-		{Path: "routing.Config.VRFs[default].Neighbors[0].MAC", Producer: "routing", AllowancePath: "routing.Config.VRFs[default].Neighbors[0].MAC", Setup: "", Before: `"02:00:00:00:00:02"`, After: `"02:00:00:00:00:03"`},
-		{Path: "routing.Config.VRFs[default].NeighborPolicy.Mode", Producer: "routing", AllowancePath: "routing.Config.VRFs[default].NeighborPolicy.Mode", Setup: "", Before: `"disabled"`, After: `""`},
-		{Path: "routing.Config.VRFs[default].NeighborPolicy.ReachableTime", Producer: "routing", AllowancePath: "routing.Config.VRFs[default].NeighborPolicy.ReachableTime", Setup: "", Before: `"30s"`, After: `"31s"`},
-		{Path: "routing.Config.VRFs[default].NeighborPolicy.RetransTimer", Producer: "routing", AllowancePath: "routing.Config.VRFs[default].NeighborPolicy.RetransTimer", Setup: "", Before: `"3s"`, After: `"4s"`},
-		{Path: "routing.Config.VRFs[default].NeighborPolicy.HoldDepth", Producer: "routing", AllowancePath: "routing.Config.VRFs[default].NeighborPolicy.HoldDepth", Setup: "", Before: `4`, After: `5`},
-		{Path: "routing.Config.VRFs[default].@key", Producer: "routing", AllowancePath: "routing.Config.VRFs[default].@key", Setup: "", Before: `"default"`, After: `"default2"`},
-		{Path: "routing.Config.VRFs[default].Interfaces[vlan10].@key", Producer: "routing", AllowancePath: "routing.Config.VRFs[default].Interfaces[vlan10].@key", Setup: "", Before: `"vlan10"`, After: `"vlan11"`},
+		{Path: "routing.Config.ClearRouterFlag", Producer: "routing", Setup: "", Before: `false`, After: `true`},
+		{Path: "routing.Config.VRFs[default].Interfaces[vlan10].VLAN", Producer: "routing", Setup: "", Before: `10`, After: `11`},
+		{Path: "routing.Config.VRFs[default].Interfaces[vlan10].Port", Producer: "routing", Setup: "", Before: `"1/1/1"`, After: `"1/1/2"`},
+		{Path: "routing.Config.VRFs[default].Interfaces[vlan10].MAC", Producer: "routing", Setup: "", Before: `"02:00:00:00:00:01"`, After: `"02:00:00:00:00:02"`},
+		{Path: "routing.Config.VRFs[default].Interfaces[vlan10].Prefixes[0]", Producer: "routing", Setup: "", Before: `"10.0.10.1/24"`, After: `"192.0.2.0/25"`},
+		{Path: "routing.Config.VRFs[default].Routes[0].Prefix", Producer: "routing", Setup: "", Before: `"10.0.20.0/24"`, After: `"192.0.2.0/25"`},
+		{Path: "routing.Config.VRFs[default].Routes[0].NextHop", Producer: "routing", Setup: "", Before: `"10.0.10.7"`, After: `"10.0.10.8"`},
+		{Path: "routing.Config.VRFs[default].Routes[0].Interface", Producer: "routing", Setup: "", Before: `"vlan10"`, After: `"vlan11"`},
+		{Path: "routing.Config.VRFs[default].Routes[0].Preference", Producer: "routing", Setup: "", Before: `1`, After: `2`},
+		{Path: "routing.Config.VRFs[default].Routes[0].Metric", Producer: "routing", Setup: "", Before: `10`, After: `11`},
+		{Path: "routing.Config.VRFs[default].Neighbors[0].Interface", Producer: "routing", Setup: "", Before: `"vlan10"`, After: `"vlan11"`},
+		{Path: "routing.Config.VRFs[default].Neighbors[0].Addr", Producer: "routing", Setup: "", Before: `"10.0.10.7"`, After: `"10.0.10.8"`},
+		{Path: "routing.Config.VRFs[default].Neighbors[0].MAC", Producer: "routing", Setup: "", Before: `"02:00:00:00:00:02"`, After: `"02:00:00:00:00:03"`},
+		{Path: "routing.Config.VRFs[default].NeighborPolicy.Mode", Producer: "routing", Setup: "", Before: `"disabled"`, After: `""`},
+		{Path: "routing.Config.VRFs[default].NeighborPolicy.ReachableTime", Producer: "routing", Setup: "", Before: `"30s"`, After: `"31s"`},
+		{Path: "routing.Config.VRFs[default].NeighborPolicy.RetransTimer", Producer: "routing", Setup: "", Before: `"3s"`, After: `"4s"`},
+		{Path: "routing.Config.VRFs[default].NeighborPolicy.HoldDepth", Producer: "routing", Setup: "", Before: `4`, After: `5`},
+		{Path: "routing.Config.VRFs[default].@key", Producer: "routing", Setup: "", Before: `"default"`, After: `"default2"`},
+		{Path: "routing.Config.VRFs[default].Interfaces[vlan10].@key", Producer: "routing", Setup: "", Before: `"vlan10"`, After: `"vlan11"`},
 	}, routingDiffExpectation)
 }
 

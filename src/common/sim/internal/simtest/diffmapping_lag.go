@@ -2,6 +2,7 @@ package simtest
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
@@ -12,10 +13,17 @@ import (
 
 // AssertMappedDiffRejectsOmittedFields checks owner and delegated mappings with
 // each named field removed while an unrelated record remains. It checks the
-// registered independent expectations and the current producer allowances.
+// registered independent expectations and exact ordered matching.
 func AssertMappedDiffRejectsOmittedFields(t *testing.T, producer string, fields map[string]string) {
 	t.Helper()
 	hits := 0
+	producerPath := func(path string) string {
+		if strings.HasPrefix(path, producer+".Config.") {
+			return path
+		}
+		_, tail, _ := strings.Cut(path, "."+map[string]string{"lag": "LAG", "stp": "STP"}[producer]+".")
+		return producer + ".Config." + tail
+	}
 	for _, owner := range []string{producer, "vswitch", "assembly"} {
 		m, err := diffMappingFor(owner)
 		if err != nil {
@@ -24,7 +32,7 @@ func AssertMappedDiffRejectsOmittedFields(t *testing.T, producer string, fields 
 		unrelatedPath := map[string]string{"lag": "lag.Config.LAGs[lag1].HashBasis", "stp": "stp.Config.HelloTime"}[producer]
 		var unrelated []trace.Change
 		for _, entry := range m.entries {
-			if entry.Producer != producer || entry.AllowancePath != unrelatedPath {
+			if entry.Producer != producer || producerPath(entry.Path) != unrelatedPath {
 				continue
 			}
 			a, b, err := prepareMappedInputs(m, entry)
@@ -37,14 +45,13 @@ func AssertMappedDiffRejectsOmittedFields(t *testing.T, producer string, fields 
 			t.Fatalf("%s unrelated scalar records = %d, want 1", owner, len(unrelated))
 		}
 		for _, entry := range m.entries {
-			field, selected := fields[entry.AllowancePath]
+			field, selected := fields[producerPath(entry.Path)]
 			if entry.Producer != producer || !selected {
 				continue
 			}
 			t.Run(entry.Path, func(t *testing.T) {
-				allowances := []DiffAllowance{LagDiffAllowance(), StpDiffAllowance(), VswitchDiffAllowance(), AssemblyDiffAllowance()}
 				controlHits := 0
-				if err := checkMappedLeaf(m, entry, allowances, &controlHits); err != nil {
+				if err := checkMappedLeaf(m, entry, &controlHits); err != nil {
 					t.Fatalf("complete mapping: %v", err)
 				}
 				if controlHits != 1 {
@@ -67,7 +74,7 @@ func AssertMappedDiffRejectsOmittedFields(t *testing.T, producer string, fields 
 					}
 					return kept
 				}
-				if err := checkMappedLeaf(broken, entry, allowances, &hits); err == nil {
+				if err := checkMappedLeaf(broken, entry, &hits); err == nil {
 					t.Error("missing field accepted with an unrelated record")
 				}
 			})
@@ -79,31 +86,26 @@ func AssertMappedDiffRejectsOmittedFields(t *testing.T, producer string, fields 
 	}
 }
 
-// LagDiffAllowance returns no exceptions for this exact producer.
-func LagDiffAllowance() DiffAllowance {
-	return DiffAllowance{}
-}
-
 func lagDiffMapping() (diffMapping, error) {
 	return newDiffMapping("lag", lag.Config{}, `{"LAGs":{"lag1":{"Mode":"BalanceSLB","Primary":"1/1/1","UpDelay":"2s","DownDelay":"1s","HashBasis":7,"MinLinks":1,"RebalanceInterval":"45s","LACP":{"Mode":"Active","Fast":true,"SystemPriority":32768,"SystemID":"02:00:00:00:00:01","Key":1,"Fallback":true},"Members":{"1/1/1":{"Priority":128,"Key":1}}}}}`, func(c lag.Config) lag.Config { return c.Normalize(layer.Env{}) }, lag.Diff, []mappedEntry{
-		{Path: "lag.Config.LAGs[lag1].Mode", Producer: "lag", AllowancePath: "lag.Config.LAGs[lag1].Mode", Setup: "", Before: `"BalanceSLB"`, After: `"BalanceTCP"`},
-		{Path: "lag.Config.LAGs[lag1].Primary", Producer: "lag", AllowancePath: "lag.Config.LAGs[lag1].Primary", Setup: "", Before: `"1/1/1"`, After: `"1/1/2"`},
-		{Path: "lag.Config.LAGs[lag1].UpDelay", Producer: "lag", AllowancePath: "lag.Config.LAGs[lag1].UpDelay", Setup: "", Before: `"2s"`, After: `"3s"`},
-		{Path: "lag.Config.LAGs[lag1].DownDelay", Producer: "lag", AllowancePath: "lag.Config.LAGs[lag1].DownDelay", Setup: "", Before: `"1s"`, After: `"2s"`},
-		{Path: "lag.Config.LAGs[lag1].HashBasis", Producer: "lag", AllowancePath: "lag.Config.LAGs[lag1].HashBasis", Setup: "", Before: `7`, After: `8`},
-		{Path: "lag.Config.LAGs[lag1].MinLinks", Producer: "lag", AllowancePath: "lag.Config.LAGs[lag1].MinLinks", Setup: "", Before: `1`, After: `2`},
-		{Path: "lag.Config.LAGs[lag1].RebalanceInterval", Producer: "lag", AllowancePath: "lag.Config.LAGs[lag1].RebalanceInterval", Setup: "", Before: `"45s"`, After: `"46s"`},
-		{Path: "lag.Config.LAGs[lag1].LACP.Mode", Producer: "lag", AllowancePath: "lag.Config.LAGs[lag1].LACP.Mode", Setup: "", Before: `"Active"`, After: `"Passive"`},
-		{Path: "lag.Config.LAGs[lag1].LACP.Fast", Producer: "lag", AllowancePath: "lag.Config.LAGs[lag1].LACP.Fast", Setup: "", Before: `true`, After: `false`},
-		{Path: "lag.Config.LAGs[lag1].LACP.SystemPriority", Producer: "lag", AllowancePath: "lag.Config.LAGs[lag1].LACP.SystemPriority", Setup: "", Before: `32768`, After: `32769`},
-		{Path: "lag.Config.LAGs[lag1].LACP.SystemID", Producer: "lag", AllowancePath: "lag.Config.LAGs[lag1].LACP.SystemID", Setup: "", Before: `"02:00:00:00:00:01"`, After: `"02:00:00:00:00:02"`},
-		{Path: "lag.Config.LAGs[lag1].LACP.Key", Producer: "lag", AllowancePath: "lag.Config.LAGs[lag1].LACP.Key", Setup: "", Before: `1`, After: `2`},
-		{Path: "lag.Config.LAGs[lag1].LACP.Fallback", Producer: "lag", AllowancePath: "lag.Config.LAGs[lag1].LACP.Fallback", Setup: "", Before: `true`, After: `false`},
-		{Path: "lag.Config.LAGs[lag1].Members[1/1/1].Priority", Producer: "lag", AllowancePath: "lag.Config.LAGs[lag1].Members[1/1/1].Priority", Setup: "", Before: `128`, After: `129`},
-		{Path: "lag.Config.LAGs[lag1].Members[1/1/1].Key", Producer: "lag", AllowancePath: "lag.Config.LAGs[lag1].Members[1/1/1].Key", Setup: "", Before: `1`, After: `2`},
-		{Path: "lag.Config.LAGs[lag1].@key", Producer: "lag", AllowancePath: "lag.Config.LAGs[lag1].@key", Setup: "", Before: `"lag1"`, After: `"lag2"`},
-		{Path: "lag.Config.LAGs[lag1].RebalanceInterval.@present", Producer: "lag", AllowancePath: "lag.Config.LAGs[lag1].RebalanceInterval.@present", Setup: "", Before: `"45s"`, After: `null`},
-		{Path: "lag.Config.LAGs[lag1].Members[1/1/1].@key", Producer: "lag", AllowancePath: "lag.Config.LAGs[lag1].Members[1/1/1].@key", Setup: "", Before: `"1/1/1"`, After: `"1/1/2"`},
+		{Path: "lag.Config.LAGs[lag1].Mode", Producer: "lag", Setup: "", Before: `"BalanceSLB"`, After: `"BalanceTCP"`},
+		{Path: "lag.Config.LAGs[lag1].Primary", Producer: "lag", Setup: "", Before: `"1/1/1"`, After: `"1/1/2"`},
+		{Path: "lag.Config.LAGs[lag1].UpDelay", Producer: "lag", Setup: "", Before: `"2s"`, After: `"3s"`},
+		{Path: "lag.Config.LAGs[lag1].DownDelay", Producer: "lag", Setup: "", Before: `"1s"`, After: `"2s"`},
+		{Path: "lag.Config.LAGs[lag1].HashBasis", Producer: "lag", Setup: "", Before: `7`, After: `8`},
+		{Path: "lag.Config.LAGs[lag1].MinLinks", Producer: "lag", Setup: "", Before: `1`, After: `2`},
+		{Path: "lag.Config.LAGs[lag1].RebalanceInterval", Producer: "lag", Setup: "", Before: `"45s"`, After: `"46s"`},
+		{Path: "lag.Config.LAGs[lag1].LACP.Mode", Producer: "lag", Setup: "", Before: `"Active"`, After: `"Passive"`},
+		{Path: "lag.Config.LAGs[lag1].LACP.Fast", Producer: "lag", Setup: "", Before: `true`, After: `false`},
+		{Path: "lag.Config.LAGs[lag1].LACP.SystemPriority", Producer: "lag", Setup: "", Before: `32768`, After: `32769`},
+		{Path: "lag.Config.LAGs[lag1].LACP.SystemID", Producer: "lag", Setup: "", Before: `"02:00:00:00:00:01"`, After: `"02:00:00:00:00:02"`},
+		{Path: "lag.Config.LAGs[lag1].LACP.Key", Producer: "lag", Setup: "", Before: `1`, After: `2`},
+		{Path: "lag.Config.LAGs[lag1].LACP.Fallback", Producer: "lag", Setup: "", Before: `true`, After: `false`},
+		{Path: "lag.Config.LAGs[lag1].Members[1/1/1].Priority", Producer: "lag", Setup: "", Before: `128`, After: `129`},
+		{Path: "lag.Config.LAGs[lag1].Members[1/1/1].Key", Producer: "lag", Setup: "", Before: `1`, After: `2`},
+		{Path: "lag.Config.LAGs[lag1].@key", Producer: "lag", Setup: "", Before: `"lag1"`, After: `"lag2"`},
+		{Path: "lag.Config.LAGs[lag1].RebalanceInterval.@present", Producer: "lag", Setup: "", Before: `"45s"`, After: `null`},
+		{Path: "lag.Config.LAGs[lag1].Members[1/1/1].@key", Producer: "lag", Setup: "", Before: `"1/1/1"`, After: `"1/1/2"`},
 	}, lagDiffExpectation)
 }
 

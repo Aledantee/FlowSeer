@@ -6,22 +6,17 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer/mcast"
 )
 
-// McastDiffAllowance returns no exceptions for this exact producer.
-func McastDiffAllowance() DiffAllowance {
-	return DiffAllowance{}
-}
-
 func mcastDiffMapping() (diffMapping, error) {
 	return newDiffMapping("mcast", mcast.Config{}, `{"VLANs":{"10":{"FloodUnregistered":true,"FastLeave":true,"RouterPorts":["1/1/1"],"MembershipInterval":"260s","RouterPortInterval":"260s","LastMemberQueryInterval":"1s","LastMemberQueryCount":2}}}`, func(c mcast.Config) mcast.Config { return c.Normalize(layer.Env{}) }, mcast.Diff, []mappedEntry{
-		{Path: "mcast.Config.VLANs[10].FloodUnregistered", Producer: "mcast", AllowancePath: "mcast.Config.VLANs[10].FloodUnregistered", Setup: "", Before: `true`, After: `false`},
-		{Path: "mcast.Config.VLANs[10].FastLeave", Producer: "mcast", AllowancePath: "mcast.Config.VLANs[10].FastLeave", Setup: "", Before: `true`, After: `false`},
-		{Path: "mcast.Config.VLANs[10].MembershipInterval", Producer: "mcast", AllowancePath: "mcast.Config.VLANs[10].MembershipInterval", Setup: "", Before: `"260s"`, After: `"261s"`},
-		{Path: "mcast.Config.VLANs[10].RouterPortInterval", Producer: "mcast", AllowancePath: "mcast.Config.VLANs[10].RouterPortInterval", Setup: "", Before: `"260s"`, After: `"261s"`},
-		{Path: "mcast.Config.VLANs[10].LastMemberQueryInterval", Producer: "mcast", AllowancePath: "mcast.Config.VLANs[10].LastMemberQueryInterval", Setup: "", Before: `"1s"`, After: `"2s"`},
-		{Path: "mcast.Config.VLANs[10].LastMemberQueryCount", Producer: "mcast", AllowancePath: "mcast.Config.VLANs[10].LastMemberQueryCount", Setup: "", Before: `2`, After: `3`},
-		{Path: "mcast.Config.VLANs[10].RouterPorts[0]", Producer: "mcast", AllowancePath: "mcast.Config.VLANs[10].RouterPorts[0]", Setup: "", Before: `"1/1/1"`, After: `"1/1/2"`},
-		{Path: "mcast.Config.VLANs[10].@key", Producer: "mcast", AllowancePath: "mcast.Config.VLANs[10].@key", Setup: "", Before: `10`, After: `11`},
-		{Path: "mcast.Config.VLANs[10].FloodUnregistered.@present", Producer: "mcast", AllowancePath: "mcast.Config.VLANs[10].FloodUnregistered.@present", Setup: "", Before: `true`, After: `null`, Reason: "Nil flood policy and true have the same effective value"},
+		{Path: "mcast.Config.VLANs[10].FloodUnregistered", Producer: "mcast", Setup: "", Before: `true`, After: `false`},
+		{Path: "mcast.Config.VLANs[10].FastLeave", Producer: "mcast", Setup: "", Before: `true`, After: `false`},
+		{Path: "mcast.Config.VLANs[10].MembershipInterval", Producer: "mcast", Setup: "", Before: `"260s"`, After: `"261s"`},
+		{Path: "mcast.Config.VLANs[10].RouterPortInterval", Producer: "mcast", Setup: "", Before: `"260s"`, After: `"261s"`},
+		{Path: "mcast.Config.VLANs[10].LastMemberQueryInterval", Producer: "mcast", Setup: "", Before: `"1s"`, After: `"2s"`},
+		{Path: "mcast.Config.VLANs[10].LastMemberQueryCount", Producer: "mcast", Setup: "", Before: `2`, After: `3`},
+		{Path: "mcast.Config.VLANs[10].RouterPorts[0]", Producer: "mcast", Setup: "", Before: `"1/1/1"`, After: `"1/1/2"`},
+		{Path: "mcast.Config.VLANs[10].@key", Producer: "mcast", Setup: "", Before: `10`, After: `11`},
+		{Path: "mcast.Config.VLANs[10].FloodUnregistered.@present", Producer: "mcast", Setup: "", Before: `true`, After: `null`, Reason: "Nil flood policy and true have the same effective value"},
 	}, mcastDiffExpectation)
 }
 

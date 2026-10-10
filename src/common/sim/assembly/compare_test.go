@@ -4,7 +4,6 @@ import (
 	"net/netip"
 	"reflect"
 	"strconv"
-	"strings"
 	"testing"
 	"time"
 
@@ -437,10 +436,9 @@ func TestDiffAllSubjectKinds(t *testing.T) {
 		var foundAddrs, foundGW, foundNbr bool
 		for _, ch := range changes {
 			if ch.Subject.Kind == "host" && ch.Subject.Key == "h1" {
-				if ch.Field == "addresses" {
+				if ch.Field == `addresses["fd00::10/64"]` {
 					foundAddrs = true
-					if !trace.EqualFact(ch.From, assembly.PrefixesFact([]string{"10.0.10.10/24"})) ||
-						!trace.EqualFact(ch.To, assembly.PrefixesFact([]string{"10.0.10.10/24", "fd00::10/64"})) {
+					if ch.From != nil || !isFact(ch.To, "fabric.prefix", "fd00::10/64") {
 						t.Errorf("addresses diff = %v -> %v", ch.From, ch.To)
 					}
 				}
@@ -450,7 +448,7 @@ func TestDiffAllSubjectKinds(t *testing.T) {
 						t.Errorf("gateway diff = %v -> %v, want %v -> %v", ch.From, ch.To, gw1, gw2)
 					}
 				}
-				if ch.Field == "neighbors.10.0.10.3" {
+				if ch.Field == `neighbors["10.0.10.3"]` {
 					foundNbr = true
 					if ch.From != nil || !isFact(ch.To, "fabric.mac", mac2.String()) {
 						t.Errorf("neighbor diff = %v -> %v, want nil -> %v", ch.From, ch.To, mac2)
@@ -482,7 +480,7 @@ func TestDiffDetectsReversedDirectionalFaults(t *testing.T) {
 			changes := assembly.Diff(cfgA, cfgB)
 			var faultChange *trace.Change
 			for i := range changes {
-				if changes[i].Subject.Kind == "cable" && changes[i].Field == "fault" {
+				if changes[i].Subject.Kind == "cable" && changes[i].Field == "fault.kind" {
 					faultChange = &changes[i]
 					break
 				}
@@ -497,14 +495,14 @@ func TestDiffDetectsReversedDirectionalFaults(t *testing.T) {
 			if kind == cablemodel.FaultDeadAToB {
 				wantTo = cablemodel.FaultDeadBToA
 			}
-			if !strings.Contains(faultChange.From.Canonical(), string(wantFrom)) ||
-				!strings.Contains(faultChange.To.Canonical(), string(wantTo)) {
+			if !isFact(faultChange.From, "fabric.fault_kind", string(wantFrom)) ||
+				!isFact(faultChange.To, "fabric.fault_kind", string(wantTo)) {
 				t.Errorf("fault change = %q -> %q, want %q -> %q", faultChange.From.Canonical(), faultChange.To.Canonical(), wantFrom, wantTo)
 			}
 
-			reverseFrom, reverseTo := changedFieldFacts(t, "fault", cfgB, cfgA)
-			if !strings.Contains(reverseFrom.Canonical(), string(wantTo)) ||
-				!strings.Contains(reverseTo.Canonical(), string(wantFrom)) {
+			reverseFrom, reverseTo := changedFieldFacts(t, "fault.kind", cfgB, cfgA)
+			if !isFact(reverseFrom, "fabric.fault_kind", string(wantTo)) ||
+				!isFact(reverseTo, "fabric.fault_kind", string(wantFrom)) {
 				t.Errorf("reverse fault change = %q -> %q, want %q -> %q", reverseFrom.Canonical(), reverseTo.Canonical(), wantTo, wantFrom)
 			}
 
@@ -624,7 +622,12 @@ func TestDiffUsesLosslessImmutableSnapshotFacts(t *testing.T) {
 	}}}
 	faultCfgB := faultCfgA.Clone()
 	faultCfgB.Cables[0].Fault.Sequence[0] = 2
-	faultFactA, faultFactB := changedFieldFacts(t, "fault", faultCfgA, faultCfgB)
+	faultFactA := addedFact(t, "cable", faultCfgA)
+	faultFactB := addedFact(t, "cable", faultCfgB)
+	sequenceChanges := assembly.Diff(faultCfgA, faultCfgB)
+	if len(sequenceChanges) != 2 || sequenceChanges[0].Field != `fault.sequence["1"]` || !isFact(sequenceChanges[0].From, "fabric.fault_position", "1") || sequenceChanges[0].To != nil || sequenceChanges[1].Field != `fault.sequence["2"]` || sequenceChanges[1].From != nil || !isFact(sequenceChanges[1].To, "fabric.fault_position", "2") {
+		t.Errorf("sequence changes = %+v, want removal 1 then addition 2", sequenceChanges)
+	}
 	if trace.EqualFact(faultFactA, faultFactB) {
 		t.Error("fault snapshot facts collide when loss sequence differs")
 	}

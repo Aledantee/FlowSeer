@@ -250,7 +250,7 @@ mutation and an independently specified ordered sequence. Missing seeds or
 mappings fail even when another populated branch reports changes.
 
 ```go
-simtest.AssertMappedDiffCoverage(t, "bridge", simtest.BridgeDiffAllowance())
+simtest.AssertMappedDiffCoverage(t, "bridge")
 ```
 
 The mapping compares layer, subject kind, subject key, field and the TypeID
@@ -259,11 +259,9 @@ normalization no-ops. Identity replacements require both lifecycle records.
 Positional range changes preserve Start/End order. Occurrence changes can
 repeat identical records when the fixed expectation requires them.
 
-Each producer's temporary allowance names its emitted layers and literal
-paths. Wrapper mappings retain the delegated producer, so an allowance for
-switch capability presence cannot admit a missing bridge member. Removing
-an allowance activates exact matching for that producer at every depth.
-Normalized no-ops always match exactly. Fixture checks have no allowances.
+Every producer and wrapper uses exact matching. Missing delegated records fail
+even when capability presence and unrelated changes remain. The checker has
+no allowance facility.
 The literal counts are 627 registered paths, 627 concrete expectations and
 eight primary empty sequences (`TestMappedDiffManifest` in
 [diffcoverage_test.go](diffcoverage_test.go)).
@@ -275,7 +273,7 @@ provenance evidence and physical-assumption observations. These inputs
 exercise Normalize/Diff directly and do not claim construction validity.
 
 [AssertEveryDiffPackageIsCovered] walks `src/common/sim/device/vswitch/`,
-`src/common/sim/port/`, `src/common/sim/fabric/`, and the direct
+`src/common/sim/port/`, `src/common/sim/assembly/`, and the direct
 subdirectories of `src/common/sim/layer/` for a file named
 `diff.go` and fails on any path absent from the package's own
 `diffCoveredPackages` literal, and on any entry in that literal the walk did

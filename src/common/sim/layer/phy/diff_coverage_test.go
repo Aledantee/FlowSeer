@@ -13,7 +13,7 @@ import (
 // TestDiffCoversEveryConfigField verifies that every exported phy.Config field reaches
 // phy.Diff.
 func TestDiffCoversEveryConfigField(t *testing.T) {
-	simtest.AssertMappedDiffCoverage(t, "phy", simtest.PhyDiffAllowance())
+	simtest.AssertMappedDiffCoverage(t, "phy")
 }
 
 func TestDiffCollectionCorrespondence(t *testing.T) {
