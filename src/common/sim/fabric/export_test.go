@@ -127,13 +127,13 @@ type ExportFabricFields struct {
 	MetadataCache   *analysis.Metadata
 	Inflight        map[FrameID]int
 	Held            map[holdKey]FrameID
-	Flows           map[flow.FlowID]*flow.FlowStats
+	Flows           map[flow.ID]*flow.Stats
 	Touched         []FrameID
 	Err             error
 }
 
 // ExportFabricFlows exposes internal state to external package tests.
-func ExportFabricFlows(x *Fabric) *map[flow.FlowID]*flow.FlowStats { return &x.flows }
+func ExportFabricFlows(x *Fabric) *map[flow.ID]*flow.Stats { return &x.flows }
 
 // ExportFabricHasPendingJourneys exposes internal state to external package tests.
 func ExportFabricHasPendingJourneys(x *Fabric) bool { return x.hasPendingJourneys() }

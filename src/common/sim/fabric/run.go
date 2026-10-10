@@ -47,7 +47,7 @@ type Injection struct {
 	Frame     ethernet.Frame
 	Packet    *Packet
 	Retention JourneyRetention
-	Flow      flow.FlowID
+	Flow      flow.ID
 }
 
 // Snapshot captures an instantaneous view of simulation time, in-flight arrivals, pending egress frames,

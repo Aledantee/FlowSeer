@@ -145,7 +145,7 @@ func TestCompareAttachedSourceOrdinals(t *testing.T) {
 				t.Fatal(err)
 			}
 			start := time.Duration(1-attachment) * 10 * time.Second
-			if err := f.AttachStream(fabric.StreamAttachment{Origin: fabric.Endpoint{Node: "h1"}, Source: source, Start: start, Flow: flow.FlowID(attachment + 1)}); err != nil {
+			if err := f.AttachStream(fabric.StreamAttachment{Origin: fabric.Endpoint{Node: "h1"}, Source: source, Start: start, Flow: flow.ID(attachment + 1)}); err != nil {
 				t.Fatal(err)
 			}
 		}

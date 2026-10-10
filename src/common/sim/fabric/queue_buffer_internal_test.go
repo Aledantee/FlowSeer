@@ -230,7 +230,7 @@ func TestQueueBufferUnstatedIssueReachesFlow(t *testing.T) {
 		t.Fatalf("Metadata issues on %v = %+v, want one queue-buffer-unstated at Incomplete", scope, issues)
 	}
 
-	flow := fab.Flows()[flow.FlowID(1)]
+	flow := fab.Flows()[flow.ID(1)]
 	if !hasIssueScope(flow.Metadata.Issues(), fabric.IssueQueueBufferUnstated, scope) {
 		t.Errorf("flow metadata issues = %+v, want queue-buffer-unstated on %v", flow.Metadata.Issues(), scope)
 	}

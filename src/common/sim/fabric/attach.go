@@ -19,7 +19,7 @@ type StreamAttachment struct {
 	Origin    Endpoint
 	Source    stream.Source
 	Start     time.Duration
-	Flow      flow.FlowID
+	Flow      flow.ID
 	Retention JourneyRetention
 }
 

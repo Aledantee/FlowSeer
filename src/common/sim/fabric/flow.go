@@ -14,7 +14,7 @@ import (
 // count and sum only grow, so each subtracts. Held is a gauge and the latency
 // extremes do not subtract: both stay as they are, and the caller treats them
 // as unseparable when pre holds any.
-func flowStatsSince(s, pre flow.FlowStats) flow.FlowStats {
+func flowStatsSince(s, pre flow.Stats) flow.Stats {
 	cp := s
 	cp.Offered -= pre.Offered
 	cp.Lost -= pre.Lost
@@ -46,11 +46,11 @@ func countsSince[K comparable](counts, pre map[K]uint64) map[K]uint64 {
 
 // Flows returns an independent copy of every flow's statistics, keyed by flow
 // id. A run with no folded statistics or held flow returns nil.
-func (f *Fabric) Flows() map[flow.FlowID]flow.FlowStats {
+func (f *Fabric) Flows() map[flow.ID]flow.Stats {
 	if len(f.flows) == 0 && len(f.held) == 0 {
 		return nil
 	}
-	out := make(map[flow.FlowID]flow.FlowStats, len(f.flows))
+	out := make(map[flow.ID]flow.Stats, len(f.flows))
 	for id, stats := range f.flows {
 		out[id] = stats.Clone()
 	}
@@ -156,13 +156,13 @@ func (f *Fabric) foldProtocolIssues(j *journey) {
 	}
 }
 
-func (f *Fabric) flowAccumulator(id flow.FlowID) *flow.FlowStats {
+func (f *Fabric) flowAccumulator(id flow.ID) *flow.Stats {
 	if f.flows == nil {
-		f.flows = make(map[flow.FlowID]*flow.FlowStats)
+		f.flows = make(map[flow.ID]*flow.Stats)
 	}
 	stats := f.flows[id]
 	if stats == nil {
-		stats = &flow.FlowStats{}
+		stats = &flow.Stats{}
 		f.flows[id] = stats
 	}
 

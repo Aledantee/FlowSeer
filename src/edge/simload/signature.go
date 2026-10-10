@@ -21,14 +21,14 @@ var signatureMagic = [4]byte{'F', 'S', 'L', 'D'}
 // Signature identifies one transmitted frame and the userspace submission
 // instant encoded in its reserved payload prefix.
 type Signature struct {
-	FlowID      flow.FlowID
+	FlowID      flow.ID
 	Sequence    uint64
 	SubmittedAt time.Time
 }
 
 // Sign copies frame and writes the version-one signature into the first
 // SignatureSize payload octets. The source frame is never mutated.
-func Sign(frame ethernet.Frame, flowID flow.FlowID, sequence uint64, submittedAt time.Time) (ethernet.Frame, error) {
+func Sign(frame ethernet.Frame, flowID flow.ID, sequence uint64, submittedAt time.Time) (ethernet.Frame, error) {
 	if flowID == 0 {
 		return ethernet.Frame{}, errs.Msg("flow ID must be nonzero")
 	}
@@ -65,7 +65,7 @@ func DecodeSignature(payload []byte) (Signature, error) {
 	}
 
 	return Signature{
-		FlowID:      flow.FlowID(binary.BigEndian.Uint32(payload[8:12])),
+		FlowID:      flow.ID(binary.BigEndian.Uint32(payload[8:12])),
 		Sequence:    binary.BigEndian.Uint64(payload[16:24]),
 		SubmittedAt: time.Unix(0, int64(binary.BigEndian.Uint64(payload[24:32]))),
 	}, nil

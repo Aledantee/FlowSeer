@@ -105,7 +105,7 @@ func executeLoadCase(buffer *uint64, policed bool, decisive trace.RuleID) (Execu
 	if err != nil {
 		return ExecutionResult{}, err
 	}
-	const flow = flow.FlowID(13)
+	const flow = flow.ID(13)
 	if err := fab.AttachStream(fabric.StreamAttachment{
 		Origin: fabric.Endpoint{Node: "h1"}, Source: source, Flow: flow, Retention: fabric.RetainJourney,
 	}); err != nil {

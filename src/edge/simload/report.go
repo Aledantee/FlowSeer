@@ -34,7 +34,7 @@ type SimulatorReport struct {
 
 // SimulatorFlow keeps raw fabric counters and its per-flow trust metadata.
 type SimulatorFlow struct {
-	ID         flow.FlowID       `json:"id"`
+	ID         flow.ID           `json:"id"`
 	Offered    uint64            `json:"offered"`
 	Delivered  map[string]uint64 `json:"delivered"`
 	Drops      map[string]uint64 `json:"drops"`
@@ -58,21 +58,21 @@ type ObservationReport struct {
 
 // ObservedFlow is one sorted lab flow row.
 type ObservedFlow struct {
-	ID flow.FlowID `json:"id"`
+	ID flow.ID `json:"id"`
 	FlowObservation
 }
 
 // NormalizedFlow compares offered, delivered, and unreceived counts without
 // claiming that a lab sequence gap has a simulator drop reason.
 type NormalizedFlow struct {
-	ID                  flow.FlowID `json:"id"`
-	Destination         string      `json:"destination"`
-	SimulatorOffered    uint64      `json:"simulator_offered"`
-	SimulatorDelivered  uint64      `json:"simulator_delivered"`
-	SimulatorUnreceived uint64      `json:"simulator_unreceived"`
-	LabOffered          uint64      `json:"lab_offered"`
-	LabDelivered        uint64      `json:"lab_delivered"`
-	LabUnreceived       uint64      `json:"lab_unreceived"`
+	ID                  flow.ID `json:"id"`
+	Destination         string  `json:"destination"`
+	SimulatorOffered    uint64  `json:"simulator_offered"`
+	SimulatorDelivered  uint64  `json:"simulator_delivered"`
+	SimulatorUnreceived uint64  `json:"simulator_unreceived"`
+	LabOffered          uint64  `json:"lab_offered"`
+	LabDelivered        uint64  `json:"lab_delivered"`
+	LabUnreceived       uint64  `json:"lab_unreceived"`
 }
 
 // IssueReport preserves the simulator's issue code, status, scope, message,
@@ -88,7 +88,7 @@ type IssueReport struct {
 // NewReport projects simulator flows and metadata into a deterministic report.
 // destination is the named simulator host used for the normalized delivery
 // row; it is not inferred from whichever map key happens to sort first.
-func NewReport(flows map[flow.FlowID]flow.FlowStats, metadata analysis.Metadata, lab Observation, destination string) Report {
+func NewReport(flows map[flow.ID]flow.Stats, metadata analysis.Metadata, lab Observation, destination string) Report {
 	simulator := SimulatorReport{Status: metadata.Status().String(), Issues: issueReports(metadata.Issues())}
 	for id, stats := range flows {
 		flowMetadata := stats.Metadata
@@ -147,7 +147,7 @@ func (r Report) WriteJSON(w io.Writer) error {
 	return encoder.Encode(r)
 }
 
-func simulatorFlow(id flow.FlowID, stats flow.FlowStats, metadata analysis.Metadata) SimulatorFlow {
+func simulatorFlow(id flow.ID, stats flow.Stats, metadata analysis.Metadata) SimulatorFlow {
 	delivered := copyCounts(stats.Delivered)
 	drops := make(map[string]uint64, len(stats.Drops))
 	for reason, count := range stats.Drops {

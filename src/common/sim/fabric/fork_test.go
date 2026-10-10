@@ -270,7 +270,7 @@ func probeFabricHeld(t *testing.T) {
 
 func probeFabricFlows(t *testing.T) {
 	fab := newTestFabricForFork(t)
-	*fabric.ExportFabricFlows(fab) = map[flow.FlowID]*flow.FlowStats{
+	*fabric.ExportFabricFlows(fab) = map[flow.ID]*flow.Stats{
 		1: {Offered: 1, Drops: map[trace.Reason]uint64{cablemodel.ReasonBadFrame: 1}},
 	}
 	fork := fab.Fork()

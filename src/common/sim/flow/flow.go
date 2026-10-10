@@ -9,11 +9,11 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
-// FlowID identifies a caller's traffic stream within a fabric run. Zero names
+// ID identifies a caller's traffic stream within a fabric run. Zero names
 // no flow: an injection that leaves it zero folds into no statistics.
-type FlowID uint32
+type ID uint32
 
-// FlowStats reports what became of the frames one flow offered. Delivered
+// Stats reports what became of the frames one flow offered. Delivered
 // counts accepted deliveries per destination host. Copies counts the
 // deliveries of mirror and reflector copies per mirror name or "reflection",
 // which are never the stream being delivered: a copy contributes only this
@@ -25,7 +25,7 @@ type FlowID uint32
 // frames currently in device hold queues when Flows is read, including copies.
 // Latency summarizes Delivery.At minus the injection time over every
 // non-copy delivery. Metadata is the merge of every folded journey's metadata.
-type FlowStats struct {
+type Stats struct {
 	Offered    uint64
 	Delivered  map[string]uint64
 	Drops      map[trace.Reason]uint64
@@ -50,7 +50,7 @@ type LatencyStats struct {
 
 // Clone returns an independent copy of the statistics. The metadata value is
 // immutable and shared.
-func (s FlowStats) Clone() FlowStats {
+func (s Stats) Clone() Stats {
 	cp := s
 	cp.Delivered = maps.Clone(s.Delivered)
 	cp.Drops = maps.Clone(s.Drops)

@@ -15,7 +15,7 @@ func TestSignPinsEverySignatureOffset(t *testing.T) {
 	original := append([]byte(nil), frame.Payload...)
 	submitted := time.Unix(1700000000, 123456789)
 
-	signed, err := Sign(frame, flow.FlowID(0x01020304), 0x1112131415161718, submitted)
+	signed, err := Sign(frame, flow.ID(0x01020304), 0x1112131415161718, submitted)
 	if err != nil {
 		t.Fatalf("Sign: %v", err)
 	}

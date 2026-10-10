@@ -58,7 +58,7 @@ type Fabric struct {
 	// held maps device-scoped tokens to frames still in flight.
 	held map[holdKey]FrameID
 	// flows accumulates per-flow statistics as journeys settle.
-	flows map[flow.FlowID]*flow.FlowStats
+	flows map[flow.ID]*flow.Stats
 	// protocolIssues holds the distinct issues settled protocol journeys
 	// carried. A protocol journey is freed at settle and has no flow, so this
 	// set is the only place its issues outlive it.

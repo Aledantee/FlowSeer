@@ -20,7 +20,7 @@ import (
 // FlowSource pairs a nonzero flow identity with a fresh finite source. The
 // runner advances Source only after the previous frame was sent successfully.
 type FlowSource struct {
-	ID     flow.FlowID
+	ID     flow.ID
 	Source stream.Source
 }
 
@@ -90,7 +90,7 @@ func RunWith(ctx context.Context, config Config, dependencies Dependencies) (Obs
 }
 
 type sourceHead struct {
-	flowID   flow.FlowID
+	flowID   flow.ID
 	source   stream.Source
 	sequence uint64
 	at       time.Duration
@@ -180,7 +180,7 @@ func validateConfig(config Config, resolve func(string) (InterfaceInfo, error)) 
 		}
 	}
 
-	seen := make(map[flow.FlowID]struct{}, len(config.Flows))
+	seen := make(map[flow.ID]struct{}, len(config.Flows))
 	for _, flow := range config.Flows {
 		if flow.ID == 0 {
 			return errs.Msg("flow ID must be nonzero")
@@ -367,8 +367,8 @@ func withAccumulator(mu *sync.Mutex, record func()) {
 	record()
 }
 
-func flowIDs(flows []FlowSource) []flow.FlowID {
-	ids := make([]flow.FlowID, 0, len(flows))
+func flowIDs(flows []FlowSource) []flow.ID {
+	ids := make([]flow.ID, 0, len(flows))
 	for _, flow := range flows {
 		ids = append(ids, flow.ID)
 	}

@@ -18,7 +18,7 @@ import (
 // held gauge and the latency extremes mix the earlier traffic with the
 // scenario's. Where either side held any before the run they cannot be
 // separated, so they are left out and the pair stays uncertain.
-func diffFlowStats(a, b, preA, preB flow.FlowStats) (analysis.Difference, string, bool) {
+func diffFlowStats(a, b, preA, preB flow.Stats) (analysis.Difference, string, bool) {
 	a, b = flowStatsSince(a, preA), flowStatsSince(b, preB)
 	heldSeparable := preA.Held == 0 && preB.Held == 0
 	extremesSeparable := preA.Latency.Count == 0 && preB.Latency.Count == 0

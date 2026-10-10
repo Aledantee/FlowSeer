@@ -159,7 +159,7 @@ func (r runRoot) key() rootKey {
 	return rootKey{index: r.ordinal}
 }
 
-func diffRunRoots(a, b []runRoot, journeysA, journeysB []Journey, flowsA, flowsB, preA, preB map[flow.FlowID]flow.FlowStats) (analysis.Difference, DifferenceLocation, bool, bool) {
+func diffRunRoots(a, b []runRoot, journeysA, journeysB []Journey, flowsA, flowsB, preA, preB map[flow.ID]flow.Stats) (analysis.Difference, DifferenceLocation, bool, bool) {
 	byA, byB := make(map[rootKey]runRoot), make(map[rootKey]runRoot)
 	for _, r := range a {
 		byA[r.key()] = r

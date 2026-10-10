@@ -11,7 +11,7 @@ import (
 )
 
 func TestFlowStatsCloneKeepsIndependentMaps(t *testing.T) {
-	stats := flow.FlowStats{
+	stats := flow.Stats{
 		Offered: 7, Lost: 1, Unresolved: 2, Rejected: 3, Held: 4,
 		Delivered: map[string]uint64{"host": 5},
 		Drops:     map[trace.Reason]uint64{"drop": 6},

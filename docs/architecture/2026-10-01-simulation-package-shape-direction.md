@@ -89,7 +89,7 @@ diagram cannot show:
 - A capability package imports `port`, `layer`, `trace`, `analysis`, and
   `src/common/net`. It imports no sibling capability and no device.
 - A device imports capability packages and never `fabric`.
-- `flow` imports `trace` and `analysis`. It owns `FlowID`, `FlowStats`,
+- `flow` imports `trace` and `analysis`. It owns `ID`, `Stats`,
   `LatencyStats`, and value cloning. Fabric owns folding, held gauges, and
   add/since accounting ([flow/flow.go](../../src/common/sim/flow/flow.go),
   [fabric/flow.go](../../src/common/sim/fabric/flow.go)).

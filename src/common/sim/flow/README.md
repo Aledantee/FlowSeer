@@ -1,12 +1,12 @@
 # flow
 
 `flow` owns traffic stream identities and statistics independently of the
-fabric executor. [`flow.go`](flow.go) declares `FlowID`, `FlowStats`, and
+fabric executor. [`flow.go`](flow.go) declares `ID`, `Stats`, and
 `LatencyStats`. Fabric folds journeys and reads held-frame gauges through
 [`Fabric.Flows`](../fabric/flow.go).
 
 ```go
-stats := flow.FlowStats{
+stats := flow.Stats{
     Delivered: map[string]uint64{"host": 1},
     Copies: map[string]uint64{"mirror": 1},
 }

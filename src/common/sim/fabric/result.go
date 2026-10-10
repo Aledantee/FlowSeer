@@ -91,7 +91,7 @@ type RunResult struct {
 type runRoot struct {
 	fid       FrameID
 	ordinal   int
-	flow      flow.FlowID
+	flow      flow.ID
 	retention JourneyRetention
 	injection *InjectionLocation
 	source    *SourceLocation

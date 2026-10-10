@@ -196,7 +196,7 @@ func TestRunPacesOneEpochAndBreaksEqualOffsetsByFlowID(t *testing.T) {
 	if len(sender.writes) != 3 {
 		t.Fatalf("writes = %d, want 3", len(sender.writes))
 	}
-	var flowIDs []flow.FlowID
+	var flowIDs []flow.ID
 	for _, wire := range sender.writes {
 		signature, decodeErr := DecodeWireSignature(wire)
 		if decodeErr != nil {
@@ -204,7 +204,7 @@ func TestRunPacesOneEpochAndBreaksEqualOffsetsByFlowID(t *testing.T) {
 		}
 		flowIDs = append(flowIDs, signature.FlowID)
 	}
-	want := []flow.FlowID{1, 2, 1}
+	want := []flow.ID{1, 2, 1}
 	for i := range want {
 		if flowIDs[i] != want[i] {
 			t.Fatalf("write %d flow = %d, want %d", i, flowIDs[i], want[i])
