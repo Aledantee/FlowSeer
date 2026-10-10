@@ -1,70 +1,20 @@
 package fabric
 
 import (
-	"maps"
 	"slices"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
+	"go.aledante.io/FlowSeer/src/common/sim/flow"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
-// FlowID identifies a caller's traffic stream within a fabric run. Zero names
-// no flow: an injection that leaves it zero folds into no statistics.
-type FlowID uint32
-
-// FlowStats reports what became of the frames one flow offered. Delivered
-// counts accepted deliveries per destination host. Copies counts the
-// deliveries of mirror and reflector copies per mirror name or "reflection",
-// which are never the stream being delivered: a copy contributes only this
-// count and its metadata, so its latency and its drops, losses, unresolved,
-// rejection outcomes stay out of the stream's counters. Drops counts
-// drop events by reason, so a flooded frame refused on two egress ports counts
-// twice; Lost counts cable losses; Unresolved and Rejected count frames
-// whose journey ended in those outcomes. Held is the number of the flow's
-// frames currently in device hold queues when Flows is read, including copies.
-// Latency summarizes Delivery.At minus the injection time over every
-// non-copy delivery. Metadata is the merge of every folded journey's metadata.
-type FlowStats struct {
-	Offered    uint64
-	Delivered  map[string]uint64
-	Drops      map[trace.Reason]uint64
-	Lost       uint64
-	Unresolved uint64
-	Rejected   uint64
-	Held       uint64
-	Copies     map[string]uint64
-	Latency    LatencyStats
-	Metadata   analysis.Metadata
-}
-
-// LatencyStats summarizes the per-delivery latency of a flow: its minimum,
-// maximum, and sum over Count deliveries. Min and Max are zero before the
-// first delivery.
-type LatencyStats struct {
-	Min   time.Duration
-	Max   time.Duration
-	Sum   time.Duration
-	Count uint64
-}
-
-// Clone returns an independent copy of the statistics. The metadata value is
-// immutable and shared.
-func (s FlowStats) Clone() FlowStats {
-	cp := s
-	cp.Delivered = maps.Clone(s.Delivered)
-	cp.Drops = maps.Clone(s.Drops)
-	cp.Copies = maps.Clone(s.Copies)
-
-	return cp
-}
-
-// since returns what the fabric folded into the statistics after pre was read.
+// flowStatsSince returns what the fabric folded into the statistics after pre was read.
 // Offered, Lost, Unresolved, Rejected, the per-key counts, and the latency
 // count and sum only grow, so each subtracts. Held is a gauge and the latency
 // extremes do not subtract: both stay as they are, and the caller treats them
 // as unseparable when pre holds any.
-func (s FlowStats) since(pre FlowStats) FlowStats {
+func flowStatsSince(s, pre flow.FlowStats) flow.FlowStats {
 	cp := s
 	cp.Offered -= pre.Offered
 	cp.Lost -= pre.Lost
@@ -96,11 +46,11 @@ func countsSince[K comparable](counts, pre map[K]uint64) map[K]uint64 {
 
 // Flows returns an independent copy of every flow's statistics, keyed by flow
 // id. A run with no folded statistics or held flow returns nil.
-func (f *Fabric) Flows() map[FlowID]FlowStats {
+func (f *Fabric) Flows() map[flow.FlowID]flow.FlowStats {
 	if len(f.flows) == 0 && len(f.held) == 0 {
 		return nil
 	}
-	out := make(map[FlowID]FlowStats, len(f.flows))
+	out := make(map[flow.FlowID]flow.FlowStats, len(f.flows))
 	for id, stats := range f.flows {
 		out[id] = stats.Clone()
 	}
@@ -173,7 +123,7 @@ func (f *Fabric) foldJourney(j *journey) {
 			stats.Delivered = make(map[string]uint64)
 		}
 		stats.Delivered[delivery.Host]++
-		stats.Latency.add(delivery.At.Sub(j.Injection.At))
+		addLatency(&stats.Latency, delivery.At.Sub(j.Injection.At))
 	}
 
 	for _, e := range j.Entries {
@@ -206,13 +156,13 @@ func (f *Fabric) foldProtocolIssues(j *journey) {
 	}
 }
 
-func (f *Fabric) flowAccumulator(id FlowID) *FlowStats {
+func (f *Fabric) flowAccumulator(id flow.FlowID) *flow.FlowStats {
 	if f.flows == nil {
-		f.flows = make(map[FlowID]*FlowStats)
+		f.flows = make(map[flow.FlowID]*flow.FlowStats)
 	}
 	stats := f.flows[id]
 	if stats == nil {
-		stats = &FlowStats{}
+		stats = &flow.FlowStats{}
 		f.flows[id] = stats
 	}
 
@@ -230,7 +180,7 @@ func copyMirrorName(j *journey) string {
 	return "reflection"
 }
 
-func (l *LatencyStats) add(d time.Duration) {
+func addLatency(l *flow.LatencyStats, d time.Duration) {
 	if l.Count == 0 || d < l.Min {
 		l.Min = d
 	}

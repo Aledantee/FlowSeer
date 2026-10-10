@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
-	"go.aledante.io/FlowSeer/src/common/sim/fabric"
+	"go.aledante.io/FlowSeer/src/common/sim/flow"
 )
 
 func TestSignPinsEverySignatureOffset(t *testing.T) {
@@ -15,7 +15,7 @@ func TestSignPinsEverySignatureOffset(t *testing.T) {
 	original := append([]byte(nil), frame.Payload...)
 	submitted := time.Unix(1700000000, 123456789)
 
-	signed, err := Sign(frame, fabric.FlowID(0x01020304), 0x1112131415161718, submitted)
+	signed, err := Sign(frame, flow.FlowID(0x01020304), 0x1112131415161718, submitted)
 	if err != nil {
 		t.Fatalf("Sign: %v", err)
 	}

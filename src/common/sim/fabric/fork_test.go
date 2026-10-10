@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+	"go.aledante.io/FlowSeer/src/common/sim/flow"
 
 	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
 	"go.aledante.io/FlowSeer/src/common/sim/fabric"
@@ -269,7 +270,7 @@ func probeFabricHeld(t *testing.T) {
 
 func probeFabricFlows(t *testing.T) {
 	fab := newTestFabricForFork(t)
-	*fabric.ExportFabricFlows(fab) = map[fabric.FlowID]*fabric.FlowStats{
+	*fabric.ExportFabricFlows(fab) = map[flow.FlowID]*flow.FlowStats{
 		1: {Offered: 1, Drops: map[trace.Reason]uint64{cablemodel.ReasonBadFrame: 1}},
 	}
 	fork := fab.Fork()

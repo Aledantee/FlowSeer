@@ -5,7 +5,7 @@ import (
 	"sort"
 	"time"
 
-	"go.aledante.io/FlowSeer/src/common/sim/fabric"
+	"go.aledante.io/FlowSeer/src/common/sim/flow"
 	"go.aledante.io/FlowSeer/src/modules/capture/rawsocket"
 )
 
@@ -36,9 +36,9 @@ type FlowObservation struct {
 // not identify a configured flow and the capture interface-drop counter.
 // Its values are safe for concurrent reads; callers must synchronize mutation.
 type Observation struct {
-	Flows          map[fabric.FlowID]FlowObservation `json:"flows"`
-	Malformed      uint64                            `json:"malformed"`
-	InterfaceDrops uint64                            `json:"interface_drops"`
+	Flows          map[flow.FlowID]FlowObservation `json:"flows"`
+	Malformed      uint64                          `json:"malformed"`
+	InterfaceDrops uint64                          `json:"interface_drops"`
 }
 
 type flowAccumulator struct {
@@ -52,7 +52,7 @@ type flowAccumulator struct {
 // Accumulator collects send and capture events for a finite run. It is not
 // safe for concurrent use; the runner owns it and serializes receiver events.
 type Accumulator struct {
-	flows          map[fabric.FlowID]*flowAccumulator
+	flows          map[flow.FlowID]*flowAccumulator
 	malformed      uint64
 	interfaceDrops uint64
 	closed         bool
@@ -60,8 +60,8 @@ type Accumulator struct {
 
 // NewAccumulator creates an accumulator for flow IDs. Duplicate IDs are
 // accepted once, while zero is ignored because it names no flow.
-func NewAccumulator(flowIDs ...fabric.FlowID) *Accumulator {
-	a := &Accumulator{flows: make(map[fabric.FlowID]*flowAccumulator, len(flowIDs))}
+func NewAccumulator(flowIDs ...flow.FlowID) *Accumulator {
+	a := &Accumulator{flows: make(map[flow.FlowID]*flowAccumulator, len(flowIDs))}
 	for _, id := range flowIDs {
 		if id != 0 {
 			a.ensureFlow(id)
@@ -74,7 +74,7 @@ func NewAccumulator(flowIDs ...fabric.FlowID) *Accumulator {
 // RecordSend records a frame only after its sender has accepted the complete
 // wire frame. A nonzero, previously unseen flow is added for test and library
 // callers that build the accumulator incrementally.
-func (a *Accumulator) RecordSend(flowID fabric.FlowID, sequence uint64) {
+func (a *Accumulator) RecordSend(flowID flow.FlowID, sequence uint64) {
 	if flowID == 0 {
 		return
 	}
@@ -157,7 +157,7 @@ func (a *Accumulator) SetInterfaceDrops(drops uint64) {
 // observation. The map is copied for caller ownership; JSON report code sorts
 // IDs before emitting arrays.
 func (a *Accumulator) Snapshot() Observation {
-	flows := make(map[fabric.FlowID]FlowObservation, len(a.flows))
+	flows := make(map[flow.FlowID]FlowObservation, len(a.flows))
 	for id, flow := range a.flows {
 		observation := flow.observation
 		for sequence := range flow.sent {
@@ -171,7 +171,7 @@ func (a *Accumulator) Snapshot() Observation {
 	return Observation{Flows: flows, Malformed: a.malformed, InterfaceDrops: a.interfaceDrops}
 }
 
-func (a *Accumulator) ensureFlow(id fabric.FlowID) *flowAccumulator {
+func (a *Accumulator) ensureFlow(id flow.FlowID) *flowAccumulator {
 	if flow := a.flows[id]; flow != nil {
 		return flow
 	}
@@ -186,8 +186,8 @@ func (a *Accumulator) ensureFlow(id fabric.FlowID) *flowAccumulator {
 
 // SortedFlowIDs returns observation flow IDs in ascending order for report
 // and command consumers that need stable output.
-func SortedFlowIDs(observation Observation) []fabric.FlowID {
-	ids := make([]fabric.FlowID, 0, len(observation.Flows))
+func SortedFlowIDs(observation Observation) []flow.FlowID {
+	ids := make([]flow.FlowID, 0, len(observation.Flows))
 	for id := range observation.Flows {
 		ids = append(ids, id)
 	}

@@ -9,7 +9,7 @@ import (
 	"sort"
 
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
-	"go.aledante.io/FlowSeer/src/common/sim/fabric"
+	"go.aledante.io/FlowSeer/src/common/sim/flow"
 )
 
 const reportContract = "simload/report/v1"
@@ -34,7 +34,7 @@ type SimulatorReport struct {
 
 // SimulatorFlow keeps raw fabric counters and its per-flow trust metadata.
 type SimulatorFlow struct {
-	ID         fabric.FlowID     `json:"id"`
+	ID         flow.FlowID       `json:"id"`
 	Offered    uint64            `json:"offered"`
 	Delivered  map[string]uint64 `json:"delivered"`
 	Drops      map[string]uint64 `json:"drops"`
@@ -42,11 +42,11 @@ type SimulatorFlow struct {
 	Unresolved uint64            `json:"unresolved"`
 	Rejected   uint64            `json:"rejected"`
 	// HeldAtEnd is the flow's held-frame count read at the end of the run.
-	HeldAtEnd uint64              `json:"held_at_end"`
-	Copies    map[string]uint64   `json:"copies"`
-	Latency   fabric.LatencyStats `json:"latency"`
-	Status    string              `json:"status"`
-	Issues    []IssueReport       `json:"issues"`
+	HeldAtEnd uint64            `json:"held_at_end"`
+	Copies    map[string]uint64 `json:"copies"`
+	Latency   flow.LatencyStats `json:"latency"`
+	Status    string            `json:"status"`
+	Issues    []IssueReport     `json:"issues"`
 }
 
 // ObservationReport is the JSON-friendly, sorted form of Observation.
@@ -58,21 +58,21 @@ type ObservationReport struct {
 
 // ObservedFlow is one sorted lab flow row.
 type ObservedFlow struct {
-	ID fabric.FlowID `json:"id"`
+	ID flow.FlowID `json:"id"`
 	FlowObservation
 }
 
 // NormalizedFlow compares offered, delivered, and unreceived counts without
 // claiming that a lab sequence gap has a simulator drop reason.
 type NormalizedFlow struct {
-	ID                  fabric.FlowID `json:"id"`
-	Destination         string        `json:"destination"`
-	SimulatorOffered    uint64        `json:"simulator_offered"`
-	SimulatorDelivered  uint64        `json:"simulator_delivered"`
-	SimulatorUnreceived uint64        `json:"simulator_unreceived"`
-	LabOffered          uint64        `json:"lab_offered"`
-	LabDelivered        uint64        `json:"lab_delivered"`
-	LabUnreceived       uint64        `json:"lab_unreceived"`
+	ID                  flow.FlowID `json:"id"`
+	Destination         string      `json:"destination"`
+	SimulatorOffered    uint64      `json:"simulator_offered"`
+	SimulatorDelivered  uint64      `json:"simulator_delivered"`
+	SimulatorUnreceived uint64      `json:"simulator_unreceived"`
+	LabOffered          uint64      `json:"lab_offered"`
+	LabDelivered        uint64      `json:"lab_delivered"`
+	LabUnreceived       uint64      `json:"lab_unreceived"`
 }
 
 // IssueReport preserves the simulator's issue code, status, scope, message,
@@ -88,7 +88,7 @@ type IssueReport struct {
 // NewReport projects simulator flows and metadata into a deterministic report.
 // destination is the named simulator host used for the normalized delivery
 // row; it is not inferred from whichever map key happens to sort first.
-func NewReport(flows map[fabric.FlowID]fabric.FlowStats, metadata analysis.Metadata, lab Observation, destination string) Report {
+func NewReport(flows map[flow.FlowID]flow.FlowStats, metadata analysis.Metadata, lab Observation, destination string) Report {
 	simulator := SimulatorReport{Status: metadata.Status().String(), Issues: issueReports(metadata.Issues())}
 	for id, stats := range flows {
 		flowMetadata := stats.Metadata
@@ -147,7 +147,7 @@ func (r Report) WriteJSON(w io.Writer) error {
 	return encoder.Encode(r)
 }
 
-func simulatorFlow(id fabric.FlowID, stats fabric.FlowStats, metadata analysis.Metadata) SimulatorFlow {
+func simulatorFlow(id flow.FlowID, stats flow.FlowStats, metadata analysis.Metadata) SimulatorFlow {
 	delivered := copyCounts(stats.Delivered)
 	drops := make(map[string]uint64, len(stats.Drops))
 	for reason, count := range stats.Drops {

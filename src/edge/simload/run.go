@@ -10,7 +10,7 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
-	"go.aledante.io/FlowSeer/src/common/sim/fabric"
+	"go.aledante.io/FlowSeer/src/common/sim/flow"
 	"go.aledante.io/FlowSeer/src/common/sim/stream"
 	"go.aledante.io/FlowSeer/src/common/spawn"
 	"go.aledante.io/FlowSeer/src/edge/simload/packetio"
@@ -20,7 +20,7 @@ import (
 // FlowSource pairs a nonzero flow identity with a fresh finite source. The
 // runner advances Source only after the previous frame was sent successfully.
 type FlowSource struct {
-	ID     fabric.FlowID
+	ID     flow.FlowID
 	Source stream.Source
 }
 
@@ -90,7 +90,7 @@ func RunWith(ctx context.Context, config Config, dependencies Dependencies) (Obs
 }
 
 type sourceHead struct {
-	flowID   fabric.FlowID
+	flowID   flow.FlowID
 	source   stream.Source
 	sequence uint64
 	at       time.Duration
@@ -180,7 +180,7 @@ func validateConfig(config Config, resolve func(string) (InterfaceInfo, error)) 
 		}
 	}
 
-	seen := make(map[fabric.FlowID]struct{}, len(config.Flows))
+	seen := make(map[flow.FlowID]struct{}, len(config.Flows))
 	for _, flow := range config.Flows {
 		if flow.ID == 0 {
 			return errs.Msg("flow ID must be nonzero")
@@ -367,8 +367,8 @@ func withAccumulator(mu *sync.Mutex, record func()) {
 	record()
 }
 
-func flowIDs(flows []FlowSource) []fabric.FlowID {
-	ids := make([]fabric.FlowID, 0, len(flows))
+func flowIDs(flows []FlowSource) []flow.FlowID {
+	ids := make([]flow.FlowID, 0, len(flows))
 	for _, flow := range flows {
 		ids = append(ids, flow.ID)
 	}

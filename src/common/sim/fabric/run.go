@@ -9,6 +9,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/device"
+	"go.aledante.io/FlowSeer/src/common/sim/flow"
 	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
@@ -46,7 +47,7 @@ type Injection struct {
 	Frame     ethernet.Frame
 	Packet    *Packet
 	Retention JourneyRetention
-	Flow      FlowID
+	Flow      flow.FlowID
 }
 
 // Snapshot captures an instantaneous view of simulation time, in-flight arrivals, pending egress frames,

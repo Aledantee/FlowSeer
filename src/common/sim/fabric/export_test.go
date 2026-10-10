@@ -8,6 +8,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
 	"go.aledante.io/FlowSeer/src/common/sim/device"
+	"go.aledante.io/FlowSeer/src/common/sim/flow"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
@@ -126,13 +127,13 @@ type ExportFabricFields struct {
 	MetadataCache   *analysis.Metadata
 	Inflight        map[FrameID]int
 	Held            map[holdKey]FrameID
-	Flows           map[FlowID]*FlowStats
+	Flows           map[flow.FlowID]*flow.FlowStats
 	Touched         []FrameID
 	Err             error
 }
 
 // ExportFabricFlows exposes internal state to external package tests.
-func ExportFabricFlows(x *Fabric) *map[FlowID]*FlowStats { return &x.flows }
+func ExportFabricFlows(x *Fabric) *map[flow.FlowID]*flow.FlowStats { return &x.flows }
 
 // ExportFabricHasPendingJourneys exposes internal state to external package tests.
 func ExportFabricHasPendingJourneys(x *Fabric) bool { return x.hasPendingJourneys() }

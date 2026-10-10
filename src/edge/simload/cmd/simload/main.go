@@ -12,7 +12,7 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
-	"go.aledante.io/FlowSeer/src/common/sim/fabric"
+	"go.aledante.io/FlowSeer/src/common/sim/flow"
 	"go.aledante.io/FlowSeer/src/common/sim/stream"
 	"go.aledante.io/FlowSeer/src/edge/simload"
 )
@@ -98,7 +98,7 @@ func transmit(input io.Reader, output io.Writer, dependencies simload.Dependenci
 		if err != nil {
 			return errs.Wrapf(err, "flow %d", inputFlow.ID)
 		}
-		flows = append(flows, simload.FlowSource{ID: fabric.FlowID(inputFlow.ID), Source: source})
+		flows = append(flows, simload.FlowSource{ID: flow.FlowID(inputFlow.ID), Source: source})
 	}
 
 	observation, err := simload.RunWith(context.Background(), simload.Config{
@@ -126,7 +126,7 @@ func compare(input io.Reader, output io.Writer) error {
 		return errs.Msg("compare destination is required")
 	}
 
-	flowIDs := make(map[fabric.FlowID]struct{}, len(document.Simulator.Flows))
+	flowIDs := make(map[flow.FlowID]struct{}, len(document.Simulator.Flows))
 	for _, flow := range document.Simulator.Flows {
 		if flow.ID == 0 {
 			return errs.Msg("simulator flow ID must be nonzero")

@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
+	"go.aledante.io/FlowSeer/src/common/sim/flow"
 )
 
 // StopReason describes why a simulation run terminated.
@@ -90,7 +91,7 @@ type RunResult struct {
 type runRoot struct {
 	fid       FrameID
 	ordinal   int
-	flow      FlowID
+	flow      flow.FlowID
 	retention JourneyRetention
 	injection *InjectionLocation
 	source    *SourceLocation

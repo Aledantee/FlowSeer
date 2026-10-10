@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+	"go.aledante.io/FlowSeer/src/common/sim/flow"
 
 	reflectormodel "go.aledante.io/FlowSeer/src/common/sim/device/reflector"
 
@@ -303,7 +304,7 @@ func TestAttachedLagStreamsMatchEagerDeliveries(t *testing.T) {
 	for i := range 4 {
 		frame := flowFrame(netaddr.MAC{0x02, 0, 0, 0, 1, byte(i + 1)}, dst)
 		source := streamSource(t, frame, 40, 1_000)
-		if err := lazy.AttachStream(fabric.StreamAttachment{Origin: fabric.Endpoint{Node: "h1"}, Source: source.Clone(), Flow: fabric.FlowID(i + 1), Retention: fabric.RetainJourney}); err != nil {
+		if err := lazy.AttachStream(fabric.StreamAttachment{Origin: fabric.Endpoint{Node: "h1"}, Source: source.Clone(), Flow: flow.FlowID(i + 1), Retention: fabric.RetainJourney}); err != nil {
 			t.Fatalf("AttachStream %d: %v", i, err)
 		}
 		for {
@@ -321,7 +322,7 @@ func TestAttachedLagStreamsMatchEagerDeliveries(t *testing.T) {
 		return a.stream - b.stream
 	})
 	for _, item := range frames {
-		if _, err := eager.Inject(fabric.Injection{At: item.at, Origin: fabric.Endpoint{Node: "h1"}, Frame: item.frame, Flow: fabric.FlowID(item.stream + 1), Retention: fabric.RetainJourney}); err != nil {
+		if _, err := eager.Inject(fabric.Injection{At: item.at, Origin: fabric.Endpoint{Node: "h1"}, Frame: item.frame, Flow: flow.FlowID(item.stream + 1), Retention: fabric.RetainJourney}); err != nil {
 			t.Fatalf("Inject: %v", err)
 		}
 	}
@@ -335,8 +336,8 @@ func TestAttachedLagStreamsMatchEagerDeliveries(t *testing.T) {
 				want[id].Offered, want[id].Delivered, want[id].Latency, want[id].Metadata.Status())
 		}
 	}
-	deliveries := func(f *fabric.Fabric) map[fabric.FlowID][]time.Time {
-		out := make(map[fabric.FlowID][]time.Time)
+	deliveries := func(f *fabric.Fabric) map[flow.FlowID][]time.Time {
+		out := make(map[flow.FlowID][]time.Time)
 		for _, journey := range f.Report() {
 			for _, delivery := range journey.Deliveries {
 				out[journey.Injection.Flow] = append(out[journey.Injection.Flow], delivery.At)
@@ -355,7 +356,7 @@ func TestAttachedLagStreamsMatchEagerDeliveries(t *testing.T) {
 				got[id][0], got[id][len(got[id])-1], want[id][0], want[id][len(want[id])-1])
 		}
 	}
-	for flow := fabric.FlowID(1); flow <= 4; flow++ {
+	for flow := flow.FlowID(1); flow <= 4; flow++ {
 		if got := len(lazyDeliveries[flow]); got != 40 {
 			t.Errorf("flow %d deliveries = %d, want 40", flow, got)
 		}
@@ -416,7 +417,7 @@ func TestMixedEagerAndAttachedHostDeliveriesMatchEager(t *testing.T) {
 	}
 	attached.Run(fabric.RunOptions{Budget: 1000, Window: 0})
 	eager.Run(fabric.RunOptions{Budget: 1000, Window: 0})
-	for _, flow := range []fabric.FlowID{1, 2} {
+	for _, flow := range []flow.FlowID{1, 2} {
 		var got, want []time.Time
 		for _, journey := range attached.Report() {
 			if journey.Injection.Flow == flow {

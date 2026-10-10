@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
-	"go.aledante.io/FlowSeer/src/common/sim/fabric"
+	"go.aledante.io/FlowSeer/src/common/sim/flow"
 )
 
 func TestReportSortsFlowsAndPreservesSimulatorIssues(t *testing.T) {
@@ -18,11 +18,11 @@ func TestReportSortsFlowsAndPreservesSimulatorIssues(t *testing.T) {
 		Scope:   analysis.NodeScope("sw1"),
 		Message: "the queue is bounded",
 	}}, analysis.EvidenceCatalog{}, nil)
-	flows := map[fabric.FlowID]fabric.FlowStats{
+	flows := map[flow.FlowID]flow.FlowStats{
 		2: {Offered: 2, Held: 1, Delivered: map[string]uint64{"host": 1}, Metadata: metadata},
 		1: {Offered: 1, Delivered: map[string]uint64{"host": 1}, Metadata: metadata},
 	}
-	lab := Observation{Flows: map[fabric.FlowID]FlowObservation{
+	lab := Observation{Flows: map[flow.FlowID]FlowObservation{
 		2: {Sent: 2, UniqueReceived: 1, Missing: 1},
 		1: {Sent: 1, UniqueReceived: 1},
 	}}
@@ -59,8 +59,8 @@ func TestReportSortsFlowsAndPreservesSimulatorIssues(t *testing.T) {
 
 func TestReportKeepsLabMissingOutsideSimulatorLoss(t *testing.T) {
 	metadata := analysis.NewMetadata(analysis.WholeScope(), nil, analysis.EvidenceCatalog{}, nil)
-	flows := map[fabric.FlowID]fabric.FlowStats{7: {Offered: 4, Delivered: map[string]uint64{"host": 4}}}
-	lab := Observation{Flows: map[fabric.FlowID]FlowObservation{7: {Sent: 4, UniqueReceived: 3, Missing: 1}}}
+	flows := map[flow.FlowID]flow.FlowStats{7: {Offered: 4, Delivered: map[string]uint64{"host": 4}}}
+	lab := Observation{Flows: map[flow.FlowID]FlowObservation{7: {Sent: 4, UniqueReceived: 3, Missing: 1}}}
 	report := NewReport(flows, metadata, lab, "host")
 	if report.Simulator.Flows[0].Lost != 0 || len(report.Simulator.Flows[0].Drops) != 0 || report.Normalized[0].SimulatorUnreceived != 0 || report.Normalized[0].LabUnreceived != 1 {
 		t.Fatalf("report conflated live missing with simulator loss: %+v", report)

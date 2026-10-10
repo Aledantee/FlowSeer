@@ -1201,7 +1201,8 @@ token starts a new journey, as on a fabric rebuilt by `assembly.Derive`.
 
 [`flow.go`](../../src/common/sim/fabric/flow.go) folds at settle, after the
 hold and all transmissions end. It frees aggregate and protocol traversal
-storage. `FlowStats.Held` counts keys for the flow when `Flows()` is read.
+storage. [`FlowStats.Held`](../../src/common/sim/flow/flow.go) counts keys
+for the flow when `Flows()` is read.
 Release contributes to `Delivered`, and failure to `Drops`.
 `TestHoldExits` in
 [`flow_internal_test.go`](../../src/common/sim/fabric/flow_internal_test.go)

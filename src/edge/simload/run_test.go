@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
-	"go.aledante.io/FlowSeer/src/common/sim/fabric"
+	"go.aledante.io/FlowSeer/src/common/sim/flow"
 	"go.aledante.io/FlowSeer/src/common/sim/stream"
 	"go.aledante.io/FlowSeer/src/edge/simload/packetio"
 	"go.aledante.io/FlowSeer/src/modules/capture/rawsocket"
@@ -196,7 +196,7 @@ func TestRunPacesOneEpochAndBreaksEqualOffsetsByFlowID(t *testing.T) {
 	if len(sender.writes) != 3 {
 		t.Fatalf("writes = %d, want 3", len(sender.writes))
 	}
-	var flowIDs []fabric.FlowID
+	var flowIDs []flow.FlowID
 	for _, wire := range sender.writes {
 		signature, decodeErr := DecodeWireSignature(wire)
 		if decodeErr != nil {
@@ -204,7 +204,7 @@ func TestRunPacesOneEpochAndBreaksEqualOffsetsByFlowID(t *testing.T) {
 		}
 		flowIDs = append(flowIDs, signature.FlowID)
 	}
-	want := []fabric.FlowID{1, 2, 1}
+	want := []flow.FlowID{1, 2, 1}
 	for i := range want {
 		if flowIDs[i] != want[i] {
 			t.Fatalf("write %d flow = %d, want %d", i, flowIDs[i], want[i])

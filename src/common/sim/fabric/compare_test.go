@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+	"go.aledante.io/FlowSeer/src/common/sim/flow"
 
 	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
 
@@ -144,7 +145,7 @@ func TestCompareAttachedSourceOrdinals(t *testing.T) {
 				t.Fatal(err)
 			}
 			start := time.Duration(1-attachment) * 10 * time.Second
-			if err := f.AttachStream(fabric.StreamAttachment{Origin: fabric.Endpoint{Node: "h1"}, Source: source, Start: start, Flow: fabric.FlowID(attachment + 1)}); err != nil {
+			if err := f.AttachStream(fabric.StreamAttachment{Origin: fabric.Endpoint{Node: "h1"}, Source: source, Start: start, Flow: flow.FlowID(attachment + 1)}); err != nil {
 				t.Fatal(err)
 			}
 		}

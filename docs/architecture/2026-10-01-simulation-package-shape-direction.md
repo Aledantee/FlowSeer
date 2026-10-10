@@ -50,6 +50,7 @@ device.
 ```
 src/common/sim/
   trace/  analysis/  stream/     unchanged leaves
+  flow/                          traffic stream identities and statistics
   port/                          the port table every device is built on
   layer/                         the capability contract's shared types
     phy/ bridge/ lag/ stp/ loopprotect/ mcast/ routing/ filter/ traffic/
@@ -69,6 +70,9 @@ src/common/sim/
 ```mermaid
 flowchart BT
     trace --> analysis --> port --> layer["layer/*"]
+    trace --> flow
+    analysis --> flow
+    flow --> fabric
     layer --> device["device/*"]
     device --> assembly
     seam["device"] --> fabric
@@ -85,6 +89,10 @@ diagram cannot show:
 - A capability package imports `port`, `layer`, `trace`, `analysis`, and
   `src/common/net`. It imports no sibling capability and no device.
 - A device imports capability packages and never `fabric`.
+- `flow` imports `trace` and `analysis`. It owns `FlowID`, `FlowStats`,
+  `LatencyStats`, and value cloning. Fabric owns folding, held gauges, and
+  add/since accounting ([flow/flow.go](../../src/common/sim/flow/flow.go),
+  [fabric/flow.go](../../src/common/sim/fabric/flow.go)).
 - `fabric` imports `device` and no package beneath it, and `medium/cable`.
   It imports no capability package directly. What it needs from a device (forwarding, emissions, state for a
   snapshot) crosses the device seam.

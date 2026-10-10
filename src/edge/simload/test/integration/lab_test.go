@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+	"go.aledante.io/FlowSeer/src/common/sim/flow"
 
 	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
 
@@ -191,7 +192,7 @@ func (span *captureSpan) duration() time.Duration {
 type timedSource struct {
 	rawsocket.Source
 	span *captureSpan
-	ids  map[fabric.FlowID]struct{}
+	ids  map[flow.FlowID]struct{}
 }
 
 func (source timedSource) Receive(ctx context.Context) <-chan rawsocket.Frame {
@@ -340,7 +341,7 @@ func TestICX7150Comparison(t *testing.T) {
 
 	for _, tc := range []struct {
 		name    string
-		firstID fabric.FlowID
+		firstID flow.FlowID
 		counts  []int
 	}{
 		{name: "single", firstID: 1, counts: []int{10_000}},
@@ -352,9 +353,9 @@ func TestICX7150Comparison(t *testing.T) {
 				t.Fatalf("build one-switch fabric: %v", err)
 			}
 			flows := make([]simload.FlowSource, 0, len(tc.counts))
-			ids := make(map[fabric.FlowID]struct{}, len(tc.counts))
+			ids := make(map[flow.FlowID]struct{}, len(tc.counts))
 			for i, count := range tc.counts {
-				id := tc.firstID + fabric.FlowID(i)
+				id := tc.firstID + flow.FlowID(i)
 				ids[id] = struct{}{}
 				spec := stream.Spec{
 					Frame: ethernet.Frame{Src: config.txMAC, Dst: config.rxMAC, EtherType: ethernet.EtherType(0x88b5), Payload: make([]byte, 90)},
@@ -396,7 +397,7 @@ func TestICX7150Comparison(t *testing.T) {
 				t.Errorf("capture interface drops = %d, want zero", observation.InterfaceDrops)
 			}
 			for i, count := range tc.counts {
-				id := tc.firstID + fabric.FlowID(i)
+				id := tc.firstID + flow.FlowID(i)
 				got := observation.Flows[id]
 				if got.Sent != uint64(count) {
 					t.Errorf("flow %d sent = %d, want %d", id, got.Sent, count)

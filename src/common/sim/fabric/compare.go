@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
+	"go.aledante.io/FlowSeer/src/common/sim/flow"
 )
 
 // Comparison reports the simulation outcomes of running a common scenario on two fabrics.
@@ -158,7 +159,7 @@ func (r runRoot) key() rootKey {
 	return rootKey{index: r.ordinal}
 }
 
-func diffRunRoots(a, b []runRoot, journeysA, journeysB []Journey, flowsA, flowsB, preA, preB map[FlowID]FlowStats) (analysis.Difference, DifferenceLocation, bool, bool) {
+func diffRunRoots(a, b []runRoot, journeysA, journeysB []Journey, flowsA, flowsB, preA, preB map[flow.FlowID]flow.FlowStats) (analysis.Difference, DifferenceLocation, bool, bool) {
 	byA, byB := make(map[rootKey]runRoot), make(map[rootKey]runRoot)
 	for _, r := range a {
 		byA[r.key()] = r

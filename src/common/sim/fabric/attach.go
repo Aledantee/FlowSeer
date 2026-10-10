@@ -6,6 +6,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
+	"go.aledante.io/FlowSeer/src/common/sim/flow"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/stream"
 )
@@ -18,7 +19,7 @@ type StreamAttachment struct {
 	Origin    Endpoint
 	Source    stream.Source
 	Start     time.Duration
-	Flow      FlowID
+	Flow      flow.FlowID
 	Retention JourneyRetention
 }
 
