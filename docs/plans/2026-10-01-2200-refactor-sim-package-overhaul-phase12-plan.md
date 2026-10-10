@@ -555,10 +555,12 @@ helpers and documents their landed contract.
 
 ### Source-size inventory
 
-Snapshot `85b403fa`. Counts are physical file lines and Go AST FuncDecl
-start/end lines, excluding tests. The scan covers all of src/common/sim and
-src/edge/simload. There are five files above 1,200 and 25 declarations above
-150. New mapping literals remain independent of producer output.
+Snapshot `85b403fa`. Counts are physical file lines and Go AST FuncDecl/FuncLit start/end lines,
+excluding tests. The scan covers all of src/common/sim and src/edge/simload.
+There are five files above 1,200 and 25 declarations above 150. No existing
+anonymous function exceeds 150 lines. U19 checks both node kinds, including
+literals nested in declarations. New mapping literals remain independent
+of producer output.
 
 | File:line | Function | Lines | Decomposition owner |
 | --- | --- | --- | --- |
@@ -775,8 +777,8 @@ Verify: `uv run tools/scripts/run.py verify change -- src/common/sim/layer/routi
 ### U19. Enforce the completed size inventory
 Files: test/conformance/sim/size_test.go
 After: U5 U6 U7 U8 U9 U10 U11 U12 U13 U15 U17 U18
-Change: Install the parent R9 check after every existing and newly introduced source size site is closed. Parse non-test Go under sim and simload, count physical file lines and FuncDecl start/end lines, and apply only the existing head-comment justification rule. Read directories directly so the test result cannot hide new files behind a cached child-process listing.
-Tests: Literal valid Go declarations padded to 1,200/1,201 file lines and 150/151 function lines prove exact boundaries. A copied pre-decomposition declaration from the size inventory fails and its decomposed form passes. Test fixtures pin present justified-head-comment behavior and no-comment refusal. DefaultRegistry/AssertCase and every owner suite retain existing expectations. No corpus case changes.
+Change: Install the parent R9 check after every existing and newly introduced source size site is closed. Parse non-test Go under sim and simload, count physical file lines and FuncDecl/FuncLit start/end lines, including literals nested in declarations, and apply only the existing head-comment justification rule to both function forms. Read directories directly so the test result cannot hide new files behind a cached child-process listing. Node forms and positions are defined in the read Go 1.27.1 sources at `$GOROOT/src/go/ast/ast.go:323`, `:499`, `:546`, `:1004` and `:1018`.
+Tests: Literal valid Go declarations padded to 1,200/1,201 file lines and named functions padded to 150/151 lines prove exact boundaries. Package-level callbacks and literals nested in declarations each have independent 150/151-line fixtures. A 151-line callback in a file below 1,200 lines fails the function check. A copied pre-decomposition declaration from the size inventory fails and its decomposed form passes. Test fixtures pin the existing justified-head-comment behavior and no-comment refusal for both named and anonymous functions, with no new exemption. DefaultRegistry/AssertCase and every owner suite retain existing expectations. No corpus case changes.
 Verify: `uv run tools/scripts/run.py verify change -- test/conformance/sim`
 
 ### U20. Close core package documentation
