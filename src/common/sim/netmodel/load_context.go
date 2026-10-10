@@ -68,6 +68,10 @@ func (c *loadContext) stpPortScope(portName string) analysis.Scope {
 	return analysis.FieldScope(c.stpScope, "ports", portName)
 }
 
+func (c *loadContext) mstScope(path ...string) analysis.Scope {
+	return analysis.FieldScope(c.stpScope, append([]string{"mst"}, path...)...)
+}
+
 func (c *loadContext) routingInterfaceLookupScope(iface *interfacev1.Interface) analysis.Scope {
 	if iface.GetVlan() != nil {
 		return routing.VLANLookupScope(c.src.DeviceID, routing.DefaultVRF, vlan.ID(iface.GetVlan().GetVlanId()))
