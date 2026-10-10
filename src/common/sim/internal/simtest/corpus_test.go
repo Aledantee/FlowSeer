@@ -706,6 +706,21 @@ func TestExecutePlanningCase(t *testing.T) {
 	}
 }
 
+func TestPlanningFilterRuleAdditionKeepsSnapshot(t *testing.T) {
+	c, ok := simtest.DefaultRegistry().Get("planning/filter-rule-change")
+	if !ok {
+		t.Fatal("filter rule comparison case missing")
+	}
+	want := simtest.ChangeExpectation{Layer: "filter", Subject: trace.Subject{Kind: "rule", Key: `"lan-in"/"deny-mdns-unicast"`}, Field: "", To: &simtest.FactExpectation{TypeID: "filter.rule", Canonical: `name="deny-mdns-unicast";action="drop";proto=17;src=[];dst=[10.0.20.0/24];src_ports=[];dst_ports=[5353-5353];icmp=none;tcp_flags=none`}}
+	if len(c.ExpectedChanges) != 1 || !reflect.DeepEqual(c.ExpectedChanges[0], want) {
+		t.Fatalf("case expectation = %+v, want %+v", c.ExpectedChanges, want)
+	}
+	res := simtest.AssertCase(t, c)
+	if len(res.Changes) != 1 || !want.Matches(res.Changes[0]) {
+		t.Errorf("rule addition = %+v, want %+v", res.Changes, want)
+	}
+}
+
 func TestExecuteShadowingCase(t *testing.T) {
 	c := mustCase("topology-shadowing/partial-model-unknown-port")
 	res := simtest.AssertCase(t, c)

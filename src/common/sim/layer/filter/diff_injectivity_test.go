@@ -69,6 +69,9 @@ func TestDiffPositionalRuleKeysOnSetAdditionAndRemoval(t *testing.T) {
 			keys := make(map[string]bool)
 			for _, change := range filter.Diff(tt.a, tt.b) {
 				if change.Subject.Kind == "rule" {
+					if tt.name == "changed" && (change.Field != "action" || change.From.TypeID() != "filter.action" || change.To.TypeID() != "filter.action") {
+						t.Errorf("retained rule change = %+v, want action facts", change)
+					}
 					keys[change.Subject.Key] = true
 				}
 			}

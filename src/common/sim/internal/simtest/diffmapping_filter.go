@@ -31,33 +31,9 @@ func optionalFilterAdditionExpectation(path string, hits *int) ([]changeRecord, 
 	}
 }
 
-// FilterDiffAllowance names only this producer's registered paths and emitted layers.
+// FilterDiffAllowance returns no exceptions for this exact producer.
 func FilterDiffAllowance() DiffAllowance {
-	return DiffAllowance{Producer: "filter", Layers: []string{"filter"}, Paths: []string{
-		"filter.Config.Sets[set1].Stateful",
-		"filter.Config.Sets[set1].Default",
-		"filter.Config.Sets[set1].Rules[0].Name",
-		"filter.Config.Sets[set1].Rules[0].Action",
-		"filter.Config.Sets[set1].Rules[0].Match.Protocol",
-		"filter.Config.Sets[set1].Rules[0].Match.Src[0]",
-		"filter.Config.Sets[set1].Rules[0].Match.Dst[0]",
-		"filter.Config.Sets[set1].Rules[0].Match.SrcPorts[0].Start",
-		"filter.Config.Sets[set1].Rules[0].Match.SrcPorts[0].End",
-		"filter.Config.Sets[set1].Rules[0].Match.DstPorts[0].Start",
-		"filter.Config.Sets[set1].Rules[0].Match.DstPorts[0].End",
-		"filter.Config.Sets[set1].Rules[0].Match.ICMP.Type",
-		"filter.Config.Sets[set1].Rules[0].Match.ICMP.Code",
-		"filter.Config.Sets[set1].Rules[0].Match.TCPFlags.Mask",
-		"filter.Config.Sets[set1].Rules[0].Match.TCPFlags.Value",
-		"filter.Config.Bindings[0].Interface",
-		"filter.Config.Bindings[0].Direction",
-		"filter.Config.Bindings[0].Set",
-		"filter.Config.Sets[set1].@key",
-		"filter.Config.Sets[set1].Rules[0].Match.Protocol.@present",
-		"filter.Config.Sets[set1].Rules[0].Match.ICMP.@present",
-		"filter.Config.Sets[set1].Rules[0].Match.ICMP.Code.@present",
-		"filter.Config.Sets[set1].Rules[0].Match.TCPFlags.@present",
-	}}
+	return DiffAllowance{}
 }
 
 func filterDiffMapping() (diffMapping, error) {

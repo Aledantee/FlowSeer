@@ -10,6 +10,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/sim/internal/simtest"
 	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
@@ -1049,13 +1050,22 @@ func TestDiff(t *testing.T) {
 		}
 
 		changes := routing.Diff(a, b)
-		expectedFields := []string{"vlan", "mac", "prefixes", "preference", "metric", "mac"}
+		expectedFields := []string{"vlan", "mac", `prefixes["10.0.10.1/24"]`, `prefixes["10.0.20.1/24"]`, "preference", "metric", "mac"}
 		wantTypeIDs := map[string]string{
 			"preference": "routing.route.preference",
 			"metric":     "routing.route.metric",
 		}
 		if len(changes) != len(expectedFields) {
 			t.Fatalf("got %d changes (%+v), want %d", len(changes), changes, len(expectedFields))
+		}
+		prefixWant := []simtest.ChangeExpectation{
+			{Layer: "routing", Subject: trace.Subject{Kind: "interface", Key: `"default"/"if1"`}, Field: `prefixes["10.0.10.1/24"]`, From: &simtest.FactExpectation{TypeID: "routing.prefix", Canonical: "10.0.10.1/24"}},
+			{Layer: "routing", Subject: trace.Subject{Kind: "interface", Key: `"default"/"if1"`}, Field: `prefixes["10.0.20.1/24"]`, To: &simtest.FactExpectation{TypeID: "routing.prefix", Canonical: "10.0.20.1/24"}},
+		}
+		for i, want := range prefixWant {
+			if !want.Matches(changes[i+2]) {
+				t.Errorf("prefix record[%d] = %+v, want %+v", i, changes[i+2], want)
+			}
 		}
 		for i, field := range expectedFields {
 			if changes[i].Field != field {

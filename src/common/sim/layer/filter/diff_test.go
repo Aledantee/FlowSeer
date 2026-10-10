@@ -8,6 +8,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/internal/simtest"
 	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/filter"
+	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
 func TestDiffReportsRuleAndBindingChanges(t *testing.T) {
@@ -158,7 +159,148 @@ func TestDiffReportsRuleAndBindingChanges(t *testing.T) {
 }
 
 func TestDiffCoversEveryConfigField(t *testing.T) {
-	simtest.AssertMappedDiffCoverage(t, "filter", simtest.FilterDiffAllowance())
+	simtest.AssertMappedDiffCoverage(t, "filter")
+}
+
+func TestDiffRangeCorrespondence(t *testing.T) {
+	type bound struct {
+		field    string
+		from, to *simtest.FactExpectation
+	}
+	fact := func(value string) *simtest.FactExpectation {
+		return &simtest.FactExpectation{TypeID: "filter.port", Canonical: value}
+	}
+	cases := []struct {
+		name string
+		a, b []filter.PortRange
+		want []bound
+	}{
+		{"insert", []filter.PortRange{{100, 200}, {300, 400}}, []filter.PortRange{{50, 250}, {100, 200}, {300, 400}}, []bound{{"[0].start", fact("100"), fact("50")}, {"[0].end", fact("200"), fact("250")}, {"[1].start", fact("300"), fact("100")}, {"[1].end", fact("400"), fact("200")}, {"[2].start", nil, fact("300")}, {"[2].end", nil, fact("400")}}},
+		{"delete", []filter.PortRange{{100, 200}, {300, 400}}, []filter.PortRange{{300, 400}}, []bound{{"[0].start", fact("100"), fact("300")}, {"[0].end", fact("200"), fact("400")}, {"[1].start", fact("300"), nil}, {"[1].end", fact("400"), nil}}},
+		{"move", []filter.PortRange{{100, 200}, {300, 400}}, []filter.PortRange{{500, 600}, {300, 400}}, []bound{{"[0].start", fact("100"), fact("300")}, {"[0].end", fact("200"), fact("400")}, {"[1].start", fact("300"), fact("500")}, {"[1].end", fact("400"), fact("600")}}},
+		{"reorder", []filter.PortRange{{100, 200}, {300, 400}}, []filter.PortRange{{300, 400}, {100, 200}}, []bound{}},
+		{"duplicate", []filter.PortRange{{100, 200}, {300, 400}}, []filter.PortRange{{100, 200}, {100, 200}, {300, 400}}, []bound{}},
+		{"one_bound", []filter.PortRange{{100, 200}, {300, 400}}, []filter.PortRange{{101, 200}, {300, 400}}, []bound{{"[0].start", fact("100"), fact("101")}}},
+		{"both_bounds", []filter.PortRange{{100, 200}, {300, 400}}, []filter.PortRange{{101, 201}, {300, 400}}, []bound{{"[0].start", fact("100"), fact("101")}, {"[0].end", fact("200"), fact("201")}}},
+	}
+	hits := 0
+	for _, field := range []string{"match.src_ports", "match.dst_ports"} {
+		for _, tc := range cases {
+			t.Run(field+"/"+tc.name, func(t *testing.T) {
+				for _, normalized := range []bool{false, true} {
+					config := func(ranges []filter.PortRange) filter.Config {
+						match := filter.Match{SrcPorts: ranges}
+						if field == "match.dst_ports" {
+							match = filter.Match{DstPorts: ranges}
+						}
+						return filter.Config{Sets: map[string]filter.RuleSet{"s": {Default: filter.Drop, Rules: []filter.Rule{{Name: "r", Action: filter.Accept, Match: match}}}}}
+					}
+					a, b := config(tc.a), config(tc.b)
+					if normalized {
+						a, b = a.Normalize(layer.Env{}), b.Normalize(layer.Env{})
+					}
+					got := filter.Diff(a, b)
+					hits++
+					if len(got) != len(tc.want) {
+						t.Fatalf("normalized=%v: records = %d, want %d: %+v", normalized, len(got), len(tc.want), got)
+					}
+					for i, bound := range tc.want {
+						want := simtest.ChangeExpectation{Layer: "filter", Subject: trace.Subject{Kind: "rule", Key: `"s"/"r"`}, Field: field + bound.field, From: bound.from, To: bound.to}
+						if !want.Matches(got[i]) {
+							t.Errorf("record[%d] = %+v, want %+v", i, got[i], want)
+						}
+					}
+				}
+			})
+		}
+	}
+	if hits != 28 {
+		t.Errorf("concrete range expectations = %d, want 28", hits)
+	}
+}
+
+func TestDiffPrefixRemovalPrecedesAddition(t *testing.T) {
+	config := func(prefix string) filter.Config {
+		return filter.Config{Sets: map[string]filter.RuleSet{"s": {Default: filter.Drop, Rules: []filter.Rule{{Name: "r", Action: filter.Accept, Match: filter.Match{Src: []netip.Prefix{netip.MustParsePrefix(prefix)}}}}}}}
+	}
+	got := filter.Diff(config("198.51.100.0/24"), config("192.0.2.0/24"))
+	want := []simtest.ChangeExpectation{
+		{Layer: "filter", Subject: trace.Subject{Kind: "rule", Key: `"s"/"r"`}, Field: `match.src["198.51.100.0/24"]`, From: &simtest.FactExpectation{TypeID: "filter.prefix", Canonical: "198.51.100.0/24"}},
+		{Layer: "filter", Subject: trace.Subject{Kind: "rule", Key: `"s"/"r"`}, Field: `match.src["192.0.2.0/24"]`, To: &simtest.FactExpectation{TypeID: "filter.prefix", Canonical: "192.0.2.0/24"}},
+	}
+	if len(got) != 2 {
+		t.Fatalf("records = %d, want 2", len(got))
+	}
+	for i, expected := range want {
+		if !expected.Matches(got[i]) {
+			t.Errorf("record[%d] = %+v, want %+v", i, got[i], expected)
+		}
+	}
+}
+
+func TestDiffDuplicateBindingWinner(t *testing.T) {
+	a := filter.Config{Bindings: []filter.Binding{{Interface: "vlan10", Direction: filter.In, Set: "a"}, {Interface: "vlan10", Direction: filter.In, Set: "z"}}}
+	hits := 0
+	for _, tc := range []struct {
+		name, kept string
+		want       []simtest.ChangeExpectation
+	}{
+		{"remove_overwritten", "z", []simtest.ChangeExpectation{}},
+		{"remove_winner", "a", []simtest.ChangeExpectation{{Layer: "filter", Subject: trace.Subject{Kind: "binding", Key: `"vlan10"/"in"`}, Field: "set", From: &simtest.FactExpectation{TypeID: "filter.binding", Canonical: `set="z"`}, To: &simtest.FactExpectation{TypeID: "filter.binding", Canonical: `set="a"`}}}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			b := filter.Config{Bindings: []filter.Binding{{Interface: "vlan10", Direction: filter.In, Set: tc.kept}}}
+			got := filter.Diff(a, b)
+			hits++
+			if len(got) != len(tc.want) {
+				t.Fatalf("records = %d, want %d", len(got), len(tc.want))
+			}
+			for i, want := range tc.want {
+				if !want.Matches(got[i]) {
+					t.Errorf("record[%d] = %+v, want %+v", i, got[i], want)
+				}
+			}
+		})
+	}
+	if hits != 2 {
+		t.Errorf("concrete binding expectations = %d, want 2", hits)
+	}
+}
+
+func TestDiffRetainedRuleMemberOrder(t *testing.T) {
+	a := filter.Config{Sets: map[string]filter.RuleSet{"s": {Default: filter.Drop, Rules: []filter.Rule{{Name: "r", Action: filter.Accept, Match: filter.Match{
+		Protocol: new(uint8(6)),
+		Src:      []netip.Prefix{netip.MustParsePrefix("198.51.100.0/24")},
+		Dst:      []netip.Prefix{netip.MustParsePrefix("192.0.2.0/24")},
+		SrcPorts: []filter.PortRange{{Start: 100, End: 200}},
+		DstPorts: []filter.PortRange{{Start: 300, End: 400}},
+		ICMP:     &filter.ICMPMatch{Type: 8, Code: new(uint8(0))},
+		TCPFlags: &filter.FlagMatch{Mask: tcp.SYN | tcp.ACK, Value: tcp.SYN},
+	}}}}}}
+	b := filter.Config{Sets: map[string]filter.RuleSet{"s": {Default: filter.Drop, Rules: []filter.Rule{{Name: "r", Action: filter.Drop}}}}}
+	want := []simtest.ChangeExpectation{
+		{Layer: "filter", Subject: trace.Subject{Kind: "rule", Key: `"s"/"r"`}, Field: "action", From: &simtest.FactExpectation{TypeID: "filter.action", Canonical: "accept"}, To: &simtest.FactExpectation{TypeID: "filter.action", Canonical: "drop"}},
+		{Layer: "filter", Subject: trace.Subject{Kind: "rule", Key: `"s"/"r"`}, Field: "match.protocol", From: &simtest.FactExpectation{TypeID: "filter.protocol", Canonical: "6"}},
+		{Layer: "filter", Subject: trace.Subject{Kind: "rule", Key: `"s"/"r"`}, Field: "match.src[\"198.51.100.0/24\"]", From: &simtest.FactExpectation{TypeID: "filter.prefix", Canonical: "198.51.100.0/24"}},
+		{Layer: "filter", Subject: trace.Subject{Kind: "rule", Key: `"s"/"r"`}, Field: "match.dst[\"192.0.2.0/24\"]", From: &simtest.FactExpectation{TypeID: "filter.prefix", Canonical: "192.0.2.0/24"}},
+		{Layer: "filter", Subject: trace.Subject{Kind: "rule", Key: `"s"/"r"`}, Field: "match.src_ports[0].start", From: &simtest.FactExpectation{TypeID: "filter.port", Canonical: "100"}},
+		{Layer: "filter", Subject: trace.Subject{Kind: "rule", Key: `"s"/"r"`}, Field: "match.src_ports[0].end", From: &simtest.FactExpectation{TypeID: "filter.port", Canonical: "200"}},
+		{Layer: "filter", Subject: trace.Subject{Kind: "rule", Key: `"s"/"r"`}, Field: "match.dst_ports[0].start", From: &simtest.FactExpectation{TypeID: "filter.port", Canonical: "300"}},
+		{Layer: "filter", Subject: trace.Subject{Kind: "rule", Key: `"s"/"r"`}, Field: "match.dst_ports[0].end", From: &simtest.FactExpectation{TypeID: "filter.port", Canonical: "400"}},
+		{Layer: "filter", Subject: trace.Subject{Kind: "rule", Key: `"s"/"r"`}, Field: "match.icmp.type", From: &simtest.FactExpectation{TypeID: "filter.icmp_type", Canonical: "8"}},
+		{Layer: "filter", Subject: trace.Subject{Kind: "rule", Key: `"s"/"r"`}, Field: "match.icmp.code", From: &simtest.FactExpectation{TypeID: "filter.icmp_code", Canonical: "0"}},
+		{Layer: "filter", Subject: trace.Subject{Kind: "rule", Key: `"s"/"r"`}, Field: "match.tcp_flags.mask", From: &simtest.FactExpectation{TypeID: "filter.tcp_flags", Canonical: "18"}},
+		{Layer: "filter", Subject: trace.Subject{Kind: "rule", Key: `"s"/"r"`}, Field: "match.tcp_flags.value", From: &simtest.FactExpectation{TypeID: "filter.tcp_flags", Canonical: "2"}},
+	}
+	got := filter.Diff(a, b)
+	if len(got) != 12 {
+		t.Fatalf("records = %d, want 12", len(got))
+	}
+	for i, expected := range want {
+		if !expected.Matches(got[i]) {
+			t.Errorf("record[%d] = %+v, want %+v", i, got[i], expected)
+		}
+	}
 }
 
 // TestRetentionKeyCoversEveryConfigField verifies that every exported filter.Config field

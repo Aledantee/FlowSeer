@@ -49,6 +49,11 @@ func (f macFact) Canonical() string { return netaddr.MAC(f).String() }
 
 type prefixesFact string
 
+type prefixFact netip.Prefix
+
+func (f prefixFact) TypeID() string    { return "routing.prefix" }
+func (f prefixFact) Canonical() string { return netip.Prefix(f).String() }
+
 func (f prefixesFact) TypeID() string    { return "routing.prefixes" }
 func (f prefixesFact) Canonical() string { return string(f) }
 
@@ -346,14 +351,28 @@ func Diff(a, b Config) []trace.Change {
 							To:      macFact(ifB.MAC),
 						})
 					}
-					if !slices.Equal(ifA.Prefixes, ifB.Prefixes) {
-						changes = append(changes, trace.Change{
-							Layer:   LayerName,
-							Subject: trace.Subject{Kind: "interface", Key: key},
-							Field:   "prefixes",
-							From:    PrefixesFact(slices.Clone(ifA.Prefixes)),
-							To:      PrefixesFact(slices.Clone(ifB.Prefixes)),
-						})
+					i, j := 0, 0
+					var removed, added []netip.Prefix
+					for i < len(ifA.Prefixes) && j < len(ifB.Prefixes) {
+						switch c := comparePrefix(ifA.Prefixes[i], ifB.Prefixes[j]); {
+						case c < 0:
+							removed = append(removed, ifA.Prefixes[i])
+							i++
+						case c > 0:
+							added = append(added, ifB.Prefixes[j])
+							j++
+						default:
+							i++
+							j++
+						}
+					}
+					removed = append(removed, ifA.Prefixes[i:]...)
+					added = append(added, ifB.Prefixes[j:]...)
+					for _, p := range removed {
+						changes = append(changes, trace.Change{Layer: LayerName, Subject: trace.Subject{Kind: "interface", Key: key}, Field: "prefixes[" + strconv.Quote(p.String()) + "]", From: prefixFact(p)})
+					}
+					for _, p := range added {
+						changes = append(changes, trace.Change{Layer: LayerName, Subject: trace.Subject{Kind: "interface", Key: key}, Field: "prefixes[" + strconv.Quote(p.String()) + "]", To: prefixFact(p)})
 					}
 				}
 			}

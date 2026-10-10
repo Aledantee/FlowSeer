@@ -6,29 +6,9 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
 )
 
-// RoutingDiffAllowance names only this producer's registered paths and emitted layers.
+// RoutingDiffAllowance returns no exceptions for this exact producer.
 func RoutingDiffAllowance() DiffAllowance {
-	return DiffAllowance{Producer: "routing", Layers: []string{"routing"}, Paths: []string{
-		"routing.Config.ClearRouterFlag",
-		"routing.Config.VRFs[default].Interfaces[vlan10].VLAN",
-		"routing.Config.VRFs[default].Interfaces[vlan10].Port",
-		"routing.Config.VRFs[default].Interfaces[vlan10].MAC",
-		"routing.Config.VRFs[default].Interfaces[vlan10].Prefixes[0]",
-		"routing.Config.VRFs[default].Routes[0].Prefix",
-		"routing.Config.VRFs[default].Routes[0].NextHop",
-		"routing.Config.VRFs[default].Routes[0].Interface",
-		"routing.Config.VRFs[default].Routes[0].Preference",
-		"routing.Config.VRFs[default].Routes[0].Metric",
-		"routing.Config.VRFs[default].Neighbors[0].Interface",
-		"routing.Config.VRFs[default].Neighbors[0].Addr",
-		"routing.Config.VRFs[default].Neighbors[0].MAC",
-		"routing.Config.VRFs[default].NeighborPolicy.Mode",
-		"routing.Config.VRFs[default].NeighborPolicy.ReachableTime",
-		"routing.Config.VRFs[default].NeighborPolicy.RetransTimer",
-		"routing.Config.VRFs[default].NeighborPolicy.HoldDepth",
-		"routing.Config.VRFs[default].@key",
-		"routing.Config.VRFs[default].Interfaces[vlan10].@key",
-	}}
+	return DiffAllowance{}
 }
 
 func routingDiffMapping() (diffMapping, error) {
