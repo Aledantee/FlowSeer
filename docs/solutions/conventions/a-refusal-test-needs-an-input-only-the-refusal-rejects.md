@@ -1,7 +1,7 @@
 ---
 title: A Refusal Test Needs an Input Only the Refusal Rejects
 date: 2026-09-16
-last_verified: 2026-10-07
+last_verified: 2026-10-10
 category: conventions
 module: src/common/net/udp
 problem_type: convention
@@ -13,6 +13,7 @@ applies_when:
   - "Reviewing a codec or a validator whose tests are refusals, or judging whether a passing suite would notice a guard being deleted"
   - "Adding a rule to a gate that already refuses, such as a second condition in a layering or validation table, where the cases you write may be ones the old rule rejects anyway"
   - "Writing a table-driven refusal gate where each row names a fixture and a test drops each row to prove it is needed"
+  - "Testing a refusal gate that must run before capability selection, where final configuration assertions cannot distinguish the two orders"
 related_components: [codec, packet_capture, conformance-gates]
 tags: [testing, codec, refusal, mutation-testing, conformance-gate]
 ---
@@ -190,6 +191,35 @@ Commit `dce8bf2c` records deleting the `Start < 0` guard and observing:
 ```text
 --- FAIL: TestSpecRejectsNegativeStartWithTwoFrames (0.00s)
 ```
+
+## Pin gate order through diagnostics
+
+A later selection can observe a row the gate will eventually refuse. Both
+orders can produce the same omitted configuration while only the wrong order
+produces a false diagnostic. Assert the public issue that distinguishes them.
+
+`Load` gates network instances before selecting capabilities
+(`src/common/sim/netmodel/netmodel.go:56-65`). Moving that gate after selection
+let a named or present-empty bridge row infer STP, then report a missing default
+bridge. Configuration and capability assertions still passed. The added check
+in `TestLoadInstancePresence`
+(`src/common/sim/netmodel/load_instances_test.go:192-198`) pins the diagnostic:
+
+```go
+if issue.Code == netmodel.IssueMissingSTPBridgeState {
+    t.Errorf("issue = %+v, want no missing bridge state issue for unrequested STP", issue)
+}
+```
+
+Commit `63c10e16` records moving the gate after selection and quotes:
+
+```text
+--- FAIL: TestLoadInstancePresence/stp_bridge/blue (0.00s)
+```
+
+Use a refused owner with no explicit capability request to test this order.
+An explicit STP request would legitimately need a missing-bridge issue and
+would not distinguish the inference defect.
 
 ## What this does not cover
 
