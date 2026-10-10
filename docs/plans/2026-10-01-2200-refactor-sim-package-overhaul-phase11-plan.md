@@ -523,10 +523,3 @@ inventing settings from observed multicast or partial QoS rows.
 ## Open questions
 
 None. The four questions of the planning passes are Decisions, each marked with its date.
-
-## Review gaps
-
-- `src/common/sim/netmodel/load_instances_test.go:188`: move `gateInstances` after capability selection; fails: a named-only bridge reports a missing default STP bridge; class: gap.
-- `docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase11-plan.md:1`: opening frontmatter delimiter is joined to `title`; fails: Markdown renders metadata as body text; class: convention.
-- `src/common/sim/netmodel/README.md:161`: invalid MST port priority says only its port is omitted; fails: the instance, and possibly its region, is omitted; class: convention.
-- `docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase11-plan.md:102`: MST port policy still says blocked after its Decisions; fails: readers treat an implemented policy as unresolved; class: convention.
