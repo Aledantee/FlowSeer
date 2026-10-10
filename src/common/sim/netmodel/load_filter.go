@@ -26,7 +26,7 @@ const (
 func (c *loadContext) reportUnwantedFilter(ifaces []*interfacev1.Interface, filterSets []*filterv1.FilterRuleSet) {
 	if !c.isWanted(filter.LayerName) {
 		for _, iface := range ifaces {
-			if iface.GetFilter() != nil {
+			if _, refused := c.refusedIP[iface.GetName()]; iface.GetFilter() != nil && !refused {
 				scope := routing.OwnershipScope(c.src.DeviceID, routing.DefaultVRF, iface.GetName())
 				c.addSkippedAt(scope, iface.GetName(), "filter", "layer not wanted", analysis.Incomplete, IssueSkippedLayerNotWanted)
 			}
@@ -248,7 +248,7 @@ func (c *loadContext) loadFilterBindings(ifaces []*interfacev1.Interface, owners
 	var bindings []filter.Binding
 	for _, iface := range ifaces {
 		facet := iface.GetFilter()
-		if facet == nil {
+		if _, refused := c.refusedIP[iface.GetName()]; facet == nil || refused {
 			continue
 		}
 		inSet := facet.GetInSet()

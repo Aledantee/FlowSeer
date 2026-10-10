@@ -7,7 +7,10 @@ import (
 	"strings"
 
 	interfacev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1"
+	ipv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/ip/v1"
 	packetv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/packet/v1"
+	stpv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/stp/v1"
+	switchingv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/switching/v1"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
@@ -18,12 +21,14 @@ import (
 
 // Issue codes used by netmodel.
 const (
-	IssueUnknownPort             analysis.IssueCode = "netmodel.skipped.unknown_port"
-	IssueSkippedInterfaceRouted  analysis.IssueCode = "netmodel.switchport.interface_routed"
-	IssueSkippedLagMember        analysis.IssueCode = "netmodel.switchport.lag_member"
-	IssueSkippedUnsupportedFacet analysis.IssueCode = "netmodel.skipped.unsupported_facet"
-	IssueSkippedMissingFacet     analysis.IssueCode = "netmodel.skipped.missing_facet"
-	IssueSkippedLayerNotWanted   analysis.IssueCode = "netmodel.skipped.layer_not_wanted"
+	IssueUnknownPort                analysis.IssueCode = "netmodel.skipped.unknown_port"
+	IssueSkippedInterfaceRouted     analysis.IssueCode = "netmodel.switchport.interface_routed"
+	IssueSkippedLagMember           analysis.IssueCode = "netmodel.switchport.lag_member"
+	IssueSkippedUnsupportedFacet    analysis.IssueCode = "netmodel.skipped.unsupported_facet"
+	IssueSkippedMissingFacet        analysis.IssueCode = "netmodel.skipped.missing_facet"
+	IssueSkippedLayerNotWanted      analysis.IssueCode = "netmodel.skipped.layer_not_wanted"
+	IssueUnsupportedNetworkInstance analysis.IssueCode = "netmodel.instance.unsupported"
+	IssueInvalidNetworkInstance     analysis.IssueCode = "netmodel.instance.invalid"
 )
 
 type loadContext struct {
@@ -35,6 +40,7 @@ type loadContext struct {
 	issues       []analysis.Issue
 	assumptions  []analysis.Assumption
 	report       Report
+	refusedIP    map[string]string
 }
 
 func newLoadContext(src SourceContext) *loadContext {
@@ -43,6 +49,7 @@ func newLoadContext(src SourceContext) *loadContext {
 		rootScope:    analysis.NodeScope(src.DeviceID),
 		routingScope: routing.VRFScope(src.DeviceID, routing.DefaultVRF),
 		catalog:      analysis.EvidenceCatalog{},
+		refusedIP:    make(map[string]string),
 		report:       Report{CapabilitySources: make(map[trace.Layer]string)},
 	}
 	c.stpScope = c.protocolScope(stp.LayerName, "0")
@@ -215,13 +222,16 @@ func (c *loadContext) isWanted(l trace.Layer) bool {
 
 type loadOwnership struct {
 	ipPresent        map[string]bool
+	ipAccepted       map[string]bool
 	routedSubParents map[string]struct{}
 }
 
 func prepareOwnership(ifaces []*interfacev1.Interface, ports port.Table) (loadOwnership, map[string]*interfacev1.Interface) {
-	ownership := loadOwnership{ipPresent: make(map[string]bool, len(ifaces))}
+	ownership := loadOwnership{ipPresent: make(map[string]bool, len(ifaces)), ipAccepted: make(map[string]bool, len(ifaces))}
 	for _, iface := range ifaces {
 		ownership.ipPresent[iface.GetName()] = iface.GetIp() != nil
+		ip := iface.GetIp()
+		ownership.ipAccepted[iface.GetName()] = ip != nil && defaultInstance(ip)
 	}
 	ifaceByName := make(map[string]*interfacev1.Interface, len(ifaces))
 	for _, iface := range ifaces {
@@ -245,7 +255,7 @@ func prepareOwnership(ifaces []*interfacev1.Interface, ports port.Table) (loadOw
 	routedSubClaimants := make(map[string][]string)
 	for _, iface := range ifaces {
 		sub := iface.GetSub()
-		if sub == nil || iface.GetIp() == nil {
+		if sub == nil || !ownership.ipAccepted[iface.GetName()] {
 			continue
 		}
 		if parentPort, vlanID, accepted := acceptRoutedSubParent(ifaceByName, ports, sub); accepted {
@@ -263,6 +273,104 @@ func prepareOwnership(ifaces []*interfacev1.Interface, ports port.Table) (loadOw
 	}
 
 	return ownership, ifaceByName
+}
+
+type instanceRow interface {
+	HasNetworkInstance() bool
+	GetNetworkInstance() string
+}
+
+func defaultInstance(row instanceRow) bool {
+	return !row.HasNetworkInstance() || row.GetNetworkInstance() == DefaultNetworkInstance
+}
+
+func (c *loadContext) instanceScope(domain, what, key string) analysis.Scope {
+	return analysis.FieldScope(c.rootScope, "network_instance", domain, what, key)
+}
+
+func (c *loadContext) acceptInstance(row instanceRow, what, key, portName string) bool {
+	domain := row.GetNetworkInstance()
+	if !row.HasNetworkInstance() {
+		c.addDefaultAt(c.instanceScope(DefaultNetworkInstance, what, key), portName, "network_instance", DefaultNetworkInstance)
+		return true
+	}
+	if defaultInstance(row) {
+		return true
+	}
+	c.refuseInstance(domain, what, key, portName)
+	return false
+}
+
+func (c *loadContext) refuseInstance(domain, what, key, portName string) {
+	why := fmt.Sprintf("network_instance %q is not supported", domain)
+	status, code := analysis.Unsupported, IssueUnsupportedNetworkInstance
+	if domain == "" {
+		why = "network_instance is present but empty"
+		status, code = analysis.Incomplete, IssueInvalidNetworkInstance
+	}
+	c.addSkippedAt(c.instanceScope(domain, what, key), portName, what, why, status, code)
+}
+
+func (c *loadContext) gateInstances(in *Input) {
+	for _, iface := range in.Interfaces {
+		ip := iface.GetIp()
+		if ip == nil || c.acceptInstance(ip, "ip", iface.GetName(), iface.GetName()) {
+			continue
+		}
+		c.refusedIP[iface.GetName()] = ip.GetNetworkInstance()
+		if facet := iface.GetFilter(); facet != nil {
+			if facet.GetInSet() != "" {
+				c.refuseInstance(ip.GetNetworkInstance(), "filter_in", iface.GetName()+"/"+facet.GetInSet(), iface.GetName())
+			}
+			if facet.GetOutSet() != "" {
+				c.refuseInstance(ip.GetNetworkInstance(), "filter_out", iface.GetName()+"/"+facet.GetOutSet(), iface.GetName())
+			}
+		}
+	}
+	in.Addresses = slices.DeleteFunc(slices.Clone(in.Addresses), func(row *ipv1.InterfaceAddress) bool {
+		if row == nil {
+			return false
+		}
+		domain, refused := c.refusedIP[row.GetInterfaceName()]
+		if refused {
+			c.refuseInstance(domain, "ip_address", row.GetInterfaceName()+"/"+row.GetAddress().String(), row.GetInterfaceName())
+		}
+		return refused
+	})
+	in.Neighbors = slices.DeleteFunc(slices.Clone(in.Neighbors), func(row *ipv1.NeighborEntry) bool {
+		if row == nil {
+			return false
+		}
+		domain, refused := c.refusedIP[row.GetInterfaceName()]
+		if refused {
+			c.refuseInstance(domain, "ip_neighbor", row.GetInterfaceName()+"/"+row.GetIp().String(), row.GetInterfaceName())
+		}
+		return refused
+	})
+	in.VLANs = slices.DeleteFunc(slices.Clone(in.VLANs), func(row *switchingv1.Vlan) bool {
+		return row != nil && !c.acceptInstance(row, "vlan", strconv.FormatUint(uint64(row.GetId()), 10), "")
+	})
+	in.FDB = slices.DeleteFunc(slices.Clone(in.FDB), func(row *switchingv1.FdbEntry) bool {
+		if row == nil {
+			return false
+		}
+		key := fmt.Sprintf("%d/%s/%s", row.GetVlanId(), row.GetMac().String(), row.GetInterfaceName())
+		return !c.acceptInstance(row, "fdb_entry", key, row.GetInterfaceName())
+	})
+	if row := in.BridgeState; row != nil && !c.acceptInstance(row, "stp_bridge", "0", "") {
+		for _, ps := range in.STPPorts {
+			if ps != nil {
+				c.refuseInstance(row.GetNetworkInstance(), "stp_port", ps.GetInterfaceName(), ps.GetInterfaceName())
+			}
+		}
+		in.BridgeState, in.STPPorts = nil, nil
+	}
+	in.MSTInstances = slices.DeleteFunc(slices.Clone(in.MSTInstances), func(row *stpv1.MstInstance) bool {
+		return row != nil && !c.acceptInstance(row, "mst_instance", strconv.FormatUint(uint64(row.GetMstId()), 10), "")
+	})
+	in.MSTVLANMaps = slices.DeleteFunc(slices.Clone(in.MSTVLANMaps), func(row *stpv1.MstVlanMap) bool {
+		return row != nil && !c.acceptInstance(row, "mst_vlan_map", strconv.FormatUint(uint64(row.GetMstId()), 10), "")
+	})
 }
 
 // routedSubParentPort resolves parentName to the interface the routing walk

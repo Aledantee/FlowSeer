@@ -55,10 +55,10 @@ func (c *loadContext) reconcileCapabilities(executable, want []trace.Layer) {
 func summarizeFacets(ifaces []*interfacev1.Interface, ownership loadOwnership, want []trace.Layer, explicitRequest bool) facetSummary {
 	summary := facetSummary{}
 	for _, iface := range ifaces {
-		if iface.GetFilter() != nil {
+		if iface.GetFilter() != nil && (iface.GetIp() == nil || ownership.ipAccepted[iface.GetName()]) {
 			summary.hasFilterFacet = true
 		}
-		if iface.GetIp() != nil {
+		if ownership.ipAccepted[iface.GetName()] {
 			summary.hasIPFacet = true
 			// A routed interface needs a relay that can leave it out, which
 			// only a VLAN-aware relay has.

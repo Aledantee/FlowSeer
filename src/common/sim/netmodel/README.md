@@ -91,7 +91,8 @@ to apply to the bridge, so each loader owns its configuration result.
 
 ```mermaid
 flowchart LR
-    ports[Ports and ownership] --> capabilities[Capability selection]
+    instances[Gate network instances] --> ports[Ports and ownership]
+    ports --> capabilities[Capability selection]
     capabilities --> subjects[Subject loaders]
     subjects --> compose[Apply routing VLAN contributions]
     compose --> config[Normalize and validate configuration]
@@ -206,6 +207,16 @@ records both from the same catalog, issues, and assumptions.
 
 ## Construction trust boundary
 
+Only absent `network_instance` and explicit `DefaultNetworkInstance` enter the
+default domain. Absence records an evidenced assumption. A present empty key is
+malformed. Named IP facets, VLANs, FDB entries, bridge states, MST instances and
+MST VLAN maps are refused before capability inference or shared ownership claims
+so they cannot merge with default-domain data. Address and neighbor rows inherit
+their interface's refusal, as do its In and Out filter bindings. Each refusal
+has an instance and row scope with evidence. `TestLoadNamedDomainsBeforeClaims`
+in [load_instances_test.go](load_instances_test.go) preserves an explicit-default
+VID 10 sibling beside blue/red VID 10 rows in both input orders.
+
 The construction specification contains normalized configuration, executable
 seeds, the source device identity, and an immutable copy of the loading metadata.
 Building a switch with `vswitch.NewWithSpec(res.Spec)`, or a fabric from the
@@ -228,13 +239,13 @@ and the VID of its one customer tag, provided the parent names a physical or
 LAG interface loaded alongside it and the encapsulation is exactly one
 `ETHER_TYPE_DOT1Q` tag whose VID is a usable IEEE 802.1Q identifier (1 through
 4094). It contributes no port-table entry of its own, since it is not a port,
-and an IP facet on it counts toward the same routed-interface capability flag
-a VLAN interface or a routed port would set. A parent's own switchport facet
+and an accepted IP facet on it counts toward the same routed-interface capability
+flag a VLAN interface or a routed port would set. A parent's own switchport facet
 and its spanning-tree port are skipped from the bridge switchport table and
 the spanning-tree port table on the same footing as a directly routed port,
 even when the parent carries no IP facet of its own, but only once one of
 its sub-interfaces resolves to a claim the routing walk accepts without a
-conflicting claimant; a parent whose only sub-interface is rejected, or
+conflicting claimant. A parent whose only sub-interface is rejected, or
 whose sub-interfaces claim the same parent and VID, keeps both.
 
 Any other encapsulation, an absent one included, raises

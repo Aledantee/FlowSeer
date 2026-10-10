@@ -53,6 +53,7 @@ func Load(now time.Time, src SourceContext, in Input) (Result, error) {
 		return Result{}, err
 	}
 	c := newLoadContext(src)
+	c.gateInstances(&in)
 	want, explicitRequest := c.requestedCapabilities(in.Want)
 	ports, err := c.loadPorts(in.Interfaces)
 	if err != nil {

@@ -34,7 +34,7 @@ const (
 func (c *loadContext) reportUnwantedRouting(ifaces []*interfacev1.Interface, addrs []*ipv1.InterfaceAddress, neighbors []*ipv1.NeighborEntry) {
 	if !c.isWanted(routing.LayerName) {
 		for _, iface := range ifaces {
-			if iface.GetIp() != nil {
+			if _, refused := c.refusedIP[iface.GetName()]; iface.GetIp() != nil && !refused {
 				c.addSkippedAt(c.routingInterfaceLookupScope(iface), iface.GetName(), "ip", "layer not wanted", analysis.Incomplete, IssueSkippedLayerNotWanted)
 			}
 		}
@@ -111,7 +111,7 @@ func (c *loadContext) collectRoutedClaims(ifaces []*interfacev1.Interface, iface
 	vlanClaimants := make(map[vlan.ID][]string)
 
 	for _, iface := range ifaces {
-		if iface.GetIp() == nil {
+		if _, refused := c.refusedIP[iface.GetName()]; iface.GetIp() == nil || refused {
 			continue
 		}
 

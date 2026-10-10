@@ -238,7 +238,7 @@ and capability assertions. No corpus values change.
 Verify: `uv run tools/scripts/run.py verify change -- src/common/sim/netmodel`
 
 ### U9. Refuse named-domain contributions before ownership
-Files: src/common/sim/netmodel/load_context.go, src/common/sim/netmodel/load_capabilities.go, src/common/sim/netmodel/load_bridge.go, src/common/sim/netmodel/load_stp.go, src/common/sim/netmodel/load_routing.go, src/common/sim/netmodel/load_filter.go, src/common/sim/netmodel/load_fdb.go, src/common/sim/netmodel/load_instances_test.go, src/common/sim/netmodel/README.md
+Files: src/common/sim/netmodel/netmodel.go, src/common/sim/netmodel/load_context.go, src/common/sim/netmodel/load_capabilities.go, src/common/sim/netmodel/load_bridge.go, src/common/sim/netmodel/load_stp.go, src/common/sim/netmodel/load_routing.go, src/common/sim/netmodel/load_filter.go, src/common/sim/netmodel/load_fdb.go, src/common/sim/netmodel/load_instances_test.go, src/common/sim/netmodel/README.md
 After: U8
 Change: gate IpFacet, Vlan, FdbEntry, BridgeState, MstInstance and MstVlanMap by instance before claims or capability
 inference. Only absent and explicit DefaultNetworkInstance enter the default domain. Present-empty is malformed. Preserve
@@ -248,6 +248,9 @@ Source: R9, schema ownership and intake audit below.
 Tests: direct protobuf builders call Load with blue/red VLAN interfaces at VID 10, dependent addresses/neighbors, In/Out
 filters and FDB rows. Require no named contribution, independent scoped issues and NewWithSpec success. Add an explicit-default VID 10 sibling and reverse input order. Absent keys record assumptions, explicit default does not. Removing the gate
 before claim resolution must fail. MSTPort ownership follows the Decision on ambiguous rows and is applied in U11.
+The intake call in netmodel.go is required because Load selects capabilities before its subject loaders
+(netmodel.go:56..64). Add that path to Files. The presence matrix asserts public assumptions and refusals
+for all six row types. Executable MST reconstruction remains in U10/U11.
 Verify: `uv run tools/scripts/run.py verify change -- src/common/sim/netmodel`
 
 ### U10. Translate MST region, instances and maps
