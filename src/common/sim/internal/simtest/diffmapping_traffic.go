@@ -6,27 +6,9 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer/traffic"
 )
 
-// TrafficDiffAllowance names only this producer's registered paths and emitted layers.
+// TrafficDiffAllowance returns no exceptions for this exact producer.
 func TrafficDiffAllowance() DiffAllowance {
-	return DiffAllowance{Producer: "traffic", Layers: []string{"traffic"}, Paths: []string{
-		"traffic.Config.Mirrors[0].Name",
-		"traffic.Config.Mirrors[0].SelectAll",
-		"traffic.Config.Mirrors[0].OutputPort",
-		"traffic.Config.Mirrors[0].OutputVLAN",
-		"traffic.Config.Mirrors[0].SnapLen",
-		"traffic.Config.Mirrors[0].SelectSrcPorts[0]",
-		"traffic.Config.Mirrors[0].SelectDstPorts[0]",
-		"traffic.Config.Mirrors[0].SelectVLANs[0]",
-		"traffic.Config.Policers[1/1/1].RateBPS",
-		"traffic.Config.Policers[1/1/1].BurstOctets",
-		"traffic.Config.Queues[1/1/1].MaxRateBPS[0]",
-		"traffic.Config.Queues[1/1/1].BufferOctets[0]",
-		"traffic.Config.Mirrors[0].OutputVLAN.@present",
-		"traffic.Config.Policers[1/1/1].@key",
-		"traffic.Config.Queues[1/1/1].@key",
-		"traffic.Config.Queues[1/1/1].MaxRateBPS[0].@key",
-		"traffic.Config.Queues[1/1/1].BufferOctets[0].@key",
-	}}
+	return DiffAllowance{}
 }
 
 func trafficDiffMapping() (diffMapping, error) {

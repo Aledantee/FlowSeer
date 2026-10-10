@@ -34,6 +34,70 @@ func TestConfigEqualAndDiffNormalizeCompleteConfiguration(t *testing.T) {
 	}
 }
 
+func TestDiffEmptyTrafficPresence(t *testing.T) {
+	a := vswitch.Config{MAC: netaddr.MAC{2, 0, 0, 0, 0, 1}}
+	b := a.Clone()
+	b.Traffic = &traffic.Config{}
+	cases := []struct {
+		name string
+		a, b vswitch.Config
+		want simtest.ChangeExpectation
+	}{
+		{"add", a, b, simtest.ChangeExpectation{Layer: "traffic", Subject: trace.Subject{Kind: "capability", Key: "traffic"}, Field: "presence", To: &simtest.FactExpectation{TypeID: "vswitch.layer", Canonical: "traffic"}}},
+		{"remove", b, a, simtest.ChangeExpectation{Layer: "traffic", Subject: trace.Subject{Kind: "capability", Key: "traffic"}, Field: "presence", From: &simtest.FactExpectation{TypeID: "vswitch.layer", Canonical: "traffic"}}},
+	}
+	hits := 0
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			for _, normalized := range []bool{false, true} {
+				a, b := tc.a, tc.b
+				if normalized {
+					a, b = a.Normalize(), b.Normalize()
+				}
+				got := vswitch.Diff(a, b)
+				hits++
+				if len(got) != 1 || !tc.want.Matches(got[0]) {
+					t.Errorf("normalized=%v: Diff = %+v, want %+v", normalized, got, tc.want)
+				}
+			}
+		})
+	}
+	if hits != 4 {
+		t.Errorf("concrete presence expectations = %d, want 4", hits)
+	}
+}
+
+func TestDiffInferredLAGPresence(t *testing.T) {
+	a := vswitch.Config{MAC: netaddr.MAC{2, 0, 0, 0, 0, 1}}
+	b := a.Clone()
+	b.Ports = mustTable(t, port.NewBuilder().Add(port.Port{Name: "lag1", Kind: port.LAG}))
+	want := []simtest.ChangeExpectation{
+		{Layer: "port", Subject: trace.Subject{Kind: "port", Key: "lag1"}, To: &simtest.FactExpectation{TypeID: "port.port", Canonical: `name="lag1",kind="Lag",ifindex=0,admin="Unknown",oper="Unknown",mtu=0,lag=""`}},
+		{Layer: "lag", Subject: trace.Subject{Kind: "capability", Key: "lag"}, Field: "presence", To: &simtest.FactExpectation{TypeID: "vswitch.layer", Canonical: "lag"}},
+		{Layer: "lag", Subject: trace.Subject{Kind: "lag", Key: "lag1"}, To: &simtest.FactExpectation{TypeID: "lag.lag", Canonical: `mode="";primary="";up_delay_ns=0;down_delay_ns=0;hash_basis=0;min_links=0;rebalance_interval=10s;lacp={mode="";fast=false;system_priority=32768;system_id="02:00:00:00:00:01";key=1;fallback=false};members={}`}},
+	}
+	hits := 0
+	for _, normalized := range []bool{false, true} {
+		a, b := a, b
+		if normalized {
+			a, b = a.Normalize(), b.Normalize()
+		}
+		got := vswitch.Diff(a, b)
+		hits++
+		if len(got) != len(want) {
+			t.Fatalf("normalized=%v: Diff = %+v, want %+v", normalized, got, want)
+		}
+		for i, expected := range want {
+			if !expected.Matches(got[i]) {
+				t.Errorf("normalized=%v: record[%d] = %+v, want %+v", normalized, i, got[i], expected)
+			}
+		}
+	}
+	if hits != 2 {
+		t.Errorf("concrete inferred-presence expectations = %d, want 2", hits)
+	}
+}
+
 func TestDiffOfAHubAndAHubIsEmpty(t *testing.T) {
 	b := port.NewBuilder()
 	b.Range("1/1/%d", 1, 2, port.Port{Kind: port.Physical})

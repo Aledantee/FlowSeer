@@ -601,7 +601,7 @@ func TestMappedNestedCapabilityProducerPartitions(t *testing.T) {
 				t.Fatal("missing declared nested lifecycle slot")
 			}
 			original := m.diff
-			for _, variant := range []string{"baseline", "missing", "wrong", "capability-key", "order", "no-allowance"} {
+			for _, variant := range []string{"baseline", "missing", "wrong", "capability-key", "order", "no-allowance", "exact-no-allowance"} {
 				t.Run(variant, func(t *testing.T) {
 					m.diff = func(a, b reflect.Value) []trace.Change {
 						got := original(a, b)
@@ -615,19 +615,21 @@ func TestMappedNestedCapabilityProducerPartitions(t *testing.T) {
 							got[1].Field = "wrong-delegated-field"
 						case "capability-key":
 							got[0].Subject.Key = "wrong-capability"
+						case "no-allowance":
+							got[0].Field = ""
 						case "order":
 							got[1], got[2] = got[2], got[1]
 						}
 						return got
 					}
 					allowances := []DiffAllowance{VswitchDiffAllowance()}
-					if variant == "no-allowance" {
+					if variant == "no-allowance" || variant == "exact-no-allowance" {
 						allowances = nil
 					}
 					n := 0
 					err := checkMappedLeaf(m, entry, allowances, &n)
 					hits += n
-					if variant == "baseline" {
+					if variant == "baseline" || variant == "exact-no-allowance" {
 						if err != nil {
 							t.Error(err)
 						}
@@ -638,7 +640,7 @@ func TestMappedNestedCapabilityProducerPartitions(t *testing.T) {
 			}
 		})
 	}
-	if hits != 24 {
-		t.Errorf("concrete partition expectations = %d, want 24", hits)
+	if hits != 28 {
+		t.Errorf("concrete partition expectations = %d, want 28", hits)
 	}
 }

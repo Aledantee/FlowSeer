@@ -5,20 +5,9 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 )
 
-// VswitchDiffAllowance names only this producer's registered paths and emitted layers.
+// VswitchDiffAllowance returns no exceptions for this exact producer.
 func VswitchDiffAllowance() DiffAllowance {
-	return DiffAllowance{Producer: "vswitch", Layers: []string{"port", "ethernet", "poe", "relay", "vlan", "lag", "stp", "loopprotect", "mcast", "filter", "routing", "traffic"}, Paths: []string{
-		"vswitch.Config.MAC",
-		"vswitch.Config.Phy.@present",
-		"vswitch.Config.Bridge.@present",
-		"vswitch.Config.LAG.@present",
-		"vswitch.Config.STP.@present",
-		"vswitch.Config.LoopProtect.@present",
-		"vswitch.Config.Mcast.@present",
-		"vswitch.Config.Routing.@present",
-		"vswitch.Config.Traffic.@present",
-		"vswitch.Config.Filter.@present",
-	}}
+	return DiffAllowance{}
 }
 
 func vswitchDiffMapping() (diffMapping, error) {

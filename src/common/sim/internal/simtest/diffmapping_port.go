@@ -6,17 +6,9 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
-// PortDiffAllowance names only this producer's registered paths and emitted layers.
+// PortDiffAllowance returns no exceptions for this exact producer.
 func PortDiffAllowance() DiffAllowance {
-	return DiffAllowance{Producer: "port", Layers: []string{"port"}, Paths: []string{
-		"port.Config.Name",
-		"port.Config.IfIndex",
-		"port.Config.Kind",
-		"port.Config.AdminStatus",
-		"port.Config.OperStatus",
-		"port.Config.MTU",
-		"port.Config.LagParent",
-	}}
+	return DiffAllowance{}
 }
 
 func portDiffMapping() (diffMapping, error) {

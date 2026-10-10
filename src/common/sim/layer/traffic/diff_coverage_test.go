@@ -11,7 +11,7 @@ import (
 // TestDiffCoversEveryConfigField verifies that every exported traffic.Config field reaches
 // traffic.Diff.
 func TestDiffCoversEveryConfigField(t *testing.T) {
-	simtest.AssertMappedDiffCoverage(t, "traffic", simtest.TrafficDiffAllowance())
+	simtest.AssertMappedDiffCoverage(t, "traffic")
 }
 
 // TestDiffIgnoresMirrorSelectorOrder verifies traffic.Diff's self-normalization: two
@@ -24,6 +24,7 @@ func TestDiffIgnoresMirrorSelectorOrder(t *testing.T) {
 			{
 				Name:           "m1",
 				SelectSrcPorts: []string{"1/1/1", "1/1/2"},
+				SelectDstPorts: []string{"1/1/3", "1/1/4"},
 				SelectVLANs:    []vlan.ID{20, 10},
 			},
 		},
@@ -33,6 +34,7 @@ func TestDiffIgnoresMirrorSelectorOrder(t *testing.T) {
 			{
 				Name:           "m1",
 				SelectSrcPorts: []string{"1/1/2", "1/1/1"},
+				SelectDstPorts: []string{"1/1/4", "1/1/3"},
 				SelectVLANs:    []vlan.ID{10, 20},
 			},
 		},

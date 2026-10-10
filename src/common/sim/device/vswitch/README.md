@@ -667,6 +667,23 @@ concurrent use. A caller that needs parallel runs serializes its calls or
 builds one switch per goroutine. `Config` holds maps and slices, so a copy
 that will be shared comes from `Clone`.
 
+## Configuration diff
+
+`Diff` compares normalized configurations. Adding empty Traffic emits one
+record under layer `traffic`, subject `capability:traffic`, field `presence`,
+from nil to `vswitch.layer(traffic)`. Removing it reverses the facts.
+Architectural presence also includes LAG inferred from LAG-kind ports, so
+an omitted LAG pointer can still represent a present capability
+([config.go](config.go), [diff_test.go](diff_test.go)).
+
+MAC uses the device subject under `port`. Port-table records precede sorted
+capability presence records, followed by each delegated owner's sequence.
+Delegation preserves the owner's subject key, member field, and typed facts.
+The exact coverage gate checks 190 primary submissions. Its correspondence
+matrices cover 14 filter range, seven MST VLAN occurrence, and seven routing
+prefix occurrence submissions, each on raw and normalized inputs
+([diff.go](diff.go), [diff_coverage_test.go](diff_coverage_test.go)).
+
 ## Files
 
 | File | Responsibility |
@@ -682,7 +699,7 @@ that will be shared comes from `Clone`.
 | [retention.go](retention.go) | Per-layer retention outcome |
 | [derive.go](derive.go) | Derivation of a target switch from a current one |
 | [compare.go](compare.go) | Current-against-candidate comparison |
-| [diff.go](diff.go) | Configuration diff |
+| [diff.go](diff.go) | Configuration diff with architectural capability presence and delegated owner fields |
 | [forward.go](forward.go) | Forwarding stage dispatch |
 | [hub.go](hub.go) | Hub ingress and relay |
 | [route.go](route.go) | Routed forwarding and held-frame release |
