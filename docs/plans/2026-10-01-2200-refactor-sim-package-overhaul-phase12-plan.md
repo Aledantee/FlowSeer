@@ -693,7 +693,7 @@ Verify: `uv run tools/scripts/run.py verify change -- src/common/sim/internal/si
 Files: src/common/sim/internal/simtest/comparison_cases.go
 After: none
 Change: Extract one private constructor per ComparisonCase from ComparisonCorpus at comparison_cases.go:84-742. Keep shared fixture construction private and expectations literal. Keep helpers in this file.
-Tests: ComparisonCorpus and each returned Execute/VerifyNonConsuming function construct the pairs in comparison_cases_test.go. Retain every existing ID, verdict, insertion-order, retained-state and field-location assertion. Corpus comparison cases change construction only, with no expected output changes.
+Tests: ComparisonCorpus and each returned Execute/VerifyNonConsuming function construct the pairs in comparison_cases_test.go. Retain every existing ID, verdict, insertion-order, retained-state and field-location assertion. Corpus comparison cases change construction only, with no expected output changes. TestComparisonCorpusInvariants remains unchanged because the seven returned Execute and VerifyNonConsuming callback bodies are identical. Mutating the equivalent switch case's returned disposition to Different fails its existing current-first, candidate-first and shuffled assertions.
 Verify: `uv run tools/scripts/run.py verify change -- src/common/sim/internal/simtest`
 
 ### U7. Decompose filter, scenario and scale fixtures
