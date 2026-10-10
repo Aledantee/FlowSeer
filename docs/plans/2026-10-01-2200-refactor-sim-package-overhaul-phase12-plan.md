@@ -119,6 +119,14 @@ disagreement is evidence for a separate investigation, outside this graph.
   `src/common/sim/layer/routing/fact.go:29-70`. Field names stay local to a
   plan under `.claude/skills/plan/SKILL.md`, Promote a decision. Valid IP
   strings, TypeIDs, route choice and hashes remain unchanged.
+- Exact attribution is a phase of its own,
+  `docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase14-plan.md`,
+  and this phase runs after it. This phase keeps the corpus and size gates,
+  the flow, report, and transmitter units, and the documentation close-out.
+  Why: with these units it exceeds one bounded phase (decided by the user,
+  2026-10-10).
+- Diff fields are granular, as that phase's Decisions state (decided by
+  the user, 2026-10-10).
 
 ## Requirements
 
@@ -775,47 +783,8 @@ loss. Do not tune either model to erase the disagreement.
 
 ## Open questions
 
-1. How is the expanded work split? The original six units plus U7-U9 and
-   the six attribution ownership groups above exceed one bounded
-   close-out. `plan/SKILL.md`, Write the plan, sets six units or 300 lines
-   as the split trigger. `references/phases.md` forbids nested phases, as
-   `tools/scripts/lib/plans.py:193-194` enforces. The current graph is a
-   draft, not a waiver.
-   - Recommended: re-cut this parent's final work into sibling phases for
-     corpus/size gates, flow/report/transmitter, exact attribution, and
-     documentation close-out. This preserves every selected requirement,
-     makes the mapping/gate first in the attribution phase. The proposed
-     attribution waves are mapping | simple layers, LAG/STP, filter/routing
-     | traffic/port/switch | assembly/corpus. This requires
-     parent/state edits outside the two authorized files.
-   - Keep one phase by explicitly accepting its larger scope. This keeps
-     one graph but couples the nine-layer trace migration to corpus and
-     transmitter closure and exceeds the skill's bounded-session target.
-     Exact attribution is still mandatory. No weakened gate is offered.
-
-2. Which exact attribution contract applies? The package-shape record
-   names Diff and CompositeKey but supplies no uniform leaf mapping
-   (`docs/architecture/2026-10-01-simulation-package-shape-direction.md:126-128`).
-   Change.Field and Subject are observable (`src/common/sim/trace/trace.go:327`,
-   `render.go:114`). Existing broad records and lifecycle identity pairs
-   above require a contract, not a spelling-only choice.
-   - Recommended: keep existing entity subject kinds/keys and established
-     fields, add granular fields for aggregate member changes, and assign
-     an explicit capability-presence field. Map each concrete leaf to its
-     exact subject/field and independent From/To facts. Identity changes
-     require both removed/added records. This changes coarse or empty
-     fields and requires their tests and corpus consumers to change together.
-     Decide the new field grammar, normalized effective-value treatment,
-     and lifecycle-presence field before authorizing the migration groups.
-   - Retain aggregate fields for retained entities and identify the exact
-     changed leaf through an independently constructed complete From/To
-     fact expectation, while adding explicit capability-presence fields.
-     This reduces output churn but couples the gate to each fact schema.
-     Every expected fact must prove the single mutated leaf and both
-     identity-transition records. A subject/field-only match on a broad
-     aggregate does not satisfy R10. Decide the presence field and effective
-     normalization contract before implementation.
-
-No implementation starts until these blockers have answers. No parent,
-direction record, successor plan or policy surface is edited in this
-planning change.
+None is the user's. The split and the attribution contract are Decisions.
+This plan is re-planned after the attribution phase lands: the units and
+the "Attribution split inventory" above still describe attribution as
+part of this phase, and the documentation unit must describe the diff
+fields that phase leaves.
