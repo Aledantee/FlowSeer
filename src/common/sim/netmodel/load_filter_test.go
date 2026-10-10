@@ -355,70 +355,14 @@ func TestLoad_FilterSetWithL2MatchIsSkipped(t *testing.T) {
 }
 
 func TestLoad_FilterICMPMatchNarrowingReportsIssue(t *testing.T) {
-	adminUp := interfacev1.AdminStatus_ADMIN_STATUS_UP
-	operUp := interfacev1.OperStatus_OPER_STATUS_UP
-	vid10 := uint32(10)
-	vlan10Name := "vlan10"
-	setName := "icmp-set"
-	ruleName := "icmp-echo"
-	protoICMP := packetv1.IpProtocol_IP_PROTOCOL_ICMP
-	acceptAction := filterv1.FilterAction_FILTER_ACTION_ACCEPT
-
-	rule := filterv1.FilterRule_builder{
-		Name:   &ruleName,
-		Action: &acceptAction,
-		Match: filterv1.FilterMatch_builder{
-			Protocol: &protoICMP,
-			Icmp: packetv1.IcmpMatch_builder{
-				V4: packetv1.Icmpv4Match_builder{
-					Types: []uint32{8, 0},
-				}.Build(),
-			}.Build(),
-		}.Build(),
-	}.Build()
-
-	set := filterv1.FilterRuleSet_builder{
-		Name:    &setName,
-		Default: &acceptAction,
-		Rules:   []*filterv1.FilterRule{rule},
-	}.Build()
-
+	set := predicateSet("bad", filterv1.FilterMatch_builder{
+		Protocol: packetv1.IpProtocol_IP_PROTOCOL_ICMP.Enum(),
+		Icmp:     icmpPredicate(false, []uint32{8, 0}, nil),
+	}.Build())
 	if err := protovalidate.Validate(set); err != nil {
-		t.Fatalf("filter set validation failed: %v", err)
+		t.Fatal(err)
 	}
-
-	vlan10 := interfacev1.Interface_builder{
-		Name:        &vlan10Name,
-		AdminStatus: &adminUp,
-		OperStatus:  &operUp,
-		Vlan: interfacev1.VlanInterface_builder{
-			VlanId: &vid10,
-		}.Build(),
-		Ip: ipv1.IpFacet_builder{
-			NetworkInstance: ptr("default"),
-			Ipv4:            ipv1.Ipv4Facet_builder{}.Build(),
-		}.Build(),
-	}.Build()
-
-	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, netmodel.Input{Interfaces: []*interfacev1.Interface{vlan10}, FilterSets: []*filterv1.FilterRuleSet{set}})
-	if err != nil {
-		t.Fatalf("netmodel.Load failed: %v", err)
-	}
-
-	if res.Readiness() == analysis.Complete {
-		t.Errorf("readiness = %v, want degraded after narrowing an ICMP list", res.Readiness())
-	}
-
-	found := false
-	for _, issue := range res.Metadata.Issues() {
-		if issue.Code == netmodel.IssueSkippedUnsupportedFacet {
-			found = true
-			break
-		}
-	}
-	if !found {
-		t.Errorf("issues = %+v, want issue %s for the narrowed ICMP match", res.Metadata.Issues(), netmodel.IssueSkippedUnsupportedFacet)
-	}
+	assertPredicateOmitted(t, loadPredicates(t, filter.In, set), "rule-0", "icmp.types", "exactly one type")
 }
 
 func TestLoad_FilterSetWithMappedPrefixIsSkipped(t *testing.T) {

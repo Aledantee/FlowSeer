@@ -2,11 +2,14 @@ package netmodel
 
 import (
 	"fmt"
+	"net/netip"
 	"slices"
 
 	addrv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/addr/v1"
 	filterv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/filter/v1"
 	interfacev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1"
+	packetv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/packet/v1"
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/tcp"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/filter"
@@ -71,107 +74,174 @@ func (c *loadContext) loadFilterSets(filterSets []*filterv1.FilterRuleSet) (map[
 		if name == "" {
 			continue
 		}
-		if slices.ContainsFunc(set.GetRules(), hasUnevaluableMatch) {
-			unevaluable[name] = true
-			c.addSkippedAt(c.rootScope, "", "filter", fmt.Sprintf("rule set %q carries unsupported match terms or IPv4-mapped prefixes", name), analysis.Incomplete, IssueSkippedUnsupportedFacet)
-			continue
+		valid := true
+		reject := func(rule, field, reason string) {
+			valid = false
+			c.addSkippedAt(c.rootScope, "", "filter", fmt.Sprintf("rule set %q rule %q field %s: %s", name, rule, field, reason), analysis.Incomplete, IssueSkippedUnsupportedFacet)
 		}
-		ruleSet := filter.RuleSet{
-			Stateful: set.GetStateful(),
-			Default:  translateAction(set.GetDefault()),
-			Rules:    make([]filter.Rule, 0, len(set.GetRules())),
+		defaultAction, err := translateAction(set.HasDefault(), set.GetDefault())
+		if err != nil {
+			reject("default", "default", err.Error())
 		}
+		ruleSet := filter.RuleSet{Stateful: set.GetStateful(), Default: defaultAction}
 		for _, rule := range set.GetRules() {
 			if rule == nil {
 				continue
 			}
-			ruleSet.Rules = append(ruleSet.Rules, c.loadFilterRule(rule))
+			r := c.loadFilterRule(rule, func(field, reason string) { reject(rule.GetName(), field, reason) })
+			ruleSet.Rules = append(ruleSet.Rules, r)
 		}
-		setByName[name] = ruleSet
+		if !valid {
+			unevaluable[name] = true
+			delete(setByName, name)
+		}
+		if valid && !unevaluable[name] {
+			setByName[name] = ruleSet
+		}
 	}
 
 	return setByName, unevaluable
 }
 
-func (c *loadContext) loadFilterRule(rule *filterv1.FilterRule) filter.Rule {
-	r := filter.Rule{
-		Name:   rule.GetName(),
-		Action: translateAction(rule.GetAction()),
+func (c *loadContext) loadFilterRule(rule *filterv1.FilterRule, reject func(string, string)) filter.Rule {
+	action, err := translateAction(rule.HasAction(), rule.GetAction())
+	if err != nil {
+		reject("action", err.Error())
 	}
-	if m := rule.GetMatch(); m != nil {
-		if m.HasProtocol() {
-			protoNum := uint8(m.GetProtocol())
-			r.Match.Protocol = &protoNum
+	r := filter.Rule{Name: rule.GetName(), Action: action}
+	m := rule.GetMatch()
+	if m == nil {
+		return r
+	}
+	if m.HasProtocol() {
+		if m.GetProtocol() < 0 || m.GetProtocol() > 255 {
+			reject("protocol", "protocol is outside 0..255")
+		} else {
+			r.Match.Protocol = new(uint8(m.GetProtocol()))
 		}
-		for _, p := range m.GetSrcPrefixes() {
-			if prefix, err := parseIPPrefix(p); err == nil {
-				r.Match.Src = append(r.Match.Src, prefix)
-			}
+	}
+	for _, field := range []struct {
+		name    string
+		present bool
+	}{
+		{"ether_type", m.HasEtherType()}, {"src_mac", m.HasSrcMac()}, {"dst_mac", m.HasDstMac()}, {"pcps", len(m.GetPcps()) > 0}, {"dscps", len(m.GetDscps()) > 0},
+	} {
+		if field.present {
+			reject(field.name, "unsupported predicate")
 		}
-		for _, p := range m.GetDstPrefixes() {
-			if prefix, err := parseIPPrefix(p); err == nil {
-				r.Match.Dst = append(r.Match.Dst, prefix)
-			}
-		}
-		for _, portMatch := range m.GetSrcPorts() {
-			if pr, err := parsePortMatch(portMatch); err == nil {
-				r.Match.SrcPorts = append(r.Match.SrcPorts, pr)
-			}
-		}
-		for _, portMatch := range m.GetDstPorts() {
-			if pr, err := parsePortMatch(portMatch); err == nil {
-				r.Match.DstPorts = append(r.Match.DstPorts, pr)
-			}
-		}
-		if icmp := m.GetIcmp(); icmp != nil {
-			if v4 := icmp.GetV4(); v4 != nil {
-				if len(v4.GetTypes()) > 1 || len(v4.GetCodes()) > 1 {
-					c.addSkippedAt(c.rootScope, "", "filter_icmp_match", "ICMPv4 lists carry more than one type or code; only the first entry of each is translated", analysis.Incomplete, IssueSkippedUnsupportedFacet)
-				}
-				if len(v4.GetTypes()) > 0 || len(v4.GetCodes()) > 0 {
-					im := &filter.ICMPMatch{}
-					if len(v4.GetTypes()) > 0 {
-						im.Type = uint8(v4.GetTypes()[0])
-					}
-					if len(v4.GetCodes()) > 0 {
-						c := uint8(v4.GetCodes()[0])
-						im.Code = &c
-					}
-					r.Match.ICMP = im
-				}
-			} else if v6 := icmp.GetV6(); v6 != nil {
-				if len(v6.GetTypes()) > 1 || len(v6.GetCodes()) > 1 {
-					c.addSkippedAt(c.rootScope, "", "filter_icmp_match", "ICMPv6 lists carry more than one type or code; only the first entry of each is translated", analysis.Incomplete, IssueSkippedUnsupportedFacet)
-				}
-				if len(v6.GetTypes()) > 0 || len(v6.GetCodes()) > 0 {
-					im := &filter.ICMPMatch{}
-					if len(v6.GetTypes()) > 0 {
-						im.Type = uint8(v6.GetTypes()[0])
-					}
-					if len(v6.GetCodes()) > 0 {
-						c := uint8(v6.GetCodes()[0])
-						im.Code = &c
-					}
-					r.Match.ICMP = im
-				}
-			}
-		}
-		if tf := m.GetTcpFlags(); tf != nil {
-			if len(tf.GetRequiredSet()) > 0 || len(tf.GetRequiredClear()) > 0 {
-				var mask, value tcp.Flags
-				for _, f := range tf.GetRequiredSet() {
-					mask |= tcp.Flags(f)
-					value |= tcp.Flags(f)
-				}
-				for _, f := range tf.GetRequiredClear() {
-					mask |= tcp.Flags(f)
-				}
-				r.Match.TCPFlags = &filter.FlagMatch{Mask: mask, Value: value}
+	}
+	for _, field := range []struct {
+		name     string
+		prefixes []*addrv1.IpPrefix
+		target   *[]netip.Prefix
+	}{
+		{"src_prefixes", m.GetSrcPrefixes(), &r.Match.Src}, {"dst_prefixes", m.GetDstPrefixes(), &r.Match.Dst},
+	} {
+		for i, p := range field.prefixes {
+			prefix, err := parseIPPrefix(p)
+			switch {
+			case err != nil:
+				reject(fmt.Sprintf("%s[%d]", field.name, i), err.Error())
+			case prefix.Addr().Is4In6():
+				reject(fmt.Sprintf("%s[%d]", field.name, i), "IPv4-mapped prefix is unsupported")
+			default:
+				*field.target = append(*field.target, prefix)
 			}
 		}
 	}
-
+	for _, field := range []struct {
+		name   string
+		ports  []*packetv1.TransportPortMatch
+		target *[]filter.PortRange
+	}{
+		{"src_ports", m.GetSrcPorts(), &r.Match.SrcPorts}, {"dst_ports", m.GetDstPorts(), &r.Match.DstPorts},
+	} {
+		for i, p := range field.ports {
+			pr, err := parsePortMatch(p)
+			if err != nil {
+				reject(fmt.Sprintf("%s[%d]", field.name, i), err.Error())
+			} else {
+				*field.target = append(*field.target, pr)
+			}
+		}
+	}
+	if icmp := m.GetIcmp(); icmp != nil {
+		var types, codes []uint32
+		var protocol uint8
+		if v4 := icmp.GetV4(); v4 != nil {
+			types, codes, protocol = v4.GetTypes(), v4.GetCodes(), 1
+		} else if v6 := icmp.GetV6(); v6 != nil {
+			types, codes, protocol = v6.GetTypes(), v6.GetCodes(), 58
+		} else {
+			reject("icmp", "family is absent")
+		}
+		if len(types) != 1 {
+			reject("icmp.types", "exactly one type is required")
+		}
+		if len(codes) > 1 {
+			reject("icmp.codes", "at most one code is supported")
+		}
+		for _, field := range []struct {
+			name   string
+			values []uint32
+		}{{"icmp.types", types}, {"icmp.codes", codes}} {
+			for _, value := range field.values {
+				if value > 255 {
+					reject(field.name, "value exceeds 255")
+				}
+			}
+		}
+		if m.HasProtocol() && m.GetProtocol() != packetv1.IpProtocol(protocol) {
+			reject("icmp", "protocol conflicts with ICMP family")
+		}
+		if len(types) == 1 && types[0] <= 255 && len(codes) <= 1 {
+			r.Match.ICMP = &filter.ICMPMatch{Type: uint8(types[0])}
+			if len(codes) == 1 {
+				r.Match.ICMP.Code = new(uint8(codes[0]))
+			}
+			if !m.HasProtocol() {
+				r.Match.Protocol = new(protocol)
+			}
+		}
+	}
+	if flags := m.GetTcpFlags(); flags != nil {
+		r.Match.TCPFlags = loadFilterFlags(flags, reject)
+	}
 	return r
+}
+
+func loadFilterFlags(flags *packetv1.TcpFlagsMatch, reject func(string, string)) *filter.FlagMatch {
+	if len(flags.GetRequiredSet())+len(flags.GetRequiredClear()) == 0 {
+		reject("tcp_flags", "empty predicate")
+	}
+	var mask, value tcp.Flags
+	seen := make(map[packetv1.TcpFlag]string)
+	for _, field := range []struct {
+		name  string
+		flags []packetv1.TcpFlag
+	}{{"required_set", flags.GetRequiredSet()}, {"required_clear", flags.GetRequiredClear()}} {
+		for _, flag := range field.flags {
+			name := "tcp_flags." + field.name
+			if flag <= 0 || flag > 2048 || flag&(flag-1) != 0 {
+				reject(name, "flag must be one-hot in 1..2048")
+			} else if flag > 128 {
+				reject(name, "reserved flag is unsupported")
+			}
+			if prior, ok := seen[flag]; ok {
+				if prior == field.name {
+					reject(name, "duplicate flag")
+				} else {
+					reject(name, "flag required both set and clear")
+				}
+			}
+			seen[flag] = field.name
+			mask |= tcp.Flags(flag)
+			if field.name == "required_set" {
+				value |= tcp.Flags(flag)
+			}
+		}
+	}
+	return &filter.FlagMatch{Mask: mask, Value: value}
 }
 
 func (c *loadContext) loadFilterBindings(ifaces []*interfacev1.Interface, ownership loadOwnership, setByName map[string]filter.RuleSet, unevaluable map[string]bool) []filter.Binding {
@@ -225,32 +295,18 @@ func (c *loadContext) loadFilterBindings(ifaces []*interfacev1.Interface, owners
 	return bindings
 }
 
-// hasUnevaluableMatch reports whether rule matches on a term filter.Match has
-// no counterpart for, or on an IPv4-mapped prefix the filter refuses.
-func hasUnevaluableMatch(rule *filterv1.FilterRule) bool {
-	m := rule.GetMatch()
-	if m.HasEtherType() || m.HasSrcMac() || m.HasDstMac() || len(m.GetPcps()) > 0 || len(m.GetDscps()) > 0 {
-		return true
+func translateAction(present bool, a filterv1.FilterAction) (filter.Action, error) {
+	if !present {
+		return "", errs.Msg("action is absent")
 	}
-	for _, prefixes := range [][]*addrv1.IpPrefix{m.GetSrcPrefixes(), m.GetDstPrefixes()} {
-		for _, prefix := range prefixes {
-			if p, err := parseIPPrefix(prefix); err == nil && p.Addr().Is4In6() {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func translateAction(a filterv1.FilterAction) filter.Action {
 	switch a {
 	case filterv1.FilterAction_FILTER_ACTION_ACCEPT:
-		return filter.Accept
+		return filter.Accept, nil
 	case filterv1.FilterAction_FILTER_ACTION_DROP:
-		return filter.Drop
+		return filter.Drop, nil
 	case filterv1.FilterAction_FILTER_ACTION_REJECT:
-		return filter.Reject
+		return filter.Reject, nil
 	default:
-		return filter.Drop
+		return "", errs.Msgf("action %d is unspecified or unknown", a)
 	}
 }

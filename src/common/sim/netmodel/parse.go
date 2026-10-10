@@ -107,6 +107,9 @@ func parseIPPrefix(p *addrv1.IpPrefix) (netip.Prefix, error) {
 		return netip.Prefix{}, errs.Msg("prefix is absent")
 	}
 	if v4 := p.GetV4(); v4 != nil {
+		if !v4.HasLength() {
+			return netip.Prefix{}, errs.Msg("ipv4 prefix length is absent")
+		}
 		addr := v4.GetAddress()
 		if addr == nil {
 			return netip.Prefix{}, errs.Msg("ipv4 prefix address is absent")
@@ -125,6 +128,9 @@ func parseIPPrefix(p *addrv1.IpPrefix) (netip.Prefix, error) {
 		return prefix, nil
 	}
 	if v6 := p.GetV6(); v6 != nil {
+		if !v6.HasLength() {
+			return netip.Prefix{}, errs.Msg("ipv6 prefix length is absent")
+		}
 		addr := v6.GetAddress()
 		if addr == nil {
 			return netip.Prefix{}, errs.Msg("ipv6 prefix address is absent")
@@ -150,6 +156,12 @@ func parsePortMatch(m *packetv1.TransportPortMatch) (filter.PortRange, error) {
 		return filter.PortRange{}, errs.Msg("port match is absent")
 	}
 	if r := m.GetRange(); r != nil {
+		if !r.HasStart() {
+			return filter.PortRange{}, errs.Msg("port range start is absent")
+		}
+		if !r.HasEnd() {
+			return filter.PortRange{}, errs.Msg("port range end is absent")
+		}
 		if r.GetStart() > 65535 {
 			return filter.PortRange{}, errs.Msgf("port range start %d exceeds 65535", r.GetStart())
 		}

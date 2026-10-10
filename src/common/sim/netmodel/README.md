@@ -87,6 +87,19 @@ preserves the unaffected configuration and records scoped findings in `res.Repor
 and `res.Metadata`. A malformed address or prefix omits its row rather than making
 the whole switch unconstructible.
 
+A filter set with a malformed or unsupported predicate, or an absent, unspecified,
+or unknown action, is omitted with all same-name sets and bindings. For example,
+a destination port range `100..99` leaves no executable binding, while a differently
+named valid set survives. Each offending rule field has an evidenced diagnostic.
+`TestFilterMatchFieldMatrix` and `TestFilterAllOffendersReported` in
+[filter_matrix_test.go](filter_matrix_test.go) cover the omission and diagnostics.
+
+ICMP predicates require exactly one type and at most one code. Their family supplies
+Protocol 1 or 58 when absent. A conflicting explicit Protocol omits the set because
+the predicate cannot be represented faithfully. TCP flag predicates require unique,
+disjoint one-hot flags. Reserved masks 256 through 2048 are unsupported because
+[tcp.Decode](../../net/tcp/tcp.go) reads only the eight low bits.
+
 An FDB row becomes a seed only when it reports `ACTIVE` status and either
 `STATIC` or `DYNAMIC` kind. Missing, unspecified, unsupported, and unrecognized
 values leave no executable seed and make readiness non-Complete. The row must
