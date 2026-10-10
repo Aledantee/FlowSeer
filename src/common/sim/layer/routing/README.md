@@ -13,6 +13,14 @@ mutates anything, so the same packet against the same configuration always
 leaves the same way and looking at a decision cannot change it — see "Neighbor
 lifecycle" for why that distinction exists.
 
+## Files
+
+| File | Responsibility |
+| --- | --- |
+| [layer.go](layer.go) | Runtime state, construction, forwarding table, interface lookup, and retention key. |
+| [route.go](route.go) | Incoming frame forwarding with hop-limit and link-layer rewriting. |
+| [originate.go](originate.go) | Device-originated datagrams and source-address scope selection. |
+
 ## Example
 
 Two equal-cost routes to one prefix, a third route whose next hop nothing
@@ -204,7 +212,7 @@ has one ([RFC 6724 sections 3.1 and 5 Rule 2](https://www.rfc-editor.org/rfc/rfc
 This includes IPv6 multicast scopes 0, 1, and 2. The layer departs from
 [RFC 6724 section 3.2](https://www.rfc-editor.org/rfc/rfc6724#section-3.2)
 by treating IPv4 multicast `224.0.0.0/24` as link-local and `127/8` as global
-([linkLocalScope](layer.go)).
+([linkLocalScope](originate.go)).
 The caller's payload contributes nothing to selection.
 
 ```mermaid
