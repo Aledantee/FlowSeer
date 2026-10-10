@@ -9,6 +9,23 @@ representative scale fixture (`RepresentativeFabric`) is a shared topology
 envelope; scale measurement and allocation gating live in `fabric`, preserving
 this boundary.
 
+## Corpus source files
+
+Constructors are grouped by subject so each fixture stays beside its
+expectations. [registry.go](registry.go) assembles the default corpus and
+keeps its registration order explicit.
+
+| File | Responsibility |
+| --- | --- |
+| [cases.go](cases.go) | Shared physical facts, fact and change expectations, and journey inspection helpers. |
+| [baseline_cases.go](baseline_cases.go) | VLAN reconfiguration, candidate fork isolation, partial models, and unicast forwarding. |
+| [topology_cases.go](topology_cases.go) | Physical link uncertainty, uncabled ports, negotiation, and host acceptance. |
+| [topology_stp_cases.go](topology_stp_cases.go) | Unknown uplinks and spanning-tree trust on the known path. |
+| [lag_multicast_cases.go](lag_multicast_cases.go) | LAG member faults, active-backup selection, source-specific admission, and leave timing. |
+| [routing_cases.go](routing_cases.go) | ECMP candidates, neighbor resolution, and recursive route withdrawal. |
+| [stp_cases.go](stp_cases.go) | Shared spanning-tree topology, MST instances, region boundaries, and port guards. |
+| [pvst_cases.go](pvst_cases.go) | Per-VLAN tree configuration and its elected forwarding path. |
+
 ## Admitted cases
 
 The corpus maintains executable scenarios locking the simulation contracts
