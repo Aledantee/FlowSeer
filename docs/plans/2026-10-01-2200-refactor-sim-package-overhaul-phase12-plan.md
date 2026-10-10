@@ -42,6 +42,12 @@ ICX7150 comparison stays outside the unit graph.
   and value cloning with the values. U7 is a pure move, separate from report
   behavior. Present owners are `src/common/sim/fabric/flow.go:14`, `:28`,
   `:44`, `:53`, `:67`, and `:233`. (decided by the user, 2026-10-10)
+- In `sim/flow` the first two types are named `flow.ID` and `flow.Stats`.
+  `LatencyStats` keeps its name. Why: the lint gate's `exported` rule
+  refuses `flow.FlowID` and `flow.FlowStats` as stuttering
+  (`.golangci.yml`, revive), a suppression is not allowed, and the user's
+  Decision above chose the package, not the type names. The rename is
+  part of the move unit. JSON fields and signature bytes do not change.
 
 - Preserve journey-scoped flow metadata and remove NewReport's whole-fabric
   fallback to preserve localization. Fabric already folds journey metadata,
@@ -172,7 +178,7 @@ R5. Documentation describes present APIs and qualified limits. Example: all
 41 IDs appear once and private fact names are replaced with typed expectations.
 R6. Parent R9 holds across sim and simload. Example: 1,201-line files and
 151-line functions fail the gate, with only the existing head-comment rule.
-R7. sim/flow owns the moved values. Example: cloning FlowStats imports no
+R7. sim/flow owns the moved values. Example: cloning `flow.Stats` imports no
 fabric and accounting preserves Offered, Held, copies and latency.
 R8. Reports preserve scoped metadata and reject lab-only IDs. Example: a
 Complete flow stays Complete beside an unrelated whole-fabric issue.
@@ -665,7 +671,7 @@ Verify: `uv run tools/scripts/run.py verify change -- src/common/sim/layer/routi
 ### U3. Move flow values without changing accounting
 Files: src/common/sim/flow/flow.go, src/common/sim/flow/flow_test.go, src/common/sim/flow/README.md, src/common/sim/fabric/flow.go, src/common/sim/fabric/fabric.go, src/common/sim/fabric/run.go, src/common/sim/fabric/attach.go, src/common/sim/fabric/result.go, src/common/sim/fabric/fork.go, src/common/sim/fabric/compare.go, src/common/sim/fabric/compare_journey.go, src/common/sim/fabric/export_test.go, src/common/sim/fabric/fork_test.go, src/common/sim/fabric/attach_test.go, src/common/sim/fabric/flow_internal_test.go, src/common/sim/fabric/compare_test.go, src/common/sim/fabric/egress_buffer_test.go, src/common/sim/fabric/queue_buffer_internal_test.go, src/common/sim/internal/simtest/load_cases.go, src/edge/simload/signature.go, src/edge/simload/signature_test.go, src/edge/simload/stats.go, src/edge/simload/stats_test.go, src/edge/simload/report.go, src/edge/simload/report_test.go, src/edge/simload/run.go, src/edge/simload/run_test.go, src/edge/simload/cmd/simload/main.go, src/edge/simload/test/integration/lab_test.go, docs/architecture/2026-09-10-virtual-device-direction.md, docs/architecture/2026-10-01-simulation-package-shape-direction.md, docs/solutions/architecture-patterns/a-settled-aggregate-record-is-freed-at-settle-keep-its-identity-in-a-key.md
 After: none
-Change: sim/flow owns FlowID, FlowStats, LatencyStats and FlowStats.Clone with their current exported names and fields. Fabric keeps folding, gauges, add and since accounting as private functions over the moved values. All callers use flow values directly, with no fabric aliases. Record the new leaf in the package-shape layout and import diagram in this move. Repair live declaration links in the virtual-device record and aggregate-identity solution. Report behavior, signature bytes and JSON fields remain the same. Sources: fabric/flow.go:14-59, :67-95, :233 and compare_journey.go:21.
+Change: sim/flow owns the three values as `flow.ID`, `flow.Stats`, and `flow.LatencyStats`, with `Stats.Clone` and their current fields. Fabric keeps folding, gauges, add and since accounting as private functions over the moved values. All callers use flow values directly, with no fabric aliases. Record the new leaf in the package-shape layout and import diagram in this move. Repair live declaration links in the virtual-device record and aggregate-identity solution. Report behavior, signature bytes and JSON fields remain the same. Sources: fabric/flow.go:14-59, :67-95, :233 and compare_journey.go:21.
 Tests: flow_test.go constructs FlowStats literals with Delivered, Drops and Copies maps, clones them and mutates each cloned map to prove isolation. Fabric fixtures continue through assembly.New, Inject and Flows in flow_internal_test.go and fork_test.go, and assembly-built scenarios through Compare in compare_test.go. DefaultRegistry and AssertCase build existing load cases. Existing Sign/Decode fixtures in signature_test.go keep literal bytes, and report_test.go constructs simulator/lab literals with unchanged output assertions. Compile simload_lab on Linux without execution. No expectation changes.
 Verify: `uv run tools/scripts/run.py verify change -- src/common/sim/flow src/common/sim/fabric src/common/sim/internal/simtest/load_cases.go src/edge/simload docs/architecture/2026-09-10-virtual-device-direction.md docs/architecture/2026-10-01-simulation-package-shape-direction.md docs/solutions/architecture-patterns/a-settled-aggregate-record-is-freed-at-settle-keep-its-identity-in-a-key.md`
 
