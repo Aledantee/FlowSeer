@@ -97,3 +97,5 @@ The parent's requirements 4, 5, and the central half of 6 are claimed here.
   (`src/services/device/internal/host/host.go`, `forwarderGate`).
 - Which listener the handlers mount on depends on whether the central high
   availability plan's first phase has landed.
+
+- Parked by drive: Which telemetry size policy and missing-collector behavior should phase 2 use? Work retained on `parked/edge-connect-p2-plan`. Options: keep the 256 KiB record limit and reduce receiver acceptance (bounded delivery) | raise segment, record, and delivery limits to carry 16 MiB bodies (more memory and larger calls). Recommended: keep the record limit, because every accepted body must fit delivery. Missing collector options: return zero settled and retain until configured or expired (avoids loss) | settle as refused (avoids backlog, loses telemetry). Recommended: retain, because configuration failure is not an item fault.
