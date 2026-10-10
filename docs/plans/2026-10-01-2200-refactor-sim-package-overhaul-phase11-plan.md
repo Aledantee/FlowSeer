@@ -33,6 +33,14 @@ Source abbreviations: `N` is `src/common/sim/netmodel/`, `L` is `src/common/sim/
   default assumption. Add ownership tests for two named domains and explicit default before ready. Why: avoids executing
   merged domains. The alternative needs more code and a wider contract (`N/netmodel.go:1672`, `:1749`, `:1904`) (decided by
   the user, 2026-10-09)
+- An MSTPort row whose owner cannot be told, because the default domain and a refused named domain share its
+  MSTID and interface key, is refused with port and instance issues. The policy below then applies to the settings
+  it leaves missing. Cost: this can also omit settings that originated in the default domain. A schema plan adding
+  `network_instance` to MstPort was the alternative (`S/mst_port.proto:10..27`) (decided by the user, 2026-10-10)
+- An MSTI with a missing or refused MSTPort row, or an absent `admin_path_cost`, is omitted with dependent-row
+  issues, and the region digest is rechecked. Cost: a mapped omitted instance also omits the region, and
+  empty-allocation siblings can survive. Keeping the instance with inherited common settings was the alternative
+  (`L/stp/layer.go:305..327`, `S/mst_port.proto:35`, `:45`) (decided by the user, 2026-10-10)
 - A reconstructed MST region must retain the reported configuration identity. Missing identity fields or a digest that
   differs after omissions leaves no executable STP configuration, with evidenced region and dependent-row issues. Why:
   identity includes the map digest (MSTP MIB clauses 13.8:2..4, `spec/mib/ieee/IEEE8021-MSTP-MIB-202211080000Z.mib:1363`,
@@ -223,7 +231,7 @@ bindings with evidence.
 Source: R9, schema ownership and intake audit below.
 Tests: direct protobuf builders call Load with blue/red VLAN interfaces at VID 10, dependent addresses/neighbors, In/Out
 filters and FDB rows. Require no named contribution, independent scoped issues and NewWithSpec success. Add an explicit-default VID 10 sibling and reverse input order. Absent keys record assumptions, explicit default does not. Removing the gate
-before claim resolution must fail. MSTPort ownership awaits the open choice.
+before claim resolution must fail. MSTPort ownership follows the Decision on ambiguous rows and is applied in U11.
 Verify: `uv run tools/scripts/run.py verify change -- src/common/sim/netmodel`
 
 ### U10. Translate MST region, instances and maps
@@ -252,7 +260,7 @@ path_cost instead of admin_path_cost must fail. Add corpus cases topology-shadow
 DefaultRegistry (cases.go:2667). Update TestRegistryDeterministicOrdering (corpus_test.go:585) from 39 to 41 and add both
 sorted topology-shadowing IDs. Existing topology-shadowing/partial-model-unknown-port and all existing corpus values stay
 unchanged. Runtime-built planning/mstp-vlan-instances-diverge and topology-shadowing/mst-region-boundary cases keep their
-current inputs. Existing STP zero/default-priority, timer, tx-hold and refusal tests stay. Both open choices block this unit.
+current inputs. Existing STP zero/default-priority, timer, tx-hold and refusal tests stay.
 Verify: `uv run tools/scripts/run.py verify change -- src/common/sim/netmodel src/common/sim/internal/simtest`
 
 Waves: U1 U2 | U3 | U4 U5 | U6 | U7 | U8 | U9 | U10 | U11
@@ -485,21 +493,4 @@ inventing settings from observed multicast or partial QoS rows.
 
 ## Open questions
 
-Q3. How does Load attribute an MSTPort when default and refused named domains share its MSTID/interface key?
-MstPort has no network_instance (S/mst_port.proto:10..27, S/README.md:44..45). No read source decides the ambiguity.
-
-| Option | Cost |
-| --- | --- |
-| Refuse ambiguous MSTPort rows with port/instance issues (recommended, preserves domain refusal). Apply Q4 to their missing settings | Can also omit settings that originated in the default domain |
-| Require a separate schema plan adding network_instance to MstPort | Explicit ownership, a wider wire contract, delayed MSTP intake. This phase permits no schema edits |
-
-Q4. When do missing or refused MSTPort rows, or absent admin_path_cost, make an MSTI incomplete?
-The layer creates every common port in each MSTI and inherits common priority/cost (L/stp/layer.go:305..327).
-The schema permits unreported values (S/mst_port.proto:35, :45). Neither source decides loader acceptance or reporting.
-
-| Option | Cost |
-| --- | --- |
-| Omit the affected MSTI with dependent-row issues (recommended, avoids unreported executable overrides). Recheck the decided region digest | A mapped omitted instance also omits the region. Empty-allocation siblings can survive |
-| Retain it with explicit common-setting inheritance, scoped Incomplete issues and evidenced assumptions | Keeps a constructible partial region, but executes settings that were not confirmed for that MSTI. This defines those missing overrides as uncertain defaults rather than incomplete instance identity |
-
-Readiness stays needs-decisions. U11 waits for both answers. The phase remains one dependency cluster under the first Decision.
+None. The four questions of the planning passes are Decisions, each marked with its date.
