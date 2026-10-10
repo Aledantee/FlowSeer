@@ -219,6 +219,7 @@ func TestFilterMalformedPrefixPortMatrix(t *testing.T) {
 }
 
 func TestFilterActionsOmitSet(t *testing.T) {
+	reached := 0
 	for _, position := range []string{"default", "action"} {
 		for _, value := range []int{-1, 0, 99} {
 			t.Run(fmt.Sprintf("%s/%d", position, value), func(t *testing.T) {
@@ -241,12 +242,17 @@ func TestFilterActionsOmitSet(t *testing.T) {
 					rule = "default"
 				}
 				assertPredicateOmitted(t, loadPredicates(t, filter.In, set), rule, position, "action")
+				reached++
 			})
 		}
+	}
+	if reached != 6 {
+		t.Errorf("reached %d cases, want 6", reached)
 	}
 }
 
 func TestFilterICMPShapesOmitSet(t *testing.T) {
+	reached := 0
 	cases := []struct {
 		name, reason string
 		types, codes []uint32
@@ -257,16 +263,19 @@ func TestFilterICMPShapesOmitSet(t *testing.T) {
 		for _, tc := range cases {
 			t.Run(fmt.Sprintf("v6-%v/%s", v6, tc.name), func(t *testing.T) {
 				assertPredicateOmitted(t, loadPredicates(t, filter.In, predicateSet("bad", filterv1.FilterMatch_builder{Icmp: icmpPredicate(v6, tc.types, tc.codes)}.Build())), "rule-0", "icmp", tc.reason)
+				reached++
 			})
 		}
 	}
 	for _, protocol := range []packetv1.IpProtocol{-1, 256} {
 		t.Run(fmt.Sprintf("protocol-%d", protocol), func(t *testing.T) {
 			assertPredicateOmitted(t, loadPredicates(t, filter.In, predicateSet("bad", filterv1.FilterMatch_builder{Protocol: new(protocol)}.Build())), "rule-0", "protocol", "255")
+			reached++
 		})
 	}
 	t.Run("missing-family", func(t *testing.T) {
 		assertPredicateOmitted(t, loadPredicates(t, filter.In, predicateSet("bad", filterv1.FilterMatch_builder{Icmp: packetv1.IcmpMatch_builder{}.Build()}.Build())), "rule-0", "icmp", "family")
+		reached++
 	})
 	for _, v6 := range []bool{false, true} {
 		t.Run(fmt.Sprintf("conflict-v6-%v", v6), func(t *testing.T) {
@@ -275,7 +284,11 @@ func TestFilterICMPShapesOmitSet(t *testing.T) {
 				protocol = 1
 			}
 			assertPredicateOmitted(t, loadPredicates(t, filter.In, predicateSet("bad", filterv1.FilterMatch_builder{Protocol: new(protocol), Icmp: icmpPredicate(v6, []uint32{8}, nil)}.Build())), "rule-0", "icmp", "protocol")
+			reached++
 		})
+	}
+	if reached != 17 {
+		t.Errorf("reached %d cases, want 17", reached)
 	}
 }
 
@@ -404,6 +417,7 @@ func TestFilterSupportedPredicatesRetained(t *testing.T) {
 }
 
 func TestFilterICMPFamilyReceive(t *testing.T) {
+	reached := 0
 	for _, v6 := range []bool{false, true} {
 		for _, explicit := range []bool{false, true} {
 			for _, code := range []bool{false, true} {
@@ -460,10 +474,14 @@ func TestFilterICMPFamilyReceive(t *testing.T) {
 								t.Errorf("opposite-family Receive steps = %+v, want consulted filter", out.Steps)
 							}
 						}
+						reached++
 					}
 				})
 			}
 		}
+	}
+	if reached != 16 {
+		t.Errorf("reached %d cases, want 16", reached)
 	}
 }
 
