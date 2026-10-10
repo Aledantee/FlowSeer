@@ -12,7 +12,8 @@
   "after": [],
   "landed": null,
   "phases": [
-    "docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase12-plan.md"
+    "docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase12-plan.md",
+    "docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase14-plan.md"
   ],
   "retired": [
     {
