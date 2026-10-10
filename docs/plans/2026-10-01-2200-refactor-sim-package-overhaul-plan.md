@@ -225,7 +225,15 @@ record that is not stored are decided and pinned.
 Tests: one failing-first test per inventory entry.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase13-plan.md`
 
-Waves: U1 | U2 | U3 U4 U5 U6 U7 U8 | U9 U13 | U10 | U11 | U12
+### U14. Exact diff attribution
+Files: docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase14-plan.md
+Change: the corpus's perturbation gate proves that a changed configuration
+leaf is reported under that leaf's subject and field, and every layer's
+`Diff` follows one mapping with granular fields.
+Tests: the gate fails on a wrong field for every perturbed leaf.
+Verify: `uv run tools/scripts/run.py verify change -- docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase14-plan.md`
+
+Waves: U1 | U2 | U3 U4 U5 U6 U7 U8 | U9 U13 | U10 | U11 | U14 | U12
 
 ## Verification
 
