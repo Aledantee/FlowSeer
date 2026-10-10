@@ -686,6 +686,7 @@ Verify: `uv run tools/scripts/run.py verify change -- src/common/sim/internal/si
 Files: src/common/sim/internal/simtest/baseline_cases.go, src/common/sim/internal/simtest/topology_cases.go, src/common/sim/internal/simtest/topology_stp_cases.go, src/common/sim/internal/simtest/lag_multicast_cases.go, src/common/sim/internal/simtest/routing_cases.go
 After: U1
 Change: Extract private construction/execution helpers from the five cases in the size table. Keep independent expectation literals in their owning constructors and retain trace and validation order. Sources are the current cases.go declarations in that table, relocated by U1.
+The current caseShadowingPartialUnknownPort declaration is in baseline_cases.go, rather than topology_cases.go as the size table states. Keep it in its current file. Extract the executor bodies into private helpers in their owning files.
 Tests: DefaultRegistry().Get and AssertCase build planning/port-vlan-change, topology-shadowing/partial-model-unknown-port, topology-shadowing/unknown-uplink-stp, troubleshooting/leave-last-member-query and troubleshooting/neighbor-resolution-pending. corpus_test.go deterministic execution, exact metadata and comparison assertions stay unchanged. No case ID or expected output changes.
 Verify: `uv run tools/scripts/run.py verify change -- src/common/sim/internal/simtest`
 

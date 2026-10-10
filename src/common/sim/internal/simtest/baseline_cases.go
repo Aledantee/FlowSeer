@@ -113,89 +113,93 @@ func casePlanningPortVLANChange() Case {
 			Same: false,
 		},
 		Execute: func() (ExecutionResult, error) {
-			b := port.NewBuilder()
-			b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
-			b.Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
-			ports, err := b.Build()
-			if err != nil {
-				return ExecutionResult{}, err
-			}
-
-			macH1 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}
-			macH2 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02}
-
-			cfgCur := vswitch.Config{
-				Ports: ports,
-				Bridge: &bridge.Config{
-					AgingTime: 300 * time.Second,
-					VLAN: &bridge.VLAN{
-						Table: map[vlan.ID]string{
-							10: "prod",
-							20: "dev",
-						},
-						Switchports: map[string]bridge.Switchport{
-							"1/1/1": {PVID: &vid10, Untagged: []vlan.ID{10}},
-							"1/1/2": {PVID: &vid10, Untagged: []vlan.ID{10}},
-						},
-					},
-				},
-			}
-
-			specCur := vswitch.ConstructionSpec{
-				Config: cfgCur,
-				Seeds: []bridge.Seed{{
-					FID:      10,
-					MAC:      macH2,
-					Port:     "1/1/2",
-					Lifetime: bridge.Static,
-				}},
-			}
-
-			swCur, err := vswitch.NewWithSpec(specCur)
-			if err != nil {
-				return ExecutionResult{}, err
-			}
-
-			cfgNext := cfgCur.Clone()
-			cfgNext.Bridge.VLAN.Switchports["1/1/1"] = bridge.Switchport{
-				PVID:     &vid20,
-				Untagged: []vlan.ID{20},
-			}
-
-			changes := vswitch.Diff(cfgCur, cfgNext)
-
-			swNext, _, err := vswitch.Derive(swCur, vswitch.ConstructionSpec{Config: cfgNext}, time.Unix(1700000000, 0))
-			if err != nil {
-				return ExecutionResult{}, err
-			}
-
-			now := time.Unix(1700000000, 0)
-			frame := ethernet.Frame{
-				Dst:       macH2,
-				Src:       macH1,
-				EtherType: ethernet.EtherTypeIPv4,
-				Payload:   []byte("planning-test"),
-			}
-
-			cmp := vswitch.Compare(swCur, swNext, now, "1/1/1", frame)
-			if err := validateReceiveResult(cmp.Current.Result); err != nil {
-				return ExecutionResult{}, err
-			}
-			if err := validateReceiveResult(cmp.Expected.Result); err != nil {
-				return ExecutionResult{}, err
-			}
-
-			return ExecutionResult{
-				Outcome:    cmp.Expected.Outcome,
-				Reason:     cmp.Expected.Reason,
-				Steps:      cmp.Expected.Steps,
-				Changes:    changes,
-				Metadata:   cmp.Expected.Metadata,
-				Switch:     swNext,
-				Comparison: &cmp,
-			}, nil
+			return executePlanningPortVLANChange(vid10, vid20)
 		},
 	}
+}
+
+func executePlanningPortVLANChange(vid10, vid20 vlan.ID) (ExecutionResult, error) {
+	b := port.NewBuilder()
+	b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	b.Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	ports, err := b.Build()
+	if err != nil {
+		return ExecutionResult{}, err
+	}
+
+	macH1 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}
+	macH2 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02}
+
+	cfgCur := vswitch.Config{
+		Ports: ports,
+		Bridge: &bridge.Config{
+			AgingTime: 300 * time.Second,
+			VLAN: &bridge.VLAN{
+				Table: map[vlan.ID]string{
+					10: "prod",
+					20: "dev",
+				},
+				Switchports: map[string]bridge.Switchport{
+					"1/1/1": {PVID: &vid10, Untagged: []vlan.ID{10}},
+					"1/1/2": {PVID: &vid10, Untagged: []vlan.ID{10}},
+				},
+			},
+		},
+	}
+
+	specCur := vswitch.ConstructionSpec{
+		Config: cfgCur,
+		Seeds: []bridge.Seed{{
+			FID:      10,
+			MAC:      macH2,
+			Port:     "1/1/2",
+			Lifetime: bridge.Static,
+		}},
+	}
+
+	swCur, err := vswitch.NewWithSpec(specCur)
+	if err != nil {
+		return ExecutionResult{}, err
+	}
+
+	cfgNext := cfgCur.Clone()
+	cfgNext.Bridge.VLAN.Switchports["1/1/1"] = bridge.Switchport{
+		PVID:     &vid20,
+		Untagged: []vlan.ID{20},
+	}
+
+	changes := vswitch.Diff(cfgCur, cfgNext)
+
+	swNext, _, err := vswitch.Derive(swCur, vswitch.ConstructionSpec{Config: cfgNext}, time.Unix(1700000000, 0))
+	if err != nil {
+		return ExecutionResult{}, err
+	}
+
+	now := time.Unix(1700000000, 0)
+	frame := ethernet.Frame{
+		Dst:       macH2,
+		Src:       macH1,
+		EtherType: ethernet.EtherTypeIPv4,
+		Payload:   []byte("planning-test"),
+	}
+
+	cmp := vswitch.Compare(swCur, swNext, now, "1/1/1", frame)
+	if err := validateReceiveResult(cmp.Current.Result); err != nil {
+		return ExecutionResult{}, err
+	}
+	if err := validateReceiveResult(cmp.Expected.Result); err != nil {
+		return ExecutionResult{}, err
+	}
+
+	return ExecutionResult{
+		Outcome:    cmp.Expected.Outcome,
+		Reason:     cmp.Expected.Reason,
+		Steps:      cmp.Expected.Steps,
+		Changes:    changes,
+		Metadata:   cmp.Expected.Metadata,
+		Switch:     swNext,
+		Comparison: &cmp,
+	}, nil
 }
 
 var (
@@ -436,96 +440,98 @@ func caseShadowingPartialUnknownPort() Case {
 		ExpectedSteps:           expectedSteps,
 		ExpectedModelMetadata:   &modelMetadata,
 		ExpectedForwardMetadata: &forwardMetadata,
-		Execute: func() (ExecutionResult, error) {
-			now := time.Unix(1700000000, 0)
-			src := netmodel.SourceContext{
-				DeviceID: "shadow-sw1",
-				Origin:   "telemetry-snapshot",
-				Context:  "conformance-shadowing",
-			}
-
-			adminUp := interfacev1.AdminStatus_ADMIN_STATUS_UP
-			operUp := interfacev1.OperStatus_OPER_STATUS_UP
-			operUnknown := interfacev1.OperStatus_OPER_STATUS_UNKNOWN
-			pvid10 := uint32(10)
-			mtu := uint32(0)
-			frameAdmAll := switchingv1.FrameAdmission_FRAME_ADMISSION_ALL
-			ingressFiltFalse := false
-
-			p1Name := "1/1/1"
-			p1 := interfacev1.Interface_builder{
-				Name:        &p1Name,
-				AdminStatus: &adminUp,
-				OperStatus:  &operUp,
-				Mtu:         &mtu,
-				Physical: interfacev1.PhysicalInterface_builder{
-					Switchport: switchingv1.SwitchportFacet_builder{
-						Pvid:             &pvid10,
-						UntaggedVlanIds:  []uint32{10},
-						FrameAdmission:   &frameAdmAll,
-						IngressFiltering: &ingressFiltFalse,
-					}.Build(),
-				}.Build(),
-			}.Build()
-
-			p2Name := "1/1/2"
-			p2 := interfacev1.Interface_builder{
-				Name:        &p2Name,
-				AdminStatus: &adminUp,
-				OperStatus:  &operUnknown,
-				Mtu:         &mtu,
-				Physical: interfacev1.PhysicalInterface_builder{
-					Switchport: switchingv1.SwitchportFacet_builder{
-						Pvid:             &pvid10,
-						UntaggedVlanIds:  []uint32{10},
-						FrameAdmission:   &frameAdmAll,
-						IngressFiltering: &ingressFiltFalse,
-					}.Build(),
-				}.Build(),
-			}.Build()
-
-			vid10 := uint32(10)
-			vname10 := "prod"
-			instance := netmodel.DefaultNetworkInstance
-			vlans := []*switchingv1.Vlan{
-				switchingv1.Vlan_builder{Id: &vid10, Name: &vname10, NetworkInstance: &instance}.Build(),
-			}
-
-			loadRes, err := netmodel.Load(now, src, netmodel.Input{Interfaces: []*interfacev1.Interface{p1, p2}, VLANs: vlans})
-			if err != nil {
-				return ExecutionResult{}, err
-			}
-
-			sw, err := vswitch.NewWithSpec(loadRes.Spec)
-			if err != nil {
-				return ExecutionResult{}, err
-			}
-
-			macH1 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}
-			macH2 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02}
-			frame := ethernet.Frame{
-				Dst:       macH2,
-				Src:       macH1,
-				EtherType: ethernet.EtherTypeIPv4,
-				Payload:   []byte("shadow-test"),
-			}
-
-			fwdUnknown := sw.Receive(now, "1/1/2", frame)
-			if err := validateReceiveResult(fwdUnknown.Result); err != nil {
-				return ExecutionResult{}, err
-			}
-
-			return ExecutionResult{
-				Outcome:     fwdUnknown.Outcome,
-				Reason:      fwdUnknown.Reason,
-				Steps:       fwdUnknown.Steps,
-				Metadata:    loadRes.Metadata,
-				Switch:      sw,
-				ModelResult: &loadRes,
-				Forward:     &fwdUnknown.Result,
-			}, nil
-		},
+		Execute:                 executeShadowingPartialUnknownPort,
 	}
+}
+
+func executeShadowingPartialUnknownPort() (ExecutionResult, error) {
+	now := time.Unix(1700000000, 0)
+	src := netmodel.SourceContext{
+		DeviceID: "shadow-sw1",
+		Origin:   "telemetry-snapshot",
+		Context:  "conformance-shadowing",
+	}
+
+	adminUp := interfacev1.AdminStatus_ADMIN_STATUS_UP
+	operUp := interfacev1.OperStatus_OPER_STATUS_UP
+	operUnknown := interfacev1.OperStatus_OPER_STATUS_UNKNOWN
+	pvid10 := uint32(10)
+	mtu := uint32(0)
+	frameAdmAll := switchingv1.FrameAdmission_FRAME_ADMISSION_ALL
+	ingressFiltFalse := false
+
+	p1Name := "1/1/1"
+	p1 := interfacev1.Interface_builder{
+		Name:        &p1Name,
+		AdminStatus: &adminUp,
+		OperStatus:  &operUp,
+		Mtu:         &mtu,
+		Physical: interfacev1.PhysicalInterface_builder{
+			Switchport: switchingv1.SwitchportFacet_builder{
+				Pvid:             &pvid10,
+				UntaggedVlanIds:  []uint32{10},
+				FrameAdmission:   &frameAdmAll,
+				IngressFiltering: &ingressFiltFalse,
+			}.Build(),
+		}.Build(),
+	}.Build()
+
+	p2Name := "1/1/2"
+	p2 := interfacev1.Interface_builder{
+		Name:        &p2Name,
+		AdminStatus: &adminUp,
+		OperStatus:  &operUnknown,
+		Mtu:         &mtu,
+		Physical: interfacev1.PhysicalInterface_builder{
+			Switchport: switchingv1.SwitchportFacet_builder{
+				Pvid:             &pvid10,
+				UntaggedVlanIds:  []uint32{10},
+				FrameAdmission:   &frameAdmAll,
+				IngressFiltering: &ingressFiltFalse,
+			}.Build(),
+		}.Build(),
+	}.Build()
+
+	vid10 := uint32(10)
+	vname10 := "prod"
+	instance := netmodel.DefaultNetworkInstance
+	vlans := []*switchingv1.Vlan{
+		switchingv1.Vlan_builder{Id: &vid10, Name: &vname10, NetworkInstance: &instance}.Build(),
+	}
+
+	loadRes, err := netmodel.Load(now, src, netmodel.Input{Interfaces: []*interfacev1.Interface{p1, p2}, VLANs: vlans})
+	if err != nil {
+		return ExecutionResult{}, err
+	}
+
+	sw, err := vswitch.NewWithSpec(loadRes.Spec)
+	if err != nil {
+		return ExecutionResult{}, err
+	}
+
+	macH1 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}
+	macH2 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02}
+	frame := ethernet.Frame{
+		Dst:       macH2,
+		Src:       macH1,
+		EtherType: ethernet.EtherTypeIPv4,
+		Payload:   []byte("shadow-test"),
+	}
+
+	fwdUnknown := sw.Receive(now, "1/1/2", frame)
+	if err := validateReceiveResult(fwdUnknown.Result); err != nil {
+		return ExecutionResult{}, err
+	}
+
+	return ExecutionResult{
+		Outcome:     fwdUnknown.Outcome,
+		Reason:      fwdUnknown.Reason,
+		Steps:       fwdUnknown.Steps,
+		Metadata:    loadRes.Metadata,
+		Switch:      sw,
+		ModelResult: &loadRes,
+		Forward:     &fwdUnknown.Result,
+	}, nil
 }
 
 // caseTroubleshootingUnicastForwarding returns the baseline troubleshooting case evaluating decisive forwarding rules and trace progression.

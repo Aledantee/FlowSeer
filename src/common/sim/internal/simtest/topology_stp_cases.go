@@ -122,88 +122,92 @@ func caseTopologyShadowingUnknownUplinkSTP() Case {
 		ExpectedFacts: []FactExpectation{sw1Hit, sw2Hit, macFact},
 		ExpectedSteps: steps,
 		Execute: func() (ExecutionResult, error) {
-			t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
-			switchConfig := func(priority uint16, address netaddr.MAC, uplinkFacts map[string]phy.Ethernet) (vswitch.Config, error) {
-				tbl, err := port.NewBuilder().Range("1/1/%d", 1, 3, port.Port{Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).Build()
-				if err != nil {
-					return vswitch.Config{}, err
-				}
-
-				return vswitch.Config{
-					Ports:  tbl,
-					Bridge: &bridge.Config{},
-					STP: &stp.Config{
-						Priority: priority,
-						Address:  address,
-						Ports:    map[string]stp.Port{"1/1/1": {}, "1/1/2": {}, "1/1/3": {}},
-					},
-					Phy: &phy.Config{Ethernet: uplinkFacts},
-				}, nil
-			}
-			sw1Config, err := switchConfig(4096, netaddr.MAC{0, 0, 0, 0, 1, 1}, map[string]phy.Ethernet{"1/1/1": gigabit, "1/1/2": gigabit, "1/1/3": gigabit})
-			if err != nil {
-				return ExecutionResult{}, err
-			}
-			sw2Config, err := switchConfig(8192, netaddr.MAC{0, 0, 0, 0, 1, 2}, map[string]phy.Ethernet{"1/1/1": gigabit, "1/1/3": gigabit})
-			if err != nil {
-				return ExecutionResult{}, err
-			}
-
-			spec := assembly.ConstructionSpec{
-				Start: t0,
-				Switches: map[string]vswitch.ConstructionSpec{
-					"sw1": {NodeID: "sw1", Config: sw1Config, Seeds: []bridge.Seed{{MAC: unknownUplinkH2, Port: "1/1/1", Lifetime: bridge.Static}}},
-					"sw2": {NodeID: "sw2", Config: sw2Config, Seeds: []bridge.Seed{{MAC: unknownUplinkH2, Port: "1/1/3", Lifetime: bridge.Static}}},
-				},
-				Hosts: map[string]hostmodel.Config{
-					"h1": {Address: unknownUplinkH1, Ethernet: gigabit},
-					"h2": {Address: unknownUplinkH2, Ethernet: gigabit},
-				},
-				Cables: []fabric.Cable{
-					{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/1"}},
-					{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/2"}},
-					{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/3"}},
-					{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "h2"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/3"}},
-				},
-			}
-
-			fab, err := assembly.NewWithSpec(spec)
-			if err != nil {
-				return ExecutionResult{}, err
-			}
-			fab.Run(fabric.RunOptions{Budget: 200, Window: 0})
-			if err := validateReceiveReport(fab.Report()); err != nil {
-				return ExecutionResult{}, err
-			}
-
-			fid, err := fab.Inject(fabric.Injection{
-				At:     fab.Clock(),
-				Origin: fabric.Endpoint{Node: "h1"},
-				Frame:  ethernet.Frame{Dst: unknownUplinkH2, Src: unknownUplinkH1, EtherType: ethernet.EtherTypeIPv4},
-			})
-			if err != nil {
-				return ExecutionResult{}, err
-			}
-			fab.Run(fabric.RunOptions{Budget: 50, Window: 0})
-			if err := validateReceiveReport(fab.Report()); err != nil {
-				return ExecutionResult{}, err
-			}
-
-			journey, err := reportJourney(fab, fid)
-			if err != nil {
-				return ExecutionResult{}, err
-			}
-			fabricMetadata := fab.Metadata()
-
-			return ExecutionResult{
-				Outcome:        journeyHopOutcome(journey),
-				Reason:         journeyHopReason(journey),
-				Steps:          journeySteps(journey),
-				Metadata:       journey.Metadata,
-				Switch:         fab.Device("sw1").(*vswitch.Switch),
-				Journey:        &journey,
-				FabricMetadata: &fabricMetadata,
-			}, nil
+			return executeTopologyShadowingUnknownUplinkSTP(gigabit)
 		},
 	}
+}
+
+func executeTopologyShadowingUnknownUplinkSTP(gigabit phy.Ethernet) (ExecutionResult, error) {
+	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
+	switchConfig := func(priority uint16, address netaddr.MAC, uplinkFacts map[string]phy.Ethernet) (vswitch.Config, error) {
+		tbl, err := port.NewBuilder().Range("1/1/%d", 1, 3, port.Port{Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).Build()
+		if err != nil {
+			return vswitch.Config{}, err
+		}
+
+		return vswitch.Config{
+			Ports:  tbl,
+			Bridge: &bridge.Config{},
+			STP: &stp.Config{
+				Priority: priority,
+				Address:  address,
+				Ports:    map[string]stp.Port{"1/1/1": {}, "1/1/2": {}, "1/1/3": {}},
+			},
+			Phy: &phy.Config{Ethernet: uplinkFacts},
+		}, nil
+	}
+	sw1Config, err := switchConfig(4096, netaddr.MAC{0, 0, 0, 0, 1, 1}, map[string]phy.Ethernet{"1/1/1": gigabit, "1/1/2": gigabit, "1/1/3": gigabit})
+	if err != nil {
+		return ExecutionResult{}, err
+	}
+	sw2Config, err := switchConfig(8192, netaddr.MAC{0, 0, 0, 0, 1, 2}, map[string]phy.Ethernet{"1/1/1": gigabit, "1/1/3": gigabit})
+	if err != nil {
+		return ExecutionResult{}, err
+	}
+
+	spec := assembly.ConstructionSpec{
+		Start: t0,
+		Switches: map[string]vswitch.ConstructionSpec{
+			"sw1": {NodeID: "sw1", Config: sw1Config, Seeds: []bridge.Seed{{MAC: unknownUplinkH2, Port: "1/1/1", Lifetime: bridge.Static}}},
+			"sw2": {NodeID: "sw2", Config: sw2Config, Seeds: []bridge.Seed{{MAC: unknownUplinkH2, Port: "1/1/3", Lifetime: bridge.Static}}},
+		},
+		Hosts: map[string]hostmodel.Config{
+			"h1": {Address: unknownUplinkH1, Ethernet: gigabit},
+			"h2": {Address: unknownUplinkH2, Ethernet: gigabit},
+		},
+		Cables: []fabric.Cable{
+			{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/1"}},
+			{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/2"}},
+			{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/3"}},
+			{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "h2"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/3"}},
+		},
+	}
+
+	fab, err := assembly.NewWithSpec(spec)
+	if err != nil {
+		return ExecutionResult{}, err
+	}
+	fab.Run(fabric.RunOptions{Budget: 200, Window: 0})
+	if err := validateReceiveReport(fab.Report()); err != nil {
+		return ExecutionResult{}, err
+	}
+
+	fid, err := fab.Inject(fabric.Injection{
+		At:     fab.Clock(),
+		Origin: fabric.Endpoint{Node: "h1"},
+		Frame:  ethernet.Frame{Dst: unknownUplinkH2, Src: unknownUplinkH1, EtherType: ethernet.EtherTypeIPv4},
+	})
+	if err != nil {
+		return ExecutionResult{}, err
+	}
+	fab.Run(fabric.RunOptions{Budget: 50, Window: 0})
+	if err := validateReceiveReport(fab.Report()); err != nil {
+		return ExecutionResult{}, err
+	}
+
+	journey, err := reportJourney(fab, fid)
+	if err != nil {
+		return ExecutionResult{}, err
+	}
+	fabricMetadata := fab.Metadata()
+
+	return ExecutionResult{
+		Outcome:        journeyHopOutcome(journey),
+		Reason:         journeyHopReason(journey),
+		Steps:          journeySteps(journey),
+		Metadata:       journey.Metadata,
+		Switch:         fab.Device("sw1").(*vswitch.Switch),
+		Journey:        &journey,
+		FabricMetadata: &fabricMetadata,
+	}, nil
 }

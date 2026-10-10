@@ -238,154 +238,158 @@ func caseTroubleshootingNeighborResolutionPending() Case {
 		ExpectedSteps:           expectedSteps,
 		ExpectedForwardMetadata: &resultMetadata,
 		Execute: func() (ExecutionResult, error) {
-			ports, err := port.NewBuilder().
-				Add(port.Port{Name: "in", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
-				Add(port.Port{Name: "out", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
-				Build()
-			if err != nil {
-				return ExecutionResult{}, err
-			}
-
-			spec := vswitch.ConstructionSpec{
-				Config: vswitch.Config{
-					Ports: ports,
-					Routing: &routing.Config{VRFs: map[string]routing.VRF{
-						routing.DefaultVRF: {
-							Interfaces: map[string]routing.Interface{
-								"in":  {Port: "in", MAC: routerMAC, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.10.1/24")}},
-								"out": {Port: "out", MAC: routerMAC, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.20.1/24")}},
-							},
-							// No neighbors configured: the next hop is on-link but unresolved.
-						},
-					}},
-				},
-			}
-
-			sw, err := vswitch.NewWithSpec(spec)
-			if err != nil {
-				return ExecutionResult{}, err
-			}
-
-			now := time.Unix(1700000000, 0)
-
-			hdr := ip.Header{Src: source, Dst: destination, HopLimit: 64, Protocol: 17, V4: &ip.V4{}}
-			pkt, err := hdr.Encode([]byte("hello"))
-			if err != nil {
-				return ExecutionResult{}, err
-			}
-
-			fwd := sw.Receive(now, "in", ethernet.Frame{
-				Dst:       routerMAC,
-				Src:       hostMAC,
-				EtherType: ethernet.EtherTypeIPv4,
-				Payload:   pkt,
-			})
-			if err := validateReceiveResult(fwd.Result); err != nil {
-				return ExecutionResult{}, err
-			}
-
-			// The reply arrives on the retransmit deadline, after the second solicitation.
-			replyMsg := arp.Message{
-				HardwareType: 1,
-				ProtocolType: 0x0800,
-				Operation:    arp.Reply,
-				SenderMAC:    learnedMAC,
-				SenderAddr:   destination,
-				TargetMAC:    routerMAC,
-				TargetAddr:   netip.MustParseAddr("10.0.20.1"),
-			}
-			reply, err := arp.Encode(replyMsg, routerMAC)
-			if err != nil {
-				return ExecutionResult{}, err
-			}
-			received := sw.Receive(now.Add(time.Second), "out", reply)
-			if err := validateReceiveResult(received.Result); err != nil {
-				return ExecutionResult{}, err
-			}
-			advanced := sw.Advance(now.Add(time.Second))
-
-			var emissions []device.Emission
-			solicitations := 0
-			for _, emission := range append(append(fwd.Emissions, received.Emissions...), advanced.Emissions...) {
-				if !emission.Protocol {
-					emissions = append(emissions, emission)
-					continue
-				}
-				msg, err := arp.Decode(emission.Frame)
-				if err != nil || msg.Operation != arp.Request || msg.TargetAddr != destination || emission.Port != "out" || emission.PCP != 0 {
-					return ExecutionResult{}, errs.Msgf("solicitation = %+v, message = %+v, error = %v", emission, msg, err)
-				}
-				solicitations++
-			}
-			if solicitations != 2 {
-				return ExecutionResult{}, errs.Msgf("solicitations = %d, want 2", solicitations)
-			}
-			if len(emissions) != 1 {
-				return ExecutionResult{}, errs.Msgf("released emissions = %d, want 1", len(emissions))
-			}
-			if emissions[0].Frame.Dst != learnedMAC {
-				return ExecutionResult{}, errs.Msgf("released frame dst = %v, want %v", emissions[0].Frame.Dst, learnedMAC)
-			}
-			if emissions[0].Port != "out" || emissions[0].Protocol {
-				return ExecutionResult{}, errs.Msgf("released emission = {Port: %v, Protocol: %v}, want {Port: out, Protocol: false}", emissions[0].Port, emissions[0].Protocol)
-			}
-			if failures := append(append(fwd.Drops, received.Drops...), advanced.Drops...); len(failures) != 0 {
-				return ExecutionResult{}, errs.Msgf("neighbor failures = %d, want 0: %+v", len(failures), failures)
-			}
-
-			// The same unresolved forward must finish under its original fabric identity.
-			fabricSwitch := spec.Clone()
-			fabricSwitch.NodeID = "router"
-			gigabit := gigabitAuto()
-			fabricSwitch.Config.Phy = &phy.Config{Ethernet: map[string]phy.Ethernet{"in": gigabit, "out": gigabit}}
-			fab, err := assembly.NewWithSpec(assembly.ConstructionSpec{
-				Start:    now,
-				Switches: map[string]vswitch.ConstructionSpec{"router": fabricSwitch},
-				Hosts: map[string]hostmodel.Config{
-					"source": {Address: hostMAC, Ethernet: gigabit},
-					"target": {Address: learnedMAC, Ethernet: gigabit},
-				},
-				Cables: []fabric.Cable{
-					{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "source"}, B: fabric.Endpoint{Node: "router", Port: "in"}},
-					{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "target"}, B: fabric.Endpoint{Node: "router", Port: "out"}},
-				},
-			})
-			if err != nil {
-				return ExecutionResult{}, err
-			}
-			fid, err := fab.Inject(fabric.Injection{
-				At: now, Origin: fabric.Endpoint{Node: "router", Port: "in"}, Flow: 1,
-				Frame: ethernet.Frame{Dst: routerMAC, Src: hostMAC, EtherType: ethernet.EtherTypeIPv4, Payload: pkt},
-			})
-			if err != nil {
-				return ExecutionResult{}, err
-			}
-			if _, err := fab.Inject(fabric.Injection{At: now.Add(time.Second), Origin: fabric.Endpoint{Node: "router", Port: "out"}, Frame: reply}); err != nil {
-				return ExecutionResult{}, err
-			}
-			run := fab.Run(fabric.RunOptions{Budget: 1000, Window: 0})
-			journey, err := reportJourney(fab, fid)
-			if err != nil {
-				return ExecutionResult{}, err
-			}
-			if run.Err != nil || run.Stop != fabric.StopQueueDrained || journey.State != fabric.JourneyDelivered || len(journey.Deliveries) != 1 || journey.Deliveries[0].Host != "target" {
-				return ExecutionResult{}, errs.Msgf("held journey %d = %+v, stop = %v, want one delivery to target and a drained queue", fid, journey, run.Stop)
-			}
-			stats := fab.Flows()
-			if len(stats) != 1 || stats[1].Offered != 1 || stats[1].Delivered["target"] != 1 || stats[1].Held != 0 {
-				return ExecutionResult{}, errs.Msgf("released flow = %+v, want one offered, one target delivery, no holds", stats)
-			}
-
-			return ExecutionResult{
-				Outcome:  fwd.Outcome,
-				Reason:   fwd.Reason,
-				Steps:    fwd.Steps,
-				Metadata: fwd.Metadata,
-				Switch:   sw,
-				Forward:  &fwd.Result,
-			}, nil
+			return executeTroubleshootingNeighborResolutionPending(routerMAC, hostMAC, learnedMAC, source, destination)
 		},
 	}
+}
+
+func executeTroubleshootingNeighborResolutionPending(routerMAC, hostMAC, learnedMAC netaddr.MAC, source, destination netip.Addr) (ExecutionResult, error) {
+	ports, err := port.NewBuilder().
+		Add(port.Port{Name: "in", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "out", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Build()
+	if err != nil {
+		return ExecutionResult{}, err
+	}
+
+	spec := vswitch.ConstructionSpec{
+		Config: vswitch.Config{
+			Ports: ports,
+			Routing: &routing.Config{VRFs: map[string]routing.VRF{
+				routing.DefaultVRF: {
+					Interfaces: map[string]routing.Interface{
+						"in":  {Port: "in", MAC: routerMAC, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.10.1/24")}},
+						"out": {Port: "out", MAC: routerMAC, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.20.1/24")}},
+					},
+					// No neighbors configured: the next hop is on-link but unresolved.
+				},
+			}},
+		},
+	}
+
+	sw, err := vswitch.NewWithSpec(spec)
+	if err != nil {
+		return ExecutionResult{}, err
+	}
+
+	now := time.Unix(1700000000, 0)
+
+	hdr := ip.Header{Src: source, Dst: destination, HopLimit: 64, Protocol: 17, V4: &ip.V4{}}
+	pkt, err := hdr.Encode([]byte("hello"))
+	if err != nil {
+		return ExecutionResult{}, err
+	}
+
+	fwd := sw.Receive(now, "in", ethernet.Frame{
+		Dst:       routerMAC,
+		Src:       hostMAC,
+		EtherType: ethernet.EtherTypeIPv4,
+		Payload:   pkt,
+	})
+	if err := validateReceiveResult(fwd.Result); err != nil {
+		return ExecutionResult{}, err
+	}
+
+	// The reply arrives on the retransmit deadline, after the second solicitation.
+	replyMsg := arp.Message{
+		HardwareType: 1,
+		ProtocolType: 0x0800,
+		Operation:    arp.Reply,
+		SenderMAC:    learnedMAC,
+		SenderAddr:   destination,
+		TargetMAC:    routerMAC,
+		TargetAddr:   netip.MustParseAddr("10.0.20.1"),
+	}
+	reply, err := arp.Encode(replyMsg, routerMAC)
+	if err != nil {
+		return ExecutionResult{}, err
+	}
+	received := sw.Receive(now.Add(time.Second), "out", reply)
+	if err := validateReceiveResult(received.Result); err != nil {
+		return ExecutionResult{}, err
+	}
+	advanced := sw.Advance(now.Add(time.Second))
+
+	var emissions []device.Emission
+	solicitations := 0
+	for _, emission := range append(append(fwd.Emissions, received.Emissions...), advanced.Emissions...) {
+		if !emission.Protocol {
+			emissions = append(emissions, emission)
+			continue
+		}
+		msg, err := arp.Decode(emission.Frame)
+		if err != nil || msg.Operation != arp.Request || msg.TargetAddr != destination || emission.Port != "out" || emission.PCP != 0 {
+			return ExecutionResult{}, errs.Msgf("solicitation = %+v, message = %+v, error = %v", emission, msg, err)
+		}
+		solicitations++
+	}
+	if solicitations != 2 {
+		return ExecutionResult{}, errs.Msgf("solicitations = %d, want 2", solicitations)
+	}
+	if len(emissions) != 1 {
+		return ExecutionResult{}, errs.Msgf("released emissions = %d, want 1", len(emissions))
+	}
+	if emissions[0].Frame.Dst != learnedMAC {
+		return ExecutionResult{}, errs.Msgf("released frame dst = %v, want %v", emissions[0].Frame.Dst, learnedMAC)
+	}
+	if emissions[0].Port != "out" || emissions[0].Protocol {
+		return ExecutionResult{}, errs.Msgf("released emission = {Port: %v, Protocol: %v}, want {Port: out, Protocol: false}", emissions[0].Port, emissions[0].Protocol)
+	}
+	if failures := append(append(fwd.Drops, received.Drops...), advanced.Drops...); len(failures) != 0 {
+		return ExecutionResult{}, errs.Msgf("neighbor failures = %d, want 0: %+v", len(failures), failures)
+	}
+
+	// The same unresolved forward must finish under its original fabric identity.
+	fabricSwitch := spec.Clone()
+	fabricSwitch.NodeID = "router"
+	gigabit := gigabitAuto()
+	fabricSwitch.Config.Phy = &phy.Config{Ethernet: map[string]phy.Ethernet{"in": gigabit, "out": gigabit}}
+	fab, err := assembly.NewWithSpec(assembly.ConstructionSpec{
+		Start:    now,
+		Switches: map[string]vswitch.ConstructionSpec{"router": fabricSwitch},
+		Hosts: map[string]hostmodel.Config{
+			"source": {Address: hostMAC, Ethernet: gigabit},
+			"target": {Address: learnedMAC, Ethernet: gigabit},
+		},
+		Cables: []fabric.Cable{
+			{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "source"}, B: fabric.Endpoint{Node: "router", Port: "in"}},
+			{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "target"}, B: fabric.Endpoint{Node: "router", Port: "out"}},
+		},
+	})
+	if err != nil {
+		return ExecutionResult{}, err
+	}
+	fid, err := fab.Inject(fabric.Injection{
+		At: now, Origin: fabric.Endpoint{Node: "router", Port: "in"}, Flow: 1,
+		Frame: ethernet.Frame{Dst: routerMAC, Src: hostMAC, EtherType: ethernet.EtherTypeIPv4, Payload: pkt},
+	})
+	if err != nil {
+		return ExecutionResult{}, err
+	}
+	if _, err := fab.Inject(fabric.Injection{At: now.Add(time.Second), Origin: fabric.Endpoint{Node: "router", Port: "out"}, Frame: reply}); err != nil {
+		return ExecutionResult{}, err
+	}
+	run := fab.Run(fabric.RunOptions{Budget: 1000, Window: 0})
+	journey, err := reportJourney(fab, fid)
+	if err != nil {
+		return ExecutionResult{}, err
+	}
+	if run.Err != nil || run.Stop != fabric.StopQueueDrained || journey.State != fabric.JourneyDelivered || len(journey.Deliveries) != 1 || journey.Deliveries[0].Host != "target" {
+		return ExecutionResult{}, errs.Msgf("held journey %d = %+v, stop = %v, want one delivery to target and a drained queue", fid, journey, run.Stop)
+	}
+	stats := fab.Flows()
+	if len(stats) != 1 || stats[1].Offered != 1 || stats[1].Delivered["target"] != 1 || stats[1].Held != 0 {
+		return ExecutionResult{}, errs.Msgf("released flow = %+v, want one offered, one target delivery, no holds", stats)
+	}
+
+	return ExecutionResult{
+		Outcome:  fwd.Outcome,
+		Reason:   fwd.Reason,
+		Steps:    fwd.Steps,
+		Metadata: fwd.Metadata,
+		Switch:   sw,
+		Forward:  &fwd.Result,
+	}, nil
 }
 
 // caseTroubleshootingRecursiveRouteNotInstalled returns the case evaluating what a

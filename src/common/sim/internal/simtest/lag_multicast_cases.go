@@ -467,111 +467,113 @@ func caseTroubleshootingLeaveLastMemberQuery() Case {
 			Status: analysis.Complete,
 			Scope:  analysis.NodeScope(""),
 		},
-		Execute: func() (ExecutionResult, error) {
-			pvid := vlan.ID(10)
-			ports, err := port.NewBuilder().
-				Add(port.Port{Name: "p1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
-				Add(port.Port{Name: "p9", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
-				Build()
-			if err != nil {
-				return ExecutionResult{}, err
-			}
+		Execute: executeTroubleshootingLeaveLastMemberQuery,
+	}
+}
 
-			group := netip.MustParseAddr("239.6.6.6")
-			groupMAC := netaddr.MAC{0x01, 0x00, 0x5e, 0x06, 0x06, 0x06}
-			allRoutersMAC := netaddr.MAC{0x01, 0x00, 0x5e, 0x00, 0x00, 0x02}
-			hostMAC := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}
-			routerMAC := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0xfe}
+func executeTroubleshootingLeaveLastMemberQuery() (ExecutionResult, error) {
+	pvid := vlan.ID(10)
+	ports, err := port.NewBuilder().
+		Add(port.Port{Name: "p1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "p9", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Build()
+	if err != nil {
+		return ExecutionResult{}, err
+	}
 
-			spec := vswitch.ConstructionSpec{
-				Config: vswitch.Config{
-					Ports: ports,
-					Bridge: &bridge.Config{VLAN: &bridge.VLAN{
-						Table: map[vlan.ID]string{10: "ten"},
-						Switchports: map[string]bridge.Switchport{
-							"p1": {PVID: &pvid, Untagged: []vlan.ID{10}},
-							"p9": {PVID: &pvid, Untagged: []vlan.ID{10}},
-						},
-					}},
-					Mcast: &mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{10: {
-						LastMemberQueryInterval: time.Second,
-						LastMemberQueryCount:    2,
-						RouterPorts:             []string{"p9"},
-						FloodUnregistered:       new(false),
-					}}},
+	group := netip.MustParseAddr("239.6.6.6")
+	groupMAC := netaddr.MAC{0x01, 0x00, 0x5e, 0x06, 0x06, 0x06}
+	allRoutersMAC := netaddr.MAC{0x01, 0x00, 0x5e, 0x00, 0x00, 0x02}
+	hostMAC := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}
+	routerMAC := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0xfe}
+
+	spec := vswitch.ConstructionSpec{
+		Config: vswitch.Config{
+			Ports: ports,
+			Bridge: &bridge.Config{VLAN: &bridge.VLAN{
+				Table: map[vlan.ID]string{10: "ten"},
+				Switchports: map[string]bridge.Switchport{
+					"p1": {PVID: &pvid, Untagged: []vlan.ID{10}},
+					"p9": {PVID: &pvid, Untagged: []vlan.ID{10}},
 				},
-			}
-
-			sw, err := vswitch.NewWithSpec(spec)
-			if err != nil {
-				return ExecutionResult{}, err
-			}
-
-			now := time.Unix(1700000000, 0)
-			leaveAt := now.Add(10 * time.Second)
-
-			joinPayload, err := igmp.Encode(igmp.Message{Type: igmp.ReportV2, Group: group})
-			if err != nil {
-				return ExecutionResult{}, err
-			}
-			joinHdr := ip.Header{Src: netip.MustParseAddr("10.0.0.1"), Dst: group, HopLimit: 1, Protocol: 2, V4: &ip.V4{}}
-			joinPacket, err := joinHdr.Encode(joinPayload)
-			if err != nil {
-				return ExecutionResult{}, err
-			}
-			if err := validateReceiveResult(sw.Receive(now, "p1", ethernet.Frame{Dst: groupMAC, Src: hostMAC, EtherType: ethernet.EtherTypeIPv4, Payload: joinPacket}).Result); err != nil {
-				return ExecutionResult{}, err
-			}
-
-			leavePayload, err := igmp.Encode(igmp.Message{Type: igmp.Leave, Group: group})
-			if err != nil {
-				return ExecutionResult{}, err
-			}
-			leaveHdr := ip.Header{Src: netip.MustParseAddr("10.0.0.1"), Dst: netip.MustParseAddr("224.0.0.2"), HopLimit: 1, Protocol: 2, V4: &ip.V4{}}
-			leavePacket, err := leaveHdr.Encode(leavePayload)
-			if err != nil {
-				return ExecutionResult{}, err
-			}
-			if err := validateReceiveResult(sw.Receive(leaveAt, "p1", ethernet.Frame{Dst: allRoutersMAC, Src: hostMAC, EtherType: ethernet.EtherTypeIPv4, Payload: leavePacket}).Result); err != nil {
-				return ExecutionResult{}, err
-			}
-
-			queryPayload, err := igmp.Encode(igmp.Message{Type: igmp.Query, Version: igmp.V2, Group: group})
-			if err != nil {
-				return ExecutionResult{}, err
-			}
-			queryHdr := ip.Header{Src: netip.MustParseAddr("10.0.0.254"), Dst: group, HopLimit: 1, Protocol: 2, V4: &ip.V4{}}
-			queryPacket, err := queryHdr.Encode(queryPayload)
-			if err != nil {
-				return ExecutionResult{}, err
-			}
-			if err := validateReceiveResult(sw.Receive(leaveAt, "p9", ethernet.Frame{Dst: groupMAC, Src: routerMAC, EtherType: ethernet.EtherTypeIPv4, Payload: queryPacket}).Result); err != nil {
-				return ExecutionResult{}, err
-			}
-
-			dataHdr := ip.Header{Src: netip.MustParseAddr("10.9.9.9"), Dst: group, HopLimit: 32, Protocol: 17, V4: &ip.V4{}}
-			dataPacket, err := dataHdr.Encode([]byte("data"))
-			if err != nil {
-				return ExecutionResult{}, err
-			}
-			dataFrame := ethernet.Frame{Dst: groupMAC, Src: routerMAC, EtherType: ethernet.EtherTypeIPv4, Payload: dataPacket}
-
-			if err := validateReceiveResult(sw.Receive(leaveAt.Add(time.Second), "p9", dataFrame).Result); err != nil {
-				return ExecutionResult{}, err
-			}
-			fwd := sw.Receive(leaveAt.Add(2*time.Second), "p9", dataFrame)
-			if err := validateReceiveResult(fwd.Result); err != nil {
-				return ExecutionResult{}, err
-			}
-
-			return ExecutionResult{
-				Outcome:  fwd.Outcome,
-				Reason:   fwd.Reason,
-				Steps:    fwd.Steps,
-				Metadata: fwd.Metadata,
-				Switch:   sw,
-				Forward:  &fwd.Result,
-			}, nil
+			}},
+			Mcast: &mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{10: {
+				LastMemberQueryInterval: time.Second,
+				LastMemberQueryCount:    2,
+				RouterPorts:             []string{"p9"},
+				FloodUnregistered:       new(false),
+			}}},
 		},
 	}
+
+	sw, err := vswitch.NewWithSpec(spec)
+	if err != nil {
+		return ExecutionResult{}, err
+	}
+
+	now := time.Unix(1700000000, 0)
+	leaveAt := now.Add(10 * time.Second)
+
+	joinPayload, err := igmp.Encode(igmp.Message{Type: igmp.ReportV2, Group: group})
+	if err != nil {
+		return ExecutionResult{}, err
+	}
+	joinHdr := ip.Header{Src: netip.MustParseAddr("10.0.0.1"), Dst: group, HopLimit: 1, Protocol: 2, V4: &ip.V4{}}
+	joinPacket, err := joinHdr.Encode(joinPayload)
+	if err != nil {
+		return ExecutionResult{}, err
+	}
+	if err := validateReceiveResult(sw.Receive(now, "p1", ethernet.Frame{Dst: groupMAC, Src: hostMAC, EtherType: ethernet.EtherTypeIPv4, Payload: joinPacket}).Result); err != nil {
+		return ExecutionResult{}, err
+	}
+
+	leavePayload, err := igmp.Encode(igmp.Message{Type: igmp.Leave, Group: group})
+	if err != nil {
+		return ExecutionResult{}, err
+	}
+	leaveHdr := ip.Header{Src: netip.MustParseAddr("10.0.0.1"), Dst: netip.MustParseAddr("224.0.0.2"), HopLimit: 1, Protocol: 2, V4: &ip.V4{}}
+	leavePacket, err := leaveHdr.Encode(leavePayload)
+	if err != nil {
+		return ExecutionResult{}, err
+	}
+	if err := validateReceiveResult(sw.Receive(leaveAt, "p1", ethernet.Frame{Dst: allRoutersMAC, Src: hostMAC, EtherType: ethernet.EtherTypeIPv4, Payload: leavePacket}).Result); err != nil {
+		return ExecutionResult{}, err
+	}
+
+	queryPayload, err := igmp.Encode(igmp.Message{Type: igmp.Query, Version: igmp.V2, Group: group})
+	if err != nil {
+		return ExecutionResult{}, err
+	}
+	queryHdr := ip.Header{Src: netip.MustParseAddr("10.0.0.254"), Dst: group, HopLimit: 1, Protocol: 2, V4: &ip.V4{}}
+	queryPacket, err := queryHdr.Encode(queryPayload)
+	if err != nil {
+		return ExecutionResult{}, err
+	}
+	if err := validateReceiveResult(sw.Receive(leaveAt, "p9", ethernet.Frame{Dst: groupMAC, Src: routerMAC, EtherType: ethernet.EtherTypeIPv4, Payload: queryPacket}).Result); err != nil {
+		return ExecutionResult{}, err
+	}
+
+	dataHdr := ip.Header{Src: netip.MustParseAddr("10.9.9.9"), Dst: group, HopLimit: 32, Protocol: 17, V4: &ip.V4{}}
+	dataPacket, err := dataHdr.Encode([]byte("data"))
+	if err != nil {
+		return ExecutionResult{}, err
+	}
+	dataFrame := ethernet.Frame{Dst: groupMAC, Src: routerMAC, EtherType: ethernet.EtherTypeIPv4, Payload: dataPacket}
+
+	if err := validateReceiveResult(sw.Receive(leaveAt.Add(time.Second), "p9", dataFrame).Result); err != nil {
+		return ExecutionResult{}, err
+	}
+	fwd := sw.Receive(leaveAt.Add(2*time.Second), "p9", dataFrame)
+	if err := validateReceiveResult(fwd.Result); err != nil {
+		return ExecutionResult{}, err
+	}
+
+	return ExecutionResult{
+		Outcome:  fwd.Outcome,
+		Reason:   fwd.Reason,
+		Steps:    fwd.Steps,
+		Metadata: fwd.Metadata,
+		Switch:   sw,
+		Forward:  &fwd.Result,
+	}, nil
 }
