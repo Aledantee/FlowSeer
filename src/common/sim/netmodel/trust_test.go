@@ -1,6 +1,7 @@
 package netmodel_test
 
 import (
+	"fmt"
 	"slices"
 	"testing"
 
@@ -18,6 +19,61 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer/stp"
 	"go.aledante.io/FlowSeer/src/common/sim/netmodel"
 )
+
+func TestLoadMSTAmbiguousOwnerRechecksDigest(t *testing.T) {
+	reached := 0
+	for _, mapped := range []bool{false, true} {
+		for _, reverse := range []bool{false, true} {
+			t.Run(fmt.Sprintf("mapped=%t/reverse=%t", mapped, reverse), func(t *testing.T) {
+				in := mstLoadInput(t, mapped)
+				for _, domain := range []string{"blue", "red"} {
+					in.MSTInstances = append(in.MSTInstances, stpv1.MstInstance_builder{
+						NetworkInstance: ptr(domain), MstId: ptr(uint32(1)), BridgeId: in.BridgeState.GetBridgeId(),
+					}.Build())
+				}
+				if reverse {
+					slices.Reverse(in.MSTInstances)
+					slices.Reverse(in.MSTPorts)
+				}
+				result := load(t, netmodel.SourceContext{DeviceID: "sw1"}, in)
+				sw, err := vswitch.NewWithSpec(result.Spec)
+				if err != nil {
+					t.Fatal(err)
+				}
+				requireMSTLoadIssue(t, result, "instances", "1", "ports", "p1")
+				requireMSTLoadIssue(t, result, "instances", "1")
+				requireMSTLoadIssue(t, result, "vlan_maps", "1")
+				if result.Readiness() != analysis.Unsupported {
+					t.Fatalf("readiness = %s, want Unsupported for named domains", result.Readiness())
+				}
+				if !slices.ContainsFunc(result.Metadata.Issues(), func(i analysis.Issue) bool {
+					return i.Code == netmodel.IssueAmbiguousMSTPort && len(i.Evidence) > 0
+				}) {
+					t.Fatal("ambiguous port issue unavailable")
+				}
+				if mapped {
+					if sw.Config().STP != nil || result.Report.CapabilitySources[stp.LayerName] != "" {
+						t.Fatal("changed digest retained STP")
+					}
+					requireMSTLoadIssue(t, result, "mst_config_id", "digest")
+				} else {
+					cfg := sw.Config().STP
+					if cfg == nil || cfg.MST == nil || len(cfg.MST.Instances) != 1 || cfg.MST.Instances[2].Ports["p1"].PathCost != 7 {
+						t.Fatal("independent empty-allocation sibling lost")
+					}
+					common := sw.Roles()["p1"]
+					if common.Priority != 64 || common.PathCost != 55 {
+						t.Fatalf("CIST state = %+v, want priority 64 cost 55", common)
+					}
+				}
+				reached++
+			})
+		}
+	}
+	if reached != 4 {
+		t.Fatalf("reached %d cases, want 4", reached)
+	}
+}
 
 func TestLoadAnonymousSourceUsesAnonymousNodeScope(t *testing.T) {
 	name := "p1"

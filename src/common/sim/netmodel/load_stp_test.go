@@ -1,6 +1,7 @@
 package netmodel_test
 
 import (
+	"encoding/hex"
 	"fmt"
 	"slices"
 	"strconv"
@@ -12,15 +13,313 @@ import (
 
 	addrv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/addr/v1"
 	interfacev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1"
+	ipv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/ip/v1"
 	packetv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/packet/v1"
 	stpv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/stp/v1"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/stp"
 	"go.aledante.io/FlowSeer/src/common/sim/netmodel"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
+
+func mstLoadInput(t *testing.T, mapped bool) netmodel.Input {
+	t.Helper()
+	digest := "ac36177f50283cd4b83821d8ab26de62"
+	if mapped {
+		digest = "9357ebb7a8d74dd5fef4f2bab50531aa"
+	}
+	b, err := hex.DecodeString(digest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	in := netmodel.Input{
+		Interfaces:  []*interfacev1.Interface{plainPhysicalInterface("p1")},
+		Want:        []trace.Layer{stp.LayerName},
+		BridgeState: validBridgeState(),
+		STPPorts: []*stpv1.PortState{stpv1.PortState_builder{
+			InterfaceName: ptr("p1"), Priority: ptr(uint32(64)), AdminPathCost: ptr(uint32(55)),
+		}.Build()},
+	}
+	in.BridgeState.SetProtocolVersion(stpv1.ProtocolVersion_PROTOCOL_VERSION_MSTP)
+	in.BridgeState.SetMstConfigId(stpv1.MstConfigId_builder{
+		Name: ptr("region"), RevisionLevel: ptr(uint32(0)), Digest: b,
+	}.Build())
+	in.BridgeState.SetMaxHops(20)
+	for _, id := range []uint32{1, 2} {
+		in.MSTInstances = append(in.MSTInstances, stpv1.MstInstance_builder{
+			NetworkInstance: ptr(netmodel.DefaultNetworkInstance), MstId: ptr(id), BridgeId: in.BridgeState.GetBridgeId(),
+		}.Build())
+		m := stpv1.MstVlanMap_builder{NetworkInstance: ptr(netmodel.DefaultNetworkInstance), MstId: ptr(id)}.Build()
+		if mapped {
+			m.SetVlanIds([]uint32{id * 10})
+		}
+		in.MSTVLANMaps = append(in.MSTVLANMaps, m)
+		in.MSTPorts = append(in.MSTPorts, stpv1.MstPort_builder{
+			MstId: ptr(id), InterfaceName: ptr("p1"), Priority: ptr(uint32(16)), AdminPathCost: ptr(uint32(7)), PathCost: ptr(uint32(99)),
+		}.Build())
+	}
+	return in
+}
+
+func requireMSTLoadIssue(t *testing.T, result netmodel.Result, path ...string) {
+	t.Helper()
+	scope := analysis.FieldScope(analysis.ProtocolScope("sw1", string(stp.LayerName), "0"), append([]string{"mst"}, path...)...)
+	if !slices.ContainsFunc(result.Metadata.Issues(), func(i analysis.Issue) bool {
+		return i.Scope == scope && len(i.Evidence) > 0
+	}) {
+		t.Fatalf("issues = %+v, want evidenced refusal at %s", result.Metadata.Issues(), scope)
+	}
+}
+
+func TestLoadMSTPortPriorityAndAdministrativeCost(t *testing.T) {
+	reached := 0
+	for _, priority := range []*uint32{nil, ptr(uint32(0)), ptr(uint32(16)), ptr(uint32(240))} {
+		name := "absent"
+		if priority != nil {
+			name = fmt.Sprint(*priority)
+		}
+		t.Run(name, func(t *testing.T) {
+			in := mstLoadInput(t, true)
+			row := in.MSTPorts[0]
+			row.ClearPriority()
+			want := uint8(64)
+			if priority != nil {
+				row.SetPriority(*priority)
+				want = uint8(*priority)
+			}
+			result := load(t, netmodel.SourceContext{DeviceID: "sw1"}, in)
+			sw, err := vswitch.NewWithSpec(result.Spec)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if result.Readiness() != analysis.Complete || !slices.Equal(result.Report.Capabilities, []trace.Layer{"relay", "stp"}) {
+				t.Fatalf("readiness/capabilities = %s/%v, want Complete/[relay stp]", result.Readiness(), result.Report.Capabilities)
+			}
+			cfg := sw.Config().STP
+			if cfg == nil || cfg.MST == nil {
+				t.Fatal("complete MST region unavailable")
+			}
+			p := cfg.MST.Instances[1].Ports["p1"]
+			if p.Priority != want || p.PriorityPresent != (priority != nil) || p.PathCost != 7 {
+				t.Fatalf("MST port = %+v, want priority %d presence %t cost 7", p, want, priority != nil)
+			}
+			info := sw.TreeRoles()[10]["p1"]
+			if info.Tree != (stp.TreeRef{Kind: stp.TreeMSTI, ID: 1}) || info.Priority != want || info.PathCost != 7 {
+				t.Fatalf("VLAN 10 state = %+v, want MSTI 1 priority %d cost 7", info, want)
+			}
+			if sibling := sw.TreeRoles()[20]["p1"]; sibling.Tree.ID != 2 || sibling.Priority != 16 || sibling.PathCost != 7 {
+				t.Fatalf("VLAN 20 sibling = %+v", sibling)
+			}
+			if priority == nil && !slices.ContainsFunc(result.Report.Defaults, func(d netmodel.Default) bool {
+				return d.Field == "priority" && d.Value == "64" && len(d.Evidence) > 0
+			}) {
+				t.Fatalf("defaults = %+v, want evidenced inherited priority 64", result.Report.Defaults)
+			}
+			if priority == nil {
+				scope := analysis.FieldScope(analysis.ProtocolScope("sw1", "stp", "0"), "mst", "instances", "1", "ports", "p1", "priority")
+				if !slices.ContainsFunc(result.Metadata.Assumptions(), func(a analysis.Assumption) bool {
+					return a.Scope == scope && a.Statement == "default value applied for priority: 64" && len(a.Evidence) > 0
+				}) {
+					t.Fatalf("assumptions = %+v, want evidenced inherited priority at %s", result.Metadata.Assumptions(), scope)
+				}
+			}
+			reached++
+		})
+	}
+	if reached != 4 {
+		t.Fatalf("reached %d cases, want 4", reached)
+	}
+}
+
+func TestLoadMSTPortRefusals(t *testing.T) {
+	rows := []struct {
+		name, field string
+		change      func(*netmodel.Input)
+	}{
+		{"id_absent", "mst_id", func(in *netmodel.Input) { in.MSTPorts[0].ClearMstId() }},
+		{"id_zero", "mst_id", func(in *netmodel.Input) { in.MSTPorts[0].SetMstId(0) }},
+		{"id4095", "mst_id", func(in *netmodel.Input) { in.MSTPorts[0].SetMstId(4095) }},
+		{"id65537", "mst_id", func(in *netmodel.Input) { in.MSTPorts[0].SetMstId(65537) }},
+		{"interface_absent", "interface_name", func(in *netmodel.Input) { in.MSTPorts[0].ClearInterfaceName() }},
+		{"interface_unknown", "interface_name", func(in *netmodel.Input) { in.MSTPorts[0].SetInterfaceName("unknown") }},
+		{"dangling", "mst_id", func(in *netmodel.Input) { in.MSTPorts[0].SetMstId(3) }},
+		{"priority1", "priority", func(in *netmodel.Input) { in.MSTPorts[0].SetPriority(1) }},
+		{"priority241", "priority", func(in *netmodel.Input) { in.MSTPorts[0].SetPriority(241) }},
+		{"priority256", "priority", func(in *netmodel.Input) { in.MSTPorts[0].SetPriority(256) }},
+		{"cost200000001", "admin_path_cost", func(in *netmodel.Input) { in.MSTPorts[0].SetAdminPathCost(200000001) }},
+		{"common_rejected", "interface_name", func(in *netmodel.Input) {
+			in.Interfaces = append(in.Interfaces, plainPhysicalInterface("bad"))
+			in.STPPorts = append(in.STPPorts, stpv1.PortState_builder{InterfaceName: ptr("bad"), Priority: ptr(uint32(1))}.Build())
+			in.MSTPorts[0].SetInterfaceName("bad")
+		}},
+		{"routed", "interface_name", func(in *netmodel.Input) {
+			p := plainPhysicalInterface("bad")
+			p.SetIp(ipv1.IpFacet_builder{NetworkInstance: ptr(netmodel.DefaultNetworkInstance)}.Build())
+			in.Interfaces = append(in.Interfaces, p)
+			in.Want = append(in.Want, routing.LayerName)
+			in.STPPorts = append(in.STPPorts, stpv1.PortState_builder{InterfaceName: ptr("bad")}.Build())
+			in.MSTPorts[0].SetInterfaceName("bad")
+		}},
+		{"lag_member", "interface_name", func(in *netmodel.Input) {
+			p := plainPhysicalInterface("bad")
+			p.GetPhysical().SetLagParentInterfaceName("lag1")
+			in.Interfaces = append(in.Interfaces, p, interfacev1.Interface_builder{
+				Name: ptr("lag1"), AdminStatus: interfacev1.AdminStatus_ADMIN_STATUS_UP.Enum(),
+				OperStatus: interfacev1.OperStatus_OPER_STATUS_UP.Enum(), Mtu: ptr(uint32(0)),
+				Lag: interfacev1.LagInterface_builder{}.Build(),
+			}.Build())
+			in.STPPorts = append(in.STPPorts, stpv1.PortState_builder{InterfaceName: ptr("bad")}.Build())
+			in.MSTPorts[0].SetInterfaceName("bad")
+		}},
+	}
+	reached := 0
+	for _, row := range rows {
+		t.Run(row.name, func(t *testing.T) {
+			in := mstLoadInput(t, false)
+			row.change(&in)
+			id, name := fmt.Sprint(in.MSTPorts[0].GetMstId()), in.MSTPorts[0].GetInterfaceName()
+			result := load(t, netmodel.SourceContext{DeviceID: "sw1"}, in)
+			sw, err := vswitch.NewWithSpec(result.Spec)
+			if err != nil {
+				t.Fatal(err)
+			}
+			cfg := sw.Config().STP
+			if cfg == nil || cfg.MST == nil || cfg.MST.Instances[2].Ports["p1"].PathCost != 7 {
+				t.Fatal("empty-allocation sibling unavailable")
+			}
+			if _, ok := cfg.MST.Instances[1]; ok {
+				t.Fatal("instance with missing/refused port survived")
+			}
+			requireMSTLoadIssue(t, result, "instances", id, "ports", name, row.field)
+			if result.Readiness() == analysis.Complete {
+				t.Fatal("refusal reported Complete")
+			}
+			reached++
+		})
+	}
+	if reached != 14 {
+		t.Fatalf("reached %d cases, want 14", reached)
+	}
+}
+
+func TestLoadMSTMissingSettingsAndFinalDigest(t *testing.T) {
+	reached := 0
+	for _, mapped := range []bool{false, true} {
+		for _, variant := range []string{"missing_row", "refused_row", "absent_cost", "zero_cost"} {
+			t.Run(fmt.Sprintf("%s/mapped=%t", variant, mapped), func(t *testing.T) {
+				in := mstLoadInput(t, mapped)
+				switch variant {
+				case "missing_row":
+					in.MSTPorts = in.MSTPorts[1:]
+				case "refused_row":
+					in.MSTPorts[0].SetPriority(1)
+				case "absent_cost":
+					in.MSTPorts[0].ClearAdminPathCost()
+				case "zero_cost":
+					in.MSTPorts[0].SetAdminPathCost(0)
+				}
+				result := load(t, netmodel.SourceContext{DeviceID: "sw1"}, in)
+				sw, err := vswitch.NewWithSpec(result.Spec)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if variant == "zero_cost" {
+					cfg := sw.Config().STP
+					if cfg == nil || cfg.MST == nil || cfg.MST.Instances[1].Ports["p1"].PathCost != 0 || result.Readiness() != analysis.Complete {
+						t.Fatalf("config/readiness = %+v/%s, want explicit zero and Complete", cfg, result.Readiness())
+					}
+					if mapped && sw.TreeRoles()[10]["p1"].PathCost != 55 {
+						t.Fatal("explicit automatic cost did not execute common cost 55")
+					}
+				} else {
+					requireMSTLoadIssue(t, result, "instances", "1", "ports", "p1")
+					requireMSTLoadIssue(t, result, "vlan_maps", "1")
+					if result.Readiness() != analysis.Incomplete {
+						t.Fatalf("readiness = %s, want Incomplete", result.Readiness())
+					}
+					if mapped {
+						if sw.Config().STP != nil || slices.Contains(result.Report.Capabilities, stp.LayerName) || result.Report.CapabilitySources[stp.LayerName] != "" {
+							t.Fatal("digest-changing omission retained STP capability")
+						}
+						requireMSTLoadIssue(t, result, "mst_config_id", "digest")
+					} else {
+						cfg := sw.Config().STP
+						if cfg == nil || cfg.MST == nil || len(cfg.MST.Instances) != 1 || cfg.MST.Instances[2].Ports["p1"].PathCost != 7 {
+							t.Fatal("empty-allocation sibling unavailable")
+						}
+					}
+				}
+				reached++
+			})
+		}
+	}
+	if reached != 8 {
+		t.Fatalf("reached %d cases, want 8", reached)
+	}
+}
+
+func TestLoadMSTPortConflictsAndAmbiguousOwner(t *testing.T) {
+	reached := 0
+	for _, variant := range []string{"identical", "observations", "priority_conflict", "presence_conflict", "cost_conflict", "named_owner"} {
+		for _, reverse := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/reverse=%t", variant, reverse), func(t *testing.T) {
+				in := mstLoadInput(t, false)
+				other := stpv1.MstPort_builder{MstId: ptr(uint32(1)), InterfaceName: ptr("p1"), Priority: ptr(uint32(16)), AdminPathCost: ptr(uint32(7))}.Build()
+				switch variant {
+				case "observations":
+					other.SetPathCost(100)
+					other.SetDesignatedCost(99)
+				case "priority_conflict":
+					other.SetPriority(32)
+				case "presence_conflict":
+					other.ClearPriority()
+				case "cost_conflict":
+					other.SetAdminPathCost(8)
+				case "named_owner":
+					owner := stpv1.MstInstance_builder{NetworkInstance: ptr("blue"), MstId: ptr(uint32(1)), BridgeId: in.BridgeState.GetBridgeId()}.Build()
+					in.MSTInstances = append(in.MSTInstances, owner)
+				}
+				in.MSTPorts = append(in.MSTPorts, other)
+				if reverse {
+					slices.Reverse(in.MSTPorts)
+					slices.Reverse(in.MSTInstances)
+				}
+				result := load(t, netmodel.SourceContext{DeviceID: "sw1"}, in)
+				sw, err := vswitch.NewWithSpec(result.Spec)
+				if err != nil {
+					t.Fatal(err)
+				}
+				cfg := sw.Config().STP
+				if cfg == nil || cfg.MST == nil || cfg.MST.Instances[2].Ports["p1"].PathCost != 7 {
+					t.Fatal("valid sibling lost")
+				}
+				kept := variant == "identical" || variant == "observations"
+				_, exists := cfg.MST.Instances[1]
+				if exists != kept {
+					t.Fatalf("instance retained = %t, want %t", exists, kept)
+				}
+				if kept {
+					if cfg.MST.Instances[1].Ports["p1"].PathCost != 7 || result.Readiness() != analysis.Complete {
+						t.Fatal("identical executable facts changed")
+					}
+				} else {
+					requireMSTLoadIssue(t, result, "instances", "1", "ports", "p1")
+					requireMSTLoadIssue(t, result, "instances", "1")
+					if variant != "named_owner" && result.Readiness() != analysis.Unstable {
+						t.Fatalf("readiness = %s, want Unstable", result.Readiness())
+					}
+				}
+				reached++
+			})
+		}
+	}
+	if reached != 12 {
+		t.Fatalf("reached %d cases, want 12", reached)
+	}
+}
 
 func TestRSTPPortPriorityAdmission(t *testing.T) {
 	reached := 0

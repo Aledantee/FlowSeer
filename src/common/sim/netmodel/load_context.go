@@ -41,6 +41,7 @@ type loadContext struct {
 	assumptions  []analysis.Assumption
 	report       Report
 	refusedIP    map[string]string
+	refusedMST   map[uint32]bool
 }
 
 func newLoadContext(src SourceContext) *loadContext {
@@ -50,6 +51,7 @@ func newLoadContext(src SourceContext) *loadContext {
 		routingScope: routing.VRFScope(src.DeviceID, routing.DefaultVRF),
 		catalog:      analysis.EvidenceCatalog{},
 		refusedIP:    make(map[string]string),
+		refusedMST:   make(map[uint32]bool),
 		report:       Report{CapabilitySources: make(map[trace.Layer]string)},
 	}
 	c.stpScope = c.protocolScope(stp.LayerName, "0")
@@ -370,10 +372,18 @@ func (c *loadContext) gateInstances(in *Input) {
 		in.BridgeState, in.STPPorts = nil, nil
 	}
 	in.MSTInstances = slices.DeleteFunc(slices.Clone(in.MSTInstances), func(row *stpv1.MstInstance) bool {
-		return row != nil && !c.acceptInstance(row, "mst_instance", strconv.FormatUint(uint64(row.GetMstId()), 10), "")
+		if row != nil && !c.acceptInstance(row, "mst_instance", strconv.FormatUint(uint64(row.GetMstId()), 10), "") {
+			c.refusedMST[row.GetMstId()] = true
+			return true
+		}
+		return false
 	})
 	in.MSTVLANMaps = slices.DeleteFunc(slices.Clone(in.MSTVLANMaps), func(row *stpv1.MstVlanMap) bool {
-		return row != nil && !c.acceptInstance(row, "mst_vlan_map", strconv.FormatUint(uint64(row.GetMstId()), 10), "")
+		if row != nil && !c.acceptInstance(row, "mst_vlan_map", strconv.FormatUint(uint64(row.GetMstId()), 10), "") {
+			c.refusedMST[row.GetMstId()] = true
+			return true
+		}
+		return false
 	})
 }
 

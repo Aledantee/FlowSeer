@@ -72,7 +72,7 @@ func Load(now time.Time, src SourceContext, in Input) (Result, error) {
 	cfg := vswitch.Config{Ports: ports}
 	cfg.Phy = c.loadPHY(in.Interfaces, in.Budgets)
 	cfg.Bridge = c.loadBridge(in.Interfaces, in.VLANs, ownership)
-	cfg.STP = c.loadSTP(in.BridgeState, in.STPPorts, ports, ownership)
+	cfg.STP = c.loadSTP(in, ports, ownership)
 	cfg.LAG = c.loadLAG(in.Interfaces, in.LACPAggregators, in.LACPPorts, ports, summary.hasLag)
 	var contributions []vlan.ID
 	cfg.Routing, contributions = c.loadRouting(in.Interfaces, in.Addresses, in.Neighbors, ifaceByName, ports)

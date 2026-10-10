@@ -267,7 +267,7 @@ digest guard must fail.
 Verify: `uv run tools/scripts/run.py verify change -- src/common/sim/netmodel`
 
 ### U11. Attach MST ports and enable complete MSTP intake
-Files: src/common/sim/netmodel/load_mst.go, src/common/sim/netmodel/load_stp.go, src/common/sim/netmodel/load_capabilities.go, src/common/sim/netmodel/load_mst_test.go, src/common/sim/netmodel/load_stp_test.go, src/common/sim/netmodel/trust_test.go, src/common/sim/netmodel/README.md, src/common/sim/internal/simtest/cases.go, src/common/sim/internal/simtest/mst_load_cases.go, src/common/sim/internal/simtest/corpus_test.go
+Files: src/common/sim/netmodel/load_mst.go, src/common/sim/netmodel/load_stp.go, src/common/sim/netmodel/load_capabilities.go, src/common/sim/netmodel/load_mst_test.go, src/common/sim/netmodel/load_stp_test.go, src/common/sim/netmodel/trust_test.go, src/common/sim/netmodel/README.md, src/common/sim/internal/simtest/cases.go, src/common/sim/internal/simtest/mst_load_cases.go, src/common/sim/internal/simtest/corpus_test.go, src/common/sim/netmodel/netmodel.go, src/common/sim/netmodel/load_context.go
 After: U10
 Change: Load accepts MSTP only with a complete candidate, attaches admitted MST ports, checks the final digest and retains
 common STP defaults and capability reconciliation. Apply both answered MSTPort policies before attachment. README's
@@ -280,6 +280,15 @@ DefaultRegistry (cases.go:2667). Update TestRegistryDeterministicOrdering (corpu
 sorted topology-shadowing IDs. Existing topology-shadowing/partial-model-unknown-port and all existing corpus values stay
 unchanged. Runtime-built planning/mstp-vlan-instances-diverge and topology-shadowing/mst-region-boundary cases keep their
 current inputs. Existing STP zero/default-priority, timer, tx-hold and refusal tests stay.
+The intake call in netmodel.go:75 must pass the MST rows to the STP loader.
+Domain gating in load_context.go:372 removes named MST rows before intake.
+Retain their MSTIDs there to refuse ambiguous port owners. These required
+connections add both paths to Files.
+The package-local region/instance/map builders now supply complete port rows
+so the new port-completeness rule preserves their existing counts and reasons.
+Missing/refused port rows have separate Load/NewWithSpec tests.
+TestCorpusReceiveOutcomes' concrete expectation count changes from 39 to 41
+with the two added cases. Existing case expectations stay unchanged.
 Verify: `uv run tools/scripts/run.py verify change -- src/common/sim/netmodel src/common/sim/internal/simtest`
 
 Waves: U1 U2 | U3 | U4 U5 | U6 | U7 | U8 | U9 | U10 | U11

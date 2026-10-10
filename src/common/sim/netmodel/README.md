@@ -145,12 +145,20 @@ without a duplicate. The final report uses `vswitch.Config.Capabilities`, includ
 LAG ports. If every requested layer is rejected, the loader does not fall back
 to capability inference.
 
-The spanning tree layer constructs only from a bridge state that explicitly
-reports RSTP. A missing or `UNSPECIFIED` protocol version is Incomplete; STP and
-unknown versions are Unsupported. In each case the STP layer is omitted. An
+The spanning tree layer constructs from a bridge state that explicitly
+reports RSTP or MSTP. MSTP requires a complete default-domain region with a
+matching reconstructed VLAN allocation digest and at most 64 instances.
+Missing or refused instance-port rows and absent administrative path costs
+omit the instance and its dependents. The region is omitted if that changes
+its digest. Ports whose MSTID is shared with a refused domain have ambiguous
+ownership and are refused. An absent MST port priority inherits the common
+port priority with an evidenced assumption ([loadMST](load_mst.go)).
+PVST has no protocol-version value or per-VLAN configuration input (see [Limits](#limits)).
+A missing or `UNSPECIFIED` protocol version is Incomplete. STP and unknown
+versions are Unsupported. Incomplete MST regions omit the STP layer. An
 absent bridge or port priority uses the IEEE default, while an explicitly
 reported priority of zero remains zero through switch construction.
-RSTP port priorities outside 0 through 240 in steps of 16 omit that port with an
+Common and MST port priorities outside 0 through 240 in steps of 16 omit that port with an
 evidenced issue. Valid sibling ports survive. Absent or invalid transmit hold
 counts use [stp.DefaultTxHoldCount](../layer/stp/config.go), with an assumption.
 Bridge aging uses [bridge.DefaultAgingTime](../layer/bridge/config.go) because the

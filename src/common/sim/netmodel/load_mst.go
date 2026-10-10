@@ -23,6 +23,9 @@ const (
 	IssueIncompleteMSTMap      analysis.IssueCode = "netmodel.mst.incomplete_map"
 	IssueConflictMSTInstance   analysis.IssueCode = "netmodel.mst.instance_conflict"
 	IssueConflictMSTMap        analysis.IssueCode = "netmodel.mst.map_conflict"
+	IssueIncompleteMSTPort     analysis.IssueCode = "netmodel.mst.incomplete_port"
+	IssueConflictMSTPort       analysis.IssueCode = "netmodel.mst.port_conflict"
+	IssueAmbiguousMSTPort      analysis.IssueCode = "netmodel.mst.ambiguous_port"
 )
 
 func (c *loadContext) loadMST(bridge *stpv1.BridgeState, instances []*stpv1.MstInstance, mstPorts []*stpv1.MstPort, maps []*stpv1.MstVlanMap, common map[string]stp.Port, ports port.Table) (*stp.MST, []analysis.Issue) {
@@ -31,17 +34,7 @@ func (c *loadContext) loadMST(bridge *stpv1.BridgeState, instances []*stpv1.MstI
 	if m != nil {
 		conflicted := c.loadMSTInstances(bridge, instances, m)
 		c.loadMSTMaps(maps, m, conflicted)
-		for _, row := range mstPorts {
-			if row != nil {
-				if _, ok := m.Instances[bpdu.MSTID(row.GetMstId())]; row.GetMstId() > 4094 || !ok {
-					status := analysis.Incomplete
-					if conflicted[fmt.Sprint(row.GetMstId())] {
-						status = analysis.Unstable
-					}
-					c.addSkippedAt(c.mstScope("instances", fmt.Sprint(row.GetMstId()), "ports", row.GetInterfaceName()), row.GetInterfaceName(), "mst_port", "MST instance is unavailable", status, IssueIncompleteMSTInstance)
-				}
-			}
-		}
+		c.loadMSTPorts(mstPorts, maps, m, common, ports, conflicted)
 		if len(m.Instances) > bpdu.MaxMSTIRecords {
 			c.addSkippedAt(c.mstScope("instances"), "", "mst_region", "more than 64 instances cannot execute", analysis.Incomplete, IssueIncompleteMSTRegion)
 			m = nil
@@ -57,6 +50,122 @@ func (c *loadContext) loadMST(bridge *stpv1.BridgeState, instances []*stpv1.MstI
 		c.refuseMSTDependents(instances, maps, mstPorts)
 	}
 	return m, slices.Clone(c.issues[start:])
+}
+
+func (c *loadContext) loadMSTPorts(input []*stpv1.MstPort, maps []*stpv1.MstVlanMap, m *stp.MST, common map[string]stp.Port, ports port.Table, conflicted map[string]bool) {
+	refused := make(map[bpdu.MSTID]bool)
+	rows, conflicts := resolveFacts(input, func(row *stpv1.MstPort) (factKey, string, bool) {
+		if row == nil {
+			return factKey{}, "", false
+		}
+		id, name := fmt.Sprint(row.GetMstId()), row.GetInterfaceName()
+		scope := c.mstScope("instances", id, "ports", name)
+		field, why := validateMSTPort(row, m, common, ports)
+		status, code := analysis.Incomplete, IssueIncompleteMSTPort
+		if conflicted[id] {
+			status = analysis.Unstable
+		}
+		if _, accepted := m.Instances[bpdu.MSTID(row.GetMstId())]; accepted && c.refusedMST[row.GetMstId()] {
+			field, why = "", "MST port owner is ambiguous across accepted and refused domains"
+			code = IssueAmbiguousMSTPort
+		}
+		if why != "" {
+			if row.HasMstId() && row.GetMstId() >= 1 && row.GetMstId() <= 4094 {
+				refused[bpdu.MSTID(row.GetMstId())] = true
+			}
+			if field != "" {
+				scope = c.mstScope("instances", id, "ports", name, field)
+			}
+			c.addSkippedAt(scope, name, "mst_port", why, status, code)
+			return factKey{}, "", false
+		}
+		priority := "unreported"
+		if row.HasPriority() {
+			priority = fmt.Sprint(row.GetPriority())
+		}
+		value := fmt.Sprintf("priority=%s,admin_path_cost=%d", priority, row.GetAdminPathCost())
+		return factKey{id: id + "/" + name, display: id + "/" + name, scope: scope}, value, true
+	})
+	for _, conflict := range conflicts {
+		c.addConflict(conflict.key.scope, "mst_port", conflict.key.display, conflict.detail(), IssueConflictMSTPort)
+	}
+	for _, id := range slices.Sorted(stdmaps.Keys(m.Instances)) {
+		complete := !refused[id]
+		for _, name := range sortedKeys(common) {
+			if _, ok := rows[fmt.Sprint(id)+"/"+name]; !ok {
+				c.addSkippedAt(c.mstScope("instances", fmt.Sprint(id), "ports", name), name, "mst_port", "instance port settings are unreported or refused", analysis.Incomplete, IssueIncompleteMSTPort)
+				complete = false
+			}
+		}
+		if complete {
+			continue
+		}
+		c.addSkippedAt(c.mstScope("instances", fmt.Sprint(id)), "", "mst_instance", "instance port settings are incomplete", analysis.Incomplete, IssueIncompleteMSTInstance)
+		delete(m.Instances, id)
+		for _, row := range maps {
+			if row != nil && defaultInstance(row) && row.GetMstId() == uint32(id) {
+				c.addSkippedAt(c.mstScope("vlan_maps", fmt.Sprint(id)), "", "mst_vlan_map", "instance port settings are incomplete", analysis.Incomplete, IssueIncompleteMSTInstance)
+			}
+		}
+		for _, row := range input {
+			if row != nil && row.GetMstId() == uint32(id) {
+				c.addSkippedAt(c.mstScope("instances", fmt.Sprint(id), "ports", row.GetInterfaceName()), row.GetInterfaceName(), "mst_port", "MST instance is unavailable", analysis.Incomplete, IssueIncompleteMSTInstance)
+			}
+		}
+	}
+	for _, key := range sortedKeys(rows) {
+		row := rows[key]
+		id, name := bpdu.MSTID(row.GetMstId()), row.GetInterfaceName()
+		inst, retained := m.Instances[id]
+		if !retained {
+			continue
+		}
+		if inst.Ports == nil {
+			inst.Ports = make(map[string]stp.InstancePort)
+		}
+		inst.Ports[name] = stp.InstancePort{Priority: uint8(row.GetPriority()), PriorityPresent: row.HasPriority(), PathCost: row.GetAdminPathCost()}
+		m.Instances[id] = inst
+		if !row.HasPriority() {
+			priority := common[name].Priority
+			if !common[name].PriorityPresent {
+				priority = stp.DefaultPortPriority
+			}
+			c.addDefaultAt(c.mstScope("instances", fmt.Sprint(id), "ports", name, "priority"), name, "priority", fmt.Sprint(priority))
+		}
+	}
+}
+
+func validateMSTPort(row *stpv1.MstPort, m *stp.MST, common map[string]stp.Port, ports port.Table) (string, string) {
+	if !row.HasMstId() || row.GetMstId() < 1 || row.GetMstId() > 4094 {
+		return "mst_id", "instance id must be present and 1 through 4094"
+	}
+	if _, ok := m.Instances[bpdu.MSTID(row.GetMstId())]; !ok {
+		return "mst_id", "MST instance is unavailable"
+	}
+	name := row.GetInterfaceName()
+	if !row.HasInterfaceName() || name == "" {
+		return "interface_name", "interface name is unreported or empty"
+	}
+	p, ok := ports.Port(name)
+	if !ok {
+		return "interface_name", "interface is absent from port table"
+	}
+	if p.LagParent != "" {
+		return "interface_name", "interface is a LAG member"
+	}
+	if _, ok := common[name]; !ok {
+		return "interface_name", "common spanning tree port is unavailable"
+	}
+	if row.HasPriority() && (row.GetPriority() > 240 || row.GetPriority()%16 != 0) {
+		return "priority", "priority must be 0 through 240 in steps of 16"
+	}
+	if !row.HasAdminPathCost() {
+		return "admin_path_cost", "administrative path cost is unreported"
+	}
+	if row.GetAdminPathCost() > stp.MaxPathCost {
+		return "admin_path_cost", "administrative path cost exceeds 200000000"
+	}
+	return "", ""
 }
 
 func (c *loadContext) loadMSTRegion(bridge *stpv1.BridgeState) *stp.MST {

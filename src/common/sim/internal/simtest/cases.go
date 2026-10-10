@@ -2628,6 +2628,8 @@ func caseTroubleshootingRecursiveRouteNotInstalled() Case {
 
 // RegisterBaselineCases populates registry with the baseline cases.
 func RegisterBaselineCases(registry *Registry) {
+	registry.MustRegister(caseShadowingMSTModel(true))
+	registry.MustRegister(caseShadowingMSTModel(false))
 	registry.MustRegister(casePlanningPortVLANChange())
 	registry.MustRegister(casePlanningCandidateForkDiverges())
 	registry.MustRegister(caseShadowingPartialUnknownPort())

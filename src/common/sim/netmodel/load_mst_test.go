@@ -58,6 +58,19 @@ func runMST(t *testing.T, bridge *stpv1.BridgeState, instances []*stpv1.MstInsta
 	}
 	c := newLoadContext(SourceContext{DeviceID: "sw"})
 	common := map[string]stp.Port{"p1": {}}
+	for _, instance := range instances {
+		if instance == nil || !defaultInstance(instance) {
+			continue
+		}
+		if !slices.ContainsFunc(mstPorts, func(row *stpv1.MstPort) bool {
+			return row != nil && row.GetMstId() == instance.GetMstId() && row.GetInterfaceName() == "p1"
+		}) {
+			mstPorts = append(mstPorts, stpv1.MstPort_builder{
+				MstId: new(instance.GetMstId()), InterfaceName: new("p1"),
+				Priority: new(uint32(128)), AdminPathCost: new(uint32(0)),
+			}.Build())
+		}
+	}
 	m, issues := c.loadMST(bridge, instances, mstPorts, maps, common, ports)
 	for _, issue := range issues {
 		if len(issue.Evidence) == 0 || issue.Scope.Kind() != analysis.ScopeField {
@@ -248,7 +261,7 @@ func TestMSTInstanceConflictsAndObservations(t *testing.T) {
 				if reverse {
 					slices.Reverse(rows)
 				}
-				dependent := stpv1.MstPort_builder{MstId: new(uint32(1)), InterfaceName: new("p1")}.Build()
+				dependent := stpv1.MstPort_builder{MstId: new(uint32(1)), InterfaceName: new("p1"), Priority: new(uint32(128)), AdminPathCost: new(uint32(0))}.Build()
 				m, _, issues := runMST(t, mstBridge(t, mstEmptyDigest), rows, []*stpv1.MstVlanMap{mstMap(1), mstMap(2)}, dependent)
 				if m == nil || len(m.Instances) == 0 {
 					t.Fatal("empty-allocation sibling lost")

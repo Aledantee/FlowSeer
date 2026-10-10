@@ -63,10 +63,22 @@ func (c *loadContext) reportUnwantedSTP(bridgeState *stpv1.BridgeState, stpPorts
 	}
 }
 
-func (c *loadContext) loadSTP(bridgeState *stpv1.BridgeState, stpPorts []*stpv1.PortState, ports port.Table, ownership loadOwnership) *stp.Config {
+func (c *loadContext) loadSTP(in Input, ports port.Table, ownership loadOwnership) *stp.Config {
 	var loaded *stp.Config
-	if c.isWanted(stp.LayerName) && bridgeState != nil {
-		loaded = c.loadSTPBridge(bridgeState, stpPorts, ports, ownership)
+	if c.isWanted(stp.LayerName) && in.BridgeState != nil {
+		loaded = c.loadSTPBridge(in.BridgeState, in.STPPorts, ports, ownership)
+		if loaded != nil && in.BridgeState.GetProtocolVersion() == stpv1.ProtocolVersion_PROTOCOL_VERSION_MSTP {
+			loaded.MST, _ = c.loadMST(in.BridgeState, in.MSTInstances, in.MSTPorts, in.MSTVLANMaps, loaded.Ports, ports)
+			if loaded.MST == nil {
+				c.addSkippedAt(c.stpScope, "", "stp_bridge", "MST region is unavailable", analysis.Incomplete, IssueIncompleteMSTRegion)
+				for _, row := range in.STPPorts {
+					if row != nil {
+						c.addSkippedAt(c.stpPortScope(row.GetInterfaceName()), row.GetInterfaceName(), "stp_port", "MST region is unavailable", analysis.Incomplete, IssueIncompleteMSTRegion)
+					}
+				}
+				loaded = nil
+			}
+		}
 	}
 	if c.isWanted(stp.LayerName) && loaded == nil {
 		c.report.Capabilities = slices.DeleteFunc(c.report.Capabilities, func(layer trace.Layer) bool {
@@ -95,8 +107,8 @@ func (c *loadContext) loadSTPBridge(bridgeState *stpv1.BridgeState, stpPorts []*
 		bridgeWhy = "protocol version is unreported or UNSPECIFIED"
 		bridgeCode = IssueMissingSTPProtocolVersion
 		bridgeStatus = analysis.Incomplete
-	case bridgeState.GetProtocolVersion() != stpv1.ProtocolVersion_PROTOCOL_VERSION_RSTP:
-		bridgeWhy = fmt.Sprintf("protocol version %d is not supported by the RSTP layer", bridgeState.GetProtocolVersion())
+	case bridgeState.GetProtocolVersion() != stpv1.ProtocolVersion_PROTOCOL_VERSION_RSTP && bridgeState.GetProtocolVersion() != stpv1.ProtocolVersion_PROTOCOL_VERSION_MSTP:
+		bridgeWhy = fmt.Sprintf("protocol version %d is not supported by the spanning tree layer", bridgeState.GetProtocolVersion())
 		bridgeCode = IssueUnsupportedSTPProtocolVersion
 		bridgeStatus = analysis.Unsupported
 	case bridgeAddress == nil:
