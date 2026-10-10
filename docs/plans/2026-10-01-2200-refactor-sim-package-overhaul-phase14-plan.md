@@ -16,9 +16,8 @@ is a mapping, an exact matcher, and bounded migrations of the twelve diff
 owners. The current matcher accepts any nonempty result
 (`src/common/sim/internal/simtest/diffcoverage.go:490`).
 
-Stop condition: a collection correspondence has several source-compatible
-outputs. Readiness stays `needs-decisions` until those outputs are chosen.
-The remaining blockers are range correspondence and duplicate multiplicity.
+Stop condition: collection correspondence or optional aggregate lifecycle
+has several source-compatible outputs. Readiness stays `needs-decisions` until those outputs are chosen.
 
 ## Decisions
 
@@ -89,6 +88,19 @@ The remaining blockers are range correspondence and duplicate multiplicity.
   (`src/common/sim/trace/trace.go:61`, `:89`, `:327`). The renderer quotes
   the whole field without parsing it (`src/common/sim/trace/render.go:114`).
 
+- Compare normalized positions. Why: no guessed identity. An insertion or
+  moving edit can report changes to displaced positions. Common indices are
+  paired, unmatched tail members get nil/member facts, and a range that moves
+  reports changes at the displaced positions. A bound edited in place reports
+  that bound alone. Tradeoff: no guessed identity. An insertion or moving edit
+  can report changes to displaced positions (decided by the user, 2026-10-10).
+- Emit occurrence removals/additions. Why: preserves value facts. Larger
+  multiplicity changes repeat records at the same field, so the matcher must
+  accept repeated records only when independently expected. Tradeoff:
+  preserves value facts. Larger multiplicity changes repeat records at the
+  same field, so the matcher must accept repeated records only when
+  independently expected (decided by the user, 2026-10-10).
+
 ## Requirements
 
 R1. For every submitted perturbation, compare the independently expected
@@ -148,8 +160,8 @@ keeps every existing scalar field. Its split collection fields use the
 rules below. Subject addition/removal keeps the existing complete snapshot
 facts and empty field, except capability presence, which uses `presence`
 or the nested `.presence` suffix. Optional scalar pointers keep their
-existing scalar field and nil/value facts. Open questions mark only the
-correspondence that remains undecided, not the settled grammar.
+existing scalar field and nil/value facts. The collection rules below specify
+correspondence after normalization.
 
 | Configuration leaf or family | Layer | Subject kind | Key | Target field and disposition | Source on this tree |
 | --- | --- | --- | --- | --- | --- |
@@ -178,22 +190,22 @@ correspondence that remains undecided, not the settled grammar.
 | stp Ports[n].Priority and PriorityPresent, PathCost, AdminEdge, PointToPoint, AutoEdge, guards | stp | port | n | priority (effective), admin_path_cost, admin_edge, admin_point_to_point, auto_edge, bpdu_guard, restricted_role, restricted_tcn, loop_guard | S/layer/stp/diff.go:252, :263, :273, :283, :293, :304 |
 | stp MST/PVST pointer presence | stp | bridge | empty | mst.presence, pvst.presence, existing boolean facts | S/layer/stp/diff.go:198, :216 |
 | stp MST.Name, Revision, MaxHops | stp | bridge | empty | mst.name, mst.revision, mst.max_hops | S/layer/stp/diff.go:343, :347, :353, :359 |
-| stp MST.Instances[i].Priority and PriorityPresent, VLANs members | stp | mst_instance | decimal i | priority (effective), vlans[k]. Duplicate multiplicity blocked by Q5 | S/layer/stp/diff.go:403, :407, :413 |
+| stp MST.Instances[i].Priority and PriorityPresent, VLANs members | stp | mst_instance | decimal i | priority (effective), vlans[k], one value-fact record per unmatched occurrence | S/layer/stp/diff.go:403, :407, :413 |
 | stp MST.Instances[i].Ports[n].Priority and PriorityPresent, PathCost | stp | mst_instance_port | K(decimal i,n) | priority (effective), path_cost | S/layer/stp/diff.go:420, :432, :438 |
 | stp PVST.Trees[v].Priority and PriorityPresent, Ports[n] priority flags and PathCost | stp | pvst_tree, pvst_tree_port | decimal v, K(decimal v,n) | priority (effective), priority (effective), path_cost | S/layer/stp/diff.go:505, :509, :517, :528, :534 |
 | filter Sets[s].Stateful, Default | filter | set | s | stateful, default | S/layer/filter/diff.go:164, :210, :219 |
 | filter Rules.Name and rule identity | filter | rule | K(s,name), or K(s,empty,index) for unnamed/duplicate names | lifecycle pair, currently empty. Preserve existing matching | S/layer/filter/diff.go:331, :337, :347, :367 |
-| filter Rule.Action, Match.Protocol, Src/Dst members, SrcPorts/DstPorts Start/End, ICMP Type/Code, TCPFlags Mask/Value | filter | rule | existing rule key | action, match.protocol, match.src[k], match.dst[k], match.src_ports[j].start/.end, match.dst_ports[j].start/.end, match.icmp.type/.code, match.tcp_flags.mask/.value. Range correspondence blocked by Q4 | S/layer/filter/config.go:41, :53, :74, :89, :100. S/layer/filter/diff.go:353 |
+| filter Rule.Action, Match.Protocol, Src/Dst members, SrcPorts/DstPorts Start/End, ICMP Type/Code, TCPFlags Mask/Value | filter | rule | existing rule key | action, match.protocol, match.src[k], match.dst[k], match.src_ports[j].start/.end, match.dst_ports[j].start/.end, match.icmp.type/.code, match.tcp_flags.mask/.value. Compare normalized positions, Start before End at each position | S/layer/filter/config.go:41, :53, :74, :89, :100. S/layer/filter/diff.go:353 |
 | filter Bindings.Interface, Direction, Set | filter | binding | K(interface,direction) | identity pair for Interface/Direction, set for retained binding | S/layer/filter/diff.go:264, :270, :280, :290 |
 | routing ClearRouterFlag | routing | routing | empty | clear_router_flag | S/layer/routing/diff.go:242 |
-| routing VRFs[r].Interfaces[n].VLAN, Port, MAC, Prefixes members | routing | interface | K(r,n) | vlan, port, mac, prefixes[k]. Duplicate multiplicity blocked by Q5 | S/layer/routing/diff.go:308, :326, :335, :344, :353 |
+| routing VRFs[r].Interfaces[n].VLAN, Port, MAC, Prefixes members | routing | interface | K(r,n) | vlan, port, mac, prefixes[k], one value-fact record per unmatched occurrence | S/layer/routing/diff.go:308, :326, :335, :344, :353 |
 | routing Routes.Prefix, NextHop, Interface | routing | route | K(r,prefix,nextHop,interface) | removed/added pair, currently empty field | S/layer/routing/diff.go:393, :400, :408 |
 | routing Routes.Preference, Metric | routing | route | existing route key | preference, metric | S/layer/routing/diff.go:417, :426 |
 | routing Neighbors.Interface, Addr, MAC | routing | neighbor | K(r,interface,addr) | identity pair for Interface/Addr, mac for retained neighbor | S/layer/routing/diff.go:463, :470, :478, :487 |
 | routing NeighborPolicy.Mode, ReachableTime, RetransTimer, HoldDepth | routing | neighbor-policy | r | mode, reachable_time, retrans_timer, hold_depth | S/layer/routing/diff.go:495, :500, :509, :518, :527 |
 | traffic Mirrors.Name | traffic | mirror | name | identity pair, currently empty field | S/layer/traffic/diff.go:178, :185, :276 |
 | traffic Mirrors.SelectAll, OutputPort, OutputVLAN, SnapLen | traffic | mirror | name | select_all, output_port, output_vlan, snap_len | S/layer/traffic/diff.go:245, :257, :260, :263 |
-| traffic Mirrors.SelectSrcPorts, SelectDstPorts, SelectVLANs members | traffic | mirror | name | select_src_ports, select_dst_ports, select_vlans[k] | S/layer/traffic/diff.go:248, :251, :254 |
+| traffic Mirrors.SelectSrcPorts, SelectDstPorts, SelectVLANs members | traffic | mirror | name | select_src_ports[k], select_dst_ports[k], select_vlans[k] | S/layer/traffic/diff.go:248, :251, :254 |
 | traffic Policers[n].RateBPS, BurstOctets | traffic | port | n | rate, burst | S/layer/traffic/diff.go:197, :200, :205 |
 | traffic Queues[n].MaxRateBPS[pcp], BufferOctets[pcp] | traffic | port | K(n,decimal pcp) | max_rate, buffer_octets | S/layer/traffic/diff.go:214, :220, :226 |
 | port Name, IfIndex, Kind, AdminStatus, OperStatus, MTU, LagParent | port | port | Name | identity pair for Name, ifindex, kind, admin_status, oper_status, mtu, lag_parent | S/port/diff.go:19, :38, :51, :64, :77, :90, :103, :114 |
@@ -239,13 +251,13 @@ and independently normalized inputs, never the returned records.
 | phy supported speed members and every delegated Ethernet speed | phy.speed_bps (existing at S/layer/phy/diff.go:16) |
 | loopprotect vlans members | loopprotect.vlan_id |
 | mcast router_ports members | mcast.router_port |
-| stp vlans members | stp.mst.vlan_id under Q5 occurrence option, or stp.mst.vlan_count under count option |
+| stp vlans members | stp.mst.vlan_id |
 | filter match.protocol | filter.protocol |
 | filter match.src/dst members | filter.prefix |
 | filter range start/end | filter.port |
 | filter match.icmp.type/code | filter.icmp_type, filter.icmp_code |
 | filter match.tcp_flags.mask/value | filter.tcp_flags |
-| routing prefixes members | routing.prefix under Q5 occurrence option, or routing.prefix_count under count option |
+| routing prefixes members | routing.prefix |
 | traffic select_src_ports/select_dst_ports members | traffic.port |
 | traffic select_vlans members | traffic.output_vlan (existing at S/layer/traffic/diff.go:104) |
 | assembly address members | fabric.prefix |
@@ -291,14 +303,14 @@ Rows sharing Set still have separate seeds and expectations.
 | phy Ethernet.SupportedSpeedsBPS | Set. [1000000000] to [10000000000] removes `supported_speeds_bps["1000000000"]` and adds `supported_speeds_bps["10000000000"]` with speed facts. There is no phy/config.go. | S/layer/phy/phy.go:46, :52 |
 | loopprotect Ports.VLANs | Set. [10] to [20] removes `vlans["10"]` and adds `vlans["20"]`. | S/layer/loopprotect/config.go:133, :136 |
 | mcast VLANs.RouterPorts | Set. [eth2] to [eth3] removes `router_ports["eth2"]` and adds `router_ports["eth3"]`. | S/layer/mcast/config.go:60 |
-| stp MST.Instances.VLANs | Sort-only multiset. Insertion/deletion/member replacement preserve counts, displacement is silent, normalization does not deduplicate. Q5 blocks fact correspondence. [10,10] to [10] is the Q5 example. Config delegates to MST.Normalize. | S/layer/stp/config.go:219, S/layer/stp/mst.go:178, :185 |
+| stp MST.Instances.VLANs | Sort-only multiset. Pair equal occurrences by canonical value. Emit one value-to-nil record per unmatched old occurrence in normalized old order, then one nil-to-value record per unmatched new occurrence in normalized new order. [10,10] to [10] emits `vlans["10"]: 10 -> nil`. Replacement [10,10] to [20,20] emits two removals at `vlans["10"]`, then two additions at `vlans["20"]`. Sorting displacement is silent. Submitted deduplication removes an occurrence. Config delegates to MST.Normalize. | S/layer/stp/config.go:219, S/layer/stp/mst.go:178, :185 |
 | filter Rule.Match.Src | Set after masking. [192.0.2.1/24] to [198.51.100.1/24] removes `match.src["192.0.2.0/24"]` and adds `match.src["198.51.100.0/24"]`. A host-bit-only edit expects []. | S/layer/filter/config.go:147, :192 |
 | filter Rule.Match.Dst | Set after masking. [192.0.2.1/24] to [198.51.100.1/24] removes `match.dst["192.0.2.0/24"]` and adds `match.dst["198.51.100.0/24"]`. | S/layer/filter/config.go:148, :192 |
-| filter Rule.Match.SrcPorts | Sorted and compacted structured ranges. Q4 specifies insertion/deletion/displacement/member edits per option. Reorder and duplicate-only edits expect []. [{100,200},{300,400}] to [{300,400},{500,600}] is the Q4 example. | S/layer/filter/config.go:149, :201 |
-| filter Rule.Match.DstPorts | Same normalization as SrcPorts, separate oracle. Replace the Q4 example's prefix with `match.dst_ports`. All five correspondence cases remain blocked by Q4 except reorder/dedup no-ops. | S/layer/filter/config.go:150, :201 |
+| filter Rule.Match.SrcPorts | Sorted and compacted structured ranges. Pair common normalized indices, compare Start then End, and emit nil/member facts for unmatched tails. [{100,200},{300,400}] to [{300,400},{500,600}] emits `[0].start: 100 -> 300`, `[0].end: 200 -> 400`, `[1].start: 300 -> 500`, `[1].end: 400 -> 600`, each prefixed `match.src_ports`. Insertion/deletion includes displaced positions. Reorder and duplicate-only edits expect []. An in-place bound edit reports that bound alone. | S/layer/filter/config.go:149, :201 |
+| filter Rule.Match.DstPorts | Same positional comparison as SrcPorts, separate oracle. Replace the preceding example's prefix with `match.dst_ports`. The fixed correspondence fixtures below cover insertion, deletion, displacement, deduplication, and bound edits for each family. | S/layer/filter/config.go:150, :201 |
 | filter RuleSet.Rules | Preserve existing indexRules correspondence. Named unique rules match by name across insertion/deletion/displacement. Unnamed or duplicate-named rules match normalized index. No sort/dedup. Inserting unique b before unique a reports only added b. Inserting unnamed Drop before unnamed Accept reports index 0 action Accept to Drop and added index 1 Accept. Name edit uses existing subject identity changes. | S/layer/filter/config.go:128, :142, S/layer/filter/diff.go:367 |
 | filter Bindings | Match by (Interface,Direction). Insert/delete or an identity edit uses existing snapshots. Set edit reports `set`. Sorting displacement is silent, no dedup. (eth2,in,s1) to (eth2,in,s2) emits `set: s1 -> s2`. Duplicate identities use normalized map overwrite: the last sorted Set wins. Removing s1 from [s1,s2] expects []. Removing s2 emits `set: s2 -> s1`. | S/layer/filter/config.go:178, S/layer/filter/diff.go:232, :236, :248 |
-| routing Interfaces.Prefixes | Sort-only multiset of unmasked interface addresses. Q5 controls insertion/deletion/member edit and multiplicity facts. Sorting displacement is silent, no dedup. [192.0.2.1/24,192.0.2.1/24] to [192.0.2.1/24] is the Q5 example. | S/layer/routing/config.go:148 |
+| routing Interfaces.Prefixes | Sort-only multiset of unmasked interface addresses. Pair equal occurrences and emit old-only occurrence removals, then new-only occurrence additions, with `routing.prefix` value facts. [192.0.2.1/24,192.0.2.1/24] to [192.0.2.1/24] emits `prefixes["192.0.2.1/24"]: 192.0.2.1/24 -> nil`. Replacement removes the old occurrences before adding the new ones. Sorting displacement is silent. Submitted deduplication is semantic. | S/layer/routing/config.go:148 |
 | routing VRFs.Routes | Match existing (VRF,masked Prefix,NextHop,Interface) identity. Insert/delete or identity edit uses lifecycle snapshots. Preference/Metric member edit stays on its route even if sorting moves it. No list dedup. Duplicate keys keep existing map overwrite after normalized sorting. Metric 10 to 20 emits `metric: 10 -> 20`, not displacement records. | S/layer/routing/config.go:152, :160, S/layer/routing/diff.go:361 |
 | routing VRFs.Neighbors | Match (VRF,Interface,Addr). Insert/delete or identity edit uses lifecycle snapshots. Sorting displacement is silent, no dedup, duplicate keys keep existing map overwrite. MAC a to b emits `mac: a -> b` at the retained key. | S/layer/routing/config.go:175, S/layer/routing/diff.go:434 |
 | traffic Mirrors | Match Name, including an identity edit's lifecycle pair. Sorting displacement is silent, no dedup, duplicate names keep existing mirrorsByName overwrite. OutputPort eth2 to eth3 emits `output_port: eth2 -> eth3`. | S/layer/traffic/config.go:172, S/layer/traffic/diff.go:269 |
@@ -325,6 +337,98 @@ wrapper keys move to brackets: `ports["p.1"]`, `attachments["edge.1"]`,
 Map-key replacements get explicit mutation adapters, since the current
 walker visits only map values (`S/internal/simtest/diffcoverage.go:196`).
 
+### Fixed range and occurrence expectations
+
+Each row below submits only the named change. All other configuration values
+stay fixed. U1 supplies the complete owner fixtures inside each wrapper.
+Filter uses set `set1` and unique rule `rule1` at the owner, and set `ingress`
+and unique rule `rule1` in each wrapper. SrcPorts is `[{1000,2000}]` and
+DstPorts is `[{80,80}]`, from `S/layer/filter/diff_test.go:177`.
+Both bounds are raw Normalize/Diff inputs. No Validate call removes the
+DstPorts Start probe even though it submits `[{81,80}]`.
+MST instance 1 has VLANs `[10]` (`S/layer/stp/diff_coverage_test.go:57`).
+Routing's default VRF interface vlan10 has Prefixes `[10.0.10.1/24]`
+(`S/layer/routing/diff_coverage_test.go:25`).
+
+A fact below is `(TypeID, Canonical)`. `port(x)` means `(filter.port, x)`,
+`vlan(x)` means `(stp.mst.vlan_id, x)`, and `prefix(x)` means
+`(routing.prefix, x)`. Decimal facts use the shown decimal string.
+`K` retains the CompositeKey spelling specified above. The switch emits
+the owner's subject unchanged (`S/device/vswitch/diff.go:153`). Assembly
+prefixes that subject key with `K(sw1, owner-key)`
+(`S/assembly/diff.go:511`). These definitions fully specify layer, subject,
+field, type and value for the 18 formerly blocked primary slots.
+
+| Primary path | Layer / kind / key | Fixed submitted before -> after | Complete ordered field and facts |
+| --- | --- | --- | --- |
+| `filter.Config.Sets[set1].Rules[0].Match.SrcPorts[0].Start` | filter / rule / K(set1,rule1) | 1000 -> 1001 | `match.src_ports[0].start: port(1000) -> port(1001)` |
+| `filter.Config.Sets[set1].Rules[0].Match.SrcPorts[0].End` | filter / rule / K(set1,rule1) | 2000 -> 2001 | `match.src_ports[0].end: port(2000) -> port(2001)` |
+| `filter.Config.Sets[set1].Rules[0].Match.DstPorts[0].Start` | filter / rule / K(set1,rule1) | 80 -> 81 | `match.dst_ports[0].start: port(80) -> port(81)` |
+| `filter.Config.Sets[set1].Rules[0].Match.DstPorts[0].End` | filter / rule / K(set1,rule1) | 80 -> 81 | `match.dst_ports[0].end: port(80) -> port(81)` |
+| `vswitch.Config.Filter.Sets[ingress].Rules[0].Match.SrcPorts[0].Start` | filter / rule / K(ingress,rule1) | 1000 -> 1001 | `match.src_ports[0].start: port(1000) -> port(1001)` |
+| `vswitch.Config.Filter.Sets[ingress].Rules[0].Match.SrcPorts[0].End` | filter / rule / K(ingress,rule1) | 2000 -> 2001 | `match.src_ports[0].end: port(2000) -> port(2001)` |
+| `vswitch.Config.Filter.Sets[ingress].Rules[0].Match.DstPorts[0].Start` | filter / rule / K(ingress,rule1) | 80 -> 81 | `match.dst_ports[0].start: port(80) -> port(81)` |
+| `vswitch.Config.Filter.Sets[ingress].Rules[0].Match.DstPorts[0].End` | filter / rule / K(ingress,rule1) | 80 -> 81 | `match.dst_ports[0].end: port(80) -> port(81)` |
+| `assembly.Config.Switches[sw1].Filter.Sets[ingress].Rules[0].Match.SrcPorts[0].Start` | filter / rule / K(sw1,K(ingress,rule1)) | 1000 -> 1001 | `match.src_ports[0].start: port(1000) -> port(1001)` |
+| `assembly.Config.Switches[sw1].Filter.Sets[ingress].Rules[0].Match.SrcPorts[0].End` | filter / rule / K(sw1,K(ingress,rule1)) | 2000 -> 2001 | `match.src_ports[0].end: port(2000) -> port(2001)` |
+| `assembly.Config.Switches[sw1].Filter.Sets[ingress].Rules[0].Match.DstPorts[0].Start` | filter / rule / K(sw1,K(ingress,rule1)) | 80 -> 81 | `match.dst_ports[0].start: port(80) -> port(81)` |
+| `assembly.Config.Switches[sw1].Filter.Sets[ingress].Rules[0].Match.DstPorts[0].End` | filter / rule / K(sw1,K(ingress,rule1)) | 80 -> 81 | `match.dst_ports[0].end: port(80) -> port(81)` |
+| `stp.Config.MST.Instances[1].VLANs[0]` | stp / mst_instance / 1 | [10] -> [11] | `vlans["10"]: vlan(10) -> nil`, `vlans["11"]: nil -> vlan(11)` |
+| `vswitch.Config.STP.MST.Instances[1].VLANs[0]` | stp / mst_instance / 1 | [10] -> [11] | `vlans["10"]: vlan(10) -> nil`, `vlans["11"]: nil -> vlan(11)` |
+| `assembly.Config.Switches[sw1].STP.MST.Instances[1].VLANs[0]` | stp / mst_instance / K(sw1,1) | [10] -> [11] | `vlans["10"]: vlan(10) -> nil`, `vlans["11"]: nil -> vlan(11)` |
+| `routing.Config.VRFs[default].Interfaces[vlan10].Prefixes[0]` | routing / interface / K(default,vlan10) | [10.0.10.1/24] -> [192.0.2.0/25] | `prefixes["10.0.10.1/24"]: prefix(10.0.10.1/24) -> nil`, `prefixes["192.0.2.0/25"]: nil -> prefix(192.0.2.0/25)` |
+| `vswitch.Config.Routing.VRFs[default].Interfaces[vlan10].Prefixes[0]` | routing / interface / K(default,vlan10) | [10.0.10.1/24] -> [192.0.2.0/25] | `prefixes["10.0.10.1/24"]: prefix(10.0.10.1/24) -> nil`, `prefixes["192.0.2.0/25"]: nil -> prefix(192.0.2.0/25)` |
+| `assembly.Config.Switches[sw1].Routing.VRFs[default].Interfaces[vlan10].Prefixes[0]` | routing / interface / K(sw1,K(default,vlan10)) | [10.0.10.1/24] -> [192.0.2.0/25] | `prefixes["10.0.10.1/24"]: prefix(10.0.10.1/24) -> nil`, `prefixes["192.0.2.0/25"]: nil -> prefix(192.0.2.0/25)` |
+
+#### Positional range matrix
+
+Run these seven fixed submissions separately for SrcPorts and DstPorts at
+all three depths. The subject in each case is the corresponding rule above.
+Only the selected range list changes. `f` is `match.src_ports` or
+`match.dst_ports`. Every shown integer is a `filter.port` fact. A record's
+field is `f` followed by its bracket and member suffix. There are 42
+supplementary cases, separate from the 12 primary bound probes.
+
+| Submission | Before -> submitted after | Complete ordered sequence |
+| --- | --- | --- |
+| Insert before both ranges | [{100,200},{300,400}] -> [{50,250},{100,200},{300,400}] | `[0].start: 100 -> 50`, `[0].end: 200 -> 250`, `[1].start: 300 -> 100`, `[1].end: 400 -> 200`, `[2].start: nil -> 300`, `[2].end: nil -> 400` |
+| Delete first range | [{100,200},{300,400}] -> [{300,400}] | `[0].start: 100 -> 300`, `[0].end: 200 -> 400`, `[1].start: 300 -> nil`, `[1].end: 400 -> nil` |
+| Replace and move first range | [{100,200},{300,400}] -> [{500,600},{300,400}] | `[0].start: 100 -> 300`, `[0].end: 200 -> 400`, `[1].start: 300 -> 500`, `[1].end: 400 -> 600` |
+| Reorder submission | [{100,200},{300,400}] -> [{300,400},{100,200}] | `[]` |
+| Add duplicate | [{100,200},{300,400}] -> [{100,200},{100,200},{300,400}] | `[]` |
+| Edit one bound in place | [{100,200},{300,400}] -> [{101,200},{300,400}] | `[0].start: 100 -> 101` |
+| Edit both bounds in place | [{100,200},{300,400}] -> [{101,201},{300,400}] | `[0].start: 100 -> 101`, `[0].end: 200 -> 201` |
+
+#### Occurrence matrix
+
+Run these seven submissions separately for instance VLANs and interface
+prefixes at all three depths, with the corresponding subject above.
+For VLANs, a is 10 and b is 20. For prefixes, a is 192.0.2.1/24 and b is
+198.51.100.1/24. A removal is `vlans["a"]: vlan(a) -> nil` or
+`prefixes["a"]: prefix(a) -> nil`, after substituting the literal value
+for a in both coordinate and fact. Addition reverses nil/value sides.
+There are 42 supplementary cases, separate from the six primary member
+probes. Repeated records preserve their sequence positions.
+
+| Submission | Before -> submitted after | Complete ordered sequence |
+| --- | --- | --- |
+| Insert occurrence | [a,a] -> [a,a,a] | Add a |
+| Delete occurrence | [a,a] -> [a] | Remove a |
+| Replace both occurrences | [a,a] -> [b,b] | Remove a, remove a, add b, add b |
+| Reorder submission | [a,b] -> [b,a] | `[]` |
+| Submitted deduplication | [a,a,b] -> [a,b] | Remove a |
+| Remove two occurrences | [a,a,a] -> [a] | Remove a, remove a |
+| Add two occurrences | [a] -> [a,a,a] | Add a, add a |
+
+The matcher accepts the two identical records in the last two cases and
+rejects an extra third one. Dropping one repeated record fails the literal
+sequence length. Filter deduplication is a normalized no-op, while multiset
+deduplication changes multiplicity. U1's gate fixtures test that distinction.
+The correspondence matrices add 7 cases to U3, 21 to U4, 28 to U5, and
+28 to U6. Each wrapper test compares the whole result against these literal
+records, including layer, kind and the prefixed key. It never constructs
+its expectation from the delegated Diff result.
+
 ### Coverage accounting
 
 The existing seeded subtest counts below are reproducible with
@@ -347,32 +451,31 @@ They are nonempty-check counts, not exact-attribution counts.
 | vswitch | 92 | 0 | S/device/vswitch/diff_coverage_test.go:32 |
 | assembly | 33 | 0 | S/assembly/diff_coverage_test.go:33 |
 
-The answered grammar, presence name and ordered-sequence contract no longer
-block attribution. The proposed primary manifest has 627 slots: 266
-currently exercised values, 208 missing representative values, 4 exempt
-values, 69 map-key identities, and 80 pointer-presence cases. MAC, time and
-IP values remain atomic. One slot is one submitted value/key change or
-populated-to-nil pointer case. Reverse pointer cases belong to the focused
-unit tests and do not count again in the primary gate. Eighteen slots depend
-on Q4/Q5. The other 609 slots are structurally mappable, not 609 authored
-concrete expectations.
+The primary manifest has 627 slots: 266 currently exercised values,
+208 missing representative values, four exempt values, 69 map-key identities,
+and 80 pointer-presence cases. MAC, time and IP values remain atomic.
+One slot is one submitted value/key change or populated-to-nil pointer case.
+Reverse pointer cases belong to focused unit tests and do not count again
+in the primary gate. The 18 range and occurrence slots now have complete
+fixed input/output expectations above. Six optional filter-aggregate presence
+slots remain blocked by Q6. The other 621 slots are structurally mappable.
 
-A concrete expectation here means a fixed submitted before/after input
-plus the complete independent typed output sequence. Neither current code
-nor this blocked plan has that complete table. The literal reached count
-per unit is therefore 0. The table separates it from the finite primary
-target. After Q4/Q5 are answered, author the table before readiness changes.
-A count of schema paths alone does not satisfy R3. No unresolved path is
-silently exempted.
+A concrete expectation means a fixed submitted before/after input plus the
+complete independent typed output sequence. Eighteen primary expectations
+and 84 supplementary correspondence cases are specified here. The remaining
+609 primary expectations are not certified complete. Current production
+coverage still reaches zero exact expectations, as the owner table records.
+A count of schema paths alone does not satisfy R3. Complete and independently
+review the full expectation manifest after Q6 before readiness changes.
 
-| Unit | Current value probes | Added primary slots | Primary target | Q4 blocked | Q5 blocked | Structurally mappable | Reached complete concrete expectations |
+| Unit | Current value probes | Added primary slots | Primary target | Q6 blocked | Structurally mappable | Complete primary expectations specified | Supplementary correspondence cases specified |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| U1 mapping/gate foundation | 0 | 0 | 0 producer probes, all 627 entries registered | 12 | 6 | 609 mapping entries | 0 |
-| U2 | 42 | 16 | 58 | 0 | 0 | 58 | 0 |
-| U3 | 46 | 10 | 56 | 0 | 1 | 55 | 0 |
-| U4 | 35 | 7 | 42 | 4 | 1 | 37 | 0 |
-| U5 | 110 | 104 | 214 | 4 | 2 | 208 | 0 |
-| U6 | 33 | 224 | 257 | 4 | 2 | 251 | 0 |
+| U1 mapping/gate foundation | 0 | 0 | 0 producer probes, all 627 entries registered | 6 | 621 mapping entries | 18 mapping entries | 84 mapping cases |
+| U2 | 42 | 16 | 58 | 0 | 58 | 0 | 0 |
+| U3 | 46 | 10 | 56 | 0 | 56 | 1 | 7 |
+| U4 | 35 | 7 | 42 | 2 | 40 | 5 | 21 |
+| U5 | 110 | 104 | 214 | 2 | 212 | 6 | 28 |
+| U6 | 33 | 224 | 257 | 2 | 255 | 6 | 28 |
 
 The primary targets by owner are bridge 20, phy 23, loopprotect 6, mcast 9,
 lag 18, stp 38, filter 23, routing 19, traffic 17, port 7, vswitch 190,
@@ -511,7 +614,7 @@ sources below bind the literal counts to this tree.
 | `vswitch.Config.STP.MST.Instances[1].@key` | Walker visits values only. Add key-rename adapter with fixed value | S/layer/stp/mst.go:77 |
 | `vswitch.Config.STP.MST.Instances[1].Priority` | No populated representative below nil/empty branch or opaque Table. Add populated representative from complete owner fixture | S/layer/stp/mst.go:45 |
 | `vswitch.Config.STP.MST.Instances[1].PriorityPresent` | No populated representative below nil/empty branch or opaque Table. Add populated representative from complete owner fixture | S/layer/stp/mst.go:46 |
-| `vswitch.Config.STP.MST.Instances[1].VLANs[0]` | No populated representative below nil/empty branch or opaque Table. Add populated representative from complete owner fixture. Exact expectation blocked by Q5 | S/layer/stp/mst.go:47 |
+| `vswitch.Config.STP.MST.Instances[1].VLANs[0]` | No populated representative below nil/empty branch or opaque Table. Add populated representative from complete owner fixture. Use the fixed occurrence expectation below | S/layer/stp/mst.go:47 |
 | `vswitch.Config.STP.MST.Instances[1].Ports[1/1/1].@key` | Walker visits values only. Add key-rename adapter with fixed value | S/layer/stp/mst.go:48 |
 | `vswitch.Config.STP.MST.Instances[1].Ports[1/1/1].Priority` | No populated representative below nil/empty branch or opaque Table. Add populated representative from complete owner fixture | S/layer/stp/mst.go:28 |
 | `vswitch.Config.STP.MST.Instances[1].Ports[1/1/1].PriorityPresent` | No populated representative below nil/empty branch or opaque Table. Add populated representative from complete owner fixture | S/layer/stp/mst.go:29 |
@@ -665,7 +768,7 @@ sources below bind the literal counts to this tree.
 | `assembly.Config.Switches[sw1].STP.MST.Instances[1].@key` | Walker visits values only. Add key-rename adapter with fixed value | S/layer/stp/mst.go:77 |
 | `assembly.Config.Switches[sw1].STP.MST.Instances[1].Priority` | No populated representative below nil/empty branch or opaque Table. Add populated representative from complete owner fixture | S/layer/stp/mst.go:45 |
 | `assembly.Config.Switches[sw1].STP.MST.Instances[1].PriorityPresent` | No populated representative below nil/empty branch or opaque Table. Add populated representative from complete owner fixture | S/layer/stp/mst.go:46 |
-| `assembly.Config.Switches[sw1].STP.MST.Instances[1].VLANs[0]` | No populated representative below nil/empty branch or opaque Table. Add populated representative from complete owner fixture. Exact expectation blocked by Q5 | S/layer/stp/mst.go:47 |
+| `assembly.Config.Switches[sw1].STP.MST.Instances[1].VLANs[0]` | No populated representative below nil/empty branch or opaque Table. Add populated representative from complete owner fixture. Use the fixed occurrence expectation below | S/layer/stp/mst.go:47 |
 | `assembly.Config.Switches[sw1].STP.MST.Instances[1].Ports[1/1/1].@key` | Walker visits values only. Add key-rename adapter with fixed value | S/layer/stp/mst.go:48 |
 | `assembly.Config.Switches[sw1].STP.MST.Instances[1].Ports[1/1/1].Priority` | No populated representative below nil/empty branch or opaque Table. Add populated representative from complete owner fixture | S/layer/stp/mst.go:28 |
 | `assembly.Config.Switches[sw1].STP.MST.Instances[1].Ports[1/1/1].PriorityPresent` | No populated representative below nil/empty branch or opaque Table. Add populated representative from complete owner fixture | S/layer/stp/mst.go:29 |
@@ -702,7 +805,7 @@ sources below bind the literal counts to this tree.
 | `assembly.Config.Switches[sw1].Routing.VRFs[default].Interfaces[vlan10].VLAN` | No populated representative below nil/empty branch or opaque Table. Add populated representative from complete owner fixture | S/layer/routing/config.go:26 |
 | `assembly.Config.Switches[sw1].Routing.VRFs[default].Interfaces[vlan10].Port` | No populated representative below nil/empty branch or opaque Table. Add populated representative from complete owner fixture | S/layer/routing/config.go:27 |
 | `assembly.Config.Switches[sw1].Routing.VRFs[default].Interfaces[vlan10].MAC` | No populated representative below nil/empty branch or opaque Table. Add populated representative from complete owner fixture | S/layer/routing/config.go:28 |
-| `assembly.Config.Switches[sw1].Routing.VRFs[default].Interfaces[vlan10].Prefixes[0]` | No populated representative below nil/empty branch or opaque Table. Add populated representative from complete owner fixture. Exact expectation blocked by Q5 | S/layer/routing/config.go:29 |
+| `assembly.Config.Switches[sw1].Routing.VRFs[default].Interfaces[vlan10].Prefixes[0]` | No populated representative below nil/empty branch or opaque Table. Add populated representative from complete owner fixture. Use the fixed occurrence expectation below | S/layer/routing/config.go:29 |
 | `assembly.Config.Switches[sw1].Routing.VRFs[default].Routes[0].Prefix` | No populated representative below nil/empty branch or opaque Table. Add populated representative from complete owner fixture | S/layer/routing/config.go:37 |
 | `assembly.Config.Switches[sw1].Routing.VRFs[default].Routes[0].NextHop` | No populated representative below nil/empty branch or opaque Table. Add populated representative from complete owner fixture | S/layer/routing/config.go:38 |
 | `assembly.Config.Switches[sw1].Routing.VRFs[default].Routes[0].Interface` | No populated representative below nil/empty branch or opaque Table. Add populated representative from complete owner fixture | S/layer/routing/config.go:39 |
@@ -742,10 +845,10 @@ sources below bind the literal counts to this tree.
 | `assembly.Config.Switches[sw1].Filter.Sets[ingress].Rules[0].Match.Protocol` | No populated representative below nil/empty branch or opaque Table. Add populated representative from complete owner fixture | S/layer/filter/config.go:90 |
 | `assembly.Config.Switches[sw1].Filter.Sets[ingress].Rules[0].Match.Src[0]` | No populated representative below nil/empty branch or opaque Table. Add populated representative from complete owner fixture | S/layer/filter/config.go:91 |
 | `assembly.Config.Switches[sw1].Filter.Sets[ingress].Rules[0].Match.Dst[0]` | No populated representative below nil/empty branch or opaque Table. Add populated representative from complete owner fixture | S/layer/filter/config.go:92 |
-| `assembly.Config.Switches[sw1].Filter.Sets[ingress].Rules[0].Match.SrcPorts[0].Start` | No populated representative below nil/empty branch or opaque Table. Add populated representative from complete owner fixture. Exact expectation blocked by Q4 | S/layer/filter/config.go:42 |
-| `assembly.Config.Switches[sw1].Filter.Sets[ingress].Rules[0].Match.SrcPorts[0].End` | No populated representative below nil/empty branch or opaque Table. Add populated representative from complete owner fixture. Exact expectation blocked by Q4 | S/layer/filter/config.go:43 |
-| `assembly.Config.Switches[sw1].Filter.Sets[ingress].Rules[0].Match.DstPorts[0].Start` | No populated representative below nil/empty branch or opaque Table. Add populated representative from complete owner fixture. Exact expectation blocked by Q4 | S/layer/filter/config.go:42 |
-| `assembly.Config.Switches[sw1].Filter.Sets[ingress].Rules[0].Match.DstPorts[0].End` | No populated representative below nil/empty branch or opaque Table. Add populated representative from complete owner fixture. Exact expectation blocked by Q4 | S/layer/filter/config.go:43 |
+| `assembly.Config.Switches[sw1].Filter.Sets[ingress].Rules[0].Match.SrcPorts[0].Start` | No populated representative below nil/empty branch or opaque Table. Add populated representative from complete owner fixture. Use the fixed positional range expectation below | S/layer/filter/config.go:42 |
+| `assembly.Config.Switches[sw1].Filter.Sets[ingress].Rules[0].Match.SrcPorts[0].End` | No populated representative below nil/empty branch or opaque Table. Add populated representative from complete owner fixture. Use the fixed positional range expectation below | S/layer/filter/config.go:43 |
+| `assembly.Config.Switches[sw1].Filter.Sets[ingress].Rules[0].Match.DstPorts[0].Start` | No populated representative below nil/empty branch or opaque Table. Add populated representative from complete owner fixture. Use the fixed positional range expectation below | S/layer/filter/config.go:42 |
+| `assembly.Config.Switches[sw1].Filter.Sets[ingress].Rules[0].Match.DstPorts[0].End` | No populated representative below nil/empty branch or opaque Table. Add populated representative from complete owner fixture. Use the fixed positional range expectation below | S/layer/filter/config.go:43 |
 | `assembly.Config.Switches[sw1].Filter.Sets[ingress].Rules[0].Match.ICMP.@present` | Walker dereferences without presence probe. Add nil toggle adapter | S/layer/filter/config.go:95 |
 | `assembly.Config.Switches[sw1].Filter.Sets[ingress].Rules[0].Match.ICMP.Type` | No populated representative below nil/empty branch or opaque Table. Add populated representative from complete owner fixture | S/layer/filter/config.go:54 |
 | `assembly.Config.Switches[sw1].Filter.Sets[ingress].Rules[0].Match.ICMP.Code.@present` | Walker dereferences without presence probe. Add nil toggle adapter | S/layer/filter/config.go:55 |
@@ -810,8 +913,9 @@ value receives an empty expectation plus an active seed for the same leaf.
 Seed validity and raw Normalize/Diff participation remain separate: the
 current STP seed intentionally contains both MST and PVST
 (`S/layer/stp/diff_coverage_test.go:15`). No constructor refusal removes a
-leaf from the manifest. The final expectation table and unit case counts
-remain unfinished work while this plan is blocked.
+leaf from the manifest. The six optional ICMP/TCPFlags presence expectations
+wait for Q6. Readiness also requires the complete reviewed 627-slot table,
+with literal counts for every owner and unit.
 
 ### Allowance contract
 
@@ -898,12 +1002,12 @@ those dependents after migration. The units update structured expectations in th
 The six ownership groups share the exact gate and wrapper consumers, so this
 phase stays one dependency cluster. Inventory tables are excluded from the
 plan-size bound (`.claude/skills/plan/references/phases.md`). Shared
-corpus test ownership puts filter/routing after the simple layers. Range and multiplicity expectations remain blocked by Q4 and Q5.
+corpus test ownership puts filter/routing after the simple layers. Range and multiplicity fixtures apply at every wrapper depth. Q6 blocks optional filter-aggregate presence expectations in U1, U4, U5 and U6.
 
 ### U1. Mapping and exact gate
 Files: src/common/sim/internal/simtest/diffmapping_bridge.go, src/common/sim/internal/simtest/diffmapping_phy.go, src/common/sim/internal/simtest/diffmapping_loopprotect.go, src/common/sim/internal/simtest/diffmapping_mcast.go, src/common/sim/internal/simtest/diffmapping_lag.go, src/common/sim/internal/simtest/diffmapping_stp.go, src/common/sim/internal/simtest/diffmapping_filter.go, src/common/sim/internal/simtest/diffmapping_routing.go, src/common/sim/internal/simtest/diffmapping_traffic.go, src/common/sim/internal/simtest/diffmapping_port.go, src/common/sim/internal/simtest/diffmapping_vswitch.go, src/common/sim/internal/simtest/diffmapping_assembly.go, src/common/sim/internal/simtest/diffcoverage.go, src/common/sim/internal/simtest/diffcoverage_test.go, src/common/sim/internal/simtest/README.md, src/common/sim/layer/bridge/diff_coverage_test.go, src/common/sim/layer/phy/diff_coverage_test.go, src/common/sim/layer/loopprotect/diff_coverage_test.go, src/common/sim/layer/mcast/diff_coverage_test.go, src/common/sim/layer/lag/diff_coverage_test.go, src/common/sim/layer/stp/diff_coverage_test.go, src/common/sim/layer/filter/diff_test.go, src/common/sim/layer/routing/diff_coverage_test.go, src/common/sim/layer/traffic/diff_coverage_test.go, src/common/sim/port/diff_coverage_test.go, src/common/sim/device/vswitch/diff_coverage_test.go, src/common/sim/assembly/diff_coverage_test.go, docs/architecture/2026-10-01-simulation-package-shape-direction.md
 After: none
-Change: The type manifest and leaf mapping produce independent complete expectations. Populate complete seeds for all 627 registered slots in U1, including all optional wrapper branches, map-key and pointer adapters, opaque Table values, active fault variants, nonsemantic inputs and raw assumption observations. No seed work listed under U2-U6 is deferred. Q4 and Q5 must be resolved before this unit starts. A temporary allowance names each unmigrated owner in its coverage test, with its current leaf manifest. The producer/layer allowance contract above applies. Exact fixture checks always run. Removing an allowance requires that owner to pass the exact matcher. Extend the direction record's `Diff(a, b Config) []trace.Change` bullet at line 126 with the bracket grammar, presence suffix, exact ordered expectations, and normalization domain. Add the collection correspondence chosen for Q4/Q5 in that same paragraph. Preserve its CompositeKey sentence. No sentence of the parent changes. Update the simtest README's perturbation-gate description. No new trace type or cross-layer imports enter the gate.
+Change: The type manifest and leaf mapping produce independent complete expectations. Populate complete seeds for all 627 registered slots in U1, including all optional wrapper branches, map-key and pointer adapters, opaque Table values, active fault variants, nonsemantic inputs and raw assumption observations. No seed work listed under U2-U6 is deferred. Q6 and the full expectation manifest must be complete before this unit starts. A temporary allowance names each unmigrated owner in its coverage test, with its current leaf manifest. The producer/layer allowance contract above applies. Exact fixture checks always run. Removing an allowance requires that owner to pass the exact matcher. Extend the direction record's `Diff(a, b Config) []trace.Change` bullet at line 126 with the bracket grammar, presence suffix, exact ordered expectations, and normalization domain. Add positional range comparison and occurrence-valued multiset changes in that same paragraph. Preserve its CompositeKey sentence. No sentence of the parent changes. Update the simtest README's perturbation-gate description. No new trace type or cross-layer imports enter the gate.
 Tests: In diffcoverage_test.go, leavesOrEmpty/checkLeaf build scalar, nested map/slice, opaque port.Table, normalized no-op, dependency, and identity-pair fixtures. Wrong layer/kind/key/field/fact, a missing arm plus an unrelated record, an unexpected duplicate record, reordered equivalent records, half a lifecycle pair, a nil required seed branch, and an unsupported mutation each fail. A new exported fixture leaf fails the type manifest. Existing deep-copy and retention regressions stay. Gate sources: diffcoverage.go:175, :468, :586. These exact fixture failures are independent of the temporary owner allowances.
 Verify: `uv run tools/scripts/run.py verify change -- src/common/sim/internal/simtest/diffmapping_bridge.go src/common/sim/internal/simtest/diffmapping_phy.go src/common/sim/internal/simtest/diffmapping_loopprotect.go src/common/sim/internal/simtest/diffmapping_mcast.go src/common/sim/internal/simtest/diffmapping_lag.go src/common/sim/internal/simtest/diffmapping_stp.go src/common/sim/internal/simtest/diffmapping_filter.go src/common/sim/internal/simtest/diffmapping_routing.go src/common/sim/internal/simtest/diffmapping_traffic.go src/common/sim/internal/simtest/diffmapping_port.go src/common/sim/internal/simtest/diffmapping_vswitch.go src/common/sim/internal/simtest/diffmapping_assembly.go src/common/sim/internal/simtest/diffcoverage.go src/common/sim/internal/simtest/diffcoverage_test.go src/common/sim/internal/simtest/README.md src/common/sim/layer/bridge/diff_coverage_test.go src/common/sim/layer/phy/diff_coverage_test.go src/common/sim/layer/loopprotect/diff_coverage_test.go src/common/sim/layer/mcast/diff_coverage_test.go src/common/sim/layer/lag/diff_coverage_test.go src/common/sim/layer/stp/diff_coverage_test.go src/common/sim/layer/filter/diff_test.go src/common/sim/layer/routing/diff_coverage_test.go src/common/sim/layer/traffic/diff_coverage_test.go src/common/sim/port/diff_coverage_test.go src/common/sim/device/vswitch/diff_coverage_test.go src/common/sim/assembly/diff_coverage_test.go docs/architecture/2026-10-01-simulation-package-shape-direction.md`
 
@@ -918,28 +1022,28 @@ Verify: `uv run tools/scripts/run.py verify change -- src/common/sim/internal/si
 Files: src/common/sim/internal/simtest/diffmapping_lag.go, src/common/sim/internal/simtest/diffmapping_stp.go, src/common/sim/layer/lag/diff.go, src/common/sim/layer/lag/diff_coverage_test.go, src/common/sim/layer/lag/config_test.go, src/common/sim/layer/lag/diff_injectivity_test.go, src/common/sim/layer/lag/README.md, src/common/sim/layer/stp/diff.go, src/common/sim/layer/stp/diff_coverage_test.go, src/common/sim/layer/stp/config_test.go, src/common/sim/layer/stp/README.md
 After: U1
 Change: LAG and STP use exact expectations for their existing scalar and identity mappings and selected granular list and presence fields, then remove both allowances. Preserve the already present up_delay, down_delay and admin_point_to_point arms. Keep effective priority handling and existing subject keys. The LAG-member port name is a map identity, not a new field under the lag subject (lag/config.go:93, diff.go:327).
-Tests: Config literals plus Config.Normalize(layer.Env{}) and Diff build delay, member rename, MST/PVST, explicit-zero PriorityPresent, and inherited instance/tree priority cases. config_test.go:489 pins admin_point_to_point. Wrappers remove each delay or PointToPoint record and retain an unrelated change, which the exact matcher rejects. lag/diff_injectivity_test.go preserves quoted member keys. STP config_test.go lifecycle and VLAN-list assertions change with the bracket grammar and presence suffix. No existing corpus literal names these newly split fields.
+Tests: Config literals plus Config.Normalize(layer.Env{}) and Diff build delay, member rename, MST/PVST, explicit-zero PriorityPresent, and inherited instance/tree priority cases. config_test.go:489 pins admin_point_to_point. Wrappers remove each delay or PointToPoint record and retain an unrelated change, which the exact matcher rejects. lag/diff_injectivity_test.go preserves quoted member keys. STP config_test.go lifecycle and VLAN-list assertions change with the bracket grammar and presence suffix. Assert all seven instance-VLAN occurrence cases in the fixed matrix, including identical repeated removals/additions. No existing corpus literal names these newly split fields.
 Verify: `uv run tools/scripts/run.py verify change -- src/common/sim/internal/simtest/diffmapping_lag.go src/common/sim/internal/simtest/diffmapping_stp.go src/common/sim/layer/lag/diff.go src/common/sim/layer/lag/diff_coverage_test.go src/common/sim/layer/lag/config_test.go src/common/sim/layer/lag/diff_injectivity_test.go src/common/sim/layer/lag/README.md src/common/sim/layer/stp/diff.go src/common/sim/layer/stp/diff_coverage_test.go src/common/sim/layer/stp/config_test.go src/common/sim/layer/stp/README.md`
 
 ### U4. Filter and routing
 Files: src/common/sim/internal/simtest/diffmapping_filter.go, src/common/sim/internal/simtest/diffmapping_routing.go, src/common/sim/layer/filter/diff.go, src/common/sim/layer/filter/diff_test.go, src/common/sim/layer/filter/diff_injectivity_test.go, src/common/sim/layer/filter/README.md, src/common/sim/layer/routing/diff.go, src/common/sim/layer/routing/diff_coverage_test.go, src/common/sim/layer/routing/config_test.go, src/common/sim/layer/routing/diff_internal_test.go, src/common/sim/layer/routing/README.md, src/common/sim/internal/simtest/filter_cases.go, src/common/sim/internal/simtest/corpus_test.go
 After: U1 U2
 Change: Filter emits a field for each retained rule member instead of its empty whole-rule record. Replace its final Field/To sort with stable subject ordering, preserving the specified local member sequence. Existing named, unnamed, and duplicate-name subject identities stay. Routing splits interface prefixes and preserves route/neighbor identity pairs. Both owners remove their allowances. The added-rule corpus lifecycle keeps its existing empty field and snapshot. Assert it explicitly while changing retained-rule members. U2 precedes this unit because both edit corpus_test.go.
-Tests: filter.Config literals and Normalize/Diff build protocol, prefixes, range boundaries, ICMP and flag members. Include a Src replacement from 198.51.100.0/24 to 192.0.2.0/24 whose addition sorts lexically before its removal, duplicate bindings where removing the overwritten entry is empty and removing the winner reports set, and a range with both boundaries changed. Include sorted-range displacement and duplicate range normalization, with independently authored expected correspondence from the Q4 decision. diff_injectivity_test.go preserves named/unnamed/duplicate-name keys. routing.Config seeds and Normalize/Diff build interface prefixes, preference/metric, and both halves of route and neighbor identity replacement. A missing half or incorrect retained-member fact fails. DefaultRegistry().Get("planning/filter-rule-change") and AssertCase check the added-rule case's exact structured expectation at filter_cases.go:475.
+Tests: filter.Config literals and Normalize/Diff build protocol, prefixes, range boundaries, ICMP and flag members. Include a Src replacement from 198.51.100.0/24 to 192.0.2.0/24 whose addition sorts lexically before its removal, duplicate bindings where removing the overwritten entry is empty and removing the winner reports set, and a range with both boundaries changed. Include sorted-range displacement and duplicate range normalization, with the literal positional sequences below. diff_injectivity_test.go preserves named/unnamed/duplicate-name keys. routing.Config seeds and Normalize/Diff build interface prefixes, preference/metric, and both halves of route and neighbor identity replacement. A missing half or incorrect retained-member fact fails. The fixed matrices supply 14 range cases and seven routing-prefix occurrence cases with complete typed sequences. DefaultRegistry().Get("planning/filter-rule-change") and AssertCase check the added-rule case's exact structured expectation at filter_cases.go:475.
 Verify: `uv run tools/scripts/run.py verify change -- src/common/sim/internal/simtest/diffmapping_filter.go src/common/sim/internal/simtest/diffmapping_routing.go src/common/sim/layer/filter/diff.go src/common/sim/layer/filter/diff_test.go src/common/sim/layer/filter/diff_injectivity_test.go src/common/sim/layer/filter/README.md src/common/sim/layer/routing/diff.go src/common/sim/layer/routing/diff_coverage_test.go src/common/sim/layer/routing/config_test.go src/common/sim/layer/routing/diff_internal_test.go src/common/sim/layer/routing/README.md src/common/sim/internal/simtest/filter_cases.go src/common/sim/internal/simtest/corpus_test.go`
 
 ### U5. Traffic, port, and switch
 Files: src/common/sim/internal/simtest/diffmapping_traffic.go, src/common/sim/internal/simtest/diffmapping_port.go, src/common/sim/internal/simtest/diffmapping_vswitch.go, src/common/sim/layer/traffic/diff.go, src/common/sim/layer/traffic/diff_coverage_test.go, src/common/sim/layer/traffic/config_test.go, src/common/sim/layer/traffic/README.md, src/common/sim/port/diff.go, src/common/sim/port/diff_coverage_test.go, src/common/sim/port/port_test.go, src/common/sim/port/README.md, src/common/sim/device/vswitch/diff.go, src/common/sim/device/vswitch/diff_coverage_test.go, src/common/sim/device/vswitch/diff_test.go, src/common/sim/device/vswitch/README.md
 After: U2 U3 U4
 Change: Traffic selector members use the selected grammar. Port coverage includes Name's removed/added pair through NewBuilder. Switch capability presence uses the selected explicit field and normalized architectural presence, and delegates exact owner mappings. The three owners remove their allowances. Port lifecycle facts and empty fields stay.
-Tests: traffic.Config.Normalize/Diff builds mirror rename, selector membership replacement, policer and per-PCP queue inputs. port.NewBuilder builds both tables and the fixed LAG companion, including the currently exempt Name at port/diff_coverage_test.go:34. vswitch.Config.Normalize and Diff build every populated capability and empty Traffic addition/removal. Preserve MAC and the delegated-layer tests already migrated by U2 in diff_test.go. U5 follows U2 because both edit that consumer file as well as the producer dependencies. A nil top-level capability seed fails before matching, and an omitted LAG inferred from its port table has independently expected presence. Reordering selectors still has an empty diff (traffic/diff_coverage_test.go:54).
+Tests: traffic.Config.Normalize/Diff builds mirror rename, selector membership replacement, policer and per-PCP queue inputs. port.NewBuilder builds both tables and the fixed LAG companion, including the currently exempt Name at port/diff_coverage_test.go:34. vswitch.Config.Normalize and Diff build every populated capability and empty Traffic addition/removal. Preserve MAC and the delegated-layer tests already migrated by U2 in diff_test.go. U5 follows U2 because both edit that consumer file as well as the producer dependencies. A nil top-level capability seed fails before matching, and an omitted LAG inferred from its port table has independently expected presence. Reordering selectors still has an empty diff (traffic/diff_coverage_test.go:54). Switch coverage asserts all six formerly blocked primary slots and all 28 range/occurrence matrix cases with unchanged owner keys and no unrelated record.
 Verify: `uv run tools/scripts/run.py verify change -- src/common/sim/internal/simtest/diffmapping_traffic.go src/common/sim/internal/simtest/diffmapping_port.go src/common/sim/internal/simtest/diffmapping_vswitch.go src/common/sim/layer/traffic/diff.go src/common/sim/layer/traffic/diff_coverage_test.go src/common/sim/layer/traffic/config_test.go src/common/sim/layer/traffic/README.md src/common/sim/port/diff.go src/common/sim/port/diff_coverage_test.go src/common/sim/port/port_test.go src/common/sim/port/README.md src/common/sim/device/vswitch/diff.go src/common/sim/device/vswitch/diff_coverage_test.go src/common/sim/device/vswitch/diff_test.go src/common/sim/device/vswitch/README.md`
 
 ### U6. Assembly and corpus closure
 Files: src/common/sim/internal/simtest/diffmapping_assembly.go, src/common/sim/assembly/diff.go, src/common/sim/assembly/diff_coverage_test.go, src/common/sim/assembly/compare_test.go, src/common/sim/assembly/construction_result_test.go, src/common/sim/assembly/README.md, src/common/sim/internal/simtest/diffcoverage.go, src/common/sim/internal/simtest/diffcoverage_test.go, src/common/sim/internal/simtest/README.md, src/common/sim/internal/simtest/corpus_test.go, src/common/sim/fabric/reflector_diff_test.go, src/common/sim/fabric/topology_state_test.go, src/common/sim/fabric/compare_test.go, src/common/sim/device/host/accept_test.go
 After: U5
 Change: Assembly uses the selected granular grammar for host and reflector wrappers, fault members, and physical-assumption members. Preserve prefixed switch subject keys and directional fault orientation. Use the complete optional seeds and active/nonsemantic variants supplied by U1. Migrate their independent expectations and keep evidence cases exact and empty. Adapt DiffSpecs to stable subject sorting, preserving local ordered records from Diff. Remove assembly's allowance and the temporary allowance facility after the last owner passes. Every enumerated diff owner now uses the exact matcher. DiffSpecs construction_inputs remains a separately named contract outside the Config leaf gate.
-Tests: assembly.Config literals and assembly.Diff build cable endpoint identity pairs, forward/reversed cable fault members, host address and multicast membership, reflector attachments with separators, physical assumptions, and delegated switch leaves. TestDiffDetectsReversedDirectionalFaults at assembly/compare_test.go:476 and snapshot helpers at :605/:627/:659 change atomically with the selected fields. Update the fabric reflector, topology-state, compare and host accept consumers named in the audit, including count, order and typed facts. ConstructionSpec plus DiffSpecs keep evidence-only changes empty (construction_result_test.go). Independently assert a multi-member delegated change through DiffSpecs so its final sorter cannot reorder the local sequence. DefaultRegistry().Get and AssertCase run both planning comparison cases and the full registry. AssertEveryDiffPackageIsCovered still checks all twelve owners. The type manifest fails when any allowance remains or a leaf has no disposition.
+Tests: assembly.Config literals and assembly.Diff build cable endpoint identity pairs, forward/reversed cable fault members, host address and multicast membership, reflector attachments with separators, physical assumptions, and delegated switch leaves. TestDiffDetectsReversedDirectionalFaults at assembly/compare_test.go:476 and snapshot helpers at :605/:627/:659 change atomically with the selected fields. Update the fabric reflector, topology-state, compare and host accept consumers named in the audit, including count, order and typed facts. ConstructionSpec plus DiffSpecs keep evidence-only changes empty (construction_result_test.go). Independently assert a multi-member delegated change through DiffSpecs so its final sorter cannot reorder the local sequence. DefaultRegistry().Get and AssertCase run both planning comparison cases and the full registry. AssertEveryDiffPackageIsCovered still checks all twelve owners. The type manifest fails when any allowance remains or a leaf has no disposition. Assembly Diff coverage asserts all six range/occurrence primary slots and all 28 matrix cases with K(sw1, owner-key). DiffSpecs uses a separate valid construction fixture for the existing multi-member ordering assertion. Raw invalid DstPorts bounds, duplicate MST VLANs, and simultaneous MST/PVST stay in Normalize/Diff fixtures. DiffSpecs normalizes construction inputs through switch validation (assembly/diff.go:24, assembly/assemble.go:313, device/vswitch/spec.go:42), which rejects these inputs (layer/filter/config.go:268, layer/stp/mst.go:258, layer/stp/config.go:326). The 28 matrix-case count applies to Diff alone.
 Verify: `uv run tools/scripts/run.py verify change -- src/common/sim/internal/simtest/diffmapping_assembly.go src/common/sim/assembly/diff.go src/common/sim/assembly/diff_coverage_test.go src/common/sim/assembly/compare_test.go src/common/sim/assembly/construction_result_test.go src/common/sim/assembly/README.md src/common/sim/internal/simtest/diffcoverage.go src/common/sim/internal/simtest/diffcoverage_test.go src/common/sim/internal/simtest/README.md src/common/sim/internal/simtest/corpus_test.go src/common/sim/fabric/reflector_diff_test.go src/common/sim/fabric/topology_state_test.go src/common/sim/fabric/compare_test.go src/common/sim/device/host/accept_test.go`
 
 Waves: U1 | U2 U3 | U4 | U5 | U6
@@ -972,7 +1076,7 @@ uv run tools/scripts/run.py verify change -- docs/plans/2026-10-01-2200-refactor
 
 ## Definition of done
 
-- [ ] Q4-Q5 are resolved and complete target expectations replace blocked correspondence rows.
+- [x] Positional range and occurrence multiplicity decisions replace the open correspondence questions.
 - [ ] Literal concrete-expectation counts cover the full type-driven manifest.
 - [ ] All six units pass their focused tests and every changed-path verifier.
 - [ ] The direction record and owner READMEs state the selected contract.
@@ -982,51 +1086,29 @@ uv run tools/scripts/run.py verify change -- docs/plans/2026-10-01-2200-refactor
 
 ## Open questions
 
-Q4. How are normalized structured ranges matched across insertion, deletion,
-sort displacement, deduplication, and a member edit? SrcPorts and DstPorts
-sort by Start then End and compact equal ranges
-(`S/layer/filter/config.go:201`). The chosen field coordinates are normalized
-positions. The struct has no identity other than Start/End
-(`S/layer/filter/config.go:41`). Neither the grammar nor that normalization
-chooses correspondence. This blocks the range rows and every delegated
-range expectation in switch and assembly coverage.
+Q6. Optional filter-aggregate lifecycle. The populated-to-nil probes for
+`Match.ICMP` and `Match.TCPFlags` have two consistent readings of this
+plan. The retained-rule mapping lists their granular members, while the
+lifecycle paragraph specifies one snapshot at `.presence` without limiting
+its scope. Current filter Diff has only a whole-rule snapshot
+(`S/layer/filter/diff.go:49`, `:103`, `:353`). It supplies no separate
+ICMP or TCPFlags snapshot. This blocks six primary expectations, two at
+each depth, and the full manifest's readiness. Q4 and Q5 remain decided.
 
-For one retained rule, before is `[{100,200},{300,400}]` and after is
-`[{300,400},{500,600}]`. The submitted edit replaced the first range and
-moved its normalized position. All examples use the same subject.
+All examples keep the rule subject `filter / rule / K(set1,rule1)` and
+change only the selected pointer. Facts are `(TypeID, Canonical)`.
+The proposed snapshot TypeIDs and canonical strings below are target
+options, not claims about existing fact types.
 
-| Option | Tradeoff | Exact example sequence |
+| Option | Tradeoff | Exact example sequences |
 | --- | --- | --- |
-| Compare normalized positions (recommended) | No guessed identity. An insertion or moving edit can report changes to displaced positions. | `match.src_ports[0].start: 100 -> 300`, `[0].end: 200 -> 400`, `[1].start: 300 -> 500`, `[1].end: 400 -> 600` |
-| Match equal ranges first, remove unmatched old and add unmatched new | Unchanged ranges survive displacement. An edited range reports removal/addition and uses its old/new normalized coordinate. | `match.src_ports[0].start: 100 -> nil`, `[0].end: 200 -> nil`, `[1].start: nil -> 500`, `[1].end: nil -> 600` |
+| Emit granular nil/member records (recommended) | Reuses the selected member facts and order. Limits the single-snapshot lifecycle rule to named aggregate lifecycle slots such as tunnel and physical assumption. Optional match structs have no separate presence snapshot. | `ICMP{Type:8,Code:0} -> nil` emits `match.icmp.type: (filter.icmp_type,8) -> nil`, then `match.icmp.code: (filter.icmp_code,0) -> nil`. `TCPFlags{Mask:2,Value:2} -> nil` emits `match.tcp_flags.mask: (filter.tcp_flags,2) -> nil`, then `match.tcp_flags.value: (filter.tcp_flags,2) -> nil`. |
+| Emit one snapshot at nested presence | Applies the lifecycle sentence to these optional aggregates. Adds snapshot fact contracts and suppresses their retained-member records during pointer lifecycle. | `ICMP{Type:8,Code:0} -> nil` emits `match.icmp.presence: (filter.icmp,type=8;code=0) -> nil`. `TCPFlags{Mask:2,Value:2} -> nil` emits `match.tcp_flags.presence: (filter.tcp_flags_snapshot,mask=2;value=2) -> nil`. |
 
-Under positional comparison, insertion pairs the common normalized indices
-and emits nil/member facts for unmatched tail members. Deletion reverses
-that rule. Under equal-range matching, insertion/removal emits only the
-inserted/deleted Start/End facts, even when unchanged ranges move. Both
-options normalize before matching, so reorder-only and duplicate-only
-submissions expect `[]`. A member edit that stays at the same index emits
-changed Start/End facts under positional comparison, and removal/addition
-under equal-range matching. The two policies yield different records even
-when the edit does not move. Q1 remains settled.
-
-Q5. How does a value coordinate retain duplicate multiplicity? MST instance
-VLANs sort without compaction (`S/layer/stp/mst.go:185`). Routing interface
-prefixes also sort without masking or compaction
-(`S/layer/routing/config.go:149`). Current diffs compare entire lists,
-including duplicates (`S/layer/stp/diff.go:411`,
-`S/layer/routing/diff.go:352`). Dropping multiplicity would change the
-normalization domain. Both options keep quoted canonical value keys.
-
-| Option | Tradeoff | Exact example sequence for VLANs [10,10] -> [10] |
-| --- | --- | --- |
-| Emit occurrence removals/additions (recommended) | Preserves value facts. Larger multiplicity changes repeat records at the same field, so the matcher must accept repeated records only when independently expected. | `vlans["10"]: 10 -> nil` |
-| Emit one multiplicity fact per changed value | One record per value key. Introduces typed count facts for these two families instead of value facts. | `vlans["10"]: count(2) -> count(1)` |
-
-For `prefixes [192.0.2.1/24,192.0.2.1/24] -> [192.0.2.1/24]`, the first
-option emits `prefixes["192.0.2.1/24"]: 192.0.2.1/24 -> nil`. The second
-emits the same field with `count(2) -> count(1)`. Reordering expects no
-records. A unique-value replacement is removal/addition with value facts
-under the first option, and count(1)/count(0) transitions under the second.
-Deduplication is a submitted semantic change here, not a normalization
-no-op. This decision does not change the normalize functions.
+For an ICMP pointer with nil Code, the granular option emits only its Type
+record. The snapshot option uses `type=8;code=any`. Additions reverse the
+nil/value sides of the same sequences. Retained non-nil pointers compare
+Type before Code, and Mask before Value, under either option. Switch
+keeps the owner key `K(ingress,rule1)`, and assembly uses
+`K(sw1,K(ingress,rule1))`. Neither option changes range correspondence,
+multiset multiplicity, or the decided capability presence fields.
