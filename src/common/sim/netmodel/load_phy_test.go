@@ -1,7 +1,9 @@
 package netmodel_test
 
 import (
+	"fmt"
 	"slices"
+	"strings"
 	"testing"
 
 	"buf.build/go/protovalidate"
@@ -9,10 +11,62 @@ import (
 	interfacev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1"
 	phyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
+	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
 	"go.aledante.io/FlowSeer/src/common/sim/netmodel"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
+
+func TestPSEBudgetPresenceMatrix(t *testing.T) {
+	reached := 0
+	names := []string{"absent", "zero", "positive"}
+	for groupIndex, group := range []*uint32{nil, ptr(uint32(0)), ptr(uint32(1))} {
+		for powerIndex, power := range []*uint64{nil, ptr(uint64(0)), ptr(uint64(100))} {
+			t.Run(fmt.Sprintf("group=%s/power=%s", names[groupIndex], names[powerIndex]), func(t *testing.T) {
+				budget := phyv1.PseBudget_builder{PseGroup: group, PowerNanowatts: power}.Build()
+				result := load(t, netmodel.SourceContext{DeviceID: "sw1"}, netmodel.Input{
+					Interfaces: []*interfacev1.Interface{plainPhysicalInterface("eth1")},
+					Budgets:    []*phyv1.PseBudget{budget}, Want: []trace.Layer{phy.LayerNamePoE},
+				})
+				valid := group != nil && *group > 0 && (power == nil || *power > 0)
+				groups := result.Spec.Config.Phy.PoE.Groups
+				if !valid {
+					if len(groups) != 0 {
+						t.Errorf("invalid budget inserted: %+v", groups)
+					}
+					for _, field := range []string{"pse_group", "power_nanowatts"} {
+						invalid := field == "pse_group" && (group == nil || *group == 0) || field == "power_nanowatts" && power != nil && *power == 0
+						if invalid && !slices.ContainsFunc(result.Metadata.Issues(), func(issue analysis.Issue) bool {
+							return strings.Contains(issue.Message, field) && issue.Status != analysis.Complete && len(issue.Evidence) > 0
+						}) {
+							t.Errorf("missing evidenced %s refusal: %+v", field, result.Metadata.Issues())
+						}
+					}
+				} else {
+					want := uint64(0)
+					if power != nil {
+						want = *power
+					}
+					if got, exists := groups["1"]; !exists || len(groups) != 1 || got.PowerNanowatts != want {
+						t.Errorf("groups = %+v, want group 1 power %d", groups, want)
+					}
+					if power == nil && !slices.ContainsFunc(result.Report.Defaults, func(d netmodel.Default) bool {
+						return d.Port == "1" && d.Field == "power_nanowatts" && d.Value == "0" && len(d.Evidence) > 0
+					}) {
+						t.Errorf("unknown budget not reported: %+v", result.Report.Defaults)
+					}
+				}
+				if _, err := vswitch.NewWithSpec(result.Spec); err != nil {
+					t.Fatalf("construct: %v", err)
+				}
+				reached++
+			})
+		}
+	}
+	if reached != 9 {
+		t.Errorf("reached %d budget cases, want 9", reached)
+	}
+}
 
 func TestNetmodel_PortWithoutPoeDetailSkipped(t *testing.T) {
 	adminUp := interfacev1.AdminStatus_ADMIN_STATUS_UP

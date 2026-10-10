@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"slices"
 	"strconv"
-	"time"
 
 	interfacev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1"
 	switchingv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/switching/v1"
@@ -62,9 +61,9 @@ func (c *loadContext) loadBridge(ifaces []*interfacev1.Interface, vlans []*switc
 		return nil
 	}
 	bridgeCfg := &bridge.Config{
-		AgingTime: 300 * time.Second,
+		AgingTime: bridge.DefaultAgingTime,
 	}
-	c.addDefault("", "aging_time", "300s")
+	c.addDefault("", "aging_time", strconv.FormatFloat(bridge.DefaultAgingTime.Seconds(), 'f', -1, 64)+"s")
 
 	if c.isWanted(bridge.LayerNameVLAN) {
 		bridgeCfg.VLAN = c.loadVLANs(vlans)

@@ -19,6 +19,7 @@ import (
 const (
 	IssueUnsupportedRequestedCapability analysis.IssueCode = "netmodel.capability.unsupported_request"
 	IssueDuplicateRequestedCapability   analysis.IssueCode = "netmodel.capability.duplicate_request"
+	IssueMissingRequestedCapability     analysis.IssueCode = "netmodel.capability.missing_config"
 )
 
 type facetSummary struct {
@@ -29,6 +30,26 @@ type facetSummary struct {
 	hasIPFacet         bool
 	hasRoutedIface     bool
 	hasFilterFacet     bool
+}
+
+func (c *loadContext) reconcileCapabilities(executable, want []trace.Layer) {
+	for _, layer := range want {
+		if slices.Contains(executable, layer) {
+			continue
+		}
+		if layer == stp.LayerName && slices.ContainsFunc(c.report.Skipped, func(skip Skipped) bool {
+			return skip.What == "stp_bridge" && skip.Why != "layer not wanted"
+		}) {
+			continue
+		}
+		c.addSkipped("", "requested_capability", fmt.Sprintf("layer %q has no executable configuration", layer), analysis.Incomplete, IssueMissingRequestedCapability)
+	}
+	for layer := range c.report.CapabilitySources {
+		if !slices.Contains(executable, layer) {
+			delete(c.report.CapabilitySources, layer)
+		}
+	}
+	c.report.Capabilities = executable
 }
 
 func summarizeFacets(ifaces []*interfacev1.Interface, ownership loadOwnership, want []trace.Layer, explicitRequest bool) facetSummary {

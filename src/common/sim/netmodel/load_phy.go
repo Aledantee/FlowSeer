@@ -13,6 +13,7 @@ import (
 // Issue codes used by netmodel.
 const (
 	IssueConflictBudget            analysis.IssueCode = "netmodel.poe.conflict"
+	IssueInvalidPSEBudget          analysis.IssueCode = "netmodel.poe.invalid_budget"
 	IssueInvalidPoEPriority        analysis.IssueCode = "netmodel.poe.invalid_priority"
 	IssueInvalidEthernetDuplex     analysis.IssueCode = "netmodel.ethernet.invalid_duplex"
 	IssuePowerClassWithoutDelivery analysis.IssueCode = "netmodel.poe.power_class_without_delivery"
@@ -135,6 +136,18 @@ func (c *loadContext) loadPoE(ifaces []*interfacev1.Interface, budgets []*phyv1.
 			return factKey{}, "", false
 		}
 		groupStr := strconv.FormatUint(uint64(b.GetPseGroup()), 10)
+		valid := true
+		if !b.HasPseGroup() || b.GetPseGroup() == 0 {
+			c.addSkipped(groupStr, "pse_budget", "pse_group must be present and positive", analysis.Incomplete, IssueInvalidPSEBudget)
+			valid = false
+		}
+		if b.HasPowerNanowatts() && b.GetPowerNanowatts() == 0 {
+			c.addSkipped(groupStr, "pse_budget", "power_nanowatts must be positive when present", analysis.Incomplete, IssueInvalidPSEBudget)
+			valid = false
+		}
+		if !valid {
+			return factKey{}, "", false
+		}
 		value := "power_nanowatts=unreported"
 		if b.HasPowerNanowatts() {
 			value = "power_nanowatts=" + strconv.FormatUint(b.GetPowerNanowatts(), 10)

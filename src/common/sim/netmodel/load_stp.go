@@ -190,6 +190,7 @@ func validateSTPTimers(bridgeState *stpv1.BridgeState) string {
 
 func (c *loadContext) loadSTPSettings(bridgeState *stpv1.BridgeState, mac netaddr.MAC, prio uint32, priorityPresent bool) stp.Config {
 	stpCfg := stp.Config{
+		TxHoldCount:     stp.DefaultTxHoldCount,
 		Priority:        uint16(prio),
 		PriorityPresent: priorityPresent,
 		Address:         mac,
@@ -222,7 +223,7 @@ func (c *loadContext) loadSTPSettings(bridgeState *stpv1.BridgeState, mac netadd
 			stpCfg.TxHoldCount = uint8(v)
 		}
 	} else {
-		c.addDefaultAt(c.stpScope, "", "tx_hold_count", "6")
+		c.addDefaultAt(c.stpScope, "", "tx_hold_count", strconv.FormatUint(uint64(stp.DefaultTxHoldCount), 10))
 	}
 
 	return stpCfg
@@ -250,8 +251,8 @@ func (c *loadContext) loadSTPPorts(stpPorts []*stpv1.PortState, ports port.Table
 				return factKey{}, "", false
 			}
 		}
-		if ps.GetPriority() > 255 {
-			c.addSkippedAt(c.stpPortScope(portName), portName, "stp_port", "priority above 255", analysis.Unsupported, IssueInvalidPortPriority)
+		if ps.GetPriority() > 240 || ps.GetPriority()%16 != 0 {
+			c.addSkippedAt(c.stpPortScope(portName), portName, "stp_port", "priority must be 0 through 240 in steps of 16", analysis.Unsupported, IssueInvalidPortPriority)
 			return factKey{}, "", false
 		}
 		if ps.HasAdminPathCost() && ps.GetAdminPathCost() > stp.MaxPathCost {

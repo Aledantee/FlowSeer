@@ -1,7 +1,9 @@
 package netmodel_test
 
 import (
+	"fmt"
 	"slices"
+	"strconv"
 	"testing"
 	"time"
 
@@ -19,6 +21,60 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/netmodel"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
+
+func TestRSTPPortPriorityAdmission(t *testing.T) {
+	reached := 0
+	for _, priority := range []*uint32{nil, ptr(uint32(0)), ptr(uint32(16)), ptr(uint32(240)), ptr(uint32(1)), ptr(uint32(15)), ptr(uint32(241)), ptr(uint32(255)), ptr(uint32(256))} {
+		name := "absent"
+		if priority != nil {
+			name = fmt.Sprintf("priority=%d", *priority)
+		}
+		t.Run(name, func(t *testing.T) {
+			result := load(t, netmodel.SourceContext{DeviceID: "sw1"}, netmodel.Input{
+				Interfaces:  []*interfacev1.Interface{plainPhysicalInterface("eth1"), plainPhysicalInterface("eth2")},
+				BridgeState: validBridgeState(), Want: []trace.Layer{stp.LayerName},
+				STPPorts: []*stpv1.PortState{
+					stpv1.PortState_builder{InterfaceName: ptr("eth1"), Priority: priority}.Build(),
+					stpv1.PortState_builder{InterfaceName: ptr("eth2"), Priority: ptr(uint32(64))}.Build(),
+				},
+			})
+			cfg := result.Spec.Config.STP
+			valid := priority == nil || *priority <= 240 && *priority%16 == 0
+			p, exists := cfg.Ports["eth1"]
+			if exists != valid {
+				t.Errorf("port retained = %t, want %t: %+v", exists, valid, cfg.Ports)
+			}
+			if valid {
+				want := stp.DefaultPortPriority
+				if priority != nil {
+					want = uint8(*priority)
+				}
+				if p.Priority != want || !p.PriorityPresent {
+					t.Errorf("normalized port = %+v, want priority %d present=true", p, want)
+				}
+				if priority == nil && !slices.ContainsFunc(result.Report.Defaults, func(d netmodel.Default) bool {
+					return d.Port == "eth1" && d.Field == "port_priority" && d.Value == strconv.FormatUint(uint64(stp.DefaultPortPriority), 10) && len(d.Evidence) > 0
+				}) {
+					t.Errorf("absent priority lacks evidenced default: %+v", result.Report.Defaults)
+				}
+			} else if !slices.ContainsFunc(result.Metadata.Issues(), func(issue analysis.Issue) bool {
+				return issue.Code == netmodel.IssueInvalidPortPriority && issue.Scope == analysis.FieldScope(analysis.ProtocolScope("sw1", string(stp.LayerName), "0"), "ports", "eth1") && len(issue.Evidence) > 0
+			}) {
+				t.Errorf("missing evidenced port refusal: %+v", result.Metadata.Issues())
+			}
+			if sibling, ok := cfg.Ports["eth2"]; !ok || sibling.Priority != 64 || !sibling.PriorityPresent {
+				t.Errorf("valid sibling lost: %+v", cfg.Ports)
+			}
+			if _, err := vswitch.NewWithSpec(result.Spec); err != nil {
+				t.Fatalf("construct: %v", err)
+			}
+			reached++
+		})
+	}
+	if reached != 9 {
+		t.Errorf("reached %d priority cases, want 9", reached)
+	}
+}
 
 func TestLoadRequiresExplicitRSTPBridgeProtocol(t *testing.T) {
 	priority := uint32(32768)
@@ -726,8 +782,11 @@ func TestStpLoad_AbsentTxHoldCountReportedDefault(t *testing.T) {
 	}
 
 	foundDefault := false
+	if cfg.STP.TxHoldCount != stp.DefaultTxHoldCount {
+		t.Errorf("tx hold count = %d, want %d", cfg.STP.TxHoldCount, stp.DefaultTxHoldCount)
+	}
 	for _, d := range report.Defaults {
-		if d.Field == "tx_hold_count" && d.Value == "6" {
+		if d.Field == "tx_hold_count" && d.Value == strconv.FormatUint(uint64(stp.DefaultTxHoldCount), 10) {
 			foundDefault = true
 			break
 		}
@@ -783,7 +842,7 @@ func TestStpLoadPreservesExplicitZeroPrioritiesAndReportsTimerDefaults(t *testin
 		"bridge_hello_time":    "2s",
 		"bridge_max_age":       "20s",
 		"bridge_forward_delay": "15s",
-		"tx_hold_count":        "6",
+		"tx_hold_count":        strconv.FormatUint(uint64(stp.DefaultTxHoldCount), 10),
 	}
 	for field, value := range wantDefaults {
 		if !slices.ContainsFunc(result.Report.Defaults, func(got netmodel.Default) bool {
@@ -953,12 +1012,12 @@ func TestStpLoadRecordsFallbackForInvalidTxHoldCount(t *testing.T) {
 		t.Errorf("issues = %+v, want evidenced invalid tx_hold_count", result.Metadata.Issues())
 	}
 	if !slices.ContainsFunc(result.Report.Defaults, func(got netmodel.Default) bool {
-		return got.Field == "tx_hold_count" && got.Value == "6" && len(got.Evidence) > 0
+		return got.Field == "tx_hold_count" && got.Value == strconv.FormatUint(uint64(stp.DefaultTxHoldCount), 10) && len(got.Evidence) > 0
 	}) {
 		t.Errorf("defaults = %+v, want evidenced tx_hold_count fallback", result.Report.Defaults)
 	}
 	if !slices.ContainsFunc(result.Metadata.Assumptions(), func(got analysis.Assumption) bool {
-		return got.Statement == "default value applied for tx_hold_count: 6" && len(got.Evidence) > 0
+		return got.Statement == "default value applied for tx_hold_count: "+strconv.FormatUint(uint64(stp.DefaultTxHoldCount), 10) && len(got.Evidence) > 0
 	}) {
 		t.Errorf("assumptions = %+v, want evidenced tx_hold_count fallback", result.Metadata.Assumptions())
 	}

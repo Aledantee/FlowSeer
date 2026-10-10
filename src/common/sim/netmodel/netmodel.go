@@ -83,7 +83,7 @@ func Load(now time.Time, src SourceContext, in Input) (Result, error) {
 	}
 
 	seeds := c.loadFDB(now, in.FDB, normCfg)
-	return c.finishLoad(normCfg, seeds)
+	return c.finishLoad(normCfg, seeds, want)
 }
 
 func applyRoutingVLANs(bridgeCfg *bridge.Config, contributions []vlan.ID) {

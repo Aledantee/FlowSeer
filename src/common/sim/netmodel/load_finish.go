@@ -8,9 +8,11 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
+	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
-func (c *loadContext) finishLoad(normCfg vswitch.Config, seeds []bridge.Seed) (Result, error) {
+func (c *loadContext) finishLoad(normCfg vswitch.Config, seeds []bridge.Seed, want []trace.Layer) (Result, error) {
+	c.reconcileCapabilities(normCfg.Capabilities(), want)
 	slices.Sort(c.report.Capabilities)
 	slices.Sort(c.report.NoSwitchport)
 	slices.SortFunc(c.report.Skipped, func(a, b Skipped) int {

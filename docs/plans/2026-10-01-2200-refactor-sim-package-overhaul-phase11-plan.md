@@ -205,7 +205,7 @@ unchanged.
 Verify: `uv run tools/scripts/run.py verify change -- src/common/sim/netmodel`
 
 ### U7. Report capability removal and share defaults
-Files: src/common/sim/netmodel/load_capabilities.go, src/common/sim/netmodel/load_stp.go, src/common/sim/netmodel/load_bridge.go, src/common/sim/netmodel/load_phy.go, src/common/sim/netmodel/load_finish.go, src/common/sim/netmodel/load_capabilities_test.go, src/common/sim/netmodel/load_stp_test.go, src/common/sim/netmodel/load_phy_test.go, src/common/sim/netmodel/README.md
+Files: src/common/sim/netmodel/load_capabilities.go, src/common/sim/netmodel/load_stp.go, src/common/sim/netmodel/load_bridge.go, src/common/sim/netmodel/load_phy.go, src/common/sim/netmodel/load_finish.go, src/common/sim/netmodel/netmodel.go, src/common/sim/netmodel/load_capabilities_test.go, src/common/sim/netmodel/load_stp_test.go, src/common/sim/netmodel/load_phy_test.go, src/common/sim/netmodel/README.md
 After: U6
 Change: final capability reconciliation records explicit requests that lost their executable config, clears their sources,
 and avoids duplicating an existing capability-omission issue. Finalization calls this reconciliation against
@@ -219,6 +219,11 @@ removed layer require an evidenced omission. Include filter-only with no IP face
 claims. Direct PseBudget builders cover absent/zero/positive group crossed with absent/zero/positive power, pinning 9
 cases. Direct PortState builders cover absent, 0, 16, 240, 1, 15, 241, 255, 256. Require invalid-port omission and preserved
 valid sibling. Existing tx-hold cases assert the layer constant. No corpus expectations change.
+Finalization needs the supported request list from `N/netmodel.go:86` because
+`N/load_routing.go:88` and `N/load_filter.go:55` clear sources before it runs.
+Add the coordinator call path to Files to pass that list into finalization.
+Port-priority cases assert normalized settings and evidenced defaults through
+the public Result and constructible Spec. `L/stp/config.go:215` marks defaulted priorities present.
 Verify: `uv run tools/scripts/run.py verify change -- src/common/sim/netmodel`
 
 ### U8. Pin fixture forwarding and document the boundary

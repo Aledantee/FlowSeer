@@ -111,15 +111,23 @@ they affect forwarding only when that unicast destination is consulted.
 
 An explicit capability request is also input to the trust decision. The loader
 deduplicates supported layers and reports duplicate requests as Incomplete.
-Unknown layers and layers that the loader cannot construct are omitted and
-reported as Unsupported. If every requested layer is rejected, the loader does
-not fall back to capability inference.
+Unknown layers are omitted and reported as Unsupported. A supported request
+that loses its executable configuration has an evidenced omission and no
+capability source. An existing bridge-level STP omission supplies that diagnostic
+without a duplicate. The final report uses `vswitch.Config.Capabilities`, including
+LAG ports. If every requested layer is rejected, the loader does not fall back
+to capability inference.
 
 The spanning tree layer constructs only from a bridge state that explicitly
 reports RSTP. A missing or `UNSPECIFIED` protocol version is Incomplete; STP and
 unknown versions are Unsupported. In each case the STP layer is omitted. An
 absent bridge or port priority uses the IEEE default, while an explicitly
 reported priority of zero remains zero through switch construction.
+RSTP port priorities outside 0 through 240 in steps of 16 omit that port with an
+evidenced issue. Valid sibling ports survive. Absent or invalid transmit hold
+counts use [stp.DefaultTxHoldCount](../layer/stp/config.go), with an assumption.
+Bridge aging uses [bridge.DefaultAgingTime](../layer/bridge/config.go) because the
+input has no aging setting.
 
 ## Operational uncertainty and localized scoping
 
@@ -137,6 +145,9 @@ the affected port:
 Physical layer attributes translate directly into tri-state physical facts in [phy.Config]:
 
 - Ethernet capabilities: absent `auto_negotiation_supported` maps to [phy.CapabilityUnknown].
+- PSE budgets require a present positive `pse_group` and positive nominal power
+  when reported. Invalid budgets are omitted with field diagnostics. Absent power
+  remains unknown, represented by zero with an evidenced assumption.
 - Power over Ethernet delivery status:
   - `DELIVERING_POWER` maps to [phy.PDAttached] alongside its power class when reported. A power class reported without `DELIVERING_POWER` is omitted with an Incomplete finding, as classification is valid only while power is delivered (RFC 3621).
   - `SEARCHING` maps to [phy.PDAbsent] with an assumption recorded that absence is inferred from the searching status (RFC 3621 treats non-delivering PSE states as searching).
@@ -220,15 +231,15 @@ omitted values with standard defaults and records each in the `Report`:
 
 | Field               | Default value    | Standard or source                  |
 | ------------------- | ---------------- | ----------------------------------- |
-| `aging_time`        | 300s             | BRIDGE-MIB:778 dot1dTpAgingTime     |
+| `aging_time`        | 300s             | [bridge.DefaultAgingTime](../layer/bridge/config.go) |
 | `frame_admission`   | `admitAll`       | Q-BRIDGE-MIB:1413 AcceptableFrame   |
 | `ingress_filtering` | `false`          | Q-BRIDGE-MIB:1437 IngressFiltering  |
 | `pvid`              | untagged VLAN ID | Port has exactly one untagged VID   |
 | `qinq_ethtype`      | 0x88A8           | Open vSwitch qinq-ethtype, 802.1ad  |
 | `mtu`               | unlimited (0)    | Loader fallback when MTU is absent  |
-| `tx_hold_count`     | 6                | RSTP-MIB:73 dot1dStpTxHoldCount     |
+| `tx_hold_count`     | 6                | [stp.DefaultTxHoldCount](../layer/stp/config.go) |
 | `max_class`         | 8                | No net/phy message carries one      |
 | `priority`          | none (last)      | PoeSettings without a priority      |
-| `power_nanowatts`   | 0 nW             | PseBudget without a budget          |
+| `power_nanowatts`   | unknown (0 nW)   | PseBudget without reported nominal power |
 | `bond_mode`         | `active-backup`  | Open vSwitch bond_mode default      |
 | `lacp`              | `off`            | Open vSwitch lacp default           |

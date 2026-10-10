@@ -1,7 +1,9 @@
 package netmodel_test
 
 import (
+	"fmt"
 	"slices"
+	"strings"
 	"testing"
 
 	"buf.build/go/protovalidate"
@@ -10,12 +12,17 @@ import (
 	interfacev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1"
 	ipv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/ip/v1"
 	packetv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/packet/v1"
+	phyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1"
 	switchingv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/switching/v1"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
+	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/filter"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/lag"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/mcast"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/stp"
 	"go.aledante.io/FlowSeer/src/common/sim/netmodel"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
@@ -272,5 +279,120 @@ func TestLoad_CapabilityWalkIgnoresRoutedSubParentSwitchport(t *testing.T) {
 
 	if got := loaded.Report.CapabilitySources[bridge.LayerNameVLAN]; got != "implied:routing" {
 		t.Errorf("vlan capability source = %q, want implied:routing", got)
+	}
+}
+
+func TestRequestedCapabilitiesMatchExecutableConfiguration(t *testing.T) {
+	layers := []trace.Layer{bridge.LayerName, bridge.LayerNameVLAN, phy.LayerName, phy.LayerNamePoE, lag.LayerName, stp.LayerName, routing.LayerName, filter.LayerName}
+	reached := 0
+	for _, layer := range layers {
+		for _, present := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/present=%t", layer, present), func(t *testing.T) {
+				in := netmodel.Input{Interfaces: []*interfacev1.Interface{plainPhysicalInterface("eth1")}, Want: []trace.Layer{layer}}
+				if present {
+					switch layer {
+					case bridge.LayerNameVLAN:
+						in.Interfaces = []*interfacev1.Interface{switchedPhysicalInterface("eth1", 10)}
+					case phy.LayerName:
+						in.Interfaces[0].GetPhysical().SetEthernet(phyv1.EthernetFacet_builder{}.Build())
+					case phy.LayerNamePoE:
+						in.Budgets = []*phyv1.PseBudget{phyv1.PseBudget_builder{PseGroup: ptr(uint32(1)), PowerNanowatts: ptr(uint64(100))}.Build()}
+					case lag.LayerName:
+						in.Interfaces = lagInterfaces()
+					case stp.LayerName:
+						in.BridgeState = validBridgeState()
+					case routing.LayerName, filter.LayerName:
+						in.Interfaces = []*interfacev1.Interface{routedPhysicalInterface("eth1")}
+						if layer == filter.LayerName {
+							in.FilterSets = []*filterv1.FilterRuleSet{filterv1.FilterRuleSet_builder{Name: ptr("allow"), Default: ptr(filterv1.FilterAction_FILTER_ACTION_ACCEPT)}.Build()}
+						}
+					}
+				}
+				result := load(t, netmodel.SourceContext{DeviceID: "sw1"}, in)
+				if !slices.Equal(result.Report.Capabilities, result.Spec.Config.Capabilities()) {
+					t.Errorf("reported %v, executable %v", result.Report.Capabilities, result.Spec.Config.Capabilities())
+				}
+				if cfg := result.Spec.Config.Bridge; cfg != nil {
+					if cfg.AgingTime != bridge.DefaultAgingTime {
+						t.Errorf("aging time = %s, want %s", cfg.AgingTime, bridge.DefaultAgingTime)
+					}
+					if !slices.ContainsFunc(result.Report.Defaults, func(d netmodel.Default) bool {
+						return d.Field == "aging_time" && d.Value == fmt.Sprintf("%gs", bridge.DefaultAgingTime.Seconds()) && len(d.Evidence) > 0
+					}) {
+						t.Errorf("aging default missing: %+v", result.Report.Defaults)
+					}
+				}
+				// Relay, VLAN, Ethernet, and PoE accept an empty executable configuration.
+				retained := present || layer == bridge.LayerName || layer == bridge.LayerNameVLAN || layer == phy.LayerName || layer == phy.LayerNamePoE
+				if slices.Contains(result.Report.Capabilities, layer) != retained {
+					t.Errorf("capabilities = %v, retained %s = %t", result.Report.Capabilities, layer, retained)
+				}
+				_, sourcePresent := result.Report.CapabilitySources[layer]
+				if sourcePresent != retained {
+					t.Errorf("sources = %v, retained %s = %t", result.Report.CapabilitySources, layer, retained)
+				}
+				if !retained {
+					omissions := 0
+					for _, issue := range result.Metadata.Issues() {
+						if (strings.Contains(issue.Message, fmt.Sprintf("layer %q", layer)) || layer == stp.LayerName && issue.Code == netmodel.IssueMissingSTPBridgeState) && len(issue.Evidence) > 0 {
+							omissions++
+						}
+					}
+					if omissions != 1 {
+						t.Errorf("evidenced capability omissions = %d, want 1: %+v", omissions, result.Metadata.Issues())
+					}
+					if result.Readiness() == analysis.Complete {
+						t.Error("removed requested layer has Complete readiness")
+					}
+				}
+				if _, err := vswitch.NewWithSpec(result.Spec); err != nil {
+					t.Fatalf("construct: %v", err)
+				}
+				reached++
+			})
+		}
+	}
+	if reached != 16 {
+		t.Errorf("reached %d capability cases, want 16", reached)
+	}
+}
+
+func TestRemovedRequestsReportMissingPrerequisites(t *testing.T) {
+	for _, name := range []string{"filter without IP", "empty routing", "rejected routed claims", "rejected STP bridge"} {
+		t.Run(name, func(t *testing.T) {
+			in := netmodel.Input{Interfaces: []*interfacev1.Interface{plainPhysicalInterface("eth1")}}
+			removed := routing.LayerName
+			switch name {
+			case "filter without IP":
+				removed = filter.LayerName
+				in.FilterSets = []*filterv1.FilterRuleSet{filterv1.FilterRuleSet_builder{Name: ptr("allow"), Default: ptr(filterv1.FilterAction_FILTER_ACTION_ACCEPT)}.Build()}
+			case "rejected routed claims":
+				in.Interfaces = []*interfacev1.Interface{routedVLANInterface("vlan-a", 10, []byte{0, 1, 2, 3, 4, 5}), routedVLANInterface("vlan-b", 10, []byte{0, 1, 2, 3, 4, 6})}
+			case "rejected STP bridge":
+				removed = stp.LayerName
+				in.BridgeState = validBridgeState()
+				in.BridgeState.ClearProtocolVersion()
+			}
+			in.Want = []trace.Layer{removed}
+			result := load(t, netmodel.SourceContext{DeviceID: "sw1"}, in)
+			if slices.Contains(result.Report.Capabilities, removed) || !slices.Equal(result.Report.Capabilities, result.Spec.Config.Capabilities()) {
+				t.Errorf("reported %v, executable %v", result.Report.Capabilities, result.Spec.Config.Capabilities())
+			}
+			if _, exists := result.Report.CapabilitySources[removed]; exists {
+				t.Errorf("removed request retains source: %v", result.Report.CapabilitySources)
+			}
+			omissions := 0
+			for _, issue := range result.Metadata.Issues() {
+				if (strings.Contains(issue.Message, fmt.Sprintf("layer %q", removed)) || removed == stp.LayerName && issue.Code == netmodel.IssueMissingSTPProtocolVersion) && len(issue.Evidence) > 0 {
+					omissions++
+				}
+			}
+			if omissions != 1 {
+				t.Errorf("evidenced omissions = %d, want 1: %+v", omissions, result.Metadata.Issues())
+			}
+			if _, err := vswitch.NewWithSpec(result.Spec); err != nil {
+				t.Fatalf("construct: %v", err)
+			}
+		})
 	}
 }
