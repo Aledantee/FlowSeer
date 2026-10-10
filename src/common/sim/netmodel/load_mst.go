@@ -32,10 +32,10 @@ func (c *loadContext) loadMST(bridge *stpv1.BridgeState, instances []*stpv1.MstI
 	start := len(c.issues)
 	m := c.loadMSTRegion(bridge)
 	if m != nil {
-		conflicted := c.loadMSTInstances(bridge, instances, m)
+		conflicted, reportedCount := c.loadMSTInstances(bridge, instances, m)
 		c.loadMSTMaps(maps, m, conflicted)
 		c.loadMSTPorts(mstPorts, maps, m, common, ports, conflicted)
-		if len(m.Instances) > bpdu.MaxMSTIRecords {
+		if reportedCount > bpdu.MaxMSTIRecords || len(m.Instances) > bpdu.MaxMSTIRecords {
 			c.addSkippedAt(c.mstScope("instances"), "", "mst_region", "more than 64 instances cannot execute", analysis.Incomplete, IssueIncompleteMSTRegion)
 			m = nil
 		} else if digest := m.ConfigID().Digest; !bytes.Equal(digest[:], bridge.GetMstConfigId().GetDigest()) {
@@ -213,7 +213,8 @@ func (c *loadContext) loadMSTRegion(bridge *stpv1.BridgeState) *stp.MST {
 	return &stp.MST{Name: identity.GetName(), Revision: uint16(identity.GetRevisionLevel()), MaxHops: maxHops, Instances: make(map[bpdu.MSTID]stp.Instance)}
 }
 
-func (c *loadContext) loadMSTInstances(bridge *stpv1.BridgeState, instances []*stpv1.MstInstance, m *stp.MST) map[string]bool {
+func (c *loadContext) loadMSTInstances(bridge *stpv1.BridgeState, instances []*stpv1.MstInstance, m *stp.MST) (map[string]bool, int) {
+	reported := make(map[uint32]bool)
 	rows, conflicts := resolveFacts(instances, func(row *stpv1.MstInstance) (factKey, string, bool) {
 		if row == nil {
 			return factKey{}, "", false
@@ -221,6 +222,11 @@ func (c *loadContext) loadMSTInstances(bridge *stpv1.BridgeState, instances []*s
 		id := strconv.FormatUint(uint64(row.GetMstId()), 10)
 		if !c.acceptInstance(row, "mst_instance", id, "") {
 			return factKey{}, "", false
+		}
+		// An empty allocation can preserve the digest after an instance is omitted.
+		// Capacity therefore counts reported IDs before validating their settings.
+		if row.HasMstId() && row.GetMstId() >= 1 && row.GetMstId() <= 4094 {
+			reported[row.GetMstId()] = true
 		}
 		field, why := validateMSTInstance(bridge, row)
 		if why != "" {
@@ -247,7 +253,7 @@ func (c *loadContext) loadMSTInstances(bridge *stpv1.BridgeState, instances []*s
 			c.addDefaultAt(c.mstScope("instances", key, "priority"), "", "priority", fmt.Sprint(stp.DefaultBridgePriority))
 		}
 	}
-	return conflicted
+	return conflicted, len(reported)
 }
 
 func validateMSTInstance(bridge *stpv1.BridgeState, row *stpv1.MstInstance) (string, string) {

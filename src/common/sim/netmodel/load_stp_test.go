@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"slices"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -202,6 +203,74 @@ func TestLoadMSTPortRefusals(t *testing.T) {
 	}
 	if reached != 14 {
 		t.Fatalf("reached %d cases, want 14", reached)
+	}
+}
+
+func TestLoadMSTReportedCapacityBeforePortOmission(t *testing.T) {
+	reached := 0
+	for _, variant := range []string{"missing", "refused"} {
+		t.Run(variant, func(t *testing.T) {
+			in := mstLoadInput(t, false)
+			for id := uint32(3); id <= 65; id++ {
+				in.MSTInstances = append(in.MSTInstances, stpv1.MstInstance_builder{
+					NetworkInstance: ptr(netmodel.DefaultNetworkInstance), MstId: ptr(id), BridgeId: in.BridgeState.GetBridgeId(),
+				}.Build())
+				in.MSTVLANMaps = append(in.MSTVLANMaps, stpv1.MstVlanMap_builder{
+					NetworkInstance: ptr(netmodel.DefaultNetworkInstance), MstId: ptr(id),
+				}.Build())
+				in.MSTPorts = append(in.MSTPorts, stpv1.MstPort_builder{
+					MstId: ptr(id), InterfaceName: ptr("p1"), Priority: ptr(uint32(16)), AdminPathCost: ptr(uint32(7)),
+				}.Build())
+			}
+			for _, row := range in.MSTInstances {
+				if err := protovalidate.Validate(row); err != nil {
+					t.Fatal(err)
+				}
+			}
+			for _, row := range in.MSTVLANMaps {
+				if err := protovalidate.Validate(row); err != nil {
+					t.Fatal(err)
+				}
+			}
+			for _, row := range in.MSTPorts {
+				if err := protovalidate.Validate(row); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if variant == "missing" {
+				in.MSTPorts = in.MSTPorts[:64]
+			} else {
+				in.MSTPorts[64].SetPriority(1)
+			}
+			result := load(t, netmodel.SourceContext{DeviceID: "sw1"}, in)
+			sw, err := vswitch.NewWithSpec(result.Spec)
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, hasSTPSource := result.Report.CapabilitySources[stp.LayerName]
+			if sw.Config().STP != nil || slices.Contains(result.Report.Capabilities, stp.LayerName) || hasSTPSource {
+				t.Fatal("over-capacity reported region retained STP capability after port omission")
+			}
+			if result.Readiness() != analysis.Incomplete {
+				t.Fatalf("readiness = %s, want Incomplete", result.Readiness())
+			}
+			scope := analysis.FieldScope(analysis.ProtocolScope("sw1", string(stp.LayerName), "0"), "mst", "instances")
+			if !slices.ContainsFunc(result.Metadata.Issues(), func(i analysis.Issue) bool {
+				return i.Code == netmodel.IssueIncompleteMSTRegion && i.Status == analysis.Incomplete && i.Scope == scope && len(i.Evidence) > 0 && strings.Contains(i.Message, "more than 64")
+			}) {
+				t.Fatalf("issues = %+v, want evidenced capacity refusal", result.Metadata.Issues())
+			}
+			for _, path := range [][]string{{"instances", "1"}, {"vlan_maps", "1"}, {"instances", "1", "ports", "p1"}, {"instances", "65", "ports", "p1"}} {
+				requireMSTLoadIssue(t, result, path...)
+			}
+			if variant == "refused" {
+				requireMSTLoadIssue(t, result, "instances", "65", "ports", "p1", "priority")
+			}
+			reached++
+		})
+	}
+	if reached != 2 {
+		t.Fatalf("reached %d cases, want 2", reached)
 	}
 }
 
