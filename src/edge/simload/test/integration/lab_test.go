@@ -419,7 +419,10 @@ func TestICX7150Comparison(t *testing.T) {
 			if delta > want/100 {
 				t.Errorf("receive pacing deviation = %s, want <= %s", delta, want/100)
 			}
-			report := simload.NewReport(lab.Flows(), lab.Metadata(), observation, "rx")
+			report, err := simload.NewReport(lab.Flows(), lab.Metadata(), observation, "rx")
+			if err != nil {
+				t.Fatalf("NewReport: %v", err)
+			}
 			if len(report.Simulator.Issues) != len(lab.Metadata().Issues()) {
 				t.Fatalf("report simulator issues = %d, want %d", len(report.Simulator.Issues), len(lab.Metadata().Issues()))
 			}

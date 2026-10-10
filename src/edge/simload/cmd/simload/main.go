@@ -136,13 +136,11 @@ func compare(input io.Reader, output io.Writer) error {
 		}
 		flowIDs[flow.ID] = struct{}{}
 	}
-	for id := range document.Lab.Flows {
-		if _, exists := flowIDs[id]; !exists {
-			return errs.Msgf("lab flow ID %d is unknown to the simulator input", id)
-		}
-	}
 
-	report := simload.NewReportFromSimulator(document.Simulator, document.Lab, document.Destination)
+	report, err := simload.NewReportFromSimulator(document.Simulator, document.Lab, document.Destination)
+	if err != nil {
+		return err
+	}
 	return report.WriteJSON(output)
 }
 

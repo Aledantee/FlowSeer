@@ -8,6 +8,7 @@ import (
 	"slices"
 	"sort"
 
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
 	"go.aledante.io/FlowSeer/src/common/sim/flow"
 )
@@ -86,25 +87,33 @@ type IssueReport struct {
 }
 
 // NewReport projects simulator flows and metadata into a deterministic report.
-// destination is the named simulator host used for the normalized delivery
-// row; it is not inferred from whichever map key happens to sort first.
-func NewReport(flows map[flow.ID]flow.Stats, metadata analysis.Metadata, lab Observation, destination string) Report {
+// Each flow keeps its folded journey metadata, independent of the whole-fabric
+// summary. destination names the host used for normalized delivery rows. A lab
+// flow absent from flows returns an error and a zero Report.
+func NewReport(flows map[flow.ID]flow.Stats, metadata analysis.Metadata, lab Observation, destination string) (Report, error) {
 	simulator := SimulatorReport{Status: metadata.Status().String(), Issues: issueReports(metadata.Issues())}
 	for id, stats := range flows {
-		flowMetadata := stats.Metadata
-		if flowMetadata.Scope() == analysis.WholeScope() && len(flowMetadata.Issues()) == 0 && flowMetadata.Status() == analysis.Complete {
-			flowMetadata = metadata
-		}
-		simulator.Flows = append(simulator.Flows, simulatorFlow(id, stats, flowMetadata))
-
+		simulator.Flows = append(simulator.Flows, simulatorFlow(id, stats, stats.Metadata))
 	}
 	return NewReportFromSimulator(simulator, lab, destination)
 }
 
 // NewReportFromSimulator combines a projected simulator report and a lab
 // observation for destination. It sorts the supplied flow rows by ID and
-// preserves their status, issues, and raw counters.
-func NewReportFromSimulator(simulator SimulatorReport, lab Observation, destination string) Report {
+// preserves their status, issues, and raw counters. A lab flow absent from the
+// simulator rows returns an error and a zero Report. Simulator-only rows remain
+// visible with zero lab counters.
+func NewReportFromSimulator(simulator SimulatorReport, lab Observation, destination string) (Report, error) {
+	flowIDs := make(map[flow.ID]struct{}, len(simulator.Flows))
+	for _, row := range simulator.Flows {
+		flowIDs[row.ID] = struct{}{}
+	}
+	for _, id := range SortedFlowIDs(lab) {
+		if _, exists := flowIDs[id]; !exists {
+			return Report{}, errs.Msgf("lab flow ID %d is unknown to the simulator input", id)
+		}
+	}
+
 	simulator.Flows = slices.Clone(simulator.Flows)
 	sort.Slice(simulator.Flows, func(i, j int) bool { return simulator.Flows[i].ID < simulator.Flows[j].ID })
 	normalized := make([]NormalizedFlow, 0, len(simulator.Flows))
@@ -137,7 +146,7 @@ func NewReportFromSimulator(simulator SimulatorReport, lab Observation, destinat
 			"receive timestamps measure capture delivery to userspace",
 			"sequence gaps do not identify a switch drop reason or cable loss",
 		},
-	}
+	}, nil
 }
 
 // WriteJSON writes one indented report followed by a newline.

@@ -58,7 +58,17 @@ loss without evidence.
 `compare` reads a version-one document containing a simulator report, a lab
 observation, and the named simulator destination host. It writes deterministic
 JSON with the raw counters, simulator status and issues, lab counters, and
-normalized offered/delivered/unreceived rows.
+normalized offered/delivered/unreceived rows. A lab flow ID absent from the
+simulator input is refused before any JSON is written. Simulator-only rows
+remain visible with zero lab counters.
+
+[`NewReport`](report.go) and `NewReportFromSimulator` return `(Report, error)`.
+Both return an error and a zero report for a lab-only flow ID. `NewReport`
+keeps each flow's folded journey status and issues, including copy-derived
+issues, while the simulator summary retains whole-fabric metadata. An unrelated
+fabric issue leaves a complete flow complete, so the report preserves where
+trust was lost. [`report_test.go`](report_test.go) pins issue scopes and evidence
+references separately for flows and the whole summary.
 
 ## Live switch runs
 
