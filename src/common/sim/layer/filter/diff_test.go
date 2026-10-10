@@ -158,38 +158,7 @@ func TestDiffReportsRuleAndBindingChanges(t *testing.T) {
 }
 
 func TestDiffCoversEveryConfigField(t *testing.T) {
-	protoTCP := uint8(6)
-	icmpCode := uint8(0)
-
-	seed := filter.Config{
-		Sets: map[string]filter.RuleSet{
-			"set1": {
-				Stateful: true,
-				Default:  filter.Drop,
-				Rules: []filter.Rule{
-					{
-						Name:   "rule1",
-						Action: filter.Accept,
-						Match: filter.Match{
-							Protocol: &protoTCP,
-							Src:      []netip.Prefix{netip.MustParsePrefix("10.0.1.0/24")},
-							Dst:      []netip.Prefix{netip.MustParsePrefix("10.0.2.0/24")},
-							SrcPorts: []filter.PortRange{{Start: 1000, End: 2000}},
-							DstPorts: []filter.PortRange{{Start: 80, End: 80}},
-							ICMP:     &filter.ICMPMatch{Type: 8, Code: &icmpCode},
-							TCPFlags: &filter.FlagMatch{Mask: tcp.SYN | tcp.ACK, Value: tcp.SYN},
-						},
-					},
-				},
-			},
-		},
-		Bindings: []filter.Binding{
-			{Interface: "vlan10", Direction: filter.In, Set: "set1"},
-		},
-	}
-
-	normalize := func(c filter.Config) filter.Config { return c.Normalize(layer.Env{}) }
-	simtest.AssertDiffCoversConfig(t, seed, normalize, filter.Diff, nil)
+	simtest.AssertMappedDiffCoverage(t, "filter", simtest.FilterDiffAllowance())
 }
 
 // TestRetentionKeyCoversEveryConfigField verifies that every exported filter.Config field
