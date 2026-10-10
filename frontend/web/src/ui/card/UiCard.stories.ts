@@ -28,7 +28,7 @@ export const Default: Story = {
           <span class="text-xs text-muted-foreground">Action</span>
         </template>
         <p class="text-sm text-muted-foreground">
-          This is elevated card content enclosed within a rounded panel surface.
+        This content sits inside a framed panel with corner ticks.
         </p>
         <template #footer>
           <span class="text-xs text-muted-foreground">Updated just now</span>

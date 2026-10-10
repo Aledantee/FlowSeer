@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, useTemplateRef } from 'vue'
 import { I18nT, useI18n } from 'vue-i18n'
 import {
   type UiCommandItemSelectEvent,
@@ -93,6 +93,12 @@ const open = ref(false)
 const query = ref('')
 const recent = ref<RecentSearch[]>([])
 const selectedValue = ref('')
+const trigger = useTemplateRef<HTMLButtonElement>('trigger')
+
+function handleCloseAutoFocus(event: Event) {
+  event.preventDefault()
+  trigger.value?.focus()
+}
 
 const clients = computed(() => clientsOf(props.fleet))
 
@@ -374,8 +380,10 @@ onUnmounted(() => window.removeEventListener('keydown', shortcutKey))
 
 <template>
   <button
+    ref="trigger"
     class="search-trigger flex items-center gap-2 h-[34px] mr-2 px-2.5 border border-chrome-border rounded-control bg-chrome-surface/60 text-chrome-muted-foreground text-xs hover:border-chrome-muted-foreground hover:text-chrome-foreground cursor-pointer max-[800px]:w-11 max-[800px]:h-11 max-[800px]:justify-center max-[800px]:mr-0 max-[800px]:p-0"
     aria-haspopup="dialog"
+    :aria-label="t('view.search.trigger')"
     @click="openSearch"
   >
     <AppIcon name="search" class="w-3.5 h-3.5" /><span
@@ -392,6 +400,7 @@ onUnmounted(() => window.removeEventListener('keydown', shortcutKey))
     v-model:highlighted-value="selectedValue"
     :ignore-filter="true"
     @keydown.capture="handleKeydown"
+    @close-auto-focus="handleCloseAutoFocus"
   >
     <UiCommandInput
       v-model="query"

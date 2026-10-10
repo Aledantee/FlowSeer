@@ -259,7 +259,7 @@ const sourcesList = computed(() => {
     >
       <div class="flex items-center gap-2">
         <span
-          class="ai-shimmer h-5 w-16 rounded-full"
+          class="ai-shimmer h-5 w-16 rounded-control"
           aria-hidden="true"
         ></span>
         <span
@@ -370,7 +370,7 @@ const sourcesList = computed(() => {
           </div>
           <h4
             v-if="summaryResult.headline"
-            class="text-sm font-semibold text-foreground leading-snug"
+            class="font-mono text-sm font-semibold tracking-tight text-foreground leading-snug"
             data-ai-result-headline
           >
             {{ summaryResult.headline }}
@@ -416,7 +416,7 @@ const sourcesList = computed(() => {
           data-ai-result-cause
         >
           <span
-            class="font-medium text-muted-foreground"
+            class="font-mono text-2xs font-semibold uppercase tracking-wide text-muted-foreground"
             data-ai-cause-header
             >{{ causeHeaderText }}</span
           >
@@ -444,9 +444,10 @@ const sourcesList = computed(() => {
           class="flex flex-col gap-0.5 text-xs ai-fade-in motion-reduce:animate-none"
           data-ai-result-impact
         >
-          <span class="font-medium text-muted-foreground">{{
-            t('ui.aiResult.impact')
-          }}</span>
+          <span
+            class="font-mono text-2xs font-semibold uppercase tracking-wide text-muted-foreground"
+            >{{ t('ui.aiResult.impact') }}</span
+          >
           <p class="text-foreground">
             {{ summaryResult.impact.text }}
           </p>
@@ -476,7 +477,9 @@ const sourcesList = computed(() => {
               <dt class="text-muted-foreground">
                 {{ item.label }}
               </dt>
-              <dd class="font-medium text-foreground">
+              <dd
+                class="font-mono text-xs font-medium tabular-nums text-foreground"
+              >
                 {{ item.value }}
               </dd>
             </template>
@@ -489,9 +492,10 @@ const sourcesList = computed(() => {
           class="flex flex-col gap-1 text-xs ai-fade-in motion-reduce:animate-none"
           data-ai-result-next-steps
         >
-          <span class="font-medium text-muted-foreground">{{
-            t('ui.aiResult.nextSteps')
-          }}</span>
+          <span
+            class="font-mono text-2xs font-semibold uppercase tracking-wide text-muted-foreground"
+            >{{ t('ui.aiResult.nextSteps') }}</span
+          >
           <ol class="list-decimal pl-4 space-y-0.5 text-foreground">
             <li v-for="(step, idx) in nextStepsList" :key="idx">
               <span>{{ step.label }}</span>

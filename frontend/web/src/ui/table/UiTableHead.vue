@@ -62,7 +62,9 @@ const buttonAlignmentClass = computed(() => {
   return 'justify-start'
 })
 
-const paddingClass = computed(() => (isDense.value ? 'py-2 px-3' : 'py-3 px-4'))
+const paddingClass = computed(() =>
+  isDense.value ? 'py-2 px-3' : 'py-2.5 px-3',
+)
 
 const stickyClass = computed(() =>
   isSticky.value
@@ -87,7 +89,7 @@ function handleClick() {
     ref="anchor"
     :aria-sort="ariaSortValue"
     :class="[
-      'font-medium text-xs text-muted-foreground align-middle',
+      'font-mono font-medium text-2xs uppercase tracking-wide text-muted-foreground align-middle',
       alignmentClass,
       paddingClass,
       stickyClass,
@@ -98,7 +100,7 @@ function handleClick() {
       v-if="sortable"
       type="button"
       :class="[
-        'inline-flex items-center gap-1 font-medium text-xs text-muted-foreground hover:text-foreground cursor-pointer',
+        'inline-flex items-center gap-1 font-mono font-medium text-2xs uppercase tracking-wide text-muted-foreground hover:text-foreground cursor-pointer',
         buttonAlignmentClass,
       ]"
       @click.stop="handleClick"

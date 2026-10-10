@@ -46,7 +46,7 @@ const emit = defineEmits<
     <ContextMenuPortal>
       <ContextMenuContent
         :collision-padding="8"
-        class="bg-popover text-foreground border border-border shadow-lg rounded-control p-1 z-(--z-overlay) min-w-[10rem] focus:outline-none data-[state=open]:animate-overlay-in data-[state=closed]:animate-overlay-out motion-reduce:data-[state=open]:animate-fade-in motion-reduce:data-[state=closed]:animate-fade-out origin-(--reka-popper-transform-origin)"
+        class="bg-popover text-foreground border border-border rounded-control p-1 z-(--z-overlay) min-w-[10rem] focus:outline-none data-[state=open]:animate-overlay-in data-[state=closed]:animate-overlay-out motion-reduce:data-[state=open]:animate-fade-in motion-reduce:data-[state=closed]:animate-fade-out origin-(--reka-popper-transform-origin)"
         @close-auto-focus="emit('closeAutoFocus', $event)"
       >
         <PopupAnchor

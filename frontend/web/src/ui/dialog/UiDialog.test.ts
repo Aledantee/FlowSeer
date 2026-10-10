@@ -2,6 +2,8 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { createApp, h, nextTick, ref } from 'vue'
 import UiDialog, { type UiDialogProps } from './UiDialog.vue'
+import UiDropdownMenu from '../dropdown-menu/UiDropdownMenu.vue'
+import UiDropdownMenuItem from '../dropdown-menu/UiDropdownMenuItem.vue'
 import { createWebI18n, type WebLocale } from '../../i18n'
 
 let dispose = () => {}
@@ -302,5 +304,70 @@ describe('UiDialog', () => {
     expect(dialog).not.toBeNull()
     expect(dialog?.className).toContain('right-0')
     expect(dialog?.className).toContain('h-full')
+  })
+
+  it('restores focus to trigger inside parent dialog when nested overlay closes', async () => {
+    mountDialog(
+      { defaultOpen: true },
+      {
+        default: () =>
+          h(
+            UiDropdownMenu,
+            {},
+            {
+              trigger: () =>
+                h(
+                  'button',
+                  { id: 'nested-trigger', type: 'button' },
+                  'Open Nested',
+                ),
+              default: () => [h(UiDropdownMenuItem, {}, () => 'Nested Item')],
+            },
+          ),
+      },
+    )
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    const trigger =
+      document.body.querySelector<HTMLButtonElement>('#nested-trigger')
+    expect(trigger).not.toBeNull()
+    trigger?.focus()
+    expect(document.activeElement).toBe(trigger)
+
+    trigger?.click()
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    const menu = document.body.querySelector('[role="menu"]')
+    expect(menu).not.toBeNull()
+
+    menu?.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'Escape',
+        code: 'Escape',
+        bubbles: true,
+        cancelable: true,
+      }),
+    )
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    expect(document.body.querySelector('[role="menu"]')).toBeNull()
+    expect(document.body.querySelector('[role="dialog"]')).not.toBeNull()
+    expect(document.activeElement).toBe(trigger)
+  })
+
+  it('applies Signal square panel framing without raised shadow to center dialogs', async () => {
+    mountDialog({ defaultOpen: true, title: 'Network Settings' })
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    const dialog = document.body.querySelector('[role="dialog"]')
+    expect(dialog?.classList.contains('ui-card')).toBe(true)
+    expect(dialog?.className).not.toContain('shadow-lg')
+
+    const title = document.body.querySelector('h2')
+    expect(title?.className).toContain('font-mono')
   })
 })

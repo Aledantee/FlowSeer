@@ -41,7 +41,7 @@ provide<TableContext>('ui-table-context', {
   <table
     ref="anchor"
     data-ui-table
-    class="w-full caption-bottom text-sm border-collapse text-left"
+    class="w-full caption-bottom text-xs border-collapse text-left"
   >
     <slot />
   </table>

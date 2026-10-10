@@ -133,23 +133,26 @@ function clearAccessPoint() {
   <UiAiTarget
     as="section"
     :ai="viewTarget"
-    class="bg-card border border-border rounded-panel overflow-hidden shadow-xs"
+    class="ui-card relative bg-card border border-border rounded-panel overflow-hidden"
     aria-labelledby="clients-title"
   >
     <div
-      class="px-6 py-5 pb-4 flex items-center justify-between gap-3 max-[560px]:p-[18px_14px]"
+      class="px-6 py-4 border-b border-border flex items-center justify-between gap-3 max-[560px]:p-[14px_14px]"
     >
-      <h2 id="clients-title" class="text-base font-semibold text-foreground">
+      <h2
+        id="clients-title"
+        class="font-mono text-xs font-semibold uppercase tracking-wider text-foreground"
+      >
         {{ t('view.common.connectedClients') }}
         <span
-          class="text-xs bg-subtle px-1.5 py-0.5 rounded text-muted-foreground ml-1.5 font-medium"
+          class="font-mono text-2xs bg-subtle px-1.5 py-0.5 rounded-control text-muted-foreground ml-1.5 font-medium"
         >
           {{ n(all.length, 'integer') }}
         </span>
       </h2>
     </div>
     <div
-      class="flex items-center gap-3 px-6 pb-5 max-[560px]:flex-wrap max-[560px]:p-[0_14px_15px] max-[560px]:gap-2.5"
+      class="flex items-center gap-3 px-6 py-3 border-b border-border max-[560px]:flex-wrap max-[560px]:p-[10px_14px] max-[560px]:gap-2.5"
     >
       <div class="relative flex items-center w-[340px] max-[560px]:w-full">
         <AppIcon
@@ -173,7 +176,7 @@ function clearAccessPoint() {
       </div>
       <button
         v-if="accessPoint"
-        class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-control bg-subtle text-foreground hover:bg-hover border border-border cursor-pointer"
+        class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-control bg-subtle text-foreground hover:bg-hover border border-border cursor-pointer font-mono"
         :aria-label="
           t('view.clients.stopFiltering', { name: accessPoint.name })
         "
@@ -182,7 +185,9 @@ function clearAccessPoint() {
         <span translate="no">{{ accessPoint.name }}</span
         ><AppIcon name="close" class="w-3 h-3 text-muted-foreground" />
       </button>
-      <span class="ml-auto text-xs text-muted-foreground">
+      <span
+        class="ml-auto text-xs text-muted-foreground font-mono tabular-nums"
+      >
         {{ format.counted('view.common.results', filtered.length) }}
       </span>
     </div>
@@ -209,7 +214,7 @@ function clearAccessPoint() {
             <UiTableCell>
               <strong
                 translate="no"
-                class="font-medium text-foreground block text-xs"
+                class="font-mono font-medium text-foreground block text-xs"
               >
                 {{ client.hostname }}
               </strong>
@@ -224,7 +229,7 @@ function clearAccessPoint() {
             <UiTableCell>
               <AppLink
                 translate="no"
-                class="text-accent-foreground hover:underline"
+                class="font-mono text-accent-foreground hover:underline text-xs"
                 :to="{
                   path: `/devices/${client.deviceId}`,
                   query: scopeOf(navPage.location.value),
@@ -242,7 +247,7 @@ function clearAccessPoint() {
             <UiTableCell>{{ labels.band(client.band) }}</UiTableCell>
             <UiTableCell>
               <span
-                class="inline-flex items-center gap-1.5 text-xs"
+                class="inline-flex items-center gap-1.5 text-xs font-mono tabular-nums"
                 :class="{
                   'text-success-foreground':
                     signalQuality(client.signal) === 'Strong',
@@ -252,13 +257,17 @@ function clearAccessPoint() {
                     signalQuality(client.signal) === 'Weak',
                 }"
               >
-                {{ labels.signal(signalQuality(client.signal)) }}
-                <small class="text-2xs text-muted-foreground">
+                <span class="font-sans">{{
+                  labels.signal(signalQuality(client.signal))
+                }}</span>
+                <small
+                  class="text-2xs text-muted-foreground font-mono tabular-nums"
+                >
                   {{ format.quantity(client.signal, 'dbm') }}
                 </small>
               </span>
             </UiTableCell>
-            <UiTableCell align="numeric">
+            <UiTableCell align="numeric" class="font-mono tabular-nums">
               <I18nT scope="global" keypath="view.common.valueWithUnit">
                 <template #value>{{
                   n(client.throughput, 'decimal')

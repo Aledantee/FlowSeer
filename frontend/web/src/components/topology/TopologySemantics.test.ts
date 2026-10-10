@@ -154,6 +154,20 @@ function mount(
 }
 
 describe('topology assumption semantics', () => {
+  it('names the built-in zoom controls for assistive technology', () => {
+    const graph = readFileSync(
+      path.resolve(__dirname, 'TopologyGraph.vue'),
+      'utf8',
+    )
+
+    expect(graph).toMatch(
+      /#control-zoom-in[\s\S]*aria-label[\s\S]*view\.topology\.zoomIn/,
+    )
+    expect(graph).toMatch(
+      /#control-zoom-out[\s\S]*aria-label[\s\S]*view\.topology\.zoomOut/,
+    )
+  })
+
   it('renders status badges only for failing nodes', () => {
     const healthy = devices.find((device) => device.health === 'Healthy')
     const degraded = devices.find((device) => device.health === 'Degraded')

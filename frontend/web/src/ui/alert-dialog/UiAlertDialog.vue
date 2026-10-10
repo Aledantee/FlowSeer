@@ -69,7 +69,7 @@ const emit = defineEmits<
       />
       <AlertDialogContent
         :disable-outside-pointer-events="true"
-        class="bg-popover text-foreground border border-border shadow-lg rounded-panel fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-(--z-overlay) p-6 w-full max-w-md focus:outline-none data-[state=open]:animate-dialog-in data-[state=closed]:animate-dialog-out motion-reduce:data-[state=open]:animate-dialog-fade-in motion-reduce:data-[state=closed]:animate-fade-out"
+        class="ui-card relative bg-popover text-foreground border border-border rounded-panel fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-(--z-overlay) p-6 w-full max-w-md focus:outline-none data-[state=open]:animate-dialog-in data-[state=closed]:animate-dialog-out motion-reduce:data-[state=open]:animate-dialog-fade-in motion-reduce:data-[state=closed]:animate-fade-out"
         @close-auto-focus="emit('closeAutoFocus', $event)"
       >
         <PopupAnchor
@@ -77,8 +77,10 @@ const emit = defineEmits<
           :ai-origin="aiOrigin"
           @ai-origin-acknowledged="emit('aiOriginAcknowledged', $event)"
         />
-        <div class="flex flex-col gap-2 mb-6">
-          <AlertDialogTitle class="text-lg font-semibold text-foreground">
+        <div class="flex flex-col gap-1.5 pb-3 mb-4 border-b border-border">
+          <AlertDialogTitle
+            class="font-mono text-lg font-semibold tracking-tight text-foreground"
+          >
             {{ title }}
           </AlertDialogTitle>
           <AlertDialogDescription class="text-sm text-muted-foreground">

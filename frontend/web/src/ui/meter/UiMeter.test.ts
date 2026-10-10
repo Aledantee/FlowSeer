@@ -109,7 +109,7 @@ describe('UiMeter', () => {
     expect(withValueText.el.textContent).toContain('Used: 75 %')
   })
 
-  it('segmented meter computes summary aria-label and renders proportional segment flex-grow values and legend list', () => {
+  it('renders one tick per count, an exact summary, and the localized legend', () => {
     const { el } = mount(UiSegmentedMeter, {
       counts: { Healthy: 10, Degraded: 2, Offline: 1 },
       legend: true,
@@ -122,10 +122,22 @@ describe('UiMeter', () => {
     )
 
     const segments = track?.querySelectorAll('.health-segment')
-    expect(segments?.length).toBe(3)
-    expect((segments?.[0] as HTMLElement).style.flexGrow).toBe('10')
-    expect((segments?.[1] as HTMLElement).style.flexGrow).toBe('2')
-    expect((segments?.[2] as HTMLElement).style.flexGrow).toBe('1')
+    expect(segments?.length).toBe(13)
+    expect(
+      Array.from(segments ?? []).filter((segment) =>
+        segment.className.includes('bg-success-foreground'),
+      ),
+    ).toHaveLength(10)
+    expect(
+      Array.from(segments ?? []).filter((segment) =>
+        segment.className.includes('bg-warning-foreground'),
+      ),
+    ).toHaveLength(2)
+    expect(
+      Array.from(segments ?? []).filter((segment) =>
+        segment.className.includes('bg-danger-foreground'),
+      ),
+    ).toHaveLength(1)
 
     const legendItems = el.querySelectorAll('li')
     expect(legendItems.length).toBe(3)
@@ -164,6 +176,43 @@ describe('UiMeter', () => {
     })
     const track = el.querySelector('[role="img"]')
     expect(track?.getAttribute('aria-label')).toBe('0')
+  })
+
+  it('renders one health tick per device up to 100 and proportionally caps larger fleets', () => {
+    const small = mount(UiSegmentedMeter, {
+      counts: { Healthy: 25, Degraded: 2, Offline: 1 },
+    })
+    const smallTrack = small.el.querySelector('[role="img"]')
+    expect(smallTrack?.querySelectorAll('.health-segment')).toHaveLength(28)
+    expect(smallTrack?.getAttribute('aria-label')).toBe(
+      '25 Healthy, 2 Degraded, 1 Offline',
+    )
+    dispose()
+
+    const large = mount(UiSegmentedMeter, {
+      counts: { Healthy: 980, Degraded: 10, Offline: 10 },
+    })
+    const largeTrack = large.el.querySelector('[role="img"]')
+    const ticks = largeTrack?.querySelectorAll('.health-segment') ?? []
+    expect(ticks).toHaveLength(100)
+    expect(largeTrack?.getAttribute('aria-label')).toBe(
+      '980 Healthy, 10 Degraded, 10 Offline',
+    )
+    expect(
+      Array.from(ticks).filter((tick) =>
+        tick.className.includes('bg-success-foreground'),
+      ),
+    ).toHaveLength(98)
+    expect(
+      Array.from(ticks).filter((tick) =>
+        tick.className.includes('bg-warning-foreground'),
+      ),
+    ).toHaveLength(1)
+    expect(
+      Array.from(ticks).filter((tick) =>
+        tick.className.includes('bg-danger-foreground'),
+      ),
+    ).toHaveLength(1)
   })
 
   it('supports labels override map and segmentText formatter override', () => {
@@ -334,7 +383,7 @@ describe('UiSegmentedMeter', () => {
     )
   })
 
-  it('takes the Offline label and the segment text from the catalog', () => {
+  it('takes the Offline label and segment text from the catalog', () => {
     const { el } = mount(
       UiSegmentedMeter,
       { counts: { Offline: 2 }, legend: true },
@@ -348,9 +397,7 @@ describe('UiSegmentedMeter', () => {
     expect(el.querySelector('[role="img"]')?.getAttribute('aria-label')).toBe(
       'Down=2',
     )
-    expect(el.querySelector('.health-segment')?.getAttribute('title')).toBe(
-      'Down=2',
-    )
+    expect(el.querySelectorAll('.health-segment')).toHaveLength(2)
     expect(el.querySelectorAll('li span')[2]?.textContent).toBe('Down')
   })
 
@@ -369,19 +416,21 @@ describe('UiSegmentedMeter', () => {
     expect(el.querySelector('li span')?.textContent).toBe('In service')
   })
 
-  it('titles each segment with the formatted count and translated label in en and de', () => {
-    const cases: { locale: WebLocale; titles: string[] }[] = [
-      { locale: 'en', titles: ['1,234 Healthy', '2 Degraded'] },
-      { locale: 'de', titles: ['1.234 Gesund', '2 Beeinträchtigt'] },
+  it('keeps the exact accessible summary in en and de when the display is capped', () => {
+    const cases: { locale: WebLocale; summary: string }[] = [
+      { locale: 'en', summary: '1,234 Healthy, 2 Degraded' },
+      { locale: 'de', summary: '1.234 Gesund, 2 Beeinträchtigt' },
     ]
-    for (const { locale, titles } of cases) {
+    for (const { locale, summary } of cases) {
       const { el } = mount(
         UiSegmentedMeter,
         { counts: { Healthy: 1234, Degraded: 2 } },
         locale,
       )
-      const segments = Array.from(el.querySelectorAll('.health-segment'))
-      expect(segments.map((s) => s.getAttribute('title'))).toEqual(titles)
+      expect(el.querySelectorAll('.health-segment')).toHaveLength(100)
+      expect(el.querySelector('[role="img"]')?.getAttribute('aria-label')).toBe(
+        summary,
+      )
       dispose()
     }
   })
@@ -425,9 +474,7 @@ describe('UiSegmentedMeter', () => {
         summary: meter
           .querySelector('[role="img"]')
           ?.getAttribute('aria-label'),
-        titles: Array.from(meter.querySelectorAll('.health-segment')).map((s) =>
-          s.getAttribute('title'),
-        ),
+        tickCount: meter.querySelectorAll('.health-segment').length,
         legend: Array.from(meter.querySelectorAll('li')).map(
           (li) =>
             `${li.querySelector('span')?.textContent} ${li.querySelector('strong')?.textContent}`,
@@ -437,13 +484,13 @@ describe('UiSegmentedMeter', () => {
 
     expect(read(0)).toEqual({
       summary: '1,234 Healthy, 2 Degraded, 1 Offline',
-      titles: ['1,234 Healthy', '2 Degraded', '1 Offline'],
+      tickCount: 100,
       legend: ['Healthy 1,234', 'Degraded 2', 'Offline 1'],
     })
     const override = read(1)
     expect(override).toEqual({
       summary: 'In service: [4]',
-      titles: ['In service: [4]'],
+      tickCount: 4,
       legend: ['In service 4'],
     })
 
@@ -452,7 +499,7 @@ describe('UiSegmentedMeter', () => {
 
     expect(read(0)).toEqual({
       summary: '1.234 Gesund, 2 Beeinträchtigt und 1 Offline',
-      titles: ['1.234 Gesund', '2 Beeinträchtigt', '1 Offline'],
+      tickCount: 100,
       legend: ['Gesund 1.234', 'Beeinträchtigt 2', 'Offline 1'],
     })
     expect(read(1)).toEqual(override)

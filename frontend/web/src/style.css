@@ -187,7 +187,7 @@ html:has(.shell) {
     left: calc(100% + 12px);
     padding: 5px 9px;
     border: 1px solid var(--chrome-border);
-    border-radius: 5px;
+    border-radius: var(--radius-control);
     background: var(--chrome-surface);
     color: var(--chrome-foreground);
     font-size: var(--text-sm);
@@ -333,6 +333,18 @@ html:has(.shell) {
   min-width: 0;
 }
 
+.panes.assistant-open:not(.split) > .main-pane {
+  flex: 1 1 0;
+}
+
+.panes.assistant-open.split > .main-pane {
+  flex: var(--split-ratio, 0.5) 1 0;
+}
+
+.panes.assistant-open.split > .split-pane {
+  flex: calc(1 - var(--split-ratio, 0.5)) 1 0;
+}
+
 .split-enter-active,
 .split-leave-active {
   transition: opacity 280ms ease;
@@ -381,22 +393,6 @@ html:has(.shell) {
 
 .resizing-panes .pane {
   pointer-events: none;
-}
-
-.page-dock {
-  position: absolute;
-  z-index: 7;
-  right: 16px;
-  bottom: 12px;
-  left: 16px;
-  display: flex;
-  justify-content: center;
-  pointer-events: none;
-}
-
-.dock-scroll {
-  max-width: 100%;
-  pointer-events: auto;
 }
 
 /* Custom scrollbars. The thumb rests as a hairline and widens under the
@@ -483,4 +479,30 @@ html:has(.shell) {
 
 ::-webkit-scrollbar-track {
   background: transparent;
+}
+
+/* Content panel corner ticks */
+.ui-card::before,
+.ui-card::after {
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  border-color: var(--graph-edge);
+  content: '';
+  opacity: 0.65;
+  pointer-events: none;
+}
+
+.ui-card::before {
+  inset-block-start: -1px;
+  inset-inline-start: -1px;
+  border-block-start: 1px solid;
+  border-inline-start: 1px solid;
+}
+
+.ui-card::after {
+  inset-inline-end: -1px;
+  inset-block-end: -1px;
+  border-inline-end: 1px solid;
+  border-block-end: 1px solid;
 }

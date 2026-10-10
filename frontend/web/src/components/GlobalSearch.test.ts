@@ -144,6 +144,12 @@ function keydown(input: HTMLInputElement, init: KeyboardEventInit) {
 }
 
 describe('global search selection', () => {
+  it('keeps the search trigger named when its visible text is hidden at narrow widths', async () => {
+    const { host } = await mountSearchClosed()
+    const trigger = host.querySelector<HTMLButtonElement>('.search-trigger')
+    expect(trigger?.getAttribute('aria-label')).toBe('Search')
+  })
+
   it('opens the highlighted result once with ordinary Enter', async () => {
     const selected: [SearchResult, boolean][] = []
     const { input } = await mountSearch({
@@ -218,6 +224,90 @@ describe('global search selection', () => {
     expect(selected).toEqual([
       [expect.objectContaining({ id: 'inventory' }), true],
     ])
+  })
+
+  it('restores focus to the search trigger when search is closed', async () => {
+    const { host } = await mountSearchClosed()
+    const trigger = host.querySelector<HTMLButtonElement>('.search-trigger')
+    expect(trigger).not.toBeNull()
+    trigger?.focus()
+    expect(document.activeElement).toBe(trigger)
+
+    trigger?.click()
+    await settle()
+
+    const input =
+      document.body.querySelector<HTMLInputElement>('[role="combobox"]')
+    expect(input).not.toBeNull()
+    input?.focus()
+    expect(document.activeElement).toBe(input)
+
+    const content = document.body.querySelector('[role="dialog"]')
+    content?.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'Escape',
+        code: 'Escape',
+        bubbles: true,
+        cancelable: true,
+      }),
+    )
+    await settle()
+
+    expect(document.body.querySelector('[role="dialog"]')).toBeNull()
+    expect(document.activeElement).toBe(trigger)
+  })
+
+  it('restores focus to the search trigger when opened by shortcut and closed', async () => {
+    const { host } = await mountSearchClosed()
+    const trigger = host.querySelector<HTMLButtonElement>('.search-trigger')
+    expect(trigger).not.toBeNull()
+
+    document.body.focus()
+    expect(document.activeElement).not.toBe(trigger)
+
+    window.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'k',
+        code: SHORTCUTS.search.code,
+        bubbles: true,
+        cancelable: true,
+        ...(isMac() ? { metaKey: true } : { ctrlKey: true }),
+      }),
+    )
+    await settle()
+
+    const dialog = document.body.querySelector('[role="dialog"]')
+    expect(dialog).not.toBeNull()
+
+    dialog?.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'Escape',
+        code: 'Escape',
+        bubbles: true,
+        cancelable: true,
+      }),
+    )
+    await settle()
+
+    expect(document.body.querySelector('[role="dialog"]')).toBeNull()
+    expect(document.activeElement).toBe(trigger)
+  })
+
+  it('scopes search results to the provided fleet', async () => {
+    const auroraFleet = devices.filter((d) => d.siteId === 'berlin')
+    const { host } = await mountSearchClosed({ fleet: auroraFleet })
+    await openSearch(host)
+    await typeQuery('gw')
+
+    const searchResults = [...document.body.querySelectorAll('.search-result')]
+    expect(searchResults.length).toBeGreaterThan(0)
+    for (const item of searchResults) {
+      const title = item.querySelector('strong')?.textContent?.trim()
+      const matchingDevice = devices.find((d) => d.name === title)
+      if (matchingDevice) {
+        expect(auroraFleet).toContain(matchingDevice)
+      }
+    }
   })
 })
 

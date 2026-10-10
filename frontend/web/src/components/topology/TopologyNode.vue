@@ -68,7 +68,7 @@ const selected = computed(
       <Handle type="target" :position="Position.Top" :connectable="false" />
       <DeviceIcon :role="device.role" />
       <span class="topology-node-text">
-        <strong translate="no">{{ device.name }}</strong>
+        <strong class="font-mono" translate="no">{{ device.name }}</strong>
         <small translate="no">{{
           format.facts([device.kind, device.address])
         }}</small>
@@ -79,7 +79,7 @@ const selected = computed(
         :status="device.health"
         size="sm"
       />
-      <span class="topology-node-stats">
+      <span class="topology-node-stats font-mono tabular-nums">
         <span v-if="device.role === 'access-point'">{{
           format.counted('view.common.clients', device.clients)
         }}</span
@@ -104,7 +104,7 @@ const selected = computed(
   border-radius: var(--radius-panel);
   background: var(--card);
   color: var(--foreground);
-  box-shadow: var(--shadow-xs);
+  box-shadow: none;
   transition:
     border-color 120ms ease,
     background 120ms ease;
@@ -148,6 +148,7 @@ const selected = computed(
   white-space: nowrap;
 }
 .topology-node-text strong {
+  font-family: var(--font-mono);
   font-size: var(--text-sm);
   font-weight: 550;
 }
@@ -163,8 +164,10 @@ const selected = computed(
   gap: 10px;
   padding-top: 8px;
   border-top: 1px solid var(--border);
+  font-family: var(--font-mono);
   font-size: var(--text-2xs);
   color: var(--muted-foreground);
+  font-variant-numeric: tabular-nums;
 }
 .topology-node-stats span:only-child {
   margin-left: auto;

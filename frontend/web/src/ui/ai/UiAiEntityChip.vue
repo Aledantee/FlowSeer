@@ -69,7 +69,7 @@ function handleClick(event: MouseEvent) {
     v-if="canNavigate"
     ref="chip"
     type="button"
-    class="inline-flex items-center gap-1 font-medium rounded-full bg-subtle text-foreground border border-border hover:bg-muted/80 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer transition-colors whitespace-nowrap"
+    class="inline-flex items-center gap-1 font-medium rounded-control bg-subtle text-foreground border border-border hover:bg-muted/80 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer transition-colors whitespace-nowrap"
     :class="size === 'sm' ? 'h-5 px-2 text-2xs' : 'h-6 px-2.5 text-xs'"
     data-ai-entity-chip
     @click="handleClick"
@@ -92,7 +92,7 @@ function handleClick(event: MouseEvent) {
   <span
     v-else
     ref="chip"
-    class="inline-flex items-center gap-1 font-medium rounded-full bg-subtle text-foreground border border-border whitespace-nowrap"
+    class="inline-flex items-center gap-1 font-medium rounded-control bg-subtle text-foreground border border-border whitespace-nowrap"
     :class="size === 'sm' ? 'h-5 px-2 text-2xs' : 'h-6 px-2.5 text-xs'"
     data-ai-entity-chip
     translate="no"

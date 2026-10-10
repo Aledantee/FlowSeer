@@ -12,6 +12,18 @@ pnpm dev
 Open the URL Vite prints. Use Node 22.12 or newer and pnpm 11.25.0.
 The fonts are bundled locally. The app makes no requests to external services.
 
+## Signal interface
+
+The console uses the Signal design language: square framed panels, compact
+rows, monospaced headings and tabular metrics. Coral marks primary actions.
+Cyan marks telemetry and selection, while status colors keep their existing
+meaning. The current palette and sidebar/top-bar structure remain in place.
+
+The dashboard reflows inside its pane. Wide panes use three columns, medium
+panes use two, and narrow panes stack the content. Tables can scroll within
+their panels. The implementation reference and application captures are in
+[`design/signal/`](design/signal/README.md).
+
 ### pnpm in the Claude Code sandbox
 
 pnpm 12 takes a store lock under `/tmp/pnpm-store-operation-locks-<uid>/`, and

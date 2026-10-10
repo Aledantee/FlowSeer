@@ -440,4 +440,182 @@ describe('UiAiAssistant', () => {
     expect(closed).toBe(true)
     expect(openVal).toBe(false)
   })
+
+  it('renders in docked and narrow presentations with Signal styling', async () => {
+    const seed: AiSeed = {
+      targets: [
+        {
+          id: 'device-1',
+          kind: 'device',
+          view: 'devices',
+          label: 'edge-gw-01',
+          context: { health: 'Healthy' },
+        },
+      ],
+      turns: [
+        { role: 'user', prompt: 'Status report' },
+        {
+          role: 'assistant',
+          result: {
+            type: 'answer',
+            text: 'System operating within nominal thresholds.',
+            refs: [],
+          },
+        },
+      ],
+    }
+
+    // Docked container
+    const dockedHost = document.createElement('div')
+    dockedHost.className = 'w-[420px] h-[700px]'
+    container?.appendChild(dockedHost)
+    const appDocked = createApp({
+      render() {
+        return h(UiAiAssistant, { seed })
+      },
+    })
+    appDocked.use(createWebI18n())
+    appDocked.provide(aiRegistryKey, registry)
+    appDocked.mount(dockedHost)
+    await nextTick()
+
+    const titleEl = dockedHost.querySelector('header h2')
+    expect(titleEl?.className).toContain('font-mono')
+    expect(titleEl?.className).toContain('uppercase')
+
+    const assistantTurn = dockedHost.querySelector('[data-ai-assistant-turn]')
+    expect(assistantTurn?.classList.contains('ui-card')).toBe(true)
+
+    appDocked.unmount()
+    dockedHost.remove()
+
+    // Narrow container
+    const narrowHost = document.createElement('div')
+    narrowHost.className = 'w-72 h-[500px]'
+    container?.appendChild(narrowHost)
+    const appNarrow = createApp({
+      render() {
+        return h(UiAiAssistant, { seed })
+      },
+    })
+    appNarrow.use(createWebI18n())
+    appNarrow.provide(aiRegistryKey, registry)
+    appNarrow.mount(narrowHost)
+    await nextTick()
+
+    expect(narrowHost.querySelector('[data-ai-assistant]')).toBeTruthy()
+    expect(narrowHost.querySelector('[data-ai-assistant-chips]')).toBeTruthy()
+    appNarrow.unmount()
+    narrowHost.remove()
+  })
+
+  it('allows contextual target selection to add a target to context chips', async () => {
+    const target1: AiTarget = {
+      id: 'target-sw-1',
+      kind: 'device',
+      view: 'devices',
+      label: 'Switch 1',
+      context: { role: 'switch' },
+    }
+    const target2: AiTarget = {
+      id: 'target-sw-2',
+      kind: 'device',
+      view: 'devices',
+      label: 'Switch 2',
+      context: { role: 'switch' },
+    }
+    const devEl1 = document.createElement('div')
+    const devEl2 = document.createElement('div')
+    document.body.appendChild(devEl1)
+    document.body.appendChild(devEl2)
+    registry.register(devEl1, target1)
+    registry.register(devEl2, target2)
+
+    const seed: AiSeed = {
+      targets: [
+        {
+          id: target1.id,
+          kind: target1.kind,
+          view: target1.view!,
+          label: target1.label,
+          context: target1.context,
+        },
+      ],
+      turns: [],
+    }
+
+    const root = mountAssistant({ seed })
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    const addBtn = root.querySelector(
+      '[data-ai-assistant-add-context]',
+    ) as HTMLButtonElement
+    expect(addBtn).toBeTruthy()
+    addBtn.click()
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    // Switch 2 should be in available targets, but Switch 1 should be filtered out
+    const items = Array.from(document.body.querySelectorAll('[role="option"]'))
+    const switch2Option = items.find((el) =>
+      el.textContent?.includes('Switch 2'),
+    )
+    expect(switch2Option).toBeDefined()
+    const switch1Option = items.find((el) =>
+      el.textContent?.includes('Switch 1'),
+    )
+    expect(switch1Option).toBeUndefined()
+
+    // Selecting Switch 2 adds it to chips
+    switch2Option?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    const chips = root.querySelector('[data-ai-assistant-chips]')
+    expect(chips?.textContent).toContain('Switch 1')
+    expect(chips?.textContent).toContain('Switch 2')
+
+    devEl1.remove()
+    devEl2.remove()
+  })
+
+  it('renders loading skeleton then transitions to error state on failure', async () => {
+    let rejectPromise: ((err: Error) => void) | null = null
+    registry.onRequest(async () => {
+      return new Promise<never>((_, reject) => {
+        rejectPromise = reject
+      })
+    })
+
+    const root = mountAssistant({ seed: { targets: [], turns: [] } })
+    await nextTick()
+
+    const textarea = root.querySelector('textarea') as HTMLTextAreaElement
+    textarea.value = 'Trigger error flow'
+    textarea.dispatchEvent(new Event('input'))
+    await nextTick()
+
+    const sendBtn = root.querySelector(
+      '[data-ai-assistant-send]',
+    ) as HTMLButtonElement
+    sendBtn.click()
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    // During loading: skeleton is rendered
+    expect(root.querySelector('[data-ai-result-skeleton]')).toBeTruthy()
+
+    // Trigger failure
+    expect(rejectPromise).not.toBeNull()
+    rejectPromise!(new Error('Backend model unavailable'))
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+    await nextTick()
+
+    // After failure: error message is rendered
+    const errorEl = root.querySelector('[data-ai-result-error]')
+    expect(errorEl).toBeTruthy()
+    expect(errorEl?.textContent).toContain('Backend model unavailable')
+  })
 })

@@ -67,6 +67,19 @@ describe('tailwind theme and utilities', () => {
     expect(textOutput).toContain('--text-base--line-height: 20px')
   })
 
+  it('declares display metric sizes as named utilities', async () => {
+    const compiler = await compile(css, {
+      base: path.dirname(cssPath),
+      onDependency: () => {},
+    })
+
+    const output = compiler.build(['text-display', 'text-display-xl'])
+    expect(output).toContain('--text-display: 32px')
+    expect(output).toContain('--text-display--line-height: 40px')
+    expect(output).toContain('--text-display-xl: 64px')
+    expect(output).toContain('--text-display-xl--line-height: 64px')
+  })
+
   it('keeps the smallest text token at the 11px interface floor', async () => {
     const compiler = await compile(css, {
       base: path.dirname(cssPath),

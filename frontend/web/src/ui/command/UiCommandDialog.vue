@@ -68,7 +68,7 @@ const emit = defineEmits<
         class="bg-overlay fixed inset-0 z-(--z-overlay) backdrop-blur-xs data-[state=open]:animate-fade-in data-[state=closed]:animate-fade-out"
       />
       <DialogContent
-        class="bg-popover text-foreground border border-border shadow-lg rounded-panel fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-(--z-overlay) p-0 w-full max-w-xl overflow-hidden focus:outline-none data-[state=closed]:animate-fade-out"
+        class="ui-card relative bg-popover text-foreground border border-border rounded-panel fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-(--z-overlay) p-0 w-full max-w-xl overflow-hidden focus:outline-none data-[state=closed]:animate-fade-out"
         @keydown.escape="emit('update:open', false)"
         @close-auto-focus="emit('closeAutoFocus', $event)"
       >
