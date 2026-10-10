@@ -189,6 +189,13 @@ func TestLoadInstancePresence(t *testing.T) {
 					if (cfg.STP != nil) != accepted || slices.Contains(result.Report.Capabilities, stp.LayerName) != accepted {
 						t.Errorf("STP=%+v capabilities=%+v, accepted=%t", cfg.STP, result.Report.Capabilities, accepted)
 					}
+					if !accepted {
+						for _, issue := range result.Metadata.Issues() {
+							if issue.Code == netmodel.IssueMissingSTPBridgeState {
+								t.Errorf("issue = %+v, want no missing bridge state issue for unrequested STP", issue)
+							}
+						}
+					}
 				}
 				if _, err := vswitch.NewWithSpec(result.Spec); err != nil {
 					t.Fatalf("construct: %v", err)
