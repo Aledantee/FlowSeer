@@ -20,9 +20,9 @@ import (
 func TestNeighborMissRetainsLoadedInvalidNeighborEvidence(t *testing.T) {
 	inName := "in"
 	outName := "out"
-	input := loadInput{
-		ifaces: []*interfacev1.Interface{routedPhysicalInterface(inName), routedPhysicalInterface(outName)},
-		addrs: []*ipv1.InterfaceAddress{
+	input := netmodel.Input{
+		Interfaces: []*interfacev1.Interface{routedPhysicalInterface(inName), routedPhysicalInterface(outName)},
+		Addresses: []*ipv1.InterfaceAddress{
 			ipv1.InterfaceAddress_builder{
 				InterfaceName: &inName,
 				Address:       protoIPv4Addr([4]byte{192, 0, 2, 1}),
@@ -34,15 +34,15 @@ func TestNeighborMissRetainsLoadedInvalidNeighborEvidence(t *testing.T) {
 				Prefix:        protoIPv4Prefix([4]byte{198, 51, 100, 0}, 24),
 			}.Build(),
 		},
-		neighbors: []*ipv1.NeighborEntry{
+		Neighbors: []*ipv1.NeighborEntry{
 			ipv1.NeighborEntry_builder{
 				InterfaceName: &outName,
 				Ip:            protoIPv4Addr([4]byte{198, 51, 100, 7}),
 			}.Build(),
 		},
 	}
-	input.validate(t)
-	loaded := input.load(t, netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot", Context: "missing-neighbor-mac"})
+	validateInput(t, input)
+	loaded := load(t, netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot", Context: "missing-neighbor-mac"}, input)
 	sw, err := vswitch.NewWithSpec(loaded.Spec)
 	if err != nil {
 		t.Fatalf("NewWithSpec: %v", err)
@@ -87,9 +87,9 @@ func TestNeighborMissRetainsLoadedInvalidNeighborEvidence(t *testing.T) {
 func TestNoRouteRetainsConflictingOmittedPrefixEvidence(t *testing.T) {
 	inName := "in"
 	outName := "out"
-	input := loadInput{
-		ifaces: []*interfacev1.Interface{routedPhysicalInterface(inName), routedPhysicalInterface(outName)},
-		addrs: []*ipv1.InterfaceAddress{
+	input := netmodel.Input{
+		Interfaces: []*interfacev1.Interface{routedPhysicalInterface(inName), routedPhysicalInterface(outName)},
+		Addresses: []*ipv1.InterfaceAddress{
 			ipv1.InterfaceAddress_builder{
 				InterfaceName: &inName,
 				Address:       protoIPv4Addr([4]byte{192, 0, 2, 1}),
@@ -107,8 +107,8 @@ func TestNoRouteRetainsConflictingOmittedPrefixEvidence(t *testing.T) {
 			}.Build(),
 		},
 	}
-	input.validate(t)
-	loaded := input.load(t, netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot", Context: "conflicting-prefixes"})
+	validateInput(t, input)
+	loaded := load(t, netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot", Context: "conflicting-prefixes"}, input)
 	sw, err := vswitch.NewWithSpec(loaded.Spec)
 	if err != nil {
 		t.Fatalf("NewWithSpec: %v", err)

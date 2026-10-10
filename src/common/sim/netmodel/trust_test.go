@@ -22,14 +22,14 @@ import (
 func TestLoadAnonymousSourceUsesAnonymousNodeScope(t *testing.T) {
 	name := "p1"
 	admin := interfacev1.AdminStatus_ADMIN_STATUS_UP
-	input := loadInput{ifaces: []*interfacev1.Interface{interfacev1.Interface_builder{
+	input := netmodel.Input{Interfaces: []*interfacev1.Interface{interfacev1.Interface_builder{
 		Name:        &name,
 		AdminStatus: &admin,
 		Physical:    interfacev1.PhysicalInterface_builder{}.Build(),
 	}.Build()}}
-	input.validate(t)
+	validateInput(t, input)
 
-	loaded := input.load(t, netmodel.SourceContext{})
+	loaded := load(t, netmodel.SourceContext{}, input)
 	wantScope := analysis.NodeScope("")
 	if got := loaded.Metadata.Scope(); got.Compare(wantScope) != 0 {
 		t.Fatalf("metadata scope = %s, want %s", got, wantScope)
@@ -77,23 +77,23 @@ func TestLoadMalformedNetworkValuesAreScopedPartialRows(t *testing.T) {
 		}.Build(),
 	}.Build()
 
-	input := loadInput{
-		ifaces: []*interfacev1.Interface{
+	input := netmodel.Input{
+		Interfaces: []*interfacev1.Interface{
 			routedVLANInterface(routedName, vid, []byte{0, 1, 2, 3, 4}),
 			plainPhysicalInterface(portName),
 		},
-		fdb: []*switchingv1.FdbEntry{
+		FDB: []*switchingv1.FdbEntry{
 			switchingv1.FdbEntry_builder{
 				NetworkInstance: ptr("default"),
 				VlanId:          &vid, InterfaceName: &portName,
 				Mac: addrv1.Eui48Address_builder{Octets: []byte{0, 1, 2, 3, 4}}.Build(), Kind: &static, Status: &active,
 			}.Build(),
 		},
-		addrs: []*ipv1.InterfaceAddress{
+		Addresses: []*ipv1.InterfaceAddress{
 			ipv1.InterfaceAddress_builder{InterfaceName: &routedName, Address: malformedIP, Prefix: protoIPv4Prefix([4]byte{10, 0, 0, 0}, 24)}.Build(),
 			ipv1.InterfaceAddress_builder{InterfaceName: &routedName, Address: protoIPv4Addr([4]byte{10, 0, 0, 1}), Prefix: malformedPrefix}.Build(),
 		},
-		neighbors: []*ipv1.NeighborEntry{
+		Neighbors: []*ipv1.NeighborEntry{
 			ipv1.NeighborEntry_builder{InterfaceName: &routedName, Ip: malformedIP, Mac: protoEUI48([6]byte{0, 1, 2, 3, 4, 6})}.Build(),
 			ipv1.NeighborEntry_builder{
 				InterfaceName: &routedName, Ip: protoIPv4Addr([4]byte{10, 0, 0, 2}),
@@ -102,7 +102,7 @@ func TestLoadMalformedNetworkValuesAreScopedPartialRows(t *testing.T) {
 		},
 	}
 
-	result := input.load(t, netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot", Context: "malformed"})
+	result := load(t, netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot", Context: "malformed"}, input)
 	if result.Readiness() == analysis.Complete {
 		t.Fatal("readiness = Complete, want non-Complete")
 	}
@@ -152,10 +152,10 @@ func TestLoadMalformedProtocolMACsArePartial(t *testing.T) {
 				Address:  addrv1.Eui48Address_builder{Octets: []byte{0, 1, 2, 3, 4}}.Build(),
 			}.Build(),
 		}.Build()
-		result := (loadInput{
-			ifaces:      []*interfacev1.Interface{plainPhysicalInterface("1/1/1")},
-			bridgeState: bridgeState,
-		}).load(t, src)
+		result := load(t, src, (netmodel.Input{
+			Interfaces:  []*interfacev1.Interface{plainPhysicalInterface("1/1/1")},
+			BridgeState: bridgeState,
+		}))
 
 		if result.Spec.Config.STP != nil {
 			t.Errorf("STP config = %+v, want malformed bridge state omitted", result.Spec.Config.STP)
@@ -176,16 +176,16 @@ func TestLoadMalformedProtocolMACsArePartial(t *testing.T) {
 	t.Run("link aggregation system id", func(t *testing.T) {
 		lagName := "lag1"
 		active := lacpv1.LacpMode_LACP_MODE_ACTIVE
-		result := (loadInput{
-			ifaces: lagInterfaces(),
-			lacpAggregators: []*lacpv1.AggregatorState{
+		result := load(t, src, (netmodel.Input{
+			Interfaces: lagInterfaces(),
+			LACPAggregators: []*lacpv1.AggregatorState{
 				lacpv1.AggregatorState_builder{
 					InterfaceName: &lagName,
 					Mode:          &active,
 					SystemId:      addrv1.Eui48Address_builder{Octets: []byte{0, 1, 2, 3, 4}}.Build(),
 				}.Build(),
 			},
-		}).load(t, src)
+		}))
 
 		if result.Spec.Config.LAG.LAGs[lagName].LACP.Mode != lag.Off {
 			t.Errorf("LACP mode = %v, want default Off", result.Spec.Config.LAG.LAGs[lagName].LACP.Mode)
@@ -231,14 +231,14 @@ func TestLoadUnknownEnumValuesAreScopedUnsupported(t *testing.T) {
 		admin := interfacev1.AdminStatus_ADMIN_STATUS_UP
 		oper := interfacev1.OperStatus_OPER_STATUS_UP
 		unknown := switchingv1.FrameAdmission(99)
-		result := (loadInput{ifaces: []*interfacev1.Interface{
+		result := load(t, netmodel.SourceContext{DeviceID: "sw1"}, (netmodel.Input{Interfaces: []*interfacev1.Interface{
 			interfacev1.Interface_builder{
 				Name: &name, AdminStatus: &admin, OperStatus: &oper,
 				Physical: interfacev1.PhysicalInterface_builder{
 					Switchport: switchingv1.SwitchportFacet_builder{FrameAdmission: &unknown}.Build(),
 				}.Build(),
 			}.Build(),
-		}}).load(t, netmodel.SourceContext{DeviceID: "sw1"})
+		}}))
 		assertUnsupported(t, result, netmodel.IssueInvalidFrameAdmission, analysis.PortScope("sw1", name))
 		if _, ok := result.Spec.Config.Bridge.VLAN.Switchports[name]; ok {
 			t.Error("unknown frame admission was coerced into an executable switchport")
@@ -250,14 +250,14 @@ func TestLoadUnknownEnumValuesAreScopedUnsupported(t *testing.T) {
 		admin := interfacev1.AdminStatus_ADMIN_STATUS_UP
 		oper := interfacev1.OperStatus_OPER_STATUS_UP
 		unknown := switchingv1.SwitchportMode(99)
-		result := (loadInput{ifaces: []*interfacev1.Interface{
+		result := load(t, netmodel.SourceContext{DeviceID: "sw1"}, (netmodel.Input{Interfaces: []*interfacev1.Interface{
 			interfacev1.Interface_builder{
 				Name: &name, AdminStatus: &admin, OperStatus: &oper,
 				Physical: interfacev1.PhysicalInterface_builder{
 					Switchport: switchingv1.SwitchportFacet_builder{Mode: &unknown}.Build(),
 				}.Build(),
 			}.Build(),
-		}}).load(t, netmodel.SourceContext{DeviceID: "sw1"})
+		}}))
 		assertUnsupported(t, result, netmodel.IssueInvalidSwitchportMode, analysis.PortScope("sw1", name))
 		if _, ok := result.Spec.Config.Bridge.VLAN.Switchports[name]; ok {
 			t.Error("unknown switchport mode was coerced into an executable switchport")
@@ -269,14 +269,14 @@ func TestLoadUnknownEnumValuesAreScopedUnsupported(t *testing.T) {
 		admin := interfacev1.AdminStatus_ADMIN_STATUS_UP
 		oper := interfacev1.OperStatus_OPER_STATUS_UP
 		unknown := phyv1.EthernetDuplex(99)
-		result := (loadInput{ifaces: []*interfacev1.Interface{
+		result := load(t, netmodel.SourceContext{DeviceID: "sw1"}, (netmodel.Input{Interfaces: []*interfacev1.Interface{
 			interfacev1.Interface_builder{
 				Name: &name, AdminStatus: &admin, OperStatus: &oper,
 				Physical: interfacev1.PhysicalInterface_builder{
 					Ethernet: phyv1.EthernetFacet_builder{ActiveDuplex: &unknown}.Build(),
 				}.Build(),
 			}.Build(),
-		}}).load(t, netmodel.SourceContext{DeviceID: "sw1"})
+		}}))
 		assertUnsupported(t, result, netmodel.IssueInvalidEthernetDuplex, analysis.PortScope("sw1", name))
 		if observed := result.Spec.Config.Phy.Ethernet[name].Observed; observed != nil {
 			t.Errorf("unknown duplex produced observed link state %+v", observed)
@@ -290,8 +290,8 @@ func TestLoadUnknownEnumValuesAreScopedUnsupported(t *testing.T) {
 		unknown := phyv1.PoePriority(99)
 		group := uint32(1)
 		power := uint64(100_000_000_000)
-		result := (loadInput{
-			ifaces: []*interfacev1.Interface{
+		result := load(t, netmodel.SourceContext{DeviceID: "sw1"}, (netmodel.Input{
+			Interfaces: []*interfacev1.Interface{
 				interfacev1.Interface_builder{
 					Name: &name, AdminStatus: &admin, OperStatus: &oper,
 					Physical: interfacev1.PhysicalInterface_builder{
@@ -304,10 +304,10 @@ func TestLoadUnknownEnumValuesAreScopedUnsupported(t *testing.T) {
 					}.Build(),
 				}.Build(),
 			},
-			budgets: []*phyv1.PseBudget{
+			Budgets: []*phyv1.PseBudget{
 				phyv1.PseBudget_builder{PseGroup: &group, PowerNanowatts: &power}.Build(),
 			},
-		}).load(t, netmodel.SourceContext{DeviceID: "sw1"})
+		}))
 		assertUnsupported(t, result, netmodel.IssueInvalidPoEPriority, analysis.PortScope("sw1", name))
 		if _, ok := result.Spec.Config.Phy.PoE.Ports[name]; ok {
 			t.Error("unknown PoE priority was coerced into an executable PSE port")
@@ -317,13 +317,13 @@ func TestLoadUnknownEnumValuesAreScopedUnsupported(t *testing.T) {
 	t.Run("stp point to point", func(t *testing.T) {
 		name := "1/1/1"
 		unknown := stpv1.PointToPointMode(99)
-		result := (loadInput{
-			ifaces:      []*interfacev1.Interface{plainPhysicalInterface(name)},
-			bridgeState: validBridgeState(),
-			stpPorts: []*stpv1.PortState{
+		result := load(t, netmodel.SourceContext{DeviceID: "sw1"}, (netmodel.Input{
+			Interfaces:  []*interfacev1.Interface{plainPhysicalInterface(name)},
+			BridgeState: validBridgeState(),
+			STPPorts: []*stpv1.PortState{
 				stpv1.PortState_builder{InterfaceName: &name, PointToPoint: &unknown}.Build(),
 			},
-		}).load(t, netmodel.SourceContext{DeviceID: "sw1"})
+		}))
 		assertUnsupported(t, result, netmodel.IssueInvalidPointToPointMode, analysis.FieldScope(
 			analysis.ProtocolScope("sw1", string(stp.LayerName), "0"), "ports", name,
 		))
@@ -335,12 +335,12 @@ func TestLoadUnknownEnumValuesAreScopedUnsupported(t *testing.T) {
 	t.Run("lacp mode", func(t *testing.T) {
 		name := "lag1"
 		unknown := lacpv1.LacpMode(99)
-		result := (loadInput{
-			ifaces: lagInterfaces(),
-			lacpAggregators: []*lacpv1.AggregatorState{
+		result := load(t, netmodel.SourceContext{DeviceID: "sw1"}, (netmodel.Input{
+			Interfaces: lagInterfaces(),
+			LACPAggregators: []*lacpv1.AggregatorState{
 				lacpv1.AggregatorState_builder{InterfaceName: &name, Mode: &unknown}.Build(),
 			},
-		}).load(t, netmodel.SourceContext{DeviceID: "sw1"})
+		}))
 		assertUnsupported(t, result, netmodel.IssueInvalidLACPMode, analysis.PortScope("sw1", name))
 	})
 
@@ -356,7 +356,7 @@ func TestLoadUnknownEnumValuesAreScopedUnsupported(t *testing.T) {
 				Aggregation: switchingv1.AggregationFacet_builder{BondMode: &unknown}.Build(),
 			}.Build(),
 		}.Build()
-		result := (loadInput{ifaces: ifaces}).load(t, netmodel.SourceContext{DeviceID: "sw1"})
+		result := load(t, netmodel.SourceContext{DeviceID: "sw1"}, (netmodel.Input{Interfaces: ifaces}))
 		assertUnsupported(t, result, netmodel.IssueInvalidBondMode, analysis.PortScope("sw1", name))
 	})
 }

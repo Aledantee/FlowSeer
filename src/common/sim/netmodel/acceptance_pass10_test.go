@@ -22,12 +22,12 @@ import (
 )
 
 func TestRequestedMissingSTPRemainsAForwardingDependency(t *testing.T) {
-	input := loadInput{
-		ifaces: []*interfacev1.Interface{reportedPhysical("in"), reportedPhysical("out")},
-		want:   []trace.Layer{bridge.LayerName, stp.LayerName},
+	input := netmodel.Input{
+		Interfaces: []*interfacev1.Interface{reportedPhysical("in"), reportedPhysical("out")},
+		Want:       []trace.Layer{bridge.LayerName, stp.LayerName},
 	}
-	input.validate(t)
-	loaded := input.load(t, netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot"})
+	validateInput(t, input)
+	loaded := load(t, netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot"}, input)
 	sw, err := vswitch.NewWithSpec(loaded.Spec)
 	if err != nil {
 		t.Fatalf("NewWithSpec: %v", err)
@@ -42,8 +42,8 @@ func TestRequestedMissingSTPRemainsAForwardingDependency(t *testing.T) {
 	}
 	assertForwardIssueEvidence(t, result.Metadata, netmodel.IssueMissingSTPBridgeState)
 
-	input.want = []trace.Layer{bridge.LayerName}
-	withoutRequest := input.load(t, netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot"})
+	input.Want = []trace.Layer{bridge.LayerName}
+	withoutRequest := load(t, netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot"}, input)
 	plain, err := vswitch.NewWithSpec(withoutRequest.Spec)
 	if err != nil {
 		t.Fatalf("NewWithSpec without STP request: %v", err)
@@ -58,12 +58,12 @@ func TestRequestedMissingSTPRemainsAForwardingDependency(t *testing.T) {
 }
 
 func TestMissingMTUIsAnEvidencedForwardingAssumption(t *testing.T) {
-	input := loadInput{
-		ifaces: []*interfacev1.Interface{reportedPhysical("in"), physicalWithoutMTU("out")},
-		want:   []trace.Layer{bridge.LayerName},
+	input := netmodel.Input{
+		Interfaces: []*interfacev1.Interface{reportedPhysical("in"), physicalWithoutMTU("out")},
+		Want:       []trace.Layer{bridge.LayerName},
 	}
-	input.validate(t)
-	loaded := input.load(t, netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot"})
+	validateInput(t, input)
+	loaded := load(t, netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot"}, input)
 
 	issueIndex := slices.IndexFunc(loaded.Metadata.Issues(), func(issue analysis.Issue) bool {
 		return issue.Code == netmodel.IssueMissingMTU &&
@@ -99,8 +99,8 @@ func TestMissingMTUIsAnEvidencedForwardingAssumption(t *testing.T) {
 		t.Fatalf("oversized forwarding status = %s, want Incomplete; issues: %+v", result.Metadata.Status(), result.Metadata.Issues())
 	}
 
-	input.ifaces[1] = reportedPhysical("out")
-	explicitZero := input.load(t, netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot"})
+	input.Interfaces[1] = reportedPhysical("out")
+	explicitZero := load(t, netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot"}, input)
 	if slices.ContainsFunc(explicitZero.Report.Defaults, func(value netmodel.Default) bool {
 		return value.Port == "out" && value.Field == "mtu"
 	}) {
@@ -117,27 +117,27 @@ func TestSVINeighborMissRetainsExactLoadedIssue(t *testing.T) {
 		outsideVID = uint32(20)
 	)
 	routerMAC := []byte{2, 0, 0, 0, 0, 1}
-	input := loadInput{
-		ifaces: []*interfacev1.Interface{
+	input := netmodel.Input{
+		Interfaces: []*interfacev1.Interface{
 			reportedAccess("in", insideVID),
 			reportedAccess("out", outsideVID),
 			reportedSVI("vlan10", insideVID, routerMAC),
 			reportedSVI("vlan20", outsideVID, routerMAC),
 		},
-		vlans: []*switchingv1.Vlan{
+		VLANs: []*switchingv1.Vlan{
 			switchingv1.Vlan_builder{NetworkInstance: ptr("default"), Id: ptr(insideVID), Name: ptr("inside")}.Build(),
 			switchingv1.Vlan_builder{NetworkInstance: ptr("default"), Id: ptr(outsideVID), Name: ptr("outside")}.Build(),
 		},
-		addrs: []*ipv1.InterfaceAddress{
+		Addresses: []*ipv1.InterfaceAddress{
 			ipv1.InterfaceAddress_builder{InterfaceName: ptr("vlan10"), Address: protoIPv4Addr([4]byte{192, 0, 2, 1}), Prefix: protoIPv4Prefix([4]byte{192, 0, 2, 0}, 24)}.Build(),
 			ipv1.InterfaceAddress_builder{InterfaceName: ptr("vlan20"), Address: protoIPv4Addr([4]byte{198, 51, 100, 1}), Prefix: protoIPv4Prefix([4]byte{198, 51, 100, 0}, 24)}.Build(),
 		},
-		neighbors: []*ipv1.NeighborEntry{
+		Neighbors: []*ipv1.NeighborEntry{
 			ipv1.NeighborEntry_builder{InterfaceName: ptr("vlan20"), Ip: protoIPv4Addr([4]byte{198, 51, 100, 7})}.Build(),
 		},
 	}
-	input.validate(t)
-	loaded := input.load(t, netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot"})
+	validateInput(t, input)
+	loaded := load(t, netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot"}, input)
 	sw, err := vswitch.NewWithSpec(loaded.Spec)
 	if err != nil {
 		t.Fatalf("NewWithSpec: %v", err)

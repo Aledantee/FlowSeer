@@ -448,9 +448,7 @@ func TestExportNamesTheDefaultInstance(t *testing.T) {
 		switchingv1.Vlan_builder{Id: ptr(uint32(10)), Name: ptr("ten"), NetworkInstance: ptr("default")}.Build(),
 		switchingv1.Vlan_builder{Id: ptr(uint32(20)), NetworkInstance: ptr("default")}.Build(),
 	}
-	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"},
-		[]*interfacev1.Interface{accessPort("1/1/1", 10), accessPort("1/1/2", 10), accessPort("1/1/3", 20)},
-		vlans, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, netmodel.Input{Interfaces: []*interfacev1.Interface{accessPort("1/1/1", 10), accessPort("1/1/2", 10), accessPort("1/1/3", 20)}, VLANs: vlans})
 	if err != nil {
 		t.Fatalf("netmodel.Load: %v", err)
 	}

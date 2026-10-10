@@ -47,11 +47,11 @@ func TestLoadRequiresExplicitRSTPBridgeProtocol(t *testing.T) {
 				ProtocolVersion: test.version,
 				BridgeId:        bridgeID,
 			}.Build()
-			result := (loadInput{
-				ifaces:      []*interfacev1.Interface{plainPhysicalInterface("1/1/1")},
-				bridgeState: state,
-				want:        []trace.Layer{stp.LayerName},
-			}).load(t, netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot", Context: "stp-version"})
+			result := load(t, netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot", Context: "stp-version"}, (netmodel.Input{
+				Interfaces:  []*interfacev1.Interface{plainPhysicalInterface("1/1/1")},
+				BridgeState: state,
+				Want:        []trace.Layer{stp.LayerName},
+			}))
 
 			if result.Spec.Config.STP != nil || slices.Contains(result.Report.Capabilities, stp.LayerName) {
 				t.Errorf("unsupported STP protocol constructed a layer: config=%+v capabilities=%v", result.Spec.Config.STP, result.Report.Capabilities)
@@ -112,14 +112,14 @@ func TestLoadRejectsPresentZeroSTPBridgeTimers(t *testing.T) {
 				BridgeId:        bridgeID,
 			}
 			test.set(&builder)
-			input := loadInput{
-				ifaces:      []*interfacev1.Interface{plainPhysicalInterface("1/1/1")},
-				bridgeState: builder.Build(),
-				want:        []trace.Layer{stp.LayerName},
+			input := netmodel.Input{
+				Interfaces:  []*interfacev1.Interface{plainPhysicalInterface("1/1/1")},
+				BridgeState: builder.Build(),
+				Want:        []trace.Layer{stp.LayerName},
 			}
-			input.validate(t)
+			validateInput(t, input)
 
-			result := input.load(t, netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot", Context: "zero-stp-timer"})
+			result := load(t, netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot", Context: "zero-stp-timer"}, input)
 			if result.Spec.Config.STP != nil || slices.Contains(result.Report.Capabilities, stp.LayerName) {
 				t.Errorf("present zero %s constructed an STP layer: config=%+v capabilities=%v", test.field, result.Spec.Config.STP, result.Report.Capabilities)
 			}
@@ -165,16 +165,16 @@ func TestLoadInvalidSTPBridgeSkipsEveryPortRow(t *testing.T) {
 	}.Build()
 	portA := "1/1/1"
 	portB := "1/1/2"
-	result := (loadInput{
-		ifaces:      []*interfacev1.Interface{plainPhysicalInterface(portA), plainPhysicalInterface(portB)},
-		bridgeState: bridgeState,
-		stpPorts: []*stpv1.PortState{
+	result := load(t, netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot"}, (netmodel.Input{
+		Interfaces:  []*interfacev1.Interface{plainPhysicalInterface(portA), plainPhysicalInterface(portB)},
+		BridgeState: bridgeState,
+		STPPorts: []*stpv1.PortState{
 			stpv1.PortState_builder{InterfaceName: &portA}.Build(),
 			nil,
 			stpv1.PortState_builder{InterfaceName: &portB}.Build(),
 		},
-		want: []trace.Layer{stp.LayerName},
-	}).load(t, netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot"})
+		Want: []trace.Layer{stp.LayerName},
+	}))
 
 	if result.Spec.Config.STP != nil {
 		t.Errorf("STP = %+v, want invalid bridge omitted", result.Spec.Config.STP)
@@ -189,13 +189,13 @@ func TestLoadInvalidSTPBridgeSkipsEveryPortRow(t *testing.T) {
 }
 
 func TestLoadRequestedSTPWithoutBridgeStateReportsConstructedCapabilities(t *testing.T) {
-	result := (loadInput{
-		ifaces: []*interfacev1.Interface{plainPhysicalInterface("1/1/1")},
-		stpPorts: []*stpv1.PortState{
+	result := load(t, netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot", Context: "missing-bridge"}, (netmodel.Input{
+		Interfaces: []*interfacev1.Interface{plainPhysicalInterface("1/1/1")},
+		STPPorts: []*stpv1.PortState{
 			stpv1.PortState_builder{InterfaceName: ptr("1/1/1")}.Build(),
 		},
-		want: []trace.Layer{stp.LayerName},
-	}).load(t, netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot", Context: "missing-bridge"})
+		Want: []trace.Layer{stp.LayerName},
+	}))
 
 	if slices.Contains(result.Report.Capabilities, stp.LayerName) {
 		t.Errorf("reported capabilities = %v, includes unconstructed STP", result.Report.Capabilities)
@@ -223,12 +223,12 @@ func TestLoadRequestedSTPWithoutBridgeStateReportsConstructedCapabilities(t *tes
 
 func TestLoadOrphanSTPRowsAreScopedOmissions(t *testing.T) {
 	name := "1/1/1"
-	result := (loadInput{
-		ifaces: []*interfacev1.Interface{plainPhysicalInterface(name)},
-		stpPorts: []*stpv1.PortState{
+	result := load(t, netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot", Context: "orphan-stp-row"}, (netmodel.Input{
+		Interfaces: []*interfacev1.Interface{plainPhysicalInterface(name)},
+		STPPorts: []*stpv1.PortState{
 			stpv1.PortState_builder{InterfaceName: &name}.Build(),
 		},
-	}).load(t, netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot", Context: "orphan-stp-row"})
+	}))
 
 	if slices.Contains(result.Report.Capabilities, stp.LayerName) || result.Spec.Config.STP != nil {
 		t.Errorf("orphan row constructed or reported STP: capabilities=%v config=%+v", result.Report.Capabilities, result.Spec.Config.STP)
@@ -273,13 +273,13 @@ func TestLoad_STPWalkSkipsRoutedPort(t *testing.T) {
 			portName := test.routedPort
 			ps := stpv1.PortState_builder{InterfaceName: &portName}.Build()
 
-			input := loadInput{
-				ifaces:      test.ifaces,
-				bridgeState: validBridgeState(),
-				stpPorts:    []*stpv1.PortState{ps},
+			input := netmodel.Input{
+				Interfaces:  test.ifaces,
+				BridgeState: validBridgeState(),
+				STPPorts:    []*stpv1.PortState{ps},
 			}
-			input.validate(t)
-			loaded := input.load(t, netmodel.SourceContext{DeviceID: "sw1"})
+			validateInput(t, input)
+			loaded := load(t, netmodel.SourceContext{DeviceID: "sw1"}, input)
 
 			if cfg := loaded.Spec.Config; cfg.STP != nil {
 				if _, ok := cfg.STP.Ports[test.routedPort]; ok {
@@ -378,7 +378,7 @@ func TestStpExportAndLoad_RingConvergence(t *testing.T) {
 			}.Build())
 		}
 
-		res, err := netmodel.Load(t0, netmodel.SourceContext{DeviceID: name}, ifaces, nil, nil, nil, bridgeState, portStates, nil, nil, nil, nil, nil, nil)
+		res, err := netmodel.Load(t0, netmodel.SourceContext{DeviceID: name}, netmodel.Input{Interfaces: ifaces, BridgeState: bridgeState, STPPorts: portStates})
 		if err != nil {
 			t.Fatalf("switch %s Load failed: %v", name, err)
 		}
@@ -469,7 +469,7 @@ func TestStpLoad_LagMemberSkipped(t *testing.T) {
 	}
 
 	now := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
-	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, nil, nil, nil, bridgeState, []*stpv1.PortState{psMember, psRegular}, nil, nil, nil, nil, nil, nil)
+	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, netmodel.Input{Interfaces: ifaces, BridgeState: bridgeState, STPPorts: []*stpv1.PortState{psMember, psRegular}})
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
@@ -538,7 +538,7 @@ func TestStpLoad_AbsentPortSkipped(t *testing.T) {
 	}
 
 	now := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
-	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, nil, nil, nil, bridgeState, []*stpv1.PortState{psAbsent}, nil, nil, nil, nil, nil, nil)
+	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, netmodel.Input{Interfaces: ifaces, BridgeState: bridgeState, STPPorts: []*stpv1.PortState{psAbsent}})
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
@@ -601,7 +601,7 @@ func TestStpLoad_MissingAdminPathCostReported(t *testing.T) {
 	}
 
 	now := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
-	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, nil, nil, nil, bridgeState, []*stpv1.PortState{psWithoutAdminCost}, nil, nil, nil, nil, nil, nil)
+	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, netmodel.Input{Interfaces: ifaces, BridgeState: bridgeState, STPPorts: []*stpv1.PortState{psWithoutAdminCost}})
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
@@ -648,7 +648,7 @@ func TestLoadSkipsBridgeWithoutAddress(t *testing.T) {
 	}.Build()
 
 	now := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
-	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, nil, nil, nil, bridgeState, nil, nil, nil, nil, nil, nil, nil)
+	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, netmodel.Input{Interfaces: ifaces, BridgeState: bridgeState})
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
@@ -720,7 +720,7 @@ func TestStpLoad_TxHoldCountAndAutoEdge(t *testing.T) {
 	}
 
 	now := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
-	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, nil, nil, nil, bridgeState, []*stpv1.PortState{ps}, nil, nil, nil, nil, nil, nil)
+	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, netmodel.Input{Interfaces: ifaces, BridgeState: bridgeState, STPPorts: []*stpv1.PortState{ps}})
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
@@ -767,7 +767,7 @@ func TestStpLoad_AbsentTxHoldCountReportedDefault(t *testing.T) {
 	}
 
 	now := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
-	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, nil, nil, nil, bridgeState, nil, nil, nil, nil, nil, nil, nil)
+	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, netmodel.Input{Interfaces: ifaces, BridgeState: bridgeState})
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
@@ -809,10 +809,7 @@ func TestStpLoadPreservesExplicitZeroPrioritiesAndReportsTimerDefaults(t *testin
 
 	result, err := netmodel.Load(
 		time.Date(2026, 9, 12, 12, 0, 0, 0, time.UTC),
-		netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot", Context: "zero-priorities"},
-		[]*interfacev1.Interface{plainPhysicalInterface(name)},
-		nil, nil, nil, bridgeState, []*stpv1.PortState{portState}, nil, nil, nil, nil, nil,
-		[]trace.Layer{stp.LayerName},
+		netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot", Context: "zero-priorities"}, netmodel.Input{Interfaces: []*interfacev1.Interface{plainPhysicalInterface(name)}, BridgeState: bridgeState, STPPorts: []*stpv1.PortState{portState}, Want: []trace.Layer{stp.LayerName}},
 	)
 	if err != nil {
 		t.Fatalf("Load: %v", err)
@@ -875,10 +872,7 @@ func TestStpLoadDefaultsOnlyAbsentPriorities(t *testing.T) {
 
 	result, err := netmodel.Load(
 		time.Date(2026, 9, 12, 12, 0, 0, 0, time.UTC),
-		netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot", Context: "absent-priorities"},
-		[]*interfacev1.Interface{plainPhysicalInterface(name)},
-		nil, nil, nil, bridgeState, []*stpv1.PortState{portState}, nil, nil, nil, nil, nil,
-		[]trace.Layer{stp.LayerName},
+		netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot", Context: "absent-priorities"}, netmodel.Input{Interfaces: []*interfacev1.Interface{plainPhysicalInterface(name)}, BridgeState: bridgeState, STPPorts: []*stpv1.PortState{portState}, Want: []trace.Layer{stp.LayerName}},
 	)
 	if err != nil {
 		t.Fatalf("Load: %v", err)
@@ -938,10 +932,7 @@ func TestStpLoadSkipsAdminPathCostAboveMaximum(t *testing.T) {
 
 	result, err := netmodel.Load(
 		time.Date(2026, 9, 12, 12, 0, 0, 0, time.UTC),
-		netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot", Context: "invalid-admin-path-cost"},
-		[]*interfacev1.Interface{plainPhysicalInterface(name), plainPhysicalInterface(validName)},
-		nil, nil, nil, bridgeState, []*stpv1.PortState{portState, validPortState}, nil, nil, nil, nil, nil,
-		[]trace.Layer{stp.LayerName},
+		netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot", Context: "invalid-admin-path-cost"}, netmodel.Input{Interfaces: []*interfacev1.Interface{plainPhysicalInterface(name), plainPhysicalInterface(validName)}, BridgeState: bridgeState, STPPorts: []*stpv1.PortState{portState, validPortState}, Want: []trace.Layer{stp.LayerName}},
 	)
 	if err != nil {
 		t.Fatalf("Load: %v", err)
@@ -992,10 +983,7 @@ func TestStpLoadRecordsFallbackForInvalidTxHoldCount(t *testing.T) {
 
 	result, err := netmodel.Load(
 		time.Date(2026, 9, 12, 12, 0, 0, 0, time.UTC),
-		netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot", Context: "invalid-tx-hold-count"},
-		[]*interfacev1.Interface{plainPhysicalInterface(name)},
-		nil, nil, nil, bridgeState, nil, nil, nil, nil, nil, nil,
-		[]trace.Layer{stp.LayerName},
+		netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot", Context: "invalid-tx-hold-count"}, netmodel.Input{Interfaces: []*interfacev1.Interface{plainPhysicalInterface(name)}, BridgeState: bridgeState, Want: []trace.Layer{stp.LayerName}},
 	)
 	if err != nil {
 		t.Fatalf("Load: %v", err)
@@ -1066,12 +1054,12 @@ func TestStpLoadClassifiesInvalidEffectiveTimerRelations(t *testing.T) {
 			if test.forwardDelay != 0 {
 				builder.BridgeForwardDelay = durationpb.New(test.forwardDelay)
 			}
-			input := loadInput{
-				ifaces:      []*interfacev1.Interface{plainPhysicalInterface("1/1/1")},
-				bridgeState: builder.Build(),
+			input := netmodel.Input{
+				Interfaces:  []*interfacev1.Interface{plainPhysicalInterface("1/1/1")},
+				BridgeState: builder.Build(),
 			}
-			input.validate(t)
-			result := input.load(t, netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot", Context: test.name})
+			validateInput(t, input)
+			result := load(t, netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot", Context: test.name}, input)
 
 			if result.Spec.Config.STP != nil {
 				t.Errorf("STP config = %+v, want invalid layer omitted", result.Spec.Config.STP)

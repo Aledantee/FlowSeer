@@ -17,7 +17,7 @@ func TestNetmodel_LoadErrors(t *testing.T) {
 	operUp := interfacev1.OperStatus_OPER_STATUS_UP
 
 	t.Run("empty interfaces", func(t *testing.T) {
-		_, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+		_, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, netmodel.Input{})
 		if err == nil {
 			t.Fatal("expected error on empty interface list")
 		}
@@ -27,7 +27,7 @@ func TestNetmodel_LoadErrors(t *testing.T) {
 		p1Name := "1/1/1"
 		p1 := interfacev1.Interface_builder{Name: &p1Name, AdminStatus: &adminUp, OperStatus: &operUp}.Build()
 		p2 := interfacev1.Interface_builder{Name: &p1Name, AdminStatus: &adminUp, OperStatus: &operUp}.Build()
-		_, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, []*interfacev1.Interface{p1, p2}, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+		_, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, netmodel.Input{Interfaces: []*interfacev1.Interface{p1, p2}})
 		if err == nil {
 			t.Fatal("expected error on duplicate interface name")
 		}
@@ -44,7 +44,7 @@ func TestNetmodel_LoadErrors(t *testing.T) {
 				LagParentInterfaceName: &lagParent,
 			}.Build(),
 		}.Build()
-		_, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, []*interfacev1.Interface{p1}, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+		_, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, netmodel.Input{Interfaces: []*interfacev1.Interface{p1}})
 		if err == nil {
 			t.Fatal("expected error on non-existent lag parent")
 		}
@@ -62,7 +62,7 @@ func TestNetmodel_LoadErrors(t *testing.T) {
 				LagParentInterfaceName: &p1Name,
 			}.Build(),
 		}.Build()
-		_, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, []*interfacev1.Interface{p1, p2}, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+		_, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, netmodel.Input{Interfaces: []*interfacev1.Interface{p1, p2}})
 		if err == nil {
 			t.Fatal("expected error on lag parent that is not a LAG")
 		}
@@ -115,7 +115,7 @@ func TestNetmodel_DefaultsAndEdgeCases(t *testing.T) {
 		Mac:             addrv1.Eui48Address_builder{Octets: []byte{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}}.Build(),
 	}.Build()
 
-	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, []*interfacev1.Interface{p1, p2}, nil, []*switchingv1.FdbEntry{fdbStatic}, []*phyv1.PseBudget{budgetWithoutPower}, nil, nil, nil, nil, nil, nil, nil, nil)
+	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, netmodel.Input{Interfaces: []*interfacev1.Interface{p1, p2}, FDB: []*switchingv1.FdbEntry{fdbStatic}, Budgets: []*phyv1.PseBudget{budgetWithoutPower}})
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}

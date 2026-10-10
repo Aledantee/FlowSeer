@@ -135,7 +135,7 @@ func TestLoad_VlanInterfacesRouting(t *testing.T) {
 	}
 
 	validateFixtures(t, ifaces, vlans, addrs, neighbors)
-	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, vlans, nil, nil, nil, nil, nil, nil, addrs, neighbors, nil, nil)
+	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, netmodel.Input{Interfaces: ifaces, VLANs: vlans, Addresses: addrs, Neighbors: neighbors})
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}
@@ -248,7 +248,7 @@ func TestLoad_PhysicalRoutedPort(t *testing.T) {
 	}
 
 	validateFixtures(t, ifaces, nil, addrs, nil)
-	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, nil, nil, nil, nil, nil, nil, nil, addrs, nil, nil, nil)
+	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, netmodel.Input{Interfaces: ifaces, Addresses: addrs})
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}
@@ -320,7 +320,7 @@ func TestLoad_VlanInterfaceDefaultMAC(t *testing.T) {
 	}
 
 	validateFixtures(t, ifaces, vlans, addrs, nil)
-	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, vlans, nil, nil, nil, nil, nil, nil, addrs, nil, nil, nil)
+	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, netmodel.Input{Interfaces: ifaces, VLANs: vlans, Addresses: addrs})
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}
@@ -375,7 +375,7 @@ func TestLoad_LoopbackUnsupported(t *testing.T) {
 	}
 
 	validateFixtures(t, ifaces, nil, nil, nil)
-	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, netmodel.Input{Interfaces: ifaces})
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}
@@ -442,7 +442,7 @@ func TestLoad_RoutedPortSwitchportSkipped(t *testing.T) {
 	}
 
 	validateFixtures(t, ifaces, nil, addrs, nil)
-	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, nil, nil, nil, nil, nil, nil, nil, addrs, nil, nil, nil)
+	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, netmodel.Input{Interfaces: ifaces, Addresses: addrs})
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}
@@ -530,7 +530,7 @@ func TestLoad_AddressWithoutIPFacetSkipped(t *testing.T) {
 	}
 
 	validateFixtures(t, ifaces, vlans, addrs, nil)
-	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, vlans, nil, nil, nil, nil, nil, nil, addrs, nil, nil, nil)
+	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, netmodel.Input{Interfaces: ifaces, VLANs: vlans, Addresses: addrs})
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}
@@ -607,7 +607,7 @@ func TestLoad_NeighborWithoutMACSkipped(t *testing.T) {
 	}
 
 	validateFixtures(t, ifaces, vlans, addrs, neighbors)
-	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, vlans, nil, nil, nil, nil, nil, nil, addrs, neighbors, nil, nil)
+	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, netmodel.Input{Interfaces: ifaces, VLANs: vlans, Addresses: addrs, Neighbors: neighbors})
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}
@@ -691,7 +691,7 @@ func TestLoad_UnwantedRoutingSkipsIP(t *testing.T) {
 
 	want := []trace.Layer{bridge.LayerName}
 	validateFixtures(t, ifaces, nil, addrs, neighbors)
-	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, nil, nil, nil, nil, nil, nil, nil, addrs, neighbors, nil, want)
+	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, netmodel.Input{Interfaces: ifaces, Addresses: addrs, Neighbors: neighbors, Want: want})
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}
@@ -795,7 +795,7 @@ func TestLoad_VlanInterfaceOtherKindAbsentFromFlood(t *testing.T) {
 	}
 
 	validateFixtures(t, ifaces, vlans, addrs, nil)
-	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, vlans, nil, nil, nil, nil, nil, nil, addrs, nil, nil, nil)
+	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, netmodel.Input{Interfaces: ifaces, VLANs: vlans, Addresses: addrs})
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}
@@ -874,12 +874,12 @@ func TestLoadRoutingAcceptsZeroLengthPrefixes(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			name := test.iface.GetName()
-			result := (loadInput{
-				ifaces: []*interfacev1.Interface{test.iface},
-				addrs: []*ipv1.InterfaceAddress{
+			result := load(t, netmodel.SourceContext{DeviceID: "sw1"}, (netmodel.Input{
+				Interfaces: []*interfacev1.Interface{test.iface},
+				Addresses: []*ipv1.InterfaceAddress{
 					ipv1.InterfaceAddress_builder{InterfaceName: &name, Address: test.address, Prefix: test.prefix}.Build(),
 				},
-			}).load(t, netmodel.SourceContext{DeviceID: "sw1"})
+			}))
 
 			prefixes := result.Spec.Config.Routing.VRFs[routing.DefaultVRF].Interfaces[name].Prefixes
 			if len(prefixes) != 1 || prefixes[0].String() != test.want {
@@ -1045,14 +1045,14 @@ func TestLoad_RoutedPortRefusalRulesBecomeIssues(t *testing.T) {
 		// handle defensively since Load does not assume its caller ran
 		// protovalidate.
 		skipProtovalidate bool
-		input             loadInput
+		input             netmodel.Input
 		check             func(t *testing.T, loaded netmodel.Result)
 	}{
 		{
 			name: "SameSubnetOnTwoInterfaces",
-			input: loadInput{
-				ifaces: []*interfacev1.Interface{routedPhysicalInterface("b0"), routedPhysicalInterface("a0")},
-				addrs: []*ipv1.InterfaceAddress{
+			input: netmodel.Input{
+				Interfaces: []*interfacev1.Interface{routedPhysicalInterface("b0"), routedPhysicalInterface("a0")},
+				Addresses: []*ipv1.InterfaceAddress{
 					ipv1.InterfaceAddress_builder{InterfaceName: ptr("b0"), Address: protoIPv4Addr([4]byte{10, 0, 1, 2}), Prefix: protoIPv4Prefix([4]byte{10, 0, 1, 0}, 24)}.Build(),
 					ipv1.InterfaceAddress_builder{InterfaceName: ptr("a0"), Address: protoIPv4Addr([4]byte{10, 0, 1, 1}), Prefix: protoIPv4Prefix([4]byte{10, 0, 1, 0}, 24)}.Build(),
 					ipv1.InterfaceAddress_builder{InterfaceName: ptr("b0"), Address: protoIPv4Addr([4]byte{10, 0, 2, 2}), Prefix: protoIPv4Prefix([4]byte{10, 0, 2, 0}, 24)}.Build(),
@@ -1077,8 +1077,8 @@ func TestLoad_RoutedPortRefusalRulesBecomeIssues(t *testing.T) {
 
 		{
 			name: "RoutedPortConfiguredAsBridgeSwitchport",
-			input: loadInput{
-				ifaces: []*interfacev1.Interface{routedSwitchedPhysicalInterface("eth1", 10)},
+			input: netmodel.Input{
+				Interfaces: []*interfacev1.Interface{routedSwitchedPhysicalInterface("eth1", 10)},
 			},
 			check: func(t *testing.T, loaded netmodel.Result) {
 				if !slices.ContainsFunc(loaded.Report.Skipped, func(s netmodel.Skipped) bool {
@@ -1103,13 +1103,13 @@ func TestLoad_RoutedPortRefusalRulesBecomeIssues(t *testing.T) {
 		},
 		{
 			name: "RoutedPortConfiguredAsSpanningTreePort",
-			input: func() loadInput {
+			input: func() netmodel.Input {
 				portName := "eth1"
 				ps := stpv1.PortState_builder{InterfaceName: &portName}.Build()
-				return loadInput{
-					ifaces:      []*interfacev1.Interface{routedPhysicalInterface(portName)},
-					bridgeState: validBridgeState(),
-					stpPorts:    []*stpv1.PortState{ps},
+				return netmodel.Input{
+					Interfaces:  []*interfacev1.Interface{routedPhysicalInterface(portName)},
+					BridgeState: validBridgeState(),
+					STPPorts:    []*stpv1.PortState{ps},
 				}
 			}(),
 			check: func(t *testing.T, loaded netmodel.Result) {
@@ -1129,7 +1129,7 @@ func TestLoad_RoutedPortRefusalRulesBecomeIssues(t *testing.T) {
 		},
 		{
 			name: "LinkAggregationMemberAsRoutedPort",
-			input: func() loadInput {
+			input: func() netmodel.Input {
 				memberName := "1/1/1"
 				ifaces := lagInterfaces()
 				for i, iface := range ifaces {
@@ -1138,7 +1138,7 @@ func TestLoad_RoutedPortRefusalRulesBecomeIssues(t *testing.T) {
 						ifaces[i].SetPhysical(iface.GetPhysical())
 					}
 				}
-				return loadInput{ifaces: ifaces}
+				return netmodel.Input{Interfaces: ifaces}
 			}(),
 			check: func(t *testing.T, loaded netmodel.Result) {
 				wantScope := routing.PortLookupScope("sw1", routing.DefaultVRF, "1/1/1")
@@ -1156,8 +1156,8 @@ func TestLoad_RoutedPortRefusalRulesBecomeIssues(t *testing.T) {
 		},
 		{
 			name: "DuplicatePortAndVLANClaim",
-			input: loadInput{
-				ifaces: []*interfacev1.Interface{
+			input: netmodel.Input{
+				Interfaces: []*interfacev1.Interface{
 					plainPhysicalInterface("eth1"),
 					subInterface("eth1-vid10-a", "eth1", vlanTag(packetv1.EtherType_ETHER_TYPE_DOT1Q, 10)),
 					subInterface("eth1-vid10-b", "eth1", vlanTag(packetv1.EtherType_ETHER_TYPE_DOT1Q, 10)),
@@ -1174,8 +1174,8 @@ func TestLoad_RoutedPortRefusalRulesBecomeIssues(t *testing.T) {
 		},
 		{
 			name: "DuplicateVLANClaim",
-			input: loadInput{
-				ifaces: []*interfacev1.Interface{
+			input: netmodel.Input{
+				Interfaces: []*interfacev1.Interface{
 					routedVLANInterface("vlan10-a", 10, []byte{0, 1, 2, 3, 4, 5}),
 					routedVLANInterface("vlan10-b", 10, []byte{0, 1, 2, 3, 4, 6}),
 				},
@@ -1203,8 +1203,8 @@ func TestLoad_RoutedPortRefusalRulesBecomeIssues(t *testing.T) {
 			// TestLoad_SubInterfaceUnsupportedEncapsulation does.
 			name:              "InvalidVLANOnPortBearingInterface",
 			skipProtovalidate: true,
-			input: loadInput{
-				ifaces: []*interfacev1.Interface{
+			input: netmodel.Input{
+				Interfaces: []*interfacev1.Interface{
 					plainPhysicalInterface("eth1"),
 					subInterface("eth1.4095", "eth1", vlanTag(packetv1.EtherType_ETHER_TYPE_DOT1Q, 4095)),
 				},
@@ -1225,8 +1225,8 @@ func TestLoad_RoutedPortRefusalRulesBecomeIssues(t *testing.T) {
 		},
 		{
 			name: "InterfaceWithNeitherVLANNorPort",
-			input: loadInput{
-				ifaces: []*interfacev1.Interface{func() *interfacev1.Interface {
+			input: netmodel.Input{
+				Interfaces: []*interfacev1.Interface{func() *interfacev1.Interface {
 					name := "lo0"
 					admin := interfacev1.AdminStatus_ADMIN_STATUS_UP
 					oper := interfacev1.OperStatus_OPER_STATUS_UP
@@ -1257,9 +1257,9 @@ func TestLoad_RoutedPortRefusalRulesBecomeIssues(t *testing.T) {
 		},
 		{
 			name: "IPv4MappedInterfaceAddress",
-			input: loadInput{
-				ifaces: []*interfacev1.Interface{routedPhysicalInterface("eth1")},
-				addrs: []*ipv1.InterfaceAddress{
+			input: netmodel.Input{
+				Interfaces: []*interfacev1.Interface{routedPhysicalInterface("eth1")},
+				Addresses: []*ipv1.InterfaceAddress{
 					func() *ipv1.InterfaceAddress {
 						name := "eth1"
 						mapped := [16]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff, 203, 0, 113, 7}
@@ -1293,9 +1293,9 @@ func TestLoad_RoutedPortRefusalRulesBecomeIssues(t *testing.T) {
 		},
 		{
 			name: "IPv4MappedNeighborAddress",
-			input: loadInput{
-				ifaces: []*interfacev1.Interface{routedPhysicalInterface("eth1")},
-				addrs: []*ipv1.InterfaceAddress{
+			input: netmodel.Input{
+				Interfaces: []*interfacev1.Interface{routedPhysicalInterface("eth1")},
+				Addresses: []*ipv1.InterfaceAddress{
 					func() *ipv1.InterfaceAddress {
 						name := "eth1"
 						return ipv1.InterfaceAddress_builder{
@@ -1305,7 +1305,7 @@ func TestLoad_RoutedPortRefusalRulesBecomeIssues(t *testing.T) {
 						}.Build()
 					}(),
 				},
-				neighbors: []*ipv1.NeighborEntry{
+				Neighbors: []*ipv1.NeighborEntry{
 					func() *ipv1.NeighborEntry {
 						name := "eth1"
 						mapped := [16]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff, 203, 0, 113, 9}
@@ -1336,9 +1336,9 @@ func TestLoad_RoutedPortRefusalRulesBecomeIssues(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			if !test.skipProtovalidate {
-				test.input.validate(t)
+				validateInput(t, test.input)
 			}
-			loaded := test.input.load(t, netmodel.SourceContext{DeviceID: "sw1"})
+			loaded := load(t, netmodel.SourceContext{DeviceID: "sw1"}, test.input)
 			test.check(t, loaded)
 			if err := loaded.Spec.Config.Validate(); err != nil {
 				t.Errorf("cfg.Validate failed: %v", err)
@@ -1361,9 +1361,9 @@ func TestLoad_SubInterfacesRouteOverPhysicalParent(t *testing.T) {
 	sub10 := subInterface(sub10Name, parentName, vlanTag(packetv1.EtherType_ETHER_TYPE_DOT1Q, 10))
 	sub20 := subInterface(sub20Name, parentName, vlanTag(packetv1.EtherType_ETHER_TYPE_DOT1Q, 20))
 
-	input := loadInput{ifaces: []*interfacev1.Interface{parent, sub10, sub20}}
-	input.validate(t)
-	loaded := input.load(t, netmodel.SourceContext{DeviceID: "sw1"})
+	input := netmodel.Input{Interfaces: []*interfacev1.Interface{parent, sub10, sub20}}
+	validateInput(t, input)
+	loaded := load(t, netmodel.SourceContext{DeviceID: "sw1"}, input)
 
 	cfg := loaded.Spec.Config
 	if cfg.Routing == nil {
@@ -1461,11 +1461,11 @@ func TestLoad_SubInterfaceUnsupportedEncapsulation(t *testing.T) {
 			parent := plainPhysicalInterface(parentName)
 			sub := subInterface(subName, parentName, test.tags...)
 
-			input := loadInput{ifaces: []*interfacev1.Interface{parent, sub}}
+			input := netmodel.Input{Interfaces: []*interfacev1.Interface{parent, sub}}
 			if !test.skipProtovalidate {
-				input.validate(t)
+				validateInput(t, input)
 			}
-			loaded := input.load(t, netmodel.SourceContext{DeviceID: "sw1"})
+			loaded := load(t, netmodel.SourceContext{DeviceID: "sw1"}, input)
 
 			wantScope := routing.PortLookupScope("sw1", routing.DefaultVRF, parentName)
 			if !slices.ContainsFunc(loaded.Metadata.Issues(), func(issue analysis.Issue) bool {
@@ -1523,9 +1523,9 @@ func TestLoad_SubInterfaceInvalidParentKind(t *testing.T) {
 			sub := subInterface(subName, test.parent, vlanTag(packetv1.EtherType_ETHER_TYPE_DOT1Q, 10))
 			ifaces := append(append([]*interfacev1.Interface{}, test.ifaces...), sub)
 
-			input := loadInput{ifaces: ifaces}
-			input.validate(t)
-			loaded := input.load(t, netmodel.SourceContext{DeviceID: "sw1"})
+			input := netmodel.Input{Interfaces: ifaces}
+			validateInput(t, input)
+			loaded := load(t, netmodel.SourceContext{DeviceID: "sw1"}, input)
 
 			wantScope := routing.PortLookupScope("sw1", routing.DefaultVRF, test.parent)
 			if !slices.ContainsFunc(loaded.Metadata.Issues(), func(issue analysis.Issue) bool {
@@ -1548,9 +1548,9 @@ func TestLoad_SubInterfaceRoutesOverLAGParent(t *testing.T) {
 	sub := subInterface(subName, lagName, vlanTag(packetv1.EtherType_ETHER_TYPE_DOT1Q, 10))
 	ifaces := append(lagInterfaces(), sub)
 
-	input := loadInput{ifaces: ifaces}
-	input.validate(t)
-	loaded := input.load(t, netmodel.SourceContext{DeviceID: "sw1"})
+	input := netmodel.Input{Interfaces: ifaces}
+	validateInput(t, input)
+	loaded := load(t, netmodel.SourceContext{DeviceID: "sw1"}, input)
 
 	cfg := loaded.Spec.Config
 	if cfg.Routing == nil {
@@ -1583,8 +1583,7 @@ func TestLoad_DuplicateSubInterfaceNameRefused(t *testing.T) {
 	validateFixtures(t, ifaces, nil, nil, nil)
 
 	_, err := netmodel.Load(
-		trustTestTime, netmodel.SourceContext{DeviceID: "sw1"},
-		ifaces, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
+		trustTestTime, netmodel.SourceContext{DeviceID: "sw1"}, netmodel.Input{Interfaces: ifaces},
 	)
 	if err == nil {
 		t.Fatal("Load succeeded, want an error for the duplicate interface name eth1.10")
@@ -1606,9 +1605,9 @@ func TestLoad_SubInterfaceParentSwitchportSkippedAsRouted(t *testing.T) {
 	parent := switchedPhysicalInterface(parentName, 10)
 	sub := subInterface(subName, parentName, vlanTag(packetv1.EtherType_ETHER_TYPE_DOT1Q, 10))
 
-	input := loadInput{ifaces: []*interfacev1.Interface{parent, sub}}
-	input.validate(t)
-	loaded := input.load(t, netmodel.SourceContext{DeviceID: "sw1"})
+	input := netmodel.Input{Interfaces: []*interfacev1.Interface{parent, sub}}
+	validateInput(t, input)
+	loaded := load(t, netmodel.SourceContext{DeviceID: "sw1"}, input)
 
 	foundSkipped := false
 	for _, s := range loaded.Report.Skipped {
@@ -1656,9 +1655,9 @@ func TestLoad_DuplicateSubInterfaceClaimSkipped(t *testing.T) {
 	subA := subInterface(subAName, parentName, vlanTag(packetv1.EtherType_ETHER_TYPE_DOT1Q, 10))
 	subB := subInterface(subBName, parentName, vlanTag(packetv1.EtherType_ETHER_TYPE_DOT1Q, 10))
 
-	input := loadInput{ifaces: []*interfacev1.Interface{parent, subA, subB}}
-	input.validate(t)
-	loaded := input.load(t, netmodel.SourceContext{DeviceID: "sw1"})
+	input := netmodel.Input{Interfaces: []*interfacev1.Interface{parent, subA, subB}}
+	validateInput(t, input)
+	loaded := load(t, netmodel.SourceContext{DeviceID: "sw1"}, input)
 
 	wantScope := routing.PortLookupScope("sw1", routing.DefaultVRF, parentName)
 	if !slices.ContainsFunc(loaded.Metadata.Issues(), func(issue analysis.Issue) bool {
@@ -1698,9 +1697,9 @@ func TestLoad_RejectedSubInterfaceParentKeepsSwitchport(t *testing.T) {
 	parent := switchedPhysicalInterface(parentName, 10)
 	sub := subInterface(subName, parentName, vlanTag(packetv1.EtherType_ETHER_TYPE_PROVIDER_BRIDGING, 10))
 
-	input := loadInput{ifaces: []*interfacev1.Interface{parent, sub}}
-	input.validate(t)
-	loaded := input.load(t, netmodel.SourceContext{DeviceID: "sw1"})
+	input := netmodel.Input{Interfaces: []*interfacev1.Interface{parent, sub}}
+	validateInput(t, input)
+	loaded := load(t, netmodel.SourceContext{DeviceID: "sw1"}, input)
 
 	cfg := loaded.Spec.Config
 	if cfg.Bridge == nil || cfg.Bridge.VLAN == nil {
@@ -1745,13 +1744,13 @@ func TestLoad_ConflictingSubInterfaceClaimKeepsParentSwitchportAndSTP(t *testing
 	stpPortName := parentName
 	ps := stpv1.PortState_builder{InterfaceName: &stpPortName}.Build()
 
-	input := loadInput{
-		ifaces:      []*interfacev1.Interface{parent, subA, subB},
-		bridgeState: validBridgeState(),
-		stpPorts:    []*stpv1.PortState{ps},
+	input := netmodel.Input{
+		Interfaces:  []*interfacev1.Interface{parent, subA, subB},
+		BridgeState: validBridgeState(),
+		STPPorts:    []*stpv1.PortState{ps},
 	}
-	input.validate(t)
-	loaded := input.load(t, netmodel.SourceContext{DeviceID: "sw1"})
+	validateInput(t, input)
+	loaded := load(t, netmodel.SourceContext{DeviceID: "sw1"}, input)
 
 	cfg := loaded.Spec.Config
 	if cfg.Bridge == nil || cfg.Bridge.VLAN == nil {
@@ -1789,7 +1788,7 @@ func TestLoad_VLANInterfaceInvalidIDSkipped(t *testing.T) {
 			ifaceName := "vlan-bad"
 			iface := routedVLANInterface(ifaceName, test.vid, []byte{0, 1, 2, 3, 4, 5})
 
-			loaded := (loadInput{ifaces: []*interfacev1.Interface{iface}}).load(t, netmodel.SourceContext{DeviceID: "sw1"})
+			loaded := load(t, netmodel.SourceContext{DeviceID: "sw1"}, (netmodel.Input{Interfaces: []*interfacev1.Interface{iface}}))
 
 			wantScope := routing.VLANLookupScope("sw1", routing.DefaultVRF, vlan.ID(test.vid))
 			if !slices.ContainsFunc(loaded.Metadata.Issues(), func(issue analysis.Issue) bool {
@@ -1824,8 +1823,7 @@ func TestLoad_DuplicateVLANInterfaceClaimSkipped(t *testing.T) {
 	validateFixtures(t, ifaces, nil, nil, nil)
 
 	loaded, err := netmodel.Load(
-		trustTestTime, netmodel.SourceContext{DeviceID: "sw1"},
-		ifaces, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
+		trustTestTime, netmodel.SourceContext{DeviceID: "sw1"}, netmodel.Input{Interfaces: ifaces},
 	)
 	if err != nil {
 		t.Fatalf("Load failed: %v, want a recorded conflict rather than an error", err)

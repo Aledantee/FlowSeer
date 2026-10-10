@@ -50,7 +50,7 @@ func TestNetmodel_InvalidFdbEntrySkipped(t *testing.T) {
 		Mac:             addrv1.Eui48Address_builder{Octets: macBytes}.Build(),
 	}.Build()
 
-	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, []*interfacev1.Interface{iface}, nil, []*switchingv1.FdbEntry{fdb1, fdb2}, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, netmodel.Input{Interfaces: []*interfacev1.Interface{iface}, FDB: []*switchingv1.FdbEntry{fdb1, fdb2}})
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}
@@ -130,7 +130,7 @@ func TestLoadFDBRequiresAuthoritativeKindAndStatus(t *testing.T) {
 	}
 
 	src := netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot", Context: "fdb-trust"}
-	result := (loadInput{ifaces: []*interfacev1.Interface{plainPhysicalInterface(portName)}, fdb: fdb}).load(t, src)
+	result := load(t, src, (netmodel.Input{Interfaces: []*interfacev1.Interface{plainPhysicalInterface(portName)}, FDB: fdb}))
 
 	if len(result.Spec.Seeds) != 0 {
 		t.Errorf("seeds = %+v, want none", result.Spec.Seeds)
@@ -163,12 +163,12 @@ func TestLoadKeepsExplicitActiveFDBKindsAndDeduplicatesEqualRows(t *testing.T) {
 				VlanId:          &vid, InterfaceName: &portName,
 				Mac: addrv1.Eui48Address_builder{Octets: []byte{0, 1, 2, 3, 4, 5}}.Build(), Kind: &tt.kind, Status: &active,
 			}.Build()
-			input := loadInput{
-				ifaces: []*interfacev1.Interface{switchedPhysicalInterface(portName, vid)},
-				fdb:    []*switchingv1.FdbEntry{row, row},
+			input := netmodel.Input{
+				Interfaces: []*interfacev1.Interface{switchedPhysicalInterface(portName, vid)},
+				FDB:        []*switchingv1.FdbEntry{row, row},
 			}
-			input.validate(t)
-			result := input.load(t, netmodel.SourceContext{DeviceID: "sw1"})
+			validateInput(t, input)
+			result := load(t, netmodel.SourceContext{DeviceID: "sw1"}, input)
 
 			isStatic := result.Spec.Seeds[0].Lifetime == bridge.Static
 			if len(result.Spec.Seeds) != 1 || isStatic != tt.isStatic {
@@ -189,53 +189,53 @@ func TestLoadOmitsFDBRowsTheCompletedSwitchCannotConstruct(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		input     loadInput
+		input     netmodel.Input
 		wantSeeds int
 	}{
 		{
 			name: "relay absent",
-			input: loadInput{
-				ifaces: []*interfacev1.Interface{plainPhysicalInterface(portName)},
-				fdb:    []*switchingv1.FdbEntry{activeFDBRow(portName, vid10)},
-				want:   []trace.Layer{phy.LayerName},
+			input: netmodel.Input{
+				Interfaces: []*interfacev1.Interface{plainPhysicalInterface(portName)},
+				FDB:        []*switchingv1.FdbEntry{activeFDBRow(portName, vid10)},
+				Want:       []trace.Layer{phy.LayerName},
 			},
 		},
 		{
 			name: "VLAN awareness absent",
-			input: loadInput{
-				ifaces: []*interfacev1.Interface{plainPhysicalInterface(portName)},
-				fdb:    []*switchingv1.FdbEntry{activeFDBRow(portName, vid10)},
-				want:   []trace.Layer{bridge.LayerName},
+			input: netmodel.Input{
+				Interfaces: []*interfacev1.Interface{plainPhysicalInterface(portName)},
+				FDB:        []*switchingv1.FdbEntry{activeFDBRow(portName, vid10)},
+				Want:       []trace.Layer{bridge.LayerName},
 			},
 		},
 		{
 			name: "VLAN absent from table",
-			input: loadInput{
-				ifaces: []*interfacev1.Interface{switchedPhysicalInterface(portName, vid20)},
-				fdb:    []*switchingv1.FdbEntry{activeFDBRow(portName, vid10)},
+			input: netmodel.Input{
+				Interfaces: []*interfacev1.Interface{switchedPhysicalInterface(portName, vid20)},
+				FDB:        []*switchingv1.FdbEntry{activeFDBRow(portName, vid10)},
 			},
 		},
 		{
 			name: "routed port",
-			input: loadInput{
-				ifaces: []*interfacev1.Interface{routedPhysicalInterface(portName)},
-				vlans:  []*switchingv1.Vlan{vlan10},
-				fdb:    []*switchingv1.FdbEntry{activeFDBRow(portName, vid10)},
+			input: netmodel.Input{
+				Interfaces: []*interfacev1.Interface{routedPhysicalInterface(portName)},
+				VLANs:      []*switchingv1.Vlan{vlan10},
+				FDB:        []*switchingv1.FdbEntry{activeFDBRow(portName, vid10)},
 			},
 		},
 		{
 			name: "switchport does not admit VLAN",
-			input: loadInput{
-				ifaces: []*interfacev1.Interface{switchedPhysicalInterface(portName, vid20)},
-				vlans:  []*switchingv1.Vlan{vlan10},
-				fdb:    []*switchingv1.FdbEntry{activeFDBRow(portName, vid10)},
+			input: netmodel.Input{
+				Interfaces: []*interfacev1.Interface{switchedPhysicalInterface(portName, vid20)},
+				VLANs:      []*switchingv1.Vlan{vlan10},
+				FDB:        []*switchingv1.FdbEntry{activeFDBRow(portName, vid10)},
 			},
 		},
 		{
 			name: "admitted switchport",
-			input: loadInput{
-				ifaces: []*interfacev1.Interface{switchedPhysicalInterface(portName, vid10)},
-				fdb:    []*switchingv1.FdbEntry{activeFDBRow(portName, vid10)},
+			input: netmodel.Input{
+				Interfaces: []*interfacev1.Interface{switchedPhysicalInterface(portName, vid10)},
+				FDB:        []*switchingv1.FdbEntry{activeFDBRow(portName, vid10)},
 			},
 			wantSeeds: 1,
 		},
@@ -243,8 +243,8 @@ func TestLoadOmitsFDBRowsTheCompletedSwitchCannotConstruct(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			test.input.validate(t)
-			result := test.input.load(t, netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot"})
+			validateInput(t, test.input)
+			result := load(t, netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot"}, test.input)
 
 			if got := len(result.Spec.Seeds); got != test.wantSeeds {
 				t.Errorf("seed count = %d, want %d: %+v", got, test.wantSeeds, result.Spec.Seeds)

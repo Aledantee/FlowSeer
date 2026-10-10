@@ -45,7 +45,7 @@ func TestNetmodel_PortWithoutPoeDetailSkipped(t *testing.T) {
 		}.Build(),
 	}.Build()
 
-	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, []*interfacev1.Interface{iface}, nil, nil, []*phyv1.PseBudget{budget}, nil, nil, nil, nil, nil, nil, nil, nil)
+	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, netmodel.Input{Interfaces: []*interfacev1.Interface{iface}, Budgets: []*phyv1.PseBudget{budget}})
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}
@@ -122,7 +122,7 @@ func TestPoeExportAndLoadRoundTrip(t *testing.T) {
 			ifaces = append(ifaces, iface)
 		}
 
-		res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, nil, nil, budgets, nil, nil, nil, nil, nil, nil, nil, []trace.Layer{phy.LayerNamePoE})
+		res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, netmodel.Input{Interfaces: ifaces, Budgets: budgets, Want: []trace.Layer{phy.LayerNamePoE}})
 		if err != nil {
 			t.Fatalf("netmodel.Load failed: %v", err)
 		}
@@ -344,7 +344,7 @@ func TestLoad_PoeLimitInNanowatts(t *testing.T) {
 	}.Build()
 	budget := phyv1.PseBudget_builder{PseGroup: &grp, PowerNanowatts: &power}.Build()
 
-	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, []*interfacev1.Interface{iface}, nil, nil, []*phyv1.PseBudget{budget}, nil, nil, nil, nil, nil, nil, nil, []trace.Layer{phy.LayerNamePoE})
+	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, netmodel.Input{Interfaces: []*interfacev1.Interface{iface}, Budgets: []*phyv1.PseBudget{budget}, Want: []trace.Layer{phy.LayerNamePoE}})
 	if err != nil {
 		t.Fatalf("netmodel.Load: %v", err)
 	}
@@ -384,10 +384,10 @@ func TestLoadAutoNegotiationSupportedAbsence(t *testing.T) {
 		}.Build(),
 	}.Build()
 
-	input := loadInput{ifaces: []*interfacev1.Interface{iface}, want: []trace.Layer{phy.LayerName}}
-	input.validate(t)
+	input := netmodel.Input{Interfaces: []*interfacev1.Interface{iface}, Want: []trace.Layer{phy.LayerName}}
+	validateInput(t, input)
 
-	res := input.load(t, netmodel.SourceContext{DeviceID: "sw1"})
+	res := load(t, netmodel.SourceContext{DeviceID: "sw1"}, input)
 	eth, ok := res.Spec.Config.Phy.Ethernet[name]
 	if !ok {
 		t.Fatalf("port %s missing from ethernet config", name)
@@ -520,16 +520,16 @@ func TestLoadPoeStatusMapping(t *testing.T) {
 				}.Build(),
 			}.Build()
 
-			input := loadInput{
-				ifaces: []*interfacev1.Interface{iface},
-				budgets: []*phyv1.PseBudget{
+			input := netmodel.Input{
+				Interfaces: []*interfacev1.Interface{iface},
+				Budgets: []*phyv1.PseBudget{
 					phyv1.PseBudget_builder{PseGroup: &group, PowerNanowatts: &power}.Build(),
 				},
-				want: []trace.Layer{phy.LayerNamePoE},
+				Want: []trace.Layer{phy.LayerNamePoE},
 			}
-			input.validate(t)
+			validateInput(t, input)
 
-			res := input.load(t, netmodel.SourceContext{DeviceID: "sw1"})
+			res := load(t, netmodel.SourceContext{DeviceID: "sw1"}, input)
 			portScope := analysis.PortScope("sw1", portName)
 
 			poePort, ok := res.Spec.Config.Phy.PoE.Ports[portName]
@@ -643,16 +643,16 @@ func TestLoadPoePowerClassWithoutDelivery(t *testing.T) {
 				}.Build(),
 			}.Build()
 
-			input := loadInput{
-				ifaces: []*interfacev1.Interface{iface},
-				budgets: []*phyv1.PseBudget{
+			input := netmodel.Input{
+				Interfaces: []*interfacev1.Interface{iface},
+				Budgets: []*phyv1.PseBudget{
 					phyv1.PseBudget_builder{PseGroup: &group, PowerNanowatts: &power}.Build(),
 				},
-				want: []trace.Layer{phy.LayerNamePoE},
+				Want: []trace.Layer{phy.LayerNamePoE},
 			}
-			input.validate(t)
+			validateInput(t, input)
 
-			res := input.load(t, netmodel.SourceContext{DeviceID: "sw1"})
+			res := load(t, netmodel.SourceContext{DeviceID: "sw1"}, input)
 			portScope := analysis.PortScope("sw1", portName)
 
 			poePort, ok := res.Spec.Config.Phy.PoE.Ports[portName]

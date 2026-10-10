@@ -11,15 +11,12 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	addrv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/addr/v1"
-	filterv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/filter/v1"
 	interfacev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1"
 	ipv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/ip/v1"
 
 	// Linked so protovalidate resolves the net/key predefined rules through the global registry (structure-record convention 4).
 	_ "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/key/v1"
 	packetv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/packet/v1"
-	phyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1"
-	lacpv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/lacp/v1"
 	stpv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/stp/v1"
 	switchingv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/switching/v1"
 	"go.aledante.io/FlowSeer/src/common/net/bpdu"
@@ -36,85 +33,54 @@ import (
 	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/netmodel"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
-	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
 var testTime = time.Date(2026, 9, 10, 18, 0, 0, 0, time.UTC)
 
 var trustTestTime = time.Date(2026, 9, 12, 15, 0, 0, 0, time.UTC)
 
-type loadInput struct {
-	ifaces          []*interfacev1.Interface
-	vlans           []*switchingv1.Vlan
-	fdb             []*switchingv1.FdbEntry
-	budgets         []*phyv1.PseBudget
-	bridgeState     *stpv1.BridgeState
-	stpPorts        []*stpv1.PortState
-	lacpAggregators []*lacpv1.AggregatorState
-	lacpPorts       []*lacpv1.PortState
-	addrs           []*ipv1.InterfaceAddress
-	neighbors       []*ipv1.NeighborEntry
-	filterSets      []*filterv1.FilterRuleSet
-	want            []trace.Layer
-}
-
-func (in loadInput) load(t *testing.T, src netmodel.SourceContext) netmodel.Result {
+func load(t *testing.T, src netmodel.SourceContext, in netmodel.Input) netmodel.Result {
 	t.Helper()
 
-	result, err := netmodel.Load(
-		trustTestTime,
-		src,
-		in.ifaces,
-		in.vlans,
-		in.fdb,
-		in.budgets,
-		in.bridgeState,
-		in.stpPorts,
-		in.lacpAggregators,
-		in.lacpPorts,
-		in.addrs,
-		in.neighbors,
-		in.filterSets,
-		in.want,
-	)
+	result, err := netmodel.Load(trustTestTime, src, in)
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
 	return result
 }
 
-func (in loadInput) validate(t *testing.T) {
+func validateInput(t *testing.T, in netmodel.Input) {
 	t.Helper()
 
-	messages := make([]proto.Message, 0, len(in.ifaces)+len(in.vlans)+len(in.fdb)+len(in.budgets)+len(in.stpPorts)+len(in.lacpAggregators)+len(in.lacpPorts)+len(in.addrs)+len(in.neighbors)+1)
-	for _, message := range in.ifaces {
+	messages := make([]proto.Message, 0, len(in.Interfaces)+len(in.VLANs)+len(in.FDB)+len(in.Budgets)+len(in.STPPorts)+len(in.LACPAggregators)+len(in.LACPPorts)+len(in.Addresses)+len(in.Neighbors)+1)
+	for _, message := range in.Interfaces {
 		messages = append(messages, message)
 	}
-	for _, message := range in.vlans {
+	for _, message := range in.VLANs {
 		messages = append(messages, message)
 	}
-	for _, message := range in.fdb {
+	for _, message := range in.FDB {
 		messages = append(messages, message)
 	}
-	for _, message := range in.budgets {
+	for _, message := range in.Budgets {
 		messages = append(messages, message)
 	}
-	if in.bridgeState != nil {
-		messages = append(messages, in.bridgeState)
+	if in.BridgeState != nil {
+		messages = append(messages, in.BridgeState)
 	}
-	for _, message := range in.stpPorts {
+	for _, message := range in.STPPorts {
 		messages = append(messages, message)
 	}
-	for _, message := range in.lacpAggregators {
+	for _, message := range in.LACPAggregators {
 		messages = append(messages, message)
 	}
-	for _, message := range in.lacpPorts {
+	for _, message := range in.LACPPorts {
 		messages = append(messages, message)
 	}
-	for _, message := range in.addrs {
+	for _, message := range in.Addresses {
 		messages = append(messages, message)
 	}
-	for _, message := range in.neighbors {
+	for _, message := range in.Neighbors {
 		messages = append(messages, message)
 	}
 	for _, message := range messages {

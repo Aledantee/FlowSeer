@@ -30,16 +30,16 @@ func TestLoadConflictsAreOrderIndependent(t *testing.T) {
 
 	tests := []struct {
 		name       string
-		forward    loadInput
-		reverse    loadInput
+		forward    netmodel.Input
+		reverse    netmodel.Input
 		conflictOn string
 		omitted    func(netmodel.Result) bool
 	}{
 		{
 			name: "forwarding database",
-			forward: loadInput{
-				ifaces: []*interfacev1.Interface{plainPhysicalInterface(portName), plainPhysicalInterface(otherPortName)},
-				fdb: []*switchingv1.FdbEntry{
+			forward: netmodel.Input{
+				Interfaces: []*interfacev1.Interface{plainPhysicalInterface(portName), plainPhysicalInterface(otherPortName)},
+				FDB: []*switchingv1.FdbEntry{
 					switchingv1.FdbEntry_builder{NetworkInstance: ptr("default"), VlanId: &vid, Mac: addrv1.Eui48Address_builder{Octets: []byte{0, 1, 2, 3, 4, 5}}.Build(), InterfaceName: &portName, Kind: &static, Status: &active}.Build(),
 					switchingv1.FdbEntry_builder{NetworkInstance: ptr("default"), VlanId: &vid, Mac: addrv1.Eui48Address_builder{Octets: []byte{0, 1, 2, 3, 4, 5}}.Build(), InterfaceName: &otherPortName, Kind: &static, Status: &active}.Build(),
 				},
@@ -51,13 +51,13 @@ func TestLoadConflictsAreOrderIndependent(t *testing.T) {
 		},
 		{
 			name: "vlan",
-			forward: loadInput{
-				ifaces: []*interfacev1.Interface{plainPhysicalInterface(portName)},
-				vlans: []*switchingv1.Vlan{
+			forward: netmodel.Input{
+				Interfaces: []*interfacev1.Interface{plainPhysicalInterface(portName)},
+				VLANs: []*switchingv1.Vlan{
 					switchingv1.Vlan_builder{NetworkInstance: ptr("default"), Id: &vid, Name: ptr("blue")}.Build(),
 					switchingv1.Vlan_builder{NetworkInstance: ptr("default"), Id: &vid, Name: ptr("red")}.Build(),
 				},
-				want: []trace.Layer{bridge.LayerNameVLAN},
+				Want: []trace.Layer{bridge.LayerNameVLAN},
 			},
 			conflictOn: "vlan",
 			omitted: func(result netmodel.Result) bool {
@@ -67,9 +67,9 @@ func TestLoadConflictsAreOrderIndependent(t *testing.T) {
 		},
 		{
 			name: "power budget",
-			forward: loadInput{
-				ifaces: []*interfacev1.Interface{plainPhysicalInterface(portName)},
-				budgets: []*phyv1.PseBudget{
+			forward: netmodel.Input{
+				Interfaces: []*interfacev1.Interface{plainPhysicalInterface(portName)},
+				Budgets: []*phyv1.PseBudget{
 					phyv1.PseBudget_builder{PseGroup: ptr(uint32(1)), PowerNanowatts: ptr(uint64(100_000_000_000))}.Build(),
 					phyv1.PseBudget_builder{PseGroup: ptr(uint32(1)), PowerNanowatts: ptr(uint64(200_000_000_000))}.Build(),
 				},
@@ -82,10 +82,10 @@ func TestLoadConflictsAreOrderIndependent(t *testing.T) {
 		},
 		{
 			name: "spanning tree port",
-			forward: loadInput{
-				ifaces:      []*interfacev1.Interface{plainPhysicalInterface(portName)},
-				bridgeState: validBridgeState(),
-				stpPorts: []*stpv1.PortState{
+			forward: netmodel.Input{
+				Interfaces:  []*interfacev1.Interface{plainPhysicalInterface(portName)},
+				BridgeState: validBridgeState(),
+				STPPorts: []*stpv1.PortState{
 					stpv1.PortState_builder{InterfaceName: &portName, Priority: ptr(uint32(64)), AdminPathCost: ptr(uint32(10))}.Build(),
 					stpv1.PortState_builder{InterfaceName: &portName, Priority: ptr(uint32(128)), AdminPathCost: ptr(uint32(20))}.Build(),
 				},
@@ -98,9 +98,9 @@ func TestLoadConflictsAreOrderIndependent(t *testing.T) {
 		},
 		{
 			name: "link aggregation aggregator",
-			forward: loadInput{
-				ifaces: lagInterfaces(),
-				lacpAggregators: []*lacpv1.AggregatorState{
+			forward: netmodel.Input{
+				Interfaces: lagInterfaces(),
+				LACPAggregators: []*lacpv1.AggregatorState{
 					lacpv1.AggregatorState_builder{InterfaceName: ptr("lag1"), Mode: ptr(lacpv1.LacpMode_LACP_MODE_ACTIVE), Key: ptr(uint32(10))}.Build(),
 					lacpv1.AggregatorState_builder{InterfaceName: ptr("lag1"), Mode: ptr(lacpv1.LacpMode_LACP_MODE_PASSIVE), Key: ptr(uint32(20))}.Build(),
 				},
@@ -112,9 +112,9 @@ func TestLoadConflictsAreOrderIndependent(t *testing.T) {
 		},
 		{
 			name: "link aggregation member",
-			forward: loadInput{
-				ifaces: lagInterfaces(),
-				lacpPorts: []*lacpv1.PortState{
+			forward: netmodel.Input{
+				Interfaces: lagInterfaces(),
+				LACPPorts: []*lacpv1.PortState{
 					lacpv1.PortState_builder{InterfaceName: &portName, PortPriority: ptr(uint32(10)), Key: ptr(uint32(100))}.Build(),
 					lacpv1.PortState_builder{InterfaceName: &portName, PortPriority: ptr(uint32(20)), Key: ptr(uint32(200))}.Build(),
 				},
@@ -127,9 +127,9 @@ func TestLoadConflictsAreOrderIndependent(t *testing.T) {
 		},
 		{
 			name: "interface address",
-			forward: loadInput{
-				ifaces: []*interfacev1.Interface{routedVLANInterface(routedName, vid, []byte{0, 1, 2, 3, 4, 5})},
-				addrs: []*ipv1.InterfaceAddress{
+			forward: netmodel.Input{
+				Interfaces: []*interfacev1.Interface{routedVLANInterface(routedName, vid, []byte{0, 1, 2, 3, 4, 5})},
+				Addresses: []*ipv1.InterfaceAddress{
 					ipv1.InterfaceAddress_builder{InterfaceName: &routedName, Address: protoIPv4Addr([4]byte{10, 0, 0, 1}), Prefix: protoIPv4Prefix([4]byte{10, 0, 0, 0}, 24)}.Build(),
 					ipv1.InterfaceAddress_builder{InterfaceName: &routedName, Address: protoIPv4Addr([4]byte{10, 0, 0, 1}), Prefix: protoIPv4Prefix([4]byte{10, 0, 0, 0}, 25)}.Build(),
 				},
@@ -141,12 +141,12 @@ func TestLoadConflictsAreOrderIndependent(t *testing.T) {
 		},
 		{
 			name: "neighbor",
-			forward: loadInput{
-				ifaces: []*interfacev1.Interface{routedVLANInterface(routedName, vid, []byte{0, 1, 2, 3, 4, 5})},
-				addrs: []*ipv1.InterfaceAddress{
+			forward: netmodel.Input{
+				Interfaces: []*interfacev1.Interface{routedVLANInterface(routedName, vid, []byte{0, 1, 2, 3, 4, 5})},
+				Addresses: []*ipv1.InterfaceAddress{
 					ipv1.InterfaceAddress_builder{InterfaceName: &routedName, Address: protoIPv4Addr([4]byte{10, 0, 0, 1}), Prefix: protoIPv4Prefix([4]byte{10, 0, 0, 0}, 24)}.Build(),
 				},
-				neighbors: []*ipv1.NeighborEntry{
+				Neighbors: []*ipv1.NeighborEntry{
 					ipv1.NeighborEntry_builder{InterfaceName: &routedName, Ip: protoIPv4Addr([4]byte{10, 0, 0, 2}), Mac: protoEUI48([6]byte{0, 1, 2, 3, 4, 6})}.Build(),
 					ipv1.NeighborEntry_builder{InterfaceName: &routedName, Ip: protoIPv4Addr([4]byte{10, 0, 0, 2}), Mac: protoEUI48([6]byte{0, 1, 2, 3, 4, 7})}.Build(),
 				},
@@ -160,20 +160,20 @@ func TestLoadConflictsAreOrderIndependent(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tt.forward.validate(t)
+			validateInput(t, tt.forward)
 			tt.reverse = tt.forward
-			tt.reverse.fdb = reversed(tt.forward.fdb)
-			tt.reverse.vlans = reversed(tt.forward.vlans)
-			tt.reverse.budgets = reversed(tt.forward.budgets)
-			tt.reverse.stpPorts = reversed(tt.forward.stpPorts)
-			tt.reverse.lacpAggregators = reversed(tt.forward.lacpAggregators)
-			tt.reverse.lacpPorts = reversed(tt.forward.lacpPorts)
-			tt.reverse.addrs = reversed(tt.forward.addrs)
-			tt.reverse.neighbors = reversed(tt.forward.neighbors)
+			tt.reverse.FDB = reversed(tt.forward.FDB)
+			tt.reverse.VLANs = reversed(tt.forward.VLANs)
+			tt.reverse.Budgets = reversed(tt.forward.Budgets)
+			tt.reverse.STPPorts = reversed(tt.forward.STPPorts)
+			tt.reverse.LACPAggregators = reversed(tt.forward.LACPAggregators)
+			tt.reverse.LACPPorts = reversed(tt.forward.LACPPorts)
+			tt.reverse.Addresses = reversed(tt.forward.Addresses)
+			tt.reverse.Neighbors = reversed(tt.forward.Neighbors)
 
-			forward := tt.forward.load(t, src)
-			reverse := tt.reverse.load(t, src)
-			repeated := tt.forward.load(t, src)
+			forward := load(t, src, tt.forward)
+			reverse := load(t, src, tt.reverse)
+			repeated := load(t, src, tt.forward)
 			assertEqualLoadResults(t, forward, reverse)
 			assertEqualLoadResults(t, forward, repeated)
 			assertEvidenceSource(t, forward, src)

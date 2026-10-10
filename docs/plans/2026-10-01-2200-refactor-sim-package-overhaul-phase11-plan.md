@@ -133,13 +133,19 @@ corpus expectations change.
 Verify: `uv run tools/scripts/run.py verify change -- src/common/sim/netmodel`
 
 ### U3. Bundle input and migrate every caller
-Files: src/common/sim/netmodel/netmodel.go, src/common/sim/netmodel/input.go, src/common/sim/netmodel/helpers_test.go, src/common/sim/netmodel/load_ports_test.go, src/common/sim/netmodel/load_phy_test.go, src/common/sim/netmodel/load_bridge_test.go, src/common/sim/netmodel/load_lag_test.go, src/common/sim/netmodel/load_stp_test.go, src/common/sim/netmodel/load_routing_test.go, src/common/sim/netmodel/load_filter_test.go, src/common/sim/netmodel/load_fdb_test.go, src/common/sim/netmodel/load_capabilities_test.go, src/common/sim/netmodel/load_conflicts_test.go, src/common/sim/netmodel/netmodel_test.go, src/common/sim/netmodel/trust_test.go, src/common/sim/netmodel/routing_test.go, src/common/sim/netmodel/stp_test.go, src/common/sim/netmodel/lacp_test.go, src/common/sim/netmodel/export_test.go, src/common/sim/netmodel/report_test.go, src/common/sim/netmodel/testdata_icx7150_test.go, src/common/sim/netmodel/conformance_test.go, src/common/sim/netmodel/README.md, src/common/sim/internal/simtest/cases.go
+Files: src/common/sim/netmodel/netmodel.go, src/common/sim/netmodel/input.go, src/common/sim/netmodel/helpers_test.go, src/common/sim/netmodel/load_ports_test.go, src/common/sim/netmodel/load_phy_test.go, src/common/sim/netmodel/load_bridge_test.go, src/common/sim/netmodel/load_lag_test.go, src/common/sim/netmodel/load_stp_test.go, src/common/sim/netmodel/load_routing_test.go, src/common/sim/netmodel/load_filter_test.go, src/common/sim/netmodel/load_fdb_test.go, src/common/sim/netmodel/load_capabilities_test.go, src/common/sim/netmodel/load_conflicts_test.go, src/common/sim/netmodel/netmodel_test.go, src/common/sim/netmodel/trust_test.go, src/common/sim/netmodel/routing_test.go, src/common/sim/netmodel/stp_test.go, src/common/sim/netmodel/lacp_test.go, src/common/sim/netmodel/export_test.go, src/common/sim/netmodel/report_test.go, src/common/sim/netmodel/testdata_icx7150_test.go, src/common/sim/netmodel/conformance_test.go, src/common/sim/netmodel/acceptance_pass10_test.go, src/common/sim/netmodel/linklocal_test.go, src/common/sim/netmodel/forward_metadata_test.go, src/common/sim/netmodel/README.md, src/common/sim/internal/simtest/cases.go
 After: U1 U2
 Change: introduce the decided Input fields, including the three nil-by-default MST slices, and mechanically migrate calls
 and README example. Remove the duplicate test-only input wrapper.
 Source: caller audit below and `N/trust_test.go:37`.
 Tests: all existing assertions and corpus metadata stay unchanged. The package's external test package constructs `Input`
-directly. All current calls are in the listed files or destinations from the test move.
+directly. The caller inventory also includes
+`acceptance_pass10_test.go:25`, `:61`, `:120`, `linklocal_test.go:17`, and
+`forward_metadata_test.go:142`, `:250`, which construct the duplicate wrapper.
+Migrate these fixtures and their loading/validation helpers without changing assertions or values.
+These paths were absent from the original file inventory and were not destinations of the test move.
+Removing the wrapper requires migrating them. Break one Input field connection in Load and require an existing test to fail,
+then restore that connection before the focused suite.
 Verify: `uv run tools/scripts/run.py verify change -- src/common/sim/netmodel src/common/sim/internal/simtest/cases.go`
 
 ### U4. Remove unused model exporters

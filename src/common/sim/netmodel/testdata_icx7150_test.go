@@ -379,7 +379,7 @@ func TestICX7150Load(t *testing.T) {
 	ifaces, vlans, budgets, bridgeState, stpPorts := icx7150Fixture(t)
 	now := time.Date(2026, 9, 10, 18, 0, 0, 0, time.UTC)
 
-	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "icx7150"}, ifaces, vlans, nil, budgets, bridgeState, stpPorts, nil, nil, nil, nil, nil, nil)
+	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "icx7150"}, netmodel.Input{Interfaces: ifaces, VLANs: vlans, Budgets: budgets, BridgeState: bridgeState, STPPorts: stpPorts})
 	if err != nil {
 		t.Fatalf("netmodel.Load failed: %v", err)
 	}

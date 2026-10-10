@@ -20,22 +20,19 @@ src := netmodel.SourceContext{
     Context:  "collector-run-42",
 }
 
-res, err := netmodel.Load(
-    now,
-    src,
-    ifaces,
-    vlans,
-    fdb,
-    budgets,
-    bridgeState,
-    stpPorts,
-    lacpAggregators,
-    lacpPorts,
-    addrs,
-    neighbors,
-    filterSets,
-    nil,
-)
+res, err := netmodel.Load(now, src, netmodel.Input{
+    Interfaces:      ifaces,
+    VLANs:           vlans,
+    FDB:             fdb,
+    Budgets:         budgets,
+    BridgeState:     bridgeState,
+    STPPorts:        stpPorts,
+    LACPAggregators: lacpAggregators,
+    LACPPorts:       lacpPorts,
+    Addresses:       addrs,
+    Neighbors:       neighbors,
+    FilterSets:      filterSets,
+})
 if err != nil {
     // Unconstructible input: empty interfaces, duplicate port names, or invalid LAG parents.
     return err

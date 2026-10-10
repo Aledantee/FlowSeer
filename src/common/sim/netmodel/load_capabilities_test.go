@@ -62,7 +62,7 @@ func TestInferCapabilitiesAndReportDefaults(t *testing.T) {
 	}
 
 	// Part 1: Infer {relay, vlan} and report defaults.
-	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, netmodel.Input{Interfaces: ifaces})
 	if err != nil {
 		t.Fatalf("netmodel.Load failed: %v", err)
 	}
@@ -108,7 +108,7 @@ func TestInferCapabilitiesAndReportDefaults(t *testing.T) {
 	}
 
 	// Part 2: Wanted set of {relay} drops every switchport facet and lists each as skipped.
-	resRelayOnly, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, []trace.Layer{bridge.LayerName})
+	resRelayOnly, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, netmodel.Input{Interfaces: ifaces, Want: []trace.Layer{bridge.LayerName}})
 	if err != nil {
 		t.Fatalf("netmodel.Load with relay failed: %v", err)
 	}
@@ -144,7 +144,7 @@ func TestLoadImpliesRelayForVlanAndKeepsLagPresent(t *testing.T) {
 			LagParentInterfaceName: &lagParent,
 		}.Build()}.Build(),
 	}
-	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, []trace.Layer{bridge.LayerNameVLAN})
+	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, netmodel.Input{Interfaces: ifaces, Want: []trace.Layer{bridge.LayerNameVLAN}})
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
@@ -192,11 +192,7 @@ func TestLoad_RequestLayerFilterAccepted(t *testing.T) {
 
 	res, err := netmodel.Load(
 		testTime,
-		netmodel.SourceContext{DeviceID: "sw1"},
-		[]*interfacev1.Interface{vlan10},
-		nil, nil, nil, nil, nil, nil, nil, nil, nil,
-		[]*filterv1.FilterRuleSet{inSet},
-		[]trace.Layer{filter.LayerName},
+		netmodel.SourceContext{DeviceID: "sw1"}, netmodel.Input{Interfaces: []*interfacev1.Interface{vlan10}, FilterSets: []*filterv1.FilterRuleSet{inSet}, Want: []trace.Layer{filter.LayerName}},
 	)
 	if err != nil {
 		t.Fatalf("netmodel.Load failed: %v", err)
@@ -214,15 +210,15 @@ func TestLoad_RequestLayerFilterAccepted(t *testing.T) {
 }
 
 func TestLoadRejectsUnusableRequestedCapabilities(t *testing.T) {
-	result := (loadInput{
-		ifaces: []*interfacev1.Interface{plainPhysicalInterface("1/1/1")},
-		want: []trace.Layer{
+	result := load(t, netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot", Context: "requested-capabilities"}, (netmodel.Input{
+		Interfaces: []*interfacev1.Interface{plainPhysicalInterface("1/1/1")},
+		Want: []trace.Layer{
 			bridge.LayerName,
 			bridge.LayerName,
 			mcast.LayerName,
 			trace.Layer("future-layer"),
 		},
-	}).load(t, netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot", Context: "requested-capabilities"})
+	}))
 
 	if !slices.Equal(result.Report.Capabilities, []trace.Layer{bridge.LayerName}) {
 		t.Errorf("capabilities = %v, want one supported relay capability", result.Report.Capabilities)
@@ -243,10 +239,10 @@ func TestLoadRejectsUnusableRequestedCapabilities(t *testing.T) {
 }
 
 func TestLoadDoesNotInferCapabilitiesAfterRejectingEveryRequest(t *testing.T) {
-	result := (loadInput{
-		ifaces: []*interfacev1.Interface{plainPhysicalInterface("1/1/1")},
-		want:   []trace.Layer{mcast.LayerName, trace.Layer("future-layer")},
-	}).load(t, netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot", Context: "unsupported-capabilities"})
+	result := load(t, netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot", Context: "unsupported-capabilities"}, (netmodel.Input{
+		Interfaces: []*interfacev1.Interface{plainPhysicalInterface("1/1/1")},
+		Want:       []trace.Layer{mcast.LayerName, trace.Layer("future-layer")},
+	}))
 
 	if len(result.Report.Capabilities) != 0 {
 		t.Errorf("capabilities = %v, want no inferred capabilities for an explicit request", result.Report.Capabilities)
@@ -270,9 +266,9 @@ func TestLoad_CapabilityWalkIgnoresRoutedSubParentSwitchport(t *testing.T) {
 	parent := switchedPhysicalInterface(parentName, 5)
 	sub := subInterface(subName, parentName, vlanTag(packetv1.EtherType_ETHER_TYPE_DOT1Q, 10))
 
-	input := loadInput{ifaces: []*interfacev1.Interface{parent, sub}}
-	input.validate(t)
-	loaded := input.load(t, netmodel.SourceContext{DeviceID: "sw1"})
+	input := netmodel.Input{Interfaces: []*interfacev1.Interface{parent, sub}}
+	validateInput(t, input)
+	loaded := load(t, netmodel.SourceContext{DeviceID: "sw1"}, input)
 
 	if got := loaded.Report.CapabilitySources[bridge.LayerNameVLAN]; got != "implied:routing" {
 		t.Errorf("vlan capability source = %q, want implied:routing", got)

@@ -65,7 +65,7 @@ func TestFdbAndPoeExport(t *testing.T) {
 		switchingv1.Vlan_builder{NetworkInstance: ptr("default"), Id: &vid10, Name: &vname10}.Build(),
 	}
 
-	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, []*interfacev1.Interface{p1, p2}, vlans, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, netmodel.Input{Interfaces: []*interfacev1.Interface{p1, p2}, VLANs: vlans})
 	if err != nil {
 		t.Fatalf("netmodel.Load failed: %v", err)
 	}
@@ -240,7 +240,7 @@ func TestDot1qTunnelSwitchport(t *testing.T) {
 		}
 	}
 
-	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, netmodel.Input{Interfaces: ifaces})
 	if err != nil {
 		t.Fatalf("netmodel.Load failed: %v", err)
 	}

@@ -91,7 +91,7 @@ func TestLagForwardingAndSkippedFacet(t *testing.T) {
 		}
 	}
 
-	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, netmodel.Input{Interfaces: ifaces})
 	if err != nil {
 		t.Fatalf("netmodel.Load failed: %v", err)
 	}
@@ -205,7 +205,7 @@ func TestLoad_LagCustomConfiguration(t *testing.T) {
 	}
 
 	t0 := time.Date(2026, 9, 11, 10, 0, 0, 0, time.UTC)
-	res, err := netmodel.Load(t0, netmodel.SourceContext{DeviceID: "sw1"}, []*interfacev1.Interface{lagIface, p1, p2}, nil, nil, nil, nil, nil, []*lacpv1.AggregatorState{aggState}, nil, nil, nil, nil, nil)
+	res, err := netmodel.Load(t0, netmodel.SourceContext{DeviceID: "sw1"}, netmodel.Input{Interfaces: []*interfacev1.Interface{lagIface, p1, p2}, LACPAggregators: []*lacpv1.AggregatorState{aggState}})
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}
@@ -275,7 +275,7 @@ func TestLoad_LagDefaultBondMode(t *testing.T) {
 	}
 
 	t0 := time.Date(2026, 9, 11, 10, 0, 0, 0, time.UTC)
-	res, err := netmodel.Load(t0, netmodel.SourceContext{DeviceID: "sw1"}, []*interfacev1.Interface{lagIface, p1}, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	res, err := netmodel.Load(t0, netmodel.SourceContext{DeviceID: "sw1"}, netmodel.Input{Interfaces: []*interfacev1.Interface{lagIface, p1}})
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}
@@ -421,7 +421,7 @@ func TestLacp_RoundTrip(t *testing.T) {
 		}.Build(),
 	}
 
-	res, err := netmodel.Load(t0, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, nil, nil, nil, nil, nil, aggs, portStates, nil, nil, nil, nil)
+	res, err := netmodel.Load(t0, netmodel.SourceContext{DeviceID: "sw1"}, netmodel.Input{Interfaces: ifaces, LACPAggregators: aggs, LACPPorts: portStates})
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}

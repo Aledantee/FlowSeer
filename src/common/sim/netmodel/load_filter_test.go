@@ -91,7 +91,7 @@ func TestLoad_FilterFacetWithIPFacet(t *testing.T) {
 		t.Fatalf("interface validation failed: %v", err)
 	}
 
-	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, []*interfacev1.Interface{vlan10}, nil, nil, nil, nil, nil, nil, nil, nil, nil, filterSets, nil)
+	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, netmodel.Input{Interfaces: []*interfacev1.Interface{vlan10}, FilterSets: filterSets})
 	if err != nil {
 		t.Fatalf("netmodel.Load failed: %v", err)
 	}
@@ -186,7 +186,7 @@ func TestLoad_FilterFacetWithoutIPFacet(t *testing.T) {
 		t.Fatalf("interface validation failed: %v", err)
 	}
 
-	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, []*interfacev1.Interface{p1}, nil, nil, nil, nil, nil, nil, nil, nil, nil, []*filterv1.FilterRuleSet{inSet}, nil)
+	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, netmodel.Input{Interfaces: []*interfacev1.Interface{p1}, FilterSets: []*filterv1.FilterRuleSet{inSet}})
 	if err != nil {
 		t.Fatalf("netmodel.Load failed: %v", err)
 	}
@@ -235,7 +235,7 @@ func TestLoad_FilterFacetMissingSet(t *testing.T) {
 		t.Fatalf("interface validation failed: %v", err)
 	}
 
-	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, []*interfacev1.Interface{vlan10}, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, netmodel.Input{Interfaces: []*interfacev1.Interface{vlan10}})
 	if err != nil {
 		t.Fatalf("netmodel.Load failed: %v", err)
 	}
@@ -314,7 +314,7 @@ func TestLoad_FilterSetWithL2MatchIsSkipped(t *testing.T) {
 		}.Build(),
 	}.Build()
 
-	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, []*interfacev1.Interface{vlan10}, nil, nil, nil, nil, nil, nil, nil, nil, nil, filterSets, nil)
+	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, netmodel.Input{Interfaces: []*interfacev1.Interface{vlan10}, FilterSets: filterSets})
 	if err != nil {
 		t.Fatalf("netmodel.Load failed: %v", err)
 	}
@@ -400,7 +400,7 @@ func TestLoad_FilterICMPMatchNarrowingReportsIssue(t *testing.T) {
 		}.Build(),
 	}.Build()
 
-	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, []*interfacev1.Interface{vlan10}, nil, nil, nil, nil, nil, nil, nil, nil, nil, []*filterv1.FilterRuleSet{set}, nil)
+	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, netmodel.Input{Interfaces: []*interfacev1.Interface{vlan10}, FilterSets: []*filterv1.FilterRuleSet{set}})
 	if err != nil {
 		t.Fatalf("netmodel.Load failed: %v", err)
 	}
@@ -479,7 +479,7 @@ func TestLoad_FilterSetWithMappedPrefixIsSkipped(t *testing.T) {
 				}.Build(),
 			}.Build()
 
-			res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, []*interfacev1.Interface{vlan10}, nil, nil, nil, nil, nil, nil, nil, nil, nil, filterSets, nil)
+			res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, netmodel.Input{Interfaces: []*interfacev1.Interface{vlan10}, FilterSets: filterSets})
 			if err != nil {
 				t.Fatalf("netmodel.Load failed: %v", err)
 			}
