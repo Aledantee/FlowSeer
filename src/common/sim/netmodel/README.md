@@ -158,8 +158,10 @@ A missing or `UNSPECIFIED` protocol version is Incomplete. STP and unknown
 versions are Unsupported. Incomplete MST regions omit the STP layer. An
 absent bridge or port priority uses the IEEE default, while an explicitly
 reported priority of zero remains zero through switch construction.
-Common and MST port priorities outside 0 through 240 in steps of 16 omit that port with an
-evidenced issue. Valid sibling ports survive. Absent or invalid transmit hold
+Port priorities outside 0 through 240 in steps of 16 produce an evidenced issue.
+A refused common RSTP port omits that port, while valid sibling ports survive.
+A refused MST port omits its instance and dependents. A changed allocation
+digest then omits the region ([loadMST](load_mst.go)). Absent or invalid transmit hold
 counts use [stp.DefaultTxHoldCount](../layer/stp/config.go), with an assumption.
 Bridge aging uses [bridge.DefaultAgingTime](../layer/bridge/config.go) because the
 input has no aging setting.

@@ -1,4 +1,5 @@
----title: Network Model Boundary - Plan
+---
+title: Network Model Boundary - Plan
 type: refactor
 date: 2026-10-01
 artifact_contract: flowseer-plan/v2
@@ -11,7 +12,7 @@ execution: code
 
 `netmodel.Load` takes one input value, coordinates loaders by subject, and reports a translation it cannot execute without
 silently widening a rule. Stop condition: redraw a loader that needs another loader's raw messages or writes its
-configuration before code moves. Readiness stays `needs-decisions` until the MST port ownership and incomplete-data choices are settled.
+configuration before code moves. MST port ownership and incomplete-data policies follow the Decisions below.
 
 Source abbreviations: `N` is `src/common/sim/netmodel/`, `L` is `src/common/sim/layer/`. Schema paths start at
 `spec/proto/flowseer/net/`.
@@ -99,10 +100,10 @@ sharing VID 10 both produce scoped issues, while a separate explicit-default VID
 - Schema changes, policy surfaces, new collectors, and new runtime layers.
 - A multicast settings facet, loop-protection settings, mirror configuration, and a mapping from QoS queues to PCP. Existing
   rows do not supply these contracts. The schema audit below records the actual gaps.
-- MST port ownership and incomplete-data policy under Open questions remain blocked. Implementation must not infer an answer.
-- `Load` reads messages from FlowSeer's own collectors, trusted for shape and untrusted for completeness, as the parent
-  states. Tests also construct malformed messages directly because `N/netmodel.go:171` promises no prior protovalidate
-  requirement. Diagnostics such as observed counters and STP root state are not restored as runtime state by this plan.
+- `Load` reads messages from FlowSeer's own collectors, whose authors are trusted to be non-hostile. Malformed shapes and
+  incomplete values are inputs to its issue reporting because the `Load` comment in `N/netmodel.go` assumes no prior
+  protovalidate check. Tests also construct malformed messages directly. Diagnostics such as observed counters and STP root
+  state are not restored as runtime state by this plan.
 
 ## Units
 
@@ -415,7 +416,7 @@ become units. These are schema/code claims, not unread standards claims.
 | Multicast | `multicast/v1/group_membership.proto:13` carries observed membership, mode, expiry. `L/mcast/config.go:25` needs configured snooped VLANs, router ports and timer policy | No settings facet supplies that complete configuration. Membership alone does not decide enabled snooping. Excluded pending separate schema work |
 | Loop protection | Interface/switchport schemas contain no probe/timer/action settings. `L/loopprotect` consumes those in its Config | Excluded pending separate schema work, no inferred settings |
 | Traffic | `qos/v1/qos_interface.proto`, `queue.proto`, `classifier.proto`, `policer.proto` contain partial QoS settings. `capture/v1/mirror.proto` describes packet wrappers, not mirror configuration. `L/traffic/config.go` needs mirror selectors/destinations and PCP-keyed queues | No complete mapping, especially queue-to-PCP and mirror selection. Excluded pending a separate contract/schema plan, not a claim that QoS schema is absent |
-| MSTP/PVST | MSTP bridge region, instances, ports and maps exist under `protocol/stp/v1/`, but current Load accepts none of the three row slices. ProtocolVersion has no PVST value | U10/U11 add MSTP. Ambiguous port ownership remains open. PVST is a schema limit |
+| MSTP/PVST | MSTP bridge region, instances, ports and maps exist under `protocol/stp/v1/`, but current Load accepts none of the three row slices. ProtocolVersion has no PVST value | U10/U11 add MSTP and refuse ambiguous port ownership under Decisions. PVST is a schema limit |
 
 ### MST and domain intake audit
 
@@ -432,7 +433,7 @@ schema edits are planned. Attribution beyond the cited clauses is unverified.
 | Duplicate instance facts resolve by (accepted domain, MSTID), comparing bridge address and priority value/presence. Observed root/counters do not affect executable equality | N/netmodel.go:117 retains identical facts and drops conflicts. docs/architecture/2026-09-10-virtual-device-direction.md:328 requires reported uncertainty. L/stp/mst.go:101 digests only the VLAN map, so priority conflicts need an independent guard | U10 loadMST builders cover identical duplicates, priority 0 versus 4096, absent versus explicit default priority, and observations-only differences, in both orders. Conflicts omit the instance and its dependents with Unstable field-scoped issues. Use an explicit empty allocation to prove conflict diagnostics independently of digest mismatch, plus a nonempty allocation requiring region omission after the decided digest check |
 | VLAN IDs 1..4094 map to exactly one tree. MSTID 0 is CIST. A nonzero target needs a retained instance. A missing row is not evidence of an empty allocation | S/mst_vlan_map.proto:10, :20, :28. M:1230 cites clause 12.12.3.1, allocation clauses 8.8.8/8.9.3, M:1289 admits CIST 0. L/stp/mst.go:105 maps unclaimed VIDs to 0 and :258 refuses duplicate claims | U10 loadMST builders cover explicit empty allocation, CIST-only map, absent/4095 target, missing target, VLAN 0/4095/65546, duplicate within/across trees and conflicting same-key rows in both orders. Omit contested/incomplete contributions with issues, then compare reconstructed digest. A different digest omits region. Missing map for an instance omits that incomplete instance |
 | MST ports need a retained MSTI and an admitted common STP port. Map admin_path_cost, retain priority presence, do not restore observed role/state/path_cost | S/mst_port.proto:10, :35, :45. M:903 gives priority 0..240 (clause 13.27.47), :990 gives administrative cost (13.27.33). The common port priority rule is steps of 16 (spec/mib/ieee/IEEE8021-SPANNING-TREE-MIB.mib:493, clause 12.8.2.1.3 c). L/stp/mst.go:276 checks common STP admission and :285 bounds costs. L/stp/config.go:224 inherits priority only when absent | U11 Load builders cover missing/invalid ID, missing/unknown interface, LAG member, routed port, rejected common port, dangling MSTI, priority 1/241/256, admin cost 200000001, identical/conflicting duplicate rows in both orders. Require scoped omission, valid sibling and constructible Spec. Operational cost 99 with admin cost 7 must load 7 |
-| Missing/refused instance-port rows and absent admin_path_cost can execute inherited settings even when the map digest matches. Absent priority on a retained row follows common port priority, with an evidenced assumption | L/stp/layer.go:305..327 creates every common port in each tree and falls back to common priority/cost. L/stp/config.go:223 handles absent priority. S/mst_port.proto:35, :45 permits absent fields. src/common/sim/analysis/metadata.go:39 derives readiness from issues rather than assumptions | U11 Load/NewWithSpec tests separately cover absent whole row, refused row, absent priority, absent admin cost and explicit admin cost zero, with common priority 64 and common cost 55. For both answered policies assert executed priority/cost, issue scope, evidenced assumptions and readiness. Keep an unaffected empty-allocation sibling to distinguish pair/instance omission from region digest failure. Missing/refused row and absent admin-cost disposition awaits Q4 |
+| Missing/refused instance-port rows and absent admin_path_cost can execute inherited settings even when the map digest matches. Absent priority on a retained row follows common port priority, with an evidenced assumption | L/stp/layer.go:305..327 creates every common port in each tree and falls back to common priority/cost. L/stp/config.go:223 handles absent priority. S/mst_port.proto:35, :45 permits absent fields. src/common/sim/analysis/metadata.go:39 derives readiness from issues rather than assumptions | U11 Load/NewWithSpec tests separately cover absent whole row, refused row, absent priority, absent admin cost and explicit admin cost zero, with common priority 64 and common cost 55. Assert instance and dependent-row omission for missing/refused rows or absent admin cost under Decisions, plus executed priority/cost for retained rows, issue scope, evidenced assumptions and readiness. Keep an unaffected empty-allocation sibling to distinguish instance omission from region digest failure. Recheck the region digest after omissions |
 | Region identity is name/revision/map digest, including VLANs not present in the bridge VLAN database | M clauses 13.8:2..4 and 12.12.3.1. L/stp/README.md:363..375 cites 802.1Q-2003 clause 13.7, Tables 13-1/13-2. L/stp/mst.go:105 derives the complete 4096-entry table | U10 loadMST checks matching/mismatching digest and a mapped VID absent from Input.VLANs. Preserve that mapping. Final omissions require another digest comparison in U11 Load. All-zero digest is ac36177f50283cd4b83821d8ab26de62. The nonzero README vector is regression evidence, not a second standard fixture |
 | Domain gating precedes shared claims. Dependent rows inherit refused owner status | net/ip/v1/ip_facet.proto:18, net/switching/v1/vlan.proto:27, fdb_entry.proto:46, S/bridge_state.proto:70, mst_instance.proto:15, mst_vlan_map.proto:13. N/netmodel.go:1640 collects claims and :1904 constructs one default VRF | U9 Load tests use two named domains, explicit-default sibling and absent-instance assumptions. InterfaceAddress/NeighborEntry inherit by interface. Filter bindings inherit routed owner. Named FDB/VLAN rows never merge into default seeds or VLAN names |
 
