@@ -650,6 +650,22 @@ The layer deliberately departs from or fixes ambiguous areas of the standards:
 - On a port in STP mode VLAN 1's tree sends to the IEEE address alone, where [PVID] also sends its BPDUs to the SSTP address. A native VLAN other than 1 is not modelled. The IEEE-addressed BPDU is always assigned to VLAN 1.
 - Port priority configurations that are not multiples of 16 are accepted. The layer extracts and transmits the high four bits as port priority (IEEE 802.1Q-2003 clause 13.24.21).
 
+## Configuration comparison
+
+[Diff](diff.go) compares effective values after `Config.Normalize(layer.Env{})`.
+An explicit zero priority differs from an omitted priority. Instance and tree
+ports inherit the common port priority, and PVST trees without an explicit
+priority follow the bridge priority ([config.go](config.go), [pvst.go](pvst.go)).
+
+MST and PVST additions or removals use `mst.presence` and `pvst.presence`,
+with `stp.bool` facts. Retained MST instances report each unmatched VLAN
+occurrence with a quoted coordinate and a `stp.mst.vlan_id` fact. For example,
+`[10,10]` to `[20,20]` emits two `vlans["10"]` removals, then two
+`vlans["20"]` additions. Equal occurrences pair after sorting, so submitted
+reordering is silent and deduplication removes an occurrence.
+[diff_coverage_test.go](diff_coverage_test.go) checks these ordered sequences
+and every configuration leaf against independent literal expectations.
+
 ## State retention
 
 `RetentionKey(cfg Config, env layer.Env) string`

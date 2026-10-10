@@ -749,7 +749,7 @@ func TestDiffMSTVLANMoveBetweenInstances(t *testing.T) {
 
 	vlanFields := map[string]int{}
 	for _, c := range changes {
-		if c.Field == "vlans" {
+		if c.Field == `vlans["20"]` {
 			vlanFields[c.Subject.Key]++
 		}
 	}
@@ -891,7 +891,7 @@ func TestDiffPVSTRemovedEntirely(t *testing.T) {
 
 	var found int
 	for _, c := range changes {
-		if c.Field == "pvst" {
+		if c.Field == "pvst.presence" {
 			found++
 			if factCanonical(c.From) != "stp.bool=true" || factCanonical(c.To) != "stp.bool=false" {
 				t.Errorf("pvst change = (%s, %s), want (stp.bool=true, stp.bool=false)", factCanonical(c.From), factCanonical(c.To))

@@ -1,33 +1,87 @@
 package simtest
 
 import (
+	"reflect"
+	"testing"
+
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/lag"
+	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
-// LagDiffAllowance names only this producer's registered paths and emitted layers.
+// AssertMappedDiffRejectsOmittedFields checks owner and delegated mappings with
+// each named field removed while an unrelated record remains. It checks the
+// registered independent expectations and the current producer allowances.
+func AssertMappedDiffRejectsOmittedFields(t *testing.T, producer string, fields map[string]string) {
+	t.Helper()
+	hits := 0
+	for _, owner := range []string{producer, "vswitch", "assembly"} {
+		m, err := diffMappingFor(owner)
+		if err != nil {
+			t.Fatal(err)
+		}
+		unrelatedPath := map[string]string{"lag": "lag.Config.LAGs[lag1].HashBasis", "stp": "stp.Config.HelloTime"}[producer]
+		var unrelated []trace.Change
+		for _, entry := range m.entries {
+			if entry.Producer != producer || entry.AllowancePath != unrelatedPath {
+				continue
+			}
+			a, b, err := prepareMappedInputs(m, entry)
+			if err != nil {
+				t.Fatal(err)
+			}
+			unrelated = m.diff(m.normalize(a), m.normalize(b))
+		}
+		if len(unrelated) != 1 {
+			t.Fatalf("%s unrelated scalar records = %d, want 1", owner, len(unrelated))
+		}
+		for _, entry := range m.entries {
+			field, selected := fields[entry.AllowancePath]
+			if entry.Producer != producer || !selected {
+				continue
+			}
+			t.Run(entry.Path, func(t *testing.T) {
+				allowances := []DiffAllowance{LagDiffAllowance(), StpDiffAllowance(), VswitchDiffAllowance(), AssemblyDiffAllowance()}
+				controlHits := 0
+				if err := checkMappedLeaf(m, entry, allowances, &controlHits); err != nil {
+					t.Fatalf("complete mapping: %v", err)
+				}
+				if controlHits != 1 {
+					t.Fatalf("control expectations = %d, want 1", controlHits)
+				}
+				broken := m
+				broken.diff = func(a, b reflect.Value) []trace.Change {
+					got := m.diff(a, b)
+					kept := append([]trace.Change{}, unrelated...)
+					removed := 0
+					for _, change := range got {
+						if change.Layer == trace.Layer(producer) && change.Field == field {
+							removed++
+							continue
+						}
+						kept = append(kept, change)
+					}
+					if removed != 1 {
+						t.Fatalf("removed %d %s records, want 1", removed, field)
+					}
+					return kept
+				}
+				if err := checkMappedLeaf(broken, entry, allowances, &hits); err == nil {
+					t.Error("missing field accepted with an unrelated record")
+				}
+			})
+		}
+	}
+	want := map[string]int{"lag": 6, "stp": 3}[producer]
+	if hits != want {
+		t.Errorf("concrete omission expectations = %d, want %d", hits, want)
+	}
+}
+
+// LagDiffAllowance returns no exceptions for this exact producer.
 func LagDiffAllowance() DiffAllowance {
-	return DiffAllowance{Producer: "lag", Layers: []string{"lag"}, Paths: []string{
-		"lag.Config.LAGs[lag1].Mode",
-		"lag.Config.LAGs[lag1].Primary",
-		"lag.Config.LAGs[lag1].UpDelay",
-		"lag.Config.LAGs[lag1].DownDelay",
-		"lag.Config.LAGs[lag1].HashBasis",
-		"lag.Config.LAGs[lag1].MinLinks",
-		"lag.Config.LAGs[lag1].RebalanceInterval",
-		"lag.Config.LAGs[lag1].LACP.Mode",
-		"lag.Config.LAGs[lag1].LACP.Fast",
-		"lag.Config.LAGs[lag1].LACP.SystemPriority",
-		"lag.Config.LAGs[lag1].LACP.SystemID",
-		"lag.Config.LAGs[lag1].LACP.Key",
-		"lag.Config.LAGs[lag1].LACP.Fallback",
-		"lag.Config.LAGs[lag1].Members[1/1/1].Priority",
-		"lag.Config.LAGs[lag1].Members[1/1/1].Key",
-		"lag.Config.LAGs[lag1].@key",
-		"lag.Config.LAGs[lag1].RebalanceInterval.@present",
-		"lag.Config.LAGs[lag1].Members[1/1/1].@key",
-	}}
+	return DiffAllowance{}
 }
 
 func lagDiffMapping() (diffMapping, error) {

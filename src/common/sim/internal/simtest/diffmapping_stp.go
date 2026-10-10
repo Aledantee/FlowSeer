@@ -6,48 +6,9 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer/stp"
 )
 
-// StpDiffAllowance names only this producer's registered paths and emitted layers.
+// StpDiffAllowance returns no exceptions for this exact producer.
 func StpDiffAllowance() DiffAllowance {
-	return DiffAllowance{Producer: "stp", Layers: []string{"stp"}, Paths: []string{
-		"stp.Config.Priority",
-		"stp.Config.Address",
-		"stp.Config.HelloTime",
-		"stp.Config.MaxAge",
-		"stp.Config.ForwardDelay",
-		"stp.Config.TxHoldCount",
-		"stp.Config.PriorityPresent",
-		"stp.Config.Ports[1/1/1].Priority",
-		"stp.Config.Ports[1/1/1].PathCost",
-		"stp.Config.Ports[1/1/1].AdminEdge",
-		"stp.Config.Ports[1/1/1].AutoEdge",
-		"stp.Config.Ports[1/1/1].PointToPoint",
-		"stp.Config.Ports[1/1/1].BPDUGuard",
-		"stp.Config.Ports[1/1/1].RestrictedRole",
-		"stp.Config.Ports[1/1/1].RestrictedTCN",
-		"stp.Config.Ports[1/1/1].LoopGuard",
-		"stp.Config.Ports[1/1/1].PriorityPresent",
-		"stp.Config.MST.Name",
-		"stp.Config.MST.Revision",
-		"stp.Config.MST.MaxHops",
-		"stp.Config.MST.Instances[1].Priority",
-		"stp.Config.MST.Instances[1].PriorityPresent",
-		"stp.Config.MST.Instances[1].VLANs[0]",
-		"stp.Config.MST.Instances[1].Ports[1/1/1].Priority",
-		"stp.Config.MST.Instances[1].Ports[1/1/1].PriorityPresent",
-		"stp.Config.MST.Instances[1].Ports[1/1/1].PathCost",
-		"stp.Config.PVST.Trees[10].Ports[1/1/1].Priority",
-		"stp.Config.PVST.Trees[10].Ports[1/1/1].PriorityPresent",
-		"stp.Config.PVST.Trees[10].Ports[1/1/1].PathCost",
-		"stp.Config.PVST.Trees[10].Priority",
-		"stp.Config.PVST.Trees[10].PriorityPresent",
-		"stp.Config.Ports[1/1/1].@key",
-		"stp.Config.MST.@present",
-		"stp.Config.PVST.@present",
-		"stp.Config.MST.Instances[1].@key",
-		"stp.Config.MST.Instances[1].Ports[1/1/1].@key",
-		"stp.Config.PVST.Trees[10].@key",
-		"stp.Config.PVST.Trees[10].Ports[1/1/1].@key",
-	}}
+	return DiffAllowance{}
 }
 
 func stpDiffMapping() (diffMapping, error) {
