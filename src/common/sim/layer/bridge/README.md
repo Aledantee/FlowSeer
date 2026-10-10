@@ -256,3 +256,18 @@ an admission enum.
 
 [q2003]: https://bittwist.sourceforge.io/doc/802.1Q-2003.pdf
 [ovs]: https://raw.githubusercontent.com/openvswitch/ovs/branch-3.3/vswitchd/vswitch.xml
+
+## Configuration diffs
+
+`Diff` normalizes both configurations and preserves subject traversal
+([diff.go](diff.go)). VLAN awareness uses `vlan.presence` with boolean facts.
+Tunnel addition or removal uses `tunnel.presence` with one `bridge.tunnel`
+snapshot. A retained tunnel compares `tunnel.vid`, customer members, then
+`tunnel.tpid`. Zero TPID and 34984 are equal effective values.
+
+Flood, protected-port, tagged, untagged, and tunnel customer collections use
+quoted canonical member coordinates. Replacing untagged VLAN 10 with 20 emits
+`untagged_vlan_ids["10"]: 10 -> nil` followed by
+`untagged_vlan_ids["20"]: nil -> 20`. VLAN member facts use `bridge.vlan_id`,
+protected ports use `bridge.port`, and TPID uses `bridge.tpid`. Reordering or
+adding duplicates produces no records ([diff_coverage_test.go](diff_coverage_test.go)).

@@ -8,6 +8,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
+	"go.aledante.io/FlowSeer/src/common/sim/internal/simtest"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/loopprotect"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
@@ -47,21 +48,18 @@ func TestDiffFieldChangesAcrossLayers(t *testing.T) {
 
 	t.Run("port field changes across layers", func(t *testing.T) {
 		changes := vswitch.Diff(curCfg, expCfg)
-		if len(changes) != 2 {
-			t.Fatalf("got %d changes, want 2: %v", len(changes), changes)
+		want := []simtest.ChangeExpectation{
+			{Layer: "vlan", Subject: trace.Subject{Kind: "port", Key: "1/1/2"}, Field: "pvid", From: &simtest.FactExpectation{TypeID: "bridge.pvid", Canonical: "10"}, To: &simtest.FactExpectation{TypeID: "bridge.pvid", Canonical: "20"}},
+			{Layer: "vlan", Subject: trace.Subject{Kind: "port", Key: "1/1/2"}, Field: `untagged_vlan_ids["10"]`, From: &simtest.FactExpectation{TypeID: "bridge.vlan_id", Canonical: "10"}},
+			{Layer: "vlan", Subject: trace.Subject{Kind: "port", Key: "1/1/2"}, Field: `untagged_vlan_ids["20"]`, To: &simtest.FactExpectation{TypeID: "bridge.vlan_id", Canonical: "20"}},
 		}
-
-		pvidChange := changes[0]
-		if pvidChange.Subject.Key != "1/1/2" || pvidChange.Field != "pvid" ||
-			trace.CompareFact(pvidChange.From, bridge.PVIDFact(10)) != 0 || trace.CompareFact(pvidChange.To, bridge.PVIDFact(20)) != 0 {
-			t.Errorf("unexpected pvid change: %+v", pvidChange)
+		if len(changes) != 3 {
+			t.Fatalf("got %d changes, want 3: %v", len(changes), changes)
 		}
-
-		untaggedChange := changes[1]
-		if untaggedChange.Subject.Key != "1/1/2" || untaggedChange.Field != "untagged_vlan_ids" ||
-			trace.CompareFact(untaggedChange.From, bridge.VLANsFact([]vlan.ID{10})) != 0 ||
-			trace.CompareFact(untaggedChange.To, bridge.VLANsFact([]vlan.ID{20})) != 0 {
-			t.Errorf("unexpected untagged_vlan_ids change: %+v", untaggedChange)
+		for i, expected := range want {
+			if !expected.Matches(changes[i]) {
+				t.Errorf("change[%d] = %+v, want %+v", i, changes[i], expected)
+			}
 		}
 	})
 

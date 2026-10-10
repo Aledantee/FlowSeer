@@ -144,3 +144,18 @@ for a device, which fits a port that would be powered when capacity returns.
 A port whose delivery is disabled is `DISABLED`. A device of a class the
 port cannot source is `FAULT`. A port with no attached device exports no
 `power_class` and draws nothing from the budget ([PoE export](../../netmodel/export.go)).
+
+## Configuration diffs
+
+`Diff` compares normalized Ethernet and PoE configurations in owner order
+([diff.go](diff.go)). Supported speeds use quoted decimal member coordinates
+and `phy.speed_bps` facts. Replacing 1 Gb/s with 10 Gb/s emits
+`supported_speeds_bps["1000000000"]: 1000000000 -> nil` followed by
+`supported_speeds_bps["10000000000"]: nil -> 10000000000`. Reordering and
+duplicate-only edits produce no records ([diff_coverage_test.go](diff_coverage_test.go)).
+
+Setting and Observed have separate scalar fields. Removing Setting reports
+its effective speed, duplex, and autonegotiation changes. Removing Observed
+reports observed speed and duplex changes. An absent pointer projects typed
+zero speed and empty duplex, while an absent Setting projects false
+autonegotiation. Port addition and removal retain complete Ethernet snapshots.

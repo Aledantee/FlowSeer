@@ -573,3 +573,72 @@ func TestCoverageProblemsCatchesAnUncoveredPackage(t *testing.T) {
 		t.Error("coverageProblems with the new package omitted = none, want a problem naming layer/newcap")
 	}
 }
+
+func TestMappedNestedCapabilityProducerPartitions(t *testing.T) {
+	cases := []struct {
+		owner, path string
+		records     int
+	}{
+		{"vswitch", "vswitch.Config.Bridge.VLAN.@present", 4},
+		{"vswitch", "vswitch.Config.Phy.PoE.@present", 3},
+		{"assembly", "assembly.Config.Switches[sw1].Bridge.VLAN.@present", 4},
+		{"assembly", "assembly.Config.Switches[sw1].Phy.PoE.@present", 3},
+	}
+	hits := 0
+	for _, tc := range cases {
+		t.Run(tc.path, func(t *testing.T) {
+			m, err := diffMappingFor(tc.owner)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var entry mappedEntry
+			for _, e := range m.entries {
+				if e.Path == tc.path {
+					entry = e
+				}
+			}
+			if entry.Path == "" {
+				t.Fatal("missing declared nested lifecycle slot")
+			}
+			original := m.diff
+			for _, variant := range []string{"baseline", "missing", "wrong", "capability-key", "order", "no-allowance"} {
+				t.Run(variant, func(t *testing.T) {
+					m.diff = func(a, b reflect.Value) []trace.Change {
+						got := original(a, b)
+						if len(got) != tc.records {
+							t.Fatalf("fixture records = %d, want %d", len(got), tc.records)
+						}
+						switch variant {
+						case "missing":
+							got = append(got[:1], got[2:]...)
+						case "wrong":
+							got[1].Field = "wrong-delegated-field"
+						case "capability-key":
+							got[0].Subject.Key = "wrong-capability"
+						case "order":
+							got[1], got[2] = got[2], got[1]
+						}
+						return got
+					}
+					allowances := []DiffAllowance{VswitchDiffAllowance()}
+					if variant == "no-allowance" {
+						allowances = nil
+					}
+					n := 0
+					err := checkMappedLeaf(m, entry, allowances, &n)
+					hits += n
+					if variant == "baseline" {
+						if err != nil {
+							t.Error(err)
+						}
+					} else if err == nil {
+						t.Errorf("%s admitted", variant)
+					}
+				})
+			}
+		})
+	}
+	if hits != 24 {
+		t.Errorf("concrete partition expectations = %d, want 24", hits)
+	}
+}

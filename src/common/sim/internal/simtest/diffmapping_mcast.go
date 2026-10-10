@@ -6,19 +6,9 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer/mcast"
 )
 
-// McastDiffAllowance names only this producer's registered paths and emitted layers.
+// McastDiffAllowance returns no exceptions for this exact producer.
 func McastDiffAllowance() DiffAllowance {
-	return DiffAllowance{Producer: "mcast", Layers: []string{"mcast"}, Paths: []string{
-		"mcast.Config.VLANs[10].FloodUnregistered",
-		"mcast.Config.VLANs[10].FastLeave",
-		"mcast.Config.VLANs[10].MembershipInterval",
-		"mcast.Config.VLANs[10].RouterPortInterval",
-		"mcast.Config.VLANs[10].LastMemberQueryInterval",
-		"mcast.Config.VLANs[10].LastMemberQueryCount",
-		"mcast.Config.VLANs[10].RouterPorts[0]",
-		"mcast.Config.VLANs[10].@key",
-		"mcast.Config.VLANs[10].FloodUnregistered.@present",
-	}}
+	return DiffAllowance{}
 }
 
 func mcastDiffMapping() (diffMapping, error) {

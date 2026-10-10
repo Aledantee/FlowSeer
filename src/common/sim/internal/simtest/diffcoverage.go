@@ -877,8 +877,18 @@ func checkMappedLeaf(m diffMapping, e mappedEntry, allowances []DiffAllowance, h
 		}
 		return matchMappedChanges(got, want)
 	}
+	switch e.Path {
+	case "vswitch.Config.Bridge.VLAN.@present", "assembly.Config.Switches[sw1].Bridge.VLAN.@present":
+		return matchCapabilityMapping(got, want, "vswitch.Config.Bridge.@present", "bridge", "bridge.Config.VLAN.@present", allowances)
+	case "vswitch.Config.Phy.PoE.@present", "assembly.Config.Switches[sw1].Phy.PoE.@present":
+		return matchCapabilityMapping(got, want, "vswitch.Config.Phy.@present", "phy", "phy.Config.PoE.@present", allowances)
+	}
 	if e.Producer == "vswitch" && strings.HasSuffix(e.Path, ".@present") {
-		return matchCapabilityMapping(got, want, e, allowances)
+		producer, path := "bridge", "bridge.Config.VLAN.@present"
+		if strings.HasSuffix(e.Path, ".STP.@present") {
+			producer, path = "stp", "stp.Config.Address"
+		}
+		return matchCapabilityMapping(got, want, e.AllowancePath, producer, path, allowances)
 	}
 	var allowedLayers []string
 	for _, allowance := range allowances {
@@ -907,7 +917,7 @@ func checkMappedLeaf(m diffMapping, e mappedEntry, allowances []DiffAllowance, h
 	return nil
 }
 
-func matchCapabilityMapping(got []trace.Change, want []changeRecord, e mappedEntry, allowances []DiffAllowance) error {
+func matchCapabilityMapping(got []trace.Change, want []changeRecord, capabilityPath, producer, path string, allowances []DiffAllowance) error {
 	var capabilityGot, delegatedGot []trace.Change
 	var capabilityWant, delegatedWant []changeRecord
 	for _, record := range want {
@@ -936,7 +946,7 @@ func matchCapabilityMapping(got []trace.Change, want []changeRecord, e mappedEnt
 		return false
 	}
 	for i, record := range capabilityWant {
-		if !allowed("vswitch", e.AllowancePath, record.Layer) {
+		if !allowed("vswitch", capabilityPath, record.Layer) {
 			return matchMappedChanges(got, want)
 		}
 		if i >= len(capabilityGot) || string(capabilityGot[i].Layer) != record.Layer || capabilityGot[i].Subject.Kind != record.Kind || capabilityGot[i].Subject.Key != record.Key {
@@ -948,11 +958,6 @@ func matchCapabilityMapping(got []trace.Change, want []changeRecord, e mappedEnt
 	}
 	if len(delegatedWant) == 0 {
 		return matchMappedChanges(delegatedGot, nil)
-	}
-	// The empty Bridge and STP pointer fixtures have these two delegated effects.
-	producer, path := "bridge", "bridge.Config.VLAN.@present"
-	if strings.HasSuffix(e.Path, ".STP.@present") {
-		producer, path = "stp", "stp.Config.Address"
 	}
 	for _, record := range delegatedWant {
 		if !allowed(producer, path, record.Layer) {

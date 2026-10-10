@@ -6,30 +6,9 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 )
 
-// BridgeDiffAllowance names only this producer's registered paths and emitted layers.
+// BridgeDiffAllowance returns no exceptions for this exact producer.
 func BridgeDiffAllowance() DiffAllowance {
-	return DiffAllowance{Producer: "bridge", Layers: []string{"relay", "vlan"}, Paths: []string{
-		"bridge.Config.AgingTime",
-		"bridge.Config.MaxEntries",
-		"bridge.Config.FloodVLANs[0]",
-		"bridge.Config.ProtectedPorts[0]",
-		"bridge.Config.ForwardBPDU",
-		"bridge.Config.VLAN.Table[10]",
-		"bridge.Config.VLAN.Switchports[1/1/1].PVID",
-		"bridge.Config.VLAN.Switchports[1/1/1].Tagged[0]",
-		"bridge.Config.VLAN.Switchports[1/1/1].Untagged[0]",
-		"bridge.Config.VLAN.Switchports[1/1/1].IngressFiltering",
-		"bridge.Config.VLAN.Switchports[1/1/1].Admission",
-		"bridge.Config.VLAN.Switchports[1/1/1].PriorityTags",
-		"bridge.Config.VLAN.Switchports[1/1/1].Tunnel.VID",
-		"bridge.Config.VLAN.Switchports[1/1/1].Tunnel.CustomerVIDs[0]",
-		"bridge.Config.VLAN.Switchports[1/1/1].Tunnel.TPID",
-		"bridge.Config.VLAN.@present",
-		"bridge.Config.VLAN.Table[10].@key",
-		"bridge.Config.VLAN.Switchports[1/1/1].@key",
-		"bridge.Config.VLAN.Switchports[1/1/1].PVID.@present",
-		"bridge.Config.VLAN.Switchports[1/1/1].Tunnel.@present",
-	}}
+	return DiffAllowance{}
 }
 
 func bridgeDiffMapping() (diffMapping, error) {

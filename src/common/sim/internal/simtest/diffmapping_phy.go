@@ -6,33 +6,9 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
 )
 
-// PhyDiffAllowance names only this producer's registered paths and emitted layers.
+// PhyDiffAllowance returns no exceptions for this exact producer.
 func PhyDiffAllowance() DiffAllowance {
-	return DiffAllowance{Producer: "phy", Layers: []string{"ethernet", "poe"}, Paths: []string{
-		"phy.Config.Ethernet[1/1/1].Setting.SpeedBPS",
-		"phy.Config.Ethernet[1/1/1].Setting.Duplex",
-		"phy.Config.Ethernet[1/1/1].Setting.AutoNegotiation",
-		"phy.Config.Ethernet[1/1/1].AutoNegotiationSupported",
-		"phy.Config.Ethernet[1/1/1].Observed.SpeedBPS",
-		"phy.Config.Ethernet[1/1/1].Observed.Duplex",
-		"phy.Config.Ethernet[1/1/1].SupportedSpeedsBPS[0]",
-		"phy.Config.PoE.Groups[g1].PowerNanowatts",
-		"phy.Config.PoE.Ports[1/1/1].Group",
-		"phy.Config.PoE.Ports[1/1/1].MaxClass",
-		"phy.Config.PoE.Ports[1/1/1].Enabled",
-		"phy.Config.PoE.Ports[1/1/1].Limit",
-		"phy.Config.PoE.Ports[1/1/1].Priority",
-		"phy.Config.PoE.Ports[1/1/1].PD",
-		"phy.Config.PoE.Ports[1/1/1].PDClass",
-		"phy.Config.Ethernet[1/1/1].@key",
-		"phy.Config.Ethernet[1/1/1].Setting.@present",
-		"phy.Config.Ethernet[1/1/1].Observed.@present",
-		"phy.Config.PoE.@present",
-		"phy.Config.PoE.Groups[g1].@key",
-		"phy.Config.PoE.Ports[1/1/1].@key",
-		"phy.Config.PoE.Ports[1/1/1].Limit.@present",
-		"phy.Config.PoE.Ports[1/1/1].PDClass.@present",
-	}}
+	return DiffAllowance{}
 }
 
 func phyDiffMapping() (diffMapping, error) {

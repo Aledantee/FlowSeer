@@ -6,16 +6,9 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer/loopprotect"
 )
 
-// LoopprotectDiffAllowance names only this producer's registered paths and emitted layers.
+// LoopprotectDiffAllowance returns no exceptions for this exact producer.
 func LoopprotectDiffAllowance() DiffAllowance {
-	return DiffAllowance{Producer: "loopprotect", Layers: []string{"loopprotect"}, Paths: []string{
-		"loopprotect.Config.Interval",
-		"loopprotect.Config.Ports[1/1/1].Action",
-		"loopprotect.Config.Ports[1/1/1].Recovery.Mode",
-		"loopprotect.Config.Ports[1/1/1].Recovery.Duration",
-		"loopprotect.Config.Ports[1/1/1].VLANs[0]",
-		"loopprotect.Config.Ports[1/1/1].@key",
-	}}
+	return DiffAllowance{}
 }
 
 func loopprotectDiffMapping() (diffMapping, error) {
