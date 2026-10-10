@@ -332,76 +332,7 @@ func caseTroubleshootingStatefulReplyAllowed() Case {
 			Status: analysis.Complete,
 			Scope:  analysis.NodeScope(""),
 		},
-		Execute: func() (ExecutionResult, error) {
-			cfg, err := filterCaseBaseConfig()
-			if err != nil {
-				return ExecutionResult{}, err
-			}
-
-			protoTCP := uint8(6)
-			cfg.Filter = &filter.Config{
-				Sets: map[string]filter.RuleSet{
-					"lan-in": {
-						Stateful: true,
-						Default:  filter.Drop,
-						Rules: []filter.Rule{
-							{
-								Name:   "allow-https",
-								Action: filter.Accept,
-								Match: filter.Match{
-									Protocol: &protoTCP,
-									Src:      []netip.Prefix{netip.MustParsePrefix("10.0.10.0/24")},
-									Dst:      []netip.Prefix{netip.MustParsePrefix("10.0.20.5/32")},
-									DstPorts: []filter.PortRange{{Start: 443, End: 443}},
-								},
-							},
-						},
-					},
-					"srv-in": {
-						Stateful: true,
-						Default:  filter.Drop,
-						Rules:    nil,
-					},
-				},
-				Bindings: []filter.Binding{
-					{Interface: "vlan10", Direction: filter.In, Set: "lan-in"},
-					{Interface: "vlan20", Direction: filter.In, Set: "srv-in"},
-				},
-			}
-
-			spec := vswitch.ConstructionSpec{
-				Config: cfg,
-				Seeds: []bridge.Seed{
-					{FID: 10, MAC: filterCaseMacClient, Port: "1/1/1", Lifetime: bridge.Static},
-					{FID: 20, MAC: filterCaseMacServer, Port: "1/1/2", Lifetime: bridge.Static},
-				},
-			}
-
-			sw, err := vswitch.NewWithSpec(spec)
-			if err != nil {
-				return ExecutionResult{}, err
-			}
-
-			frame, err := statefulReplyFrame()
-			if err != nil {
-				return ExecutionResult{}, err
-			}
-
-			now := time.Unix(1700000000, 0)
-			fwd := sw.Receive(now, "1/1/2", frame)
-			if err := validateReceiveResult(fwd.Result); err != nil {
-				return ExecutionResult{}, err
-			}
-
-			return ExecutionResult{
-				Outcome:  fwd.Outcome,
-				Reason:   fwd.Reason,
-				Steps:    fwd.Steps,
-				Metadata: fwd.Metadata,
-				Switch:   sw,
-				Forward:  &fwd.Result,
-			}, nil
-		},
+		Execute: executeStatefulReplyAllowed,
 	}
 }
 
@@ -524,72 +455,160 @@ func casePlanningFilterRuleChange() Case {
 			Same: false,
 		},
 		Execute: func() (ExecutionResult, error) {
-			cfgCur, err := filterCaseBaseConfig()
-			if err != nil {
-				return ExecutionResult{}, err
-			}
-
-			cfgCur.Filter = &filter.Config{
-				Sets: map[string]filter.RuleSet{
-					"lan-in": {
-						Stateful: false,
-						Default:  filter.Accept,
-						Rules:    nil,
-					},
-				},
-				Bindings: []filter.Binding{
-					{Interface: "vlan10", Direction: filter.In, Set: "lan-in"},
-				},
-			}
-
-			specCur := vswitch.ConstructionSpec{
-				Config: cfgCur,
-				Seeds: []bridge.Seed{
-					{FID: 10, MAC: filterCaseMacClient, Port: "1/1/1", Lifetime: bridge.Static},
-					{FID: 20, MAC: filterCaseMacServer, Port: "1/1/2", Lifetime: bridge.Static},
-				},
-			}
-
-			swCur, err := vswitch.NewWithSpec(specCur)
-			if err != nil {
-				return ExecutionResult{}, err
-			}
-
-			cfgNext := cfgCur.Clone()
-			set := cfgNext.Filter.Sets["lan-in"]
-			set.Rules = []filter.Rule{denyRule}
-			cfgNext.Filter.Sets["lan-in"] = set
-
-			changes := vswitch.Diff(cfgCur, cfgNext)
-
-			swNext, _, err := vswitch.Derive(swCur, vswitch.ConstructionSpec{Config: cfgNext}, time.Unix(1700000000, 0))
-			if err != nil {
-				return ExecutionResult{}, err
-			}
-
-			frame, err := mdnsUnicastProbeFrame()
-			if err != nil {
-				return ExecutionResult{}, err
-			}
-
-			now := time.Unix(1700000000, 0)
-			cmp := vswitch.Compare(swCur, swNext, now, "1/1/1", frame)
-			if err := validateReceiveResult(cmp.Current.Result); err != nil {
-				return ExecutionResult{}, err
-			}
-			if err := validateReceiveResult(cmp.Expected.Result); err != nil {
-				return ExecutionResult{}, err
-			}
-
-			return ExecutionResult{
-				Outcome:    cmp.Expected.Outcome,
-				Reason:     cmp.Expected.Reason,
-				Steps:      cmp.Expected.Steps,
-				Changes:    changes,
-				Metadata:   cmp.Expected.Metadata,
-				Switch:     swNext,
-				Comparison: &cmp,
-			}, nil
+			return executeFilterRuleChange(denyRule)
 		},
 	}
+}
+
+func executeStatefulReplyAllowed() (ExecutionResult, error) {
+	sw, err := statefulReplySwitch()
+	if err != nil {
+		return ExecutionResult{}, err
+	}
+
+	frame, err := statefulReplyFrame()
+	if err != nil {
+		return ExecutionResult{}, err
+	}
+
+	now := time.Unix(1700000000, 0)
+	fwd := sw.Receive(now, "1/1/2", frame)
+	if err := validateReceiveResult(fwd.Result); err != nil {
+		return ExecutionResult{}, err
+	}
+
+	return ExecutionResult{
+		Outcome:  fwd.Outcome,
+		Reason:   fwd.Reason,
+		Steps:    fwd.Steps,
+		Metadata: fwd.Metadata,
+		Switch:   sw,
+		Forward:  &fwd.Result,
+	}, nil
+}
+
+func statefulReplySwitch() (*vswitch.Switch, error) {
+	cfg, err := filterCaseBaseConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	protoTCP := uint8(6)
+	cfg.Filter = &filter.Config{
+		Sets: map[string]filter.RuleSet{
+			"lan-in": {
+				Stateful: true,
+				Default:  filter.Drop,
+				Rules: []filter.Rule{
+					{
+						Name:   "allow-https",
+						Action: filter.Accept,
+						Match: filter.Match{
+							Protocol: &protoTCP,
+							Src:      []netip.Prefix{netip.MustParsePrefix("10.0.10.0/24")},
+							Dst:      []netip.Prefix{netip.MustParsePrefix("10.0.20.5/32")},
+							DstPorts: []filter.PortRange{{Start: 443, End: 443}},
+						},
+					},
+				},
+			},
+			"srv-in": {
+				Stateful: true,
+				Default:  filter.Drop,
+				Rules:    nil,
+			},
+		},
+		Bindings: []filter.Binding{
+			{Interface: "vlan10", Direction: filter.In, Set: "lan-in"},
+			{Interface: "vlan20", Direction: filter.In, Set: "srv-in"},
+		},
+	}
+
+	spec := vswitch.ConstructionSpec{
+		Config: cfg,
+		Seeds: []bridge.Seed{
+			{FID: 10, MAC: filterCaseMacClient, Port: "1/1/1", Lifetime: bridge.Static},
+			{FID: 20, MAC: filterCaseMacServer, Port: "1/1/2", Lifetime: bridge.Static},
+		},
+	}
+
+	return vswitch.NewWithSpec(spec)
+}
+
+func executeFilterRuleChange(denyRule filter.Rule) (ExecutionResult, error) {
+	cfgCur, swCur, err := filterRuleChangeSwitch()
+	if err != nil {
+		return ExecutionResult{}, err
+	}
+
+	cfgNext := cfgCur.Clone()
+	set := cfgNext.Filter.Sets["lan-in"]
+	set.Rules = []filter.Rule{denyRule}
+	cfgNext.Filter.Sets["lan-in"] = set
+
+	changes := vswitch.Diff(cfgCur, cfgNext)
+
+	swNext, _, err := vswitch.Derive(swCur, vswitch.ConstructionSpec{Config: cfgNext}, time.Unix(1700000000, 0))
+	if err != nil {
+		return ExecutionResult{}, err
+	}
+
+	frame, err := mdnsUnicastProbeFrame()
+	if err != nil {
+		return ExecutionResult{}, err
+	}
+
+	now := time.Unix(1700000000, 0)
+	cmp := vswitch.Compare(swCur, swNext, now, "1/1/1", frame)
+	if err := validateReceiveResult(cmp.Current.Result); err != nil {
+		return ExecutionResult{}, err
+	}
+	if err := validateReceiveResult(cmp.Expected.Result); err != nil {
+		return ExecutionResult{}, err
+	}
+
+	return ExecutionResult{
+		Outcome:    cmp.Expected.Outcome,
+		Reason:     cmp.Expected.Reason,
+		Steps:      cmp.Expected.Steps,
+		Changes:    changes,
+		Metadata:   cmp.Expected.Metadata,
+		Switch:     swNext,
+		Comparison: &cmp,
+	}, nil
+}
+
+func filterRuleChangeSwitch() (vswitch.Config, *vswitch.Switch, error) {
+	cfgCur, err := filterCaseBaseConfig()
+	if err != nil {
+		return vswitch.Config{}, nil, err
+	}
+
+	cfgCur.Filter = &filter.Config{
+		Sets: map[string]filter.RuleSet{
+			"lan-in": {
+				Stateful: false,
+				Default:  filter.Accept,
+				Rules:    nil,
+			},
+		},
+		Bindings: []filter.Binding{
+			{Interface: "vlan10", Direction: filter.In, Set: "lan-in"},
+		},
+	}
+
+	specCur := vswitch.ConstructionSpec{
+		Config: cfgCur,
+		Seeds: []bridge.Seed{
+			{FID: 10, MAC: filterCaseMacClient, Port: "1/1/1", Lifetime: bridge.Static},
+			{FID: 20, MAC: filterCaseMacServer, Port: "1/1/2", Lifetime: bridge.Static},
+		},
+	}
+
+	swCur, err := vswitch.NewWithSpec(specCur)
+	if err != nil {
+		return vswitch.Config{}, nil, err
+	}
+
+	return cfgCur, swCur, nil
 }

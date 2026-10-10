@@ -701,6 +701,7 @@ Files: src/common/sim/internal/simtest/filter_cases.go, src/common/sim/internal/
 After: none
 Change: Split the five long functions at filter_cases.go:250, :410, scenario_cases.go:40, :219 and scale.go:76 into setup, execution and priming helpers in the same files. Keep independent expected facts and validation order.
 Tests: DefaultRegistry/Get/AssertCase constructs troubleshooting/stateful-reply-allowed, planning/filter-rule-change, planning/scenario-replays-link-flap and troubleshooting/periodic-protocol-hides-exhaustion. RepresentativeFabricAtQueueDepth builds scale-envelope and fabric allocation inputs. Existing corpus_test.go, conformance_test.go and fabric/fork_scale_test.go expectations remain unchanged.
+The four case constructors retain their independent expected facts and delegate execution and setup in the same files. Scale setup retains numeric switch order, then primes learned entries before queued arrivals. The five target declarations shrink from 157, 186, 175, 153 and 209 lines to 88, 121, 50, 60 and 8 lines. Existing test declarations remain 39 in corpus_test.go, five in conformance_test.go and three in fabric/fork_scale_test.go. No new tests or assertion migrations are needed for this decomposition.
 Verify: `uv run tools/scripts/run.py verify change -- src/common/sim/internal/simtest`
 
 ### U8. Decompose assembly mapping and value assignment
