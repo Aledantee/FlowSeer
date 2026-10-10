@@ -12,7 +12,6 @@
   "after": [],
   "landed": null,
   "phases": [
-    "docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase11-plan.md",
     "docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase12-plan.md"
   ],
   "retired": [
@@ -102,6 +101,14 @@
       "landed": {
         "first": "a9a47a27",
         "last": "a7ba4976"
+      }
+    },
+    {
+      "plan": "docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase11-plan.md",
+      "status": "implemented",
+      "landed": {
+        "first": "7c8e35cf",
+        "last": "32792657"
       }
     }
   ]
