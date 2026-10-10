@@ -149,7 +149,7 @@ then restore that connection before the focused suite.
 Verify: `uv run tools/scripts/run.py verify change -- src/common/sim/netmodel src/common/sim/internal/simtest/cases.go`
 
 ### U4. Remove unused model exporters
-Files: src/common/sim/netmodel/export.go, src/common/sim/netmodel/export_test.go, src/common/sim/netmodel/load_bridge_test.go, src/common/sim/netmodel/load_phy_test.go, src/common/sim/netmodel/stp_test.go, src/common/sim/netmodel/lacp_test.go, src/common/sim/netmodel/load_stp_test.go, src/common/sim/netmodel/load_lag_test.go, src/common/sim/netmodel/input.go, src/common/sim/netmodel/README.md
+Files: src/common/sim/netmodel/export.go, src/common/sim/netmodel/export_test.go, src/common/sim/netmodel/load_bridge_test.go, src/common/sim/netmodel/load_phy_test.go, src/common/sim/netmodel/stp_test.go, src/common/sim/netmodel/lacp_test.go, src/common/sim/netmodel/load_stp_test.go, src/common/sim/netmodel/load_lag_test.go, src/common/sim/netmodel/input.go, src/common/sim/netmodel/README.md, src/common/sim/netmodel/helpers_test.go, src/common/sim/netmodel/load_ports_test.go
 After: U3
 Change: delete six functions and exporter-only helpers. Keep `DefaultNetworkInstance` beside Input because corpus and
 builders use it. Remove exporter documentation in the same unit.
@@ -159,6 +159,11 @@ Tests: delete `TestExportNamesTheDefaultInstance`, `TestExportWithoutSwitch`, ex
 halves of mixed cases. Preserve loader assertions in `TestFdbAndPoeExport`, `TestPoeExportAndLoadRoundTrip`,
 `TestStpExportAndLoad_RingConvergence`, and `TestLacp_RoundTrip` by supplying messages through existing builders, with
 literal expected values. Audit all six names after deletion. No corpus output changes.
+Remove the exporter-only encoding, ring, LACP fabric, role and state helpers from helpers_test.go.
+Their callers are export_test.go and the mixed tests above (helpers_test.go:385, :409, :505, :522, :535).
+These sole dependencies require adding helpers_test.go to Files.
+Remove the exporter-only FID 0 refusal assertion in load_ports_test.go:159..174, preserving
+its loader assertions. Its FdbEntries call requires adding load_ports_test.go to Files.
 Verify: `uv run tools/scripts/run.py verify change -- src/common/sim/netmodel`
 
 ### U5. Preserve parser failure reasons

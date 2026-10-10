@@ -7,21 +7,16 @@ import (
 	"buf.build/go/protovalidate"
 
 	interfacev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1"
-	phyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1"
 	switchingv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/switching/v1"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
-	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/netmodel"
 )
 
-// The FDB and PoE state export as net/switching and net/phy rows: one learned
-// entry becomes one FdbEntry (vlan_id 10, that MAC, interface_name 1/1/1,
-// DYNAMIC, ACTIVE); an allocation becomes a PseBudget per group and a PoeFacet
-// per port with allocated_power_nanowatts; every message passes protovalidate.
-func TestFdbAndPoeExport(t *testing.T) {
+func TestLoadBridgeLearnsSource(t *testing.T) {
 	// An untagged frame on a port with PVID 10 learns its source under VLAN 10.
 	adminUp := interfacev1.AdminStatus_ADMIN_STATUS_UP
 	operUp := interfacev1.OperStatus_OPER_STATUS_UP
@@ -65,7 +60,9 @@ func TestFdbAndPoeExport(t *testing.T) {
 		switchingv1.Vlan_builder{NetworkInstance: ptr("default"), Id: &vid10, Name: &vname10}.Build(),
 	}
 
-	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, netmodel.Input{Interfaces: []*interfacev1.Interface{p1, p2}, VLANs: vlans})
+	in := netmodel.Input{Interfaces: []*interfacev1.Interface{p1, p2}, VLANs: vlans}
+	validateInput(t, in)
+	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, in)
 	if err != nil {
 		t.Fatalf("netmodel.Load failed: %v", err)
 	}
@@ -85,103 +82,12 @@ func TestFdbAndPoeExport(t *testing.T) {
 	sw.Receive(testTime, "1/1/1", frame)
 
 	entries := sw.Entries()
-	fdbExport, err := netmodel.FdbEntries(entries)
-	if err != nil {
-		t.Fatalf("FdbEntries: %v", err)
+	if len(entries) != 1 {
+		t.Fatalf("FDB entry count = %d, want 1", len(entries))
 	}
-	if len(fdbExport) != 1 {
-		t.Fatalf("exported FDB entry count = %d, want 1", len(fdbExport))
-	}
-	fe := fdbExport[0]
-	if err := protovalidate.Validate(fe); err != nil {
-		t.Fatalf("FdbEntry protovalidate failed: %v", err)
-	}
-
-	if fe.GetVlanId() != 10 {
-		t.Errorf("FdbEntry vlan_id = %d, want 10", fe.GetVlanId())
-	}
-	if fe.GetInterfaceName() != "1/1/1" {
-		t.Errorf("FdbEntry interface_name = %q, want %q", fe.GetInterfaceName(), "1/1/1")
-	}
-	if fe.GetKind() != switchingv1.FdbEntryKind_FDB_ENTRY_KIND_DYNAMIC {
-		t.Errorf("FdbEntry kind = %v, want DYNAMIC", fe.GetKind())
-	}
-	if fe.GetStatus() != switchingv1.FdbEntryStatus_FDB_ENTRY_STATUS_ACTIVE {
-		t.Errorf("FdbEntry status = %v, want ACTIVE", fe.GetStatus())
-	}
-	if !slices.Equal(fe.GetMac().GetOctets(), srcMAC[:]) {
-		t.Errorf("FdbEntry MAC = %x, want %x", fe.GetMac().GetOctets(), srcMAC)
-	}
-
-	// Group 1 with 60 W and three class-4 ports at critical, high, low
-	// allocates two and denies one with budget.
-	phyCfg := phy.Config{
-		PoE: &phy.PoE{
-			Groups: map[string]phy.Group{
-				"1": {PowerNanowatts: 60_000_000_000},
-			},
-			Ports: map[string]phy.PsePort{
-				"1/1/1": {Group: "1", MaxClass: 8, Enabled: true, Priority: phy.PriorityCritical, PD: phy.PDAttached, PDClass: phy.Class(4)},
-				"1/1/2": {Group: "1", MaxClass: 8, Enabled: true, Priority: phy.PriorityHigh, PD: phy.PDAttached, PDClass: phy.Class(4)},
-				"1/1/3": {Group: "1", MaxClass: 8, Enabled: true, Priority: phy.PriorityLow, PD: phy.PDAttached, PDClass: phy.Class(4)},
-			},
-		},
-	}
-	alloc := phyCfg.Allocate()
-
-	budgets, facets, err := netmodel.Poe(phyCfg, alloc)
-	if err != nil {
-		t.Fatalf("Poe: %v", err)
-	}
-	if len(budgets) != 1 {
-		t.Fatalf("exported budgets count = %d, want 1", len(budgets))
-	}
-	b0 := budgets[0]
-	if err := protovalidate.Validate(b0); err != nil {
-		t.Fatalf("PseBudget protovalidate failed: %v", err)
-	}
-	if b0.GetPseGroup() != 1 {
-		t.Errorf("budget pse_group = %d, want 1", b0.GetPseGroup())
-	}
-	if b0.GetPowerNanowatts() != 60_000_000_000 {
-		t.Errorf("budget power_nanowatts = %d, want 60000000000", b0.GetPowerNanowatts())
-	}
-
-	if len(facets) != 3 {
-		t.Fatalf("exported facets count = %d, want 3", len(facets))
-	}
-
-	for name, facet := range facets {
-		if err := protovalidate.Validate(facet); err != nil {
-			t.Fatalf("PoeFacet %s protovalidate failed: %v", name, err)
-		}
-	}
-
-	f1 := facets["1/1/1"]
-	if f1.GetAllocatedPowerNanowatts() != 30_000_000_000 {
-		t.Errorf("1/1/1 allocated = %d, want 30000000000", f1.GetAllocatedPowerNanowatts())
-	}
-	if f1.GetStatus() != phyv1.PoeStatus_POE_STATUS_DELIVERING_POWER {
-		t.Errorf("1/1/1 status = %v, want DELIVERING_POWER", f1.GetStatus())
-	}
-
-	f2 := facets["1/1/2"]
-	if f2.GetAllocatedPowerNanowatts() != 30_000_000_000 {
-		t.Errorf("1/1/2 allocated = %d, want 30000000000", f2.GetAllocatedPowerNanowatts())
-	}
-	if f2.GetStatus() != phyv1.PoeStatus_POE_STATUS_DELIVERING_POWER {
-		t.Errorf("1/1/2 status = %v, want DELIVERING_POWER", f2.GetStatus())
-	}
-
-	f3 := facets["1/1/3"]
-	if f3.HasAllocatedPowerNanowatts() {
-		t.Errorf("1/1/3 allocated should be unset, got %d", f3.GetAllocatedPowerNanowatts())
-	}
-	if f3.HasPowerClass() {
-		t.Errorf("1/1/3 power_class should be unset, got %d", f3.GetPowerClass())
-	}
-	if f3.GetStatus() != phyv1.PoeStatus_POE_STATUS_SEARCHING {
-		t.Errorf("1/1/3 status = %v, want SEARCHING", f3.GetStatus())
+	entry := entries[0]
+	if entry.FID != 10 || entry.Port != "1/1/1" || entry.MAC != (netaddr.MAC{0, 0x11, 0x22, 0x33, 0x44, 0x55}) || entry.Lifetime != bridge.Aging {
+		t.Errorf("learned FDB entry = %+v, want VLAN 10 source 00:11:22:33:44:55 on 1/1/1 with dynamic lifetime", entry)
 	}
 }
 

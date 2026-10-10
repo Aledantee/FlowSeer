@@ -8,6 +8,7 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/known/durationpb"
 
+	addrv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/addr/v1"
 	interfacev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1"
 	lacpv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/lacp/v1"
 	switchingv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/switching/v1"
@@ -305,69 +306,16 @@ func TestLoad_LagDefaultBondMode(t *testing.T) {
 	}
 }
 
-func TestLacp_RoundTrip(t *testing.T) {
-	t0 := time.Date(2026, 9, 11, 10, 0, 0, 0, time.UTC)
-	macA := netaddr.MAC{0x02, 0x00, 0x00, 0x00, 0x00, 0x0a}
-	macB := netaddr.MAC{0x02, 0x00, 0x00, 0x00, 0x00, 0x0b}
-
-	lagCfgA := &lag.Config{
-		LAGs: map[string]lag.LAG{
-			"lag1": {
-				Mode:    lag.ActiveBackup,
-				Primary: "1/1/1",
-				LACP: lag.LACPConfig{
-					Mode:           lag.Active,
-					Fast:           true,
-					SystemPriority: 32768,
-					SystemID:       macA,
-					Key:            1,
-				},
-				Members: map[string]lag.Member{
-					"1/1/1": {Priority: 32768, Key: 1},
-					"1/1/2": {Priority: 32768, Key: 1},
-				},
-			},
-		},
+func TestLoadLacpConfiguration(t *testing.T) {
+	macA := netaddr.MAC{0x02, 0, 0, 0, 0, 0x0a}
+	aggs := []*lacpv1.AggregatorState{lacpv1.AggregatorState_builder{
+		InterfaceName: ptr("lag1"), Mode: lacpv1.LacpMode_LACP_MODE_ACTIVE.Enum(), Fast: ptr(true),
+		SystemPriority: ptr(uint32(32768)), SystemId: addrv1.Eui48Address_builder{Octets: []byte{2, 0, 0, 0, 0, 10}}.Build(), Key: ptr(uint32(1)),
+	}.Build()}
+	var portStates []*lacpv1.PortState
+	for _, name := range []string{"1/1/1", "1/1/2"} {
+		portStates = append(portStates, lacpv1.PortState_builder{InterfaceName: ptr(name), PortPriority: ptr(uint32(32768)), Key: ptr(uint32(1))}.Build())
 	}
-	lagCfgB := &lag.Config{
-		LAGs: map[string]lag.LAG{
-			"lag1": {
-				Mode:    lag.ActiveBackup,
-				Primary: "1/1/1",
-				LACP: lag.LACPConfig{
-					Mode:           lag.Active,
-					Fast:           true,
-					SystemPriority: 32768,
-					SystemID:       macB,
-					Key:            1,
-				},
-				Members: map[string]lag.Member{
-					"1/1/1": {Priority: 32768, Key: 1},
-					"1/1/2": {Priority: 32768, Key: 1},
-				},
-			},
-		},
-	}
-
-	fab := newLacpFabric(t, t0, macA, macB, lagCfgA, lagCfgB)
-
-	target := t0.Add(3 * time.Second)
-	for {
-		snap := fab.Snapshot()
-		if !snap.Clock.Before(target) && len(snap.Queue) == 0 {
-			break
-		}
-		if snap.Clock.After(target) {
-			break
-		}
-		if _, ok := fab.Step(); !ok {
-			break
-		}
-	}
-
-	swA := fab.Device("A").(*vswitch.Switch)
-	aggs, portStates := netmodel.Lacp(swA)
-
 	adminUp := interfacev1.AdminStatus_ADMIN_STATUS_UP
 	operUp := interfacev1.OperStatus_OPER_STATUS_UP
 	lagName := "lag1"
@@ -421,7 +369,9 @@ func TestLacp_RoundTrip(t *testing.T) {
 		}.Build(),
 	}
 
-	res, err := netmodel.Load(t0, netmodel.SourceContext{DeviceID: "sw1"}, netmodel.Input{Interfaces: ifaces, LACPAggregators: aggs, LACPPorts: portStates})
+	in := netmodel.Input{Interfaces: ifaces, LACPAggregators: aggs, LACPPorts: portStates}
+	validateInput(t, in)
+	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, in)
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}
@@ -431,8 +381,13 @@ func TestLacp_RoundTrip(t *testing.T) {
 		t.Fatal("expected loadedCfg.LAG to be non-nil")
 	}
 
-	diff := lag.Diff(*swA.Config().LAG, *loadedCfg.LAG)
+	want := lag.Config{LAGs: map[string]lag.LAG{"lag1": {
+		Mode: lag.ActiveBackup, Primary: "1/1/1",
+		LACP:    lag.LACPConfig{Mode: lag.Active, Fast: true, SystemPriority: 32768, SystemID: macA, Key: 1},
+		Members: map[string]lag.Member{"1/1/1": {Priority: 32768, Key: 1}, "1/1/2": {Priority: 32768, Key: 1}},
+	}}}
+	diff := lag.Diff(want, *loadedCfg.LAG)
 	if len(diff) != 0 {
-		t.Errorf("round-trip LAG diff not empty: %+v", diff)
+		t.Errorf("loaded LAG differs from literal expectation: %+v", diff)
 	}
 }

@@ -1,7 +1,6 @@
 package netmodel_test
 
 import (
-	"bytes"
 	"slices"
 	"testing"
 	"time"
@@ -13,9 +12,9 @@ import (
 	interfacev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1"
 	packetv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/packet/v1"
 	stpv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/stp/v1"
+	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
-	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/stp"
 	"go.aledante.io/FlowSeer/src/common/sim/netmodel"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
@@ -301,97 +300,45 @@ func TestLoad_STPWalkSkipsRoutedPort(t *testing.T) {
 	}
 }
 
-func TestStpExportAndLoad_RingConvergence(t *testing.T) {
-	fab, t0, macs := newRingTopology(t)
-
-	fab.Run(fabric.RunOptions{Budget: 200, Window: 0})
-
-	sw1MAC := macs["sw1"]
-	swNames := []string{"sw1", "sw2", "sw3"}
-
-	adminUp := interfacev1.AdminStatus_ADMIN_STATUS_UP
-	operUp := interfacev1.OperStatus_OPER_STATUS_UP
-
-	for _, name := range swNames {
-		sw := fab.Device(name).(*vswitch.Switch)
-		if sw == nil {
-			t.Fatalf("switch %s not found in fabric", name)
-		}
-
-		bridgeState, portStates := netmodel.Stp(fab.Snapshot().Clock, sw)
-		if bridgeState == nil {
-			t.Fatalf("switch %s exported nil BridgeState", name)
-		}
-
-		if err := protovalidate.Validate(bridgeState); err != nil {
-			t.Errorf("switch %s BridgeState validation failed: %v", name, err)
-		}
-
-		desigRoot := bridgeState.GetDesignatedRoot()
-		if desigRoot.GetPriority() != 4096 {
-			t.Errorf("switch %s designated root priority = %d, want 4096", name, desigRoot.GetPriority())
-		}
-		if !bytes.Equal(desigRoot.GetAddress().GetOctets(), sw1MAC[:]) {
-			t.Errorf("switch %s designated root MAC = %x, want %x", name, desigRoot.GetAddress().GetOctets(), sw1MAC[:])
-		}
-		if bridgeState.GetTxHoldCount() != 6 {
-			t.Errorf("switch %s BridgeState tx_hold_count = %d, want 6", name, bridgeState.GetTxHoldCount())
-		}
-
-		roles := sw.Roles()
-		if len(portStates) != len(roles) {
-			t.Errorf("switch %s port states count = %d, want %d", name, len(portStates), len(roles))
-		}
-
-		for _, ps := range portStates {
-			if err := protovalidate.Validate(ps); err != nil {
-				t.Errorf("switch %s PortState %s validation failed: %v", name, ps.GetInterfaceName(), err)
+func TestLoadStpRingConfiguration(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		priority uint32
+		address  []byte
+	}{
+		{"sw1", 4096, []byte{0, 0, 0, 0, 1, 1}},
+		{"sw2", 12288, []byte{0, 0, 0, 0, 1, 2}},
+		{"sw3", 8192, []byte{0, 0, 0, 0, 1, 3}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			bridgeState := validBridgeState()
+			bridgeState.SetBridgeId(stpv1.BridgeId_builder{Priority: ptr(tc.priority), Address: addrv1.Eui48Address_builder{Octets: tc.address}.Build()}.Build())
+			bridgeState.SetBridgeHelloTime(durationpb.New(2 * time.Second))
+			bridgeState.SetBridgeMaxAge(durationpb.New(20 * time.Second))
+			bridgeState.SetBridgeForwardDelay(durationpb.New(15 * time.Second))
+			bridgeState.SetTxHoldCount(6)
+			var portStates []*stpv1.PortState
+			for _, name := range []string{"1/1/2", "1/1/3"} {
+				portStates = append(portStates, stpv1.PortState_builder{
+					InterfaceName: ptr(name), Priority: ptr(uint32(128)), AdminPathCost: ptr(uint32(0)),
+					AdminEdge: ptr(false), AutoEdge: ptr(false), PointToPoint: stpv1.PointToPointMode_POINT_TO_POINT_MODE_AUTO.Enum(),
+				}.Build())
 			}
-
-			info, ok := roles[ps.GetInterfaceName()]
-			if !ok {
-				t.Errorf("switch %s PortState %s not found in Roles()", name, ps.GetInterfaceName())
-				continue
+			in := netmodel.Input{Interfaces: []*interfacev1.Interface{plainPhysicalInterface("1/1/1"), plainPhysicalInterface("1/1/2"), plainPhysicalInterface("1/1/3")}, BridgeState: bridgeState, STPPorts: portStates}
+			validateInput(t, in)
+			res := load(t, netmodel.SourceContext{DeviceID: tc.name}, in)
+			if res.Spec.Config.STP == nil {
+				t.Fatal("loaded STP configuration is nil")
 			}
-
-			if !roleMatches(ps.GetRole(), info.Role) {
-				t.Errorf("switch %s port %s role = %v, want %v", name, ps.GetInterfaceName(), ps.GetRole(), info.Role)
+			want := stp.Config{
+				Priority: uint16(tc.priority), PriorityPresent: true,
+				Address: netaddr.MAC(tc.address), HelloTime: 2 * time.Second, MaxAge: 20 * time.Second, ForwardDelay: 15 * time.Second, TxHoldCount: 6,
+				Ports: map[string]stp.Port{"1/1/2": {Priority: 128, PriorityPresent: true}, "1/1/3": {Priority: 128, PriorityPresent: true}},
 			}
-			if !stateMatches(ps.GetState(), info.State) {
-				t.Errorf("switch %s port %s state = %v, want %v", name, ps.GetInterfaceName(), ps.GetState(), info.State)
+			if diff := stp.Diff(want, *res.Spec.Config.STP); len(diff) != 0 {
+				t.Errorf("loaded STP configuration differs from literal expectation: %+v", diff)
 			}
-			if ps.GetOperProtocolVersion() != stpv1.ProtocolVersion_PROTOCOL_VERSION_RSTP {
-				t.Errorf("switch %s port %s oper_protocol_version = %v, want RSTP", name, ps.GetInterfaceName(), ps.GetOperProtocolVersion())
-			}
-			if ps.GetRole() == stpv1.PortRole_PORT_ROLE_DESIGNATED && ps.GetTxBpdus() == 0 {
-				t.Errorf("switch %s designated port %s tx_bpdus = 0, want > 0", name, ps.GetInterfaceName())
-			}
-		}
-
-		var ifaces []*interfacev1.Interface
-		for _, p := range sw.Ports().Ports() {
-			pName := p.Name
-			ifaces = append(ifaces, interfacev1.Interface_builder{
-				Name:        &pName,
-				AdminStatus: &adminUp,
-				OperStatus:  &operUp,
-			}.Build())
-		}
-
-		res, err := netmodel.Load(t0, netmodel.SourceContext{DeviceID: name}, netmodel.Input{Interfaces: ifaces, BridgeState: bridgeState, STPPorts: portStates})
-		if err != nil {
-			t.Fatalf("switch %s Load failed: %v", name, err)
-		}
-		loadedCfg := res.Spec.Config
-
-		if loadedCfg.STP == nil {
-			t.Fatalf("switch %s loaded STP configuration is nil", name)
-		}
-
-		diff := stp.Diff(*sw.Config().STP, *loadedCfg.STP)
-		if len(diff) != 0 {
-			t.Errorf("switch %s round-trip STP diff not empty: %+v", name, diff)
-		}
+		})
 	}
 }
 

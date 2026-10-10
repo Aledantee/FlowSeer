@@ -1,6 +1,8 @@
 package netmodel
 
 import (
+	"slices"
+
 	filterv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/filter/v1"
 	interfacev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1"
 	ipv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/ip/v1"
@@ -32,4 +34,17 @@ type Input struct {
 	MSTInstances []*stpv1.MstInstance
 	MSTPorts     []*stpv1.MstPort
 	MSTVLANMaps  []*stpv1.MstVlanMap
+}
+
+// DefaultNetworkInstance names the default domain used by model inputs.
+const DefaultNetworkInstance = "default"
+
+func sortedKeys[V any](m map[string]V) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	slices.Sort(keys)
+
+	return keys
 }

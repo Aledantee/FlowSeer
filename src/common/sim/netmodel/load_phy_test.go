@@ -68,18 +68,18 @@ func TestNetmodel_PortWithoutPoeDetailSkipped(t *testing.T) {
 	}
 }
 
-func TestPoeExportAndLoadRoundTrip(t *testing.T) {
+func TestLoadPoeDeliveryObservations(t *testing.T) {
 	adminUp := interfacev1.AdminStatus_ADMIN_STATUS_UP
 	operUp := interfacev1.OperStatus_OPER_STATUS_UP
 	mtu0 := uint32(0)
 	grp := uint32(1)
 
-	loadExported := func(t *testing.T, phyCfg phy.Config, alloc phy.Allocation) netmodel.Result {
+	loadObserved := func(t *testing.T, status phyv1.PoeStatus, power uint64, class *uint32) netmodel.Result {
 		t.Helper()
-		budgets, facets, err := netmodel.Poe(phyCfg, alloc)
-		if err != nil {
-			t.Fatalf("Poe export failed: %v", err)
-		}
+		budgets := []*phyv1.PseBudget{phyv1.PseBudget_builder{PseGroup: ptr(uint32(1)), PowerNanowatts: ptr(power)}.Build()}
+		facets := map[string]*phyv1.PoeFacet{"1/1/1": phyv1.PoeFacet_builder{
+			Supported: ptr(true), Role: phyv1.PoeRole_POE_ROLE_PSE.Enum(), Status: status.Enum(), PowerClass: class,
+		}.Build()}
 		for _, b := range budgets {
 			if err := protovalidate.Validate(b); err != nil {
 				t.Fatalf("budget protovalidate failed: %v", err)
@@ -130,22 +130,7 @@ func TestPoeExportAndLoadRoundTrip(t *testing.T) {
 	}
 
 	t.Run("delivered", func(t *testing.T) {
-		phyCfg := phy.Config{
-			PoE: &phy.PoE{
-				Groups: map[string]phy.Group{
-					"1": {PowerNanowatts: 100_000_000_000},
-				},
-				Ports: map[string]phy.PsePort{
-					"1/1/1": {Group: "1", MaxClass: 8, Enabled: true, Priority: phy.PriorityCritical, PD: phy.PDAttached, PDClass: phy.Class(2)},
-				},
-			},
-		}
-		alloc := phyCfg.Allocate()
-		if alloc.Ports["1/1/1"].State != phy.PowerDelivered {
-			t.Fatalf("got power state %v, want PowerDelivered", alloc.Ports["1/1/1"].State)
-		}
-
-		res := loadExported(t, phyCfg, alloc)
+		res := loadObserved(t, phyv1.PoeStatus_POE_STATUS_DELIVERING_POWER, 100_000_000_000, ptr(uint32(2)))
 		p, ok := res.Spec.Config.Phy.PoE.Ports["1/1/1"]
 		if !ok {
 			t.Fatal("port 1/1/1 missing from loaded config")
@@ -164,22 +149,7 @@ func TestPoeExportAndLoadRoundTrip(t *testing.T) {
 	})
 
 	t.Run("disabled", func(t *testing.T) {
-		phyCfg := phy.Config{
-			PoE: &phy.PoE{
-				Groups: map[string]phy.Group{
-					"1": {PowerNanowatts: 100_000_000_000},
-				},
-				Ports: map[string]phy.PsePort{
-					"1/1/1": {Group: "1", MaxClass: 8, Enabled: false, Priority: phy.PriorityCritical, PD: phy.PDAttached, PDClass: phy.Class(2)},
-				},
-			},
-		}
-		alloc := phyCfg.Allocate()
-		if alloc.Ports["1/1/1"].State != phy.PowerDenied || alloc.Ports["1/1/1"].Denial != phy.ReasonDisabled {
-			t.Fatalf("got port allocation %+v, want PowerDenied(disabled)", alloc.Ports["1/1/1"])
-		}
-
-		res := loadExported(t, phyCfg, alloc)
+		res := loadObserved(t, phyv1.PoeStatus_POE_STATUS_DISABLED, 100_000_000_000, nil)
 		p, ok := res.Spec.Config.Phy.PoE.Ports["1/1/1"]
 		if !ok {
 			t.Fatal("port 1/1/1 missing from loaded config")
@@ -198,22 +168,7 @@ func TestPoeExportAndLoadRoundTrip(t *testing.T) {
 	})
 
 	t.Run("no device", func(t *testing.T) {
-		phyCfg := phy.Config{
-			PoE: &phy.PoE{
-				Groups: map[string]phy.Group{
-					"1": {PowerNanowatts: 100_000_000_000},
-				},
-				Ports: map[string]phy.PsePort{
-					"1/1/1": {Group: "1", MaxClass: 8, Enabled: true, Priority: phy.PriorityCritical, PD: phy.PDAbsent},
-				},
-			},
-		}
-		alloc := phyCfg.Allocate()
-		if alloc.Ports["1/1/1"].State != phy.PowerNoDevice {
-			t.Fatalf("got power state %v, want PowerNoDevice", alloc.Ports["1/1/1"].State)
-		}
-
-		res := loadExported(t, phyCfg, alloc)
+		res := loadObserved(t, phyv1.PoeStatus_POE_STATUS_SEARCHING, 100_000_000_000, nil)
 		p, ok := res.Spec.Config.Phy.PoE.Ports["1/1/1"]
 		if !ok {
 			t.Fatal("port 1/1/1 missing from loaded config")
@@ -241,22 +196,7 @@ func TestPoeExportAndLoadRoundTrip(t *testing.T) {
 	})
 
 	t.Run("unknown", func(t *testing.T) {
-		phyCfg := phy.Config{
-			PoE: &phy.PoE{
-				Groups: map[string]phy.Group{
-					"1": {PowerNanowatts: 100_000_000_000},
-				},
-				Ports: map[string]phy.PsePort{
-					"1/1/1": {Group: "1", MaxClass: 8, Enabled: true, Priority: phy.PriorityCritical, PD: phy.PDUnknown},
-				},
-			},
-		}
-		alloc := phyCfg.Allocate()
-		if alloc.Ports["1/1/1"].State != phy.PowerUnknown {
-			t.Fatalf("got power state %v, want PowerUnknown", alloc.Ports["1/1/1"].State)
-		}
-
-		res := loadExported(t, phyCfg, alloc)
+		res := loadObserved(t, phyv1.PoeStatus_POE_STATUS_UNSPECIFIED, 100_000_000_000, nil)
 		p, ok := res.Spec.Config.Phy.PoE.Ports["1/1/1"]
 		if !ok {
 			t.Fatal("port 1/1/1 missing from loaded config")
@@ -275,22 +215,7 @@ func TestPoeExportAndLoadRoundTrip(t *testing.T) {
 	})
 
 	t.Run("budget denial", func(t *testing.T) {
-		phyCfg := phy.Config{
-			PoE: &phy.PoE{
-				Groups: map[string]phy.Group{
-					"1": {PowerNanowatts: 10_000_000_000},
-				},
-				Ports: map[string]phy.PsePort{
-					"1/1/1": {Group: "1", MaxClass: 8, Enabled: true, Priority: phy.PriorityCritical, PD: phy.PDAttached, PDClass: phy.Class(4)},
-				},
-			},
-		}
-		alloc := phyCfg.Allocate()
-		if alloc.Ports["1/1/1"].State != phy.PowerDenied || alloc.Ports["1/1/1"].Denial != phy.ReasonBudget {
-			t.Fatalf("got port allocation %+v, want PowerDenied(budget)", alloc.Ports["1/1/1"])
-		}
-
-		res := loadExported(t, phyCfg, alloc)
+		res := loadObserved(t, phyv1.PoeStatus_POE_STATUS_SEARCHING, 10_000_000_000, nil)
 		p, ok := res.Spec.Config.Phy.PoE.Ports["1/1/1"]
 		if !ok {
 			t.Fatal("port 1/1/1 missing from loaded config")

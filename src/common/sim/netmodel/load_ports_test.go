@@ -7,7 +7,6 @@ import (
 	interfacev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1"
 	phyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1"
 	switchingv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/switching/v1"
-	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/netmodel"
 )
@@ -156,20 +155,5 @@ func TestNetmodel_DefaultsAndEdgeCases(t *testing.T) {
 	// Seed should be marked static
 	if len(seeds) != 1 || seeds[0].Lifetime != bridge.Static {
 		t.Errorf("got seeds %+v, want static seed", seeds)
-	}
-
-	// An entry of a bridge without VLAN awareness has no FdbEntry shape, since
-	// the message requires a VLAN id.
-	entryFID0 := []bridge.Entry{
-		{
-			FID:       0,
-			MAC:       netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55},
-			Port:      "1/1/1",
-			Lifetime:  bridge.Aging,
-			LearnedAt: testTime,
-		},
-	}
-	if _, err := netmodel.FdbEntries(entryFID0); err == nil {
-		t.Error("FdbEntries(FID 0) error = nil, want an error")
 	}
 }
