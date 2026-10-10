@@ -184,39 +184,59 @@ func (l *Layer) updateLag(lag *lagState) bool {
 	}
 
 	if lag.cfg.LACP.Mode == Off {
-		var enabled []string
-		for _, name := range lag.memberNames {
-			m := l.members[name]
-			m.selected = false
-			m.mux = muxDetached
-			m.aggregateWait = time.Time{}
-			m.attached = false
-			m.enabled = m.linkUp
-			if m.enabled {
-				enabled = append(enabled, name)
-			}
-		}
-
-		if lag.cfg.MinLinks != 0 && len(enabled) < lag.cfg.MinLinks {
-			enabled = nil
-			for _, name := range lag.memberNames {
-				l.members[name].enabled = false
-			}
-		}
-		lag.enabledOrder = updateEnabledOrder(lag.enabledOrder, enabled)
-		lag.attachedMembers = nil
-		lag.partnerSysID = netaddr.MAC{}
-		lag.partnerSysPrio = 0
-		lag.partnerKey = 0
-		lag.aggregateWait = time.Time{}
-
-		for _, name := range lag.memberNames {
-			l.members[name].updateActorInfo(lag)
-		}
-
+		l.updateStaticMembers(lag)
 		return l.lagChanged(lag, oldEnabled, oldAttached, oldActors, oldSelected, oldMux)
 	}
 
+	l.resetReselectedMembers(lag)
+	l.updateSelection(lag)
+	l.updateAttachment(lag)
+	l.updateCollectingDistributing(lag)
+
+	for _, name := range lag.memberNames {
+		m := l.members[name]
+		m.updateActorInfo(lag)
+		if m.mux != oldMux[name] && (m.mux == muxDetached || m.mux == muxAttached || m.mux == muxCollectingDistributing) {
+			m.ntt = true
+		}
+	}
+
+	return l.lagChanged(lag, oldEnabled, oldAttached, oldActors, oldSelected, oldMux)
+}
+
+func (l *Layer) updateStaticMembers(lag *lagState) {
+	var enabled []string
+	for _, name := range lag.memberNames {
+		m := l.members[name]
+		m.selected = false
+		m.mux = muxDetached
+		m.aggregateWait = time.Time{}
+		m.attached = false
+		m.enabled = m.linkUp
+		if m.enabled {
+			enabled = append(enabled, name)
+		}
+	}
+
+	if lag.cfg.MinLinks != 0 && len(enabled) < lag.cfg.MinLinks {
+		enabled = nil
+		for _, name := range lag.memberNames {
+			l.members[name].enabled = false
+		}
+	}
+	lag.enabledOrder = updateEnabledOrder(lag.enabledOrder, enabled)
+	lag.attachedMembers = nil
+	lag.partnerSysID = netaddr.MAC{}
+	lag.partnerSysPrio = 0
+	lag.partnerKey = 0
+	lag.aggregateWait = time.Time{}
+
+	for _, name := range lag.memberNames {
+		l.members[name].updateActorInfo(lag)
+	}
+}
+
+func (l *Layer) resetReselectedMembers(lag *lagState) {
 	for _, name := range lag.memberNames {
 		m := l.members[name]
 		if m.needsReselect {
@@ -228,7 +248,9 @@ func (l *Layer) updateLag(lag *lagState) bool {
 			m.aggregateWait = time.Time{}
 		}
 	}
+}
 
+func (l *Layer) updateSelection(lag *lagState) {
 	target, lead, isRetained := l.selectionTarget(lag)
 	targetSet := make(map[string]struct{}, len(target))
 	for _, name := range target {
@@ -282,7 +304,9 @@ func (l *Layer) updateLag(lag *lagState) bool {
 	} else if !lag.aggregateWait.IsZero() && !lag.aggregateWait.After(l.now) {
 		lag.aggregateWait = time.Time{}
 	}
+}
 
+func (l *Layer) updateAttachment(lag *lagState) {
 	for _, name := range lag.memberNames {
 		m := l.members[name]
 		if !m.selected {
@@ -320,7 +344,9 @@ func (l *Layer) updateLag(lag *lagState) bool {
 	if !hasWaiting {
 		lag.aggregateWait = time.Time{}
 	}
+}
 
+func (l *Layer) updateCollectingDistributing(lag *lagState) {
 	ready := 0
 	for _, name := range lag.memberNames {
 		m := l.members[name]
@@ -347,16 +373,6 @@ func (l *Layer) updateLag(lag *lagState) bool {
 	}
 	lag.attachedMembers = attached
 	lag.enabledOrder = updateEnabledOrder(lag.enabledOrder, enabled)
-
-	for _, name := range lag.memberNames {
-		m := l.members[name]
-		m.updateActorInfo(lag)
-		if m.mux != oldMux[name] && (m.mux == muxDetached || m.mux == muxAttached || m.mux == muxCollectingDistributing) {
-			m.ntt = true
-		}
-	}
-
-	return l.lagChanged(lag, oldEnabled, oldAttached, oldActors, oldSelected, oldMux)
 }
 
 func (l *Layer) lagChanged(lag *lagState, oldEnabled, oldAttached []string, oldActors map[string]lacp.Info, oldSelected map[string]bool, oldMux map[string]muxState) bool {

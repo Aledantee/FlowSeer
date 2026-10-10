@@ -146,6 +146,17 @@ func Diff(a, b Config) []trace.Change {
 
 	var changes []trace.Change
 
+	changes = diffSets(changes, a, b)
+	changes = diffBindings(changes, a.Bindings, b.Bindings)
+
+	slices.SortStableFunc(changes, func(x, y trace.Change) int {
+		return x.Subject.Compare(y.Subject)
+	})
+
+	return changes
+}
+
+func diffSets(changes []trace.Change, a, b Config) []trace.Change {
 	allSets := make(map[string]struct{})
 	for k := range a.Sets {
 		allSets[k] = struct{}{}
@@ -227,16 +238,20 @@ func Diff(a, b Config) []trace.Change {
 		changes = diffRules(changes, setName, setA.Rules, setB.Rules)
 	}
 
+	return changes
+}
+
+func diffBindings(changes []trace.Change, a, b []Binding) []trace.Change {
 	type bindingKey struct {
 		iface string
 		dir   Direction
 	}
-	aBindings := make(map[bindingKey]string, len(a.Bindings))
-	for _, bnd := range a.Bindings {
+	aBindings := make(map[bindingKey]string, len(a))
+	for _, bnd := range a {
 		aBindings[bindingKey{iface: bnd.Interface, dir: bnd.Direction}] = bnd.Set
 	}
-	bBindings := make(map[bindingKey]string, len(b.Bindings))
-	for _, bnd := range b.Bindings {
+	bBindings := make(map[bindingKey]string, len(b))
+	for _, bnd := range b {
 		bBindings[bindingKey{iface: bnd.Interface, dir: bnd.Direction}] = bnd.Set
 	}
 
@@ -295,10 +310,6 @@ func Diff(a, b Config) []trace.Change {
 			})
 		}
 	}
-
-	slices.SortStableFunc(changes, func(x, y trace.Change) int {
-		return x.Subject.Compare(y.Subject)
-	})
 
 	return changes
 }
