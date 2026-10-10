@@ -4,13 +4,15 @@ Package `netmodel` translates device model records into executable virtual switc
 construction specifications with explicit trust and readiness metadata.
 
 The package accepts structured interface, VLAN, forwarding database, spanning tree,
-LACP, IP, and packet filter configuration inputs. It produces a reproducible [vswitch.ConstructionSpec]
+LACP, IP, and packet filter records in one [Input](input.go). Its `Want` field
+selects capabilities explicitly. An empty `Want` infers them from the records.
+It produces a reproducible [vswitch.ConstructionSpec]
 alongside a [Report] and [analysis.Metadata] detailing readiness, assumptions,
 defaults, skipped facets, and data conflicts.
 
 ## Working example
 
-The loader accepts caller source context and device model slices, returning a
+The loader accepts caller source context and an `Input` value, returning a
 constructible result envelope:
 
 ```go
@@ -71,6 +73,30 @@ if err != nil {
     return err
 }
 fmt.Println(fab.Snapshot().Devices["sw1"])
+```
+
+`TestICX7150Load/forwarding` in [testdata_icx7150_test.go](testdata_icx7150_test.go)
+builds `vswitch.NewWithSpec` from the fixture's loaded specification. An untagged
+frame on `1/1/1` floods in VLAN 4000 and exits `1/1/2` untagged. Reversing the
+addresses on `1/1/2` sends the reply only to the learned source on `1/1/1`.
+These assertions describe execution of the fixture's memberships.
+
+## Loader boundary
+
+[Load](netmodel.go) coordinates subject loaders in `load_*.go`.
+[loadContext](load_context.go) owns diagnostics during translation. Shared
+[ownership facts](load_context.go) let bridge and STP exclude routed ports without
+reading routing's raw rows. Routing returns VLAN contributions for the coordinator
+to apply to the bridge, so each loader owns its configuration result.
+
+```mermaid
+flowchart LR
+    ports[Ports and ownership] --> capabilities[Capability selection]
+    capabilities --> subjects[Subject loaders]
+    subjects --> compose[Apply routing VLAN contributions]
+    compose --> config[Normalize and validate configuration]
+    config --> seeds[Admit FDB seeds]
+    seeds --> result[Sorted report and construction specification]
 ```
 
 ## Error versus result separation
@@ -155,8 +181,10 @@ Physical layer attributes translate directly into tri-state physical facts in [p
 
 ## Report collections and metadata
 
-The returned [Report] and [analysis.Metadata] expose fine-grained tracking for
-synthesis decisions:
+The returned [Report](report.go) keeps translation details for inspection.
+`Result.Metadata` summarizes loading trust. `Spec.Metadata` carries that trust
+into switch construction and later forwarding, as [finishLoad](load_finish.go)
+records both from the same catalog, issues, and assumptions.
 
 - **Skipped facets**: Features or records deliberately omitted during translation,
   such as bridge switchport configuration on routed interfaces, or IP addresses on
@@ -243,3 +271,32 @@ omitted values with standard defaults and records each in the `Report`:
 | `power_nanowatts`   | unknown (0 nW)   | PseBudget without reported nominal power |
 | `bond_mode`         | `active-backup`  | Open vSwitch bond_mode default      |
 | `lacp`              | `off`            | Open vSwitch lacp default           |
+
+## Limits
+
+- Bridge aging uses [bridge.DefaultAgingTime](../layer/bridge/config.go).
+  The [VLAN](../../../../spec/proto/flowseer/net/switching/v1/vlan.proto),
+  [switchport](../../../../spec/proto/flowseer/net/switching/v1/switchport_facet.proto),
+  and [FDB](../../../../spec/proto/flowseer/net/switching/v1/fdb_entry.proto)
+  inputs provide no aging setting. FDB VLAN IDs are restricted to 1 through
+  4094, so those rows cannot represent a VLAN-unaware FID 0 seed.
+- Observed [multicast memberships](../../../../spec/proto/flowseer/net/multicast/v1/group_membership.proto)
+  do not supply the snooping enablement, router ports, and timer policy needed by
+  [mcast.Config](../layer/mcast/config.go).
+- Interface and switchport inputs provide no loop-protection probe, timer, or
+  action settings for [loopprotect.Config](../layer/loopprotect/config.go).
+- [QoS rows](../../../../spec/proto/flowseer/net/qos/v1/qos_interface.proto)
+  contain partial settings. They supply no complete queue-to-PCP mapping for
+  [traffic.Config](../layer/traffic/config.go).
+  [Capture wrappers](../../../../spec/proto/flowseer/net/capture/v1/mirror.proto)
+  describe received packets, without the mirror selectors and destinations
+  needed to configure traffic mirroring.
+- [ProtocolVersion](../../../../spec/proto/flowseer/net/protocol/stp/v1/protocol_version.proto)
+  has no PVST value or per-VLAN configuration input.
+
+Requests for multicast, loop protection, and traffic are reported as Unsupported
+by [requestedCapabilities](load_capabilities.go). The loader does not infer their
+settings from observations. [Input](input.go) supplies no observed counter seeds,
+and [loadSTP](load_stp.go) does not restore observed roots.
+[InterfaceCounters](counters.go) remains the adapter from device counters to
+protobuf reports.
