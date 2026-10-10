@@ -393,33 +393,74 @@ func TestMSTDigestPreservesCompleteMap(t *testing.T) {
 
 func TestMSTInstanceCapacity(t *testing.T) {
 	reached := 0
-	for _, count := range []int{64, 65} {
-		t.Run(fmt.Sprint(count), func(t *testing.T) {
+	for _, variant := range []string{"64", "65", "duplicate", "conflict", "refused_port", "missing_map", "invalid_priority", "named_domain", "invalid_id"} {
+		t.Run(variant, func(t *testing.T) {
+			count := 65
+			if variant == "64" || variant == "duplicate" || variant == "named_domain" || variant == "invalid_id" {
+				count = 64
+			}
 			var instances []*stpv1.MstInstance
 			var maps []*stpv1.MstVlanMap
 			for id := 1; id <= count; id++ {
 				instances = append(instances, mstInstance(uint32(id), new(uint32(0))))
 				maps = append(maps, mstMap(uint32(id)))
 			}
-			m, c, issues := runMST(t, mstBridge(t, mstEmptyDigest), instances, maps)
+			var ports []*stpv1.MstPort
+			switch variant {
+			case "duplicate":
+				instances = append(instances, mstInstance(64, new(uint32(0))))
+			case "conflict":
+				instances = append(instances, mstInstance(65, new(uint32(4096))))
+			case "refused_port":
+				ports = append(ports, stpv1.MstPort_builder{MstId: new(uint32(65)), InterfaceName: new("p1"), Priority: new(uint32(1)), AdminPathCost: new(uint32(0))}.Build())
+			case "missing_map":
+				maps = maps[:64]
+			case "invalid_priority":
+				instances[64].GetBridgeId().SetPriority(1)
+			case "named_domain":
+				named := mstInstance(65, new(uint32(0)))
+				named.SetNetworkInstance("blue")
+				instances = append(instances, named)
+			case "invalid_id":
+				instances = append(instances, mstInstance(4095, new(uint32(0))))
+			}
+			m, c, issues := runMST(t, mstBridge(t, mstEmptyDigest), instances, maps, ports...)
+			switch variant {
+			case "conflict":
+				requireMSTIssue(t, issues, "instances", analysis.Unstable)
+				requireMSTIssue(t, issues, "vlan_maps", analysis.Unstable)
+			case "refused_port", "invalid_priority":
+				requireMSTIssue(t, issues, "priority", analysis.Incomplete)
+			case "missing_map":
+				requireMSTIssue(t, issues, "vlan_maps", analysis.Incomplete)
+			case "named_domain":
+				requireMSTIssue(t, issues, "network_instance", analysis.Unsupported)
+			case "invalid_id":
+				requireMSTIssue(t, issues, "mst_id", analysis.Incomplete)
+			}
 			if count == 64 {
-				if m == nil || len(m.Instances) != 64 || len(issues) != 0 {
+				if m == nil || len(m.Instances) != 64 {
 					t.Fatalf("candidate/issues = %+v/%+v, want 64 instances", m, issues)
+				}
+				if (variant == "64" || variant == "duplicate") && len(issues) != 0 {
+					t.Fatalf("issues = %+v, want none", issues)
 				}
 			} else {
 				if m != nil {
 					t.Fatalf("candidate = %+v, want omitted region rather than truncation", m)
 				}
 				requireMSTIssue(t, issues, "instances", analysis.Incomplete)
-				if issues[0].Code != IssueIncompleteMSTRegion || issues[0].Scope != c.mstScope("instances") {
-					t.Fatalf("region issue = %+v, want capacity refusal at region instances", issues[0])
+				if !slices.ContainsFunc(issues, func(issue analysis.Issue) bool {
+					return issue.Code == IssueIncompleteMSTRegion && issue.Scope == c.mstScope("instances") && strings.Contains(issue.Message, "more than 64")
+				}) {
+					t.Fatalf("issues = %+v, want capacity refusal at region instances", issues)
 				}
 			}
 			reached++
 		})
 	}
-	if reached != 2 {
-		t.Fatalf("reached %d cases, want 2", reached)
+	if reached != 9 {
+		t.Fatalf("reached %d cases, want 9", reached)
 	}
 }
 
