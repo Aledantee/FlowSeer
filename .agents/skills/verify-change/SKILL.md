@@ -10,6 +10,8 @@ argument-hint: "[--full | --base REF | -- paths]"
 
 Run the verifier from the worktree root with the Bash sandbox disabled, since
 the Go gates bind loopback listeners and the telemetry tier starts Docker.
+When the active Docker context is Colima, load `references/colima.md`
+before running the service OpenTelemetry tier.
 
 ```bash
 uv run tools/scripts/run.py verify change

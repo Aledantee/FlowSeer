@@ -187,6 +187,9 @@ Rules:
 - A unit moving Python scripts names its caller audit and replacement-command
   fixture tests in `Tests:`. Load `references/script-moves.md` before writing
   those units.
+- A unit changing a launcher used by `drive` names a live start and cleanup
+  in Tests and Verification, alongside fixture checks. Follow
+  `implement/references/launcher-check.md` for the evidence and failure boundary.
 - A plan for a checker, linter, parser, or other tool that reads input
   says under Out of scope whose input it reads and whether that author is
   trusted. `review` briefs its reviewer with that sentence, so a plan that
