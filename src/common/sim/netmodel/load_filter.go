@@ -104,22 +104,22 @@ func (c *loadContext) loadFilterRule(rule *filterv1.FilterRule) filter.Rule {
 			r.Match.Protocol = &protoNum
 		}
 		for _, p := range m.GetSrcPrefixes() {
-			if prefix, ok := parseIPPrefix(p); ok {
+			if prefix, err := parseIPPrefix(p); err == nil {
 				r.Match.Src = append(r.Match.Src, prefix)
 			}
 		}
 		for _, p := range m.GetDstPrefixes() {
-			if prefix, ok := parseIPPrefix(p); ok {
+			if prefix, err := parseIPPrefix(p); err == nil {
 				r.Match.Dst = append(r.Match.Dst, prefix)
 			}
 		}
 		for _, portMatch := range m.GetSrcPorts() {
-			if pr, ok := parsePortMatch(portMatch); ok {
+			if pr, err := parsePortMatch(portMatch); err == nil {
 				r.Match.SrcPorts = append(r.Match.SrcPorts, pr)
 			}
 		}
 		for _, portMatch := range m.GetDstPorts() {
-			if pr, ok := parsePortMatch(portMatch); ok {
+			if pr, err := parsePortMatch(portMatch); err == nil {
 				r.Match.DstPorts = append(r.Match.DstPorts, pr)
 			}
 		}
@@ -234,7 +234,7 @@ func hasUnevaluableMatch(rule *filterv1.FilterRule) bool {
 	}
 	for _, prefixes := range [][]*addrv1.IpPrefix{m.GetSrcPrefixes(), m.GetDstPrefixes()} {
 		for _, prefix := range prefixes {
-			if p, ok := parseIPPrefix(prefix); ok && p.Addr().Is4In6() {
+			if p, err := parseIPPrefix(prefix); err == nil && p.Addr().Is4In6() {
 				return true
 			}
 		}

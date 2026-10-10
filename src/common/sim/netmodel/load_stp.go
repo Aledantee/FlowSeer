@@ -80,7 +80,7 @@ func (c *loadContext) loadSTP(bridgeState *stpv1.BridgeState, stpPorts []*stpv1.
 
 func (c *loadContext) loadSTPBridge(bridgeState *stpv1.BridgeState, stpPorts []*stpv1.PortState, ports port.Table, ownership loadOwnership) *stp.Config {
 	bridgeAddress := bridgeState.GetBridgeId().GetAddress()
-	mac, validBridgeAddress := parseEUI48(bridgeAddress)
+	mac, errAddress := parseEUI48(bridgeAddress)
 	prio := bridgeState.GetBridgeId().GetPriority()
 	priorityPresent := bridgeState.GetBridgeId() != nil && bridgeState.GetBridgeId().HasPriority()
 
@@ -103,8 +103,11 @@ func (c *loadContext) loadSTPBridge(bridgeState *stpv1.BridgeState, stpPorts []*
 		bridgeWhy = "bridge id has no address"
 		bridgeCode = IssueMissingBridgeAddress
 		bridgeStatus = analysis.Unsupported
-	case !validBridgeAddress || mac.IsGroup():
+	case errAddress != nil || mac.IsGroup():
 		bridgeWhy = "bridge id address is not a usable six-octet individual EUI-48 address"
+		if errAddress != nil {
+			bridgeWhy = errAddress.Error()
+		}
 		bridgeCode = IssueInvalidMAC
 		bridgeStatus = analysis.Incomplete
 	case mac == (netaddr.MAC{}):

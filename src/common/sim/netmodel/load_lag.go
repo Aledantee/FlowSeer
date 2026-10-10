@@ -154,9 +154,13 @@ func (c *loadContext) loadLACPAggregators(lacpAggregators []*lacpv1.AggregatorSt
 		}
 		systemID := "unreported"
 		if agg.GetSystemId() != nil {
-			mac, ok := parseEUI48(agg.GetSystemId())
-			if !ok || mac.IsGroup() {
-				c.addSkipped(name, "lacp_aggregator", "system_id is not a usable six-octet individual EUI-48 address", analysis.Incomplete, IssueInvalidMAC)
+			mac, err := parseEUI48(agg.GetSystemId())
+			if err != nil || mac.IsGroup() {
+				why := "system_id is not a usable six-octet individual EUI-48 address"
+				if err != nil {
+					why = err.Error()
+				}
+				c.addSkipped(name, "lacp_aggregator", why, analysis.Incomplete, IssueInvalidMAC)
 				return factKey{}, "", false
 			}
 			systemID = mac.String()

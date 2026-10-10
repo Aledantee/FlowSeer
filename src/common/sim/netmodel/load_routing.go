@@ -49,7 +49,7 @@ func (c *loadContext) reportUnwantedRouting(ifaces []*interfacev1.Interface, add
 				continue
 			}
 			scope := routing.NeighborTableScope(c.src.DeviceID, routing.DefaultVRF, n.GetInterfaceName())
-			if ip, ok := parseIP(n.GetIp()); ok {
+			if ip, err := parseIP(n.GetIp()); err == nil {
 				scope = routing.NeighborLookupScope(c.src.DeviceID, routing.DefaultVRF, n.GetInterfaceName(), ip)
 			}
 			c.addSkippedAt(scope, n.GetInterfaceName(), "ip_neighbor", "layer not wanted", analysis.Incomplete, IssueSkippedLayerNotWanted)
@@ -237,15 +237,19 @@ func (c *loadContext) loadRoutedInterfaces(pending []pendingRoutedInterface, con
 		}
 
 		ownershipScope := routing.OwnershipScope(c.src.DeviceID, routing.DefaultVRF, p.iface.GetName())
-		ifaceMAC, validIfaceMAC := parseMAC(p.iface.GetMac())
+		ifaceMAC, errMAC := parseMAC(p.iface.GetMac())
 		switch {
 		case p.iface.GetMac() == nil:
 			ifaceMAC = netaddr.MAC{}
 			c.addDefaultAt(ownershipScope, p.iface.GetName(), "mac", "device base address")
-		case validIfaceMAC && ifaceMAC != (netaddr.MAC{}) && !ifaceMAC.IsGroup():
+		case errMAC == nil && ifaceMAC != (netaddr.MAC{}) && !ifaceMAC.IsGroup():
 		default:
 			ifaceMAC = netaddr.MAC{}
-			c.addSkippedAt(ownershipScope, p.iface.GetName(), "interface_mac", "not a usable six-octet individual EUI-48 address", analysis.Incomplete, IssueInvalidMAC)
+			why := "not a usable six-octet individual EUI-48 address"
+			if errMAC != nil {
+				why = errMAC.Error()
+			}
+			c.addSkippedAt(ownershipScope, p.iface.GetName(), "interface_mac", why, analysis.Incomplete, IssueInvalidMAC)
 			c.addDefaultAt(ownershipScope, p.iface.GetName(), "mac", "device base address")
 		}
 
@@ -268,14 +272,14 @@ func (c *loadContext) loadAddresses(addrs []*ipv1.InterfaceAddress, vrf *routing
 			return factKey{}, "", false
 		}
 
-		ip, ok := parseIP(addr.GetAddress())
-		if !ok {
-			c.addSkippedAt(c.routingScope, name, "ip_address", "address is not a valid IPv4 or IPv6 address", analysis.Incomplete, IssueInvalidIPAddress)
+		ip, err := parseIP(addr.GetAddress())
+		if err != nil {
+			c.addSkippedAt(c.routingScope, name, "ip_address", err.Error(), analysis.Incomplete, IssueInvalidIPAddress)
 			return factKey{}, "", false
 		}
-		length, ok := parsePrefix(addr.GetPrefix(), ip)
-		if !ok {
-			c.addSkippedAt(c.routingScope, name, "ip_address", "prefix is invalid, uses another family, or does not contain the address", analysis.Incomplete, IssueInvalidPrefix)
+		length, err := parsePrefix(addr.GetPrefix(), ip)
+		if err != nil {
+			c.addSkippedAt(c.routingScope, name, "ip_address", err.Error(), analysis.Incomplete, IssueInvalidPrefix)
 			return factKey{}, "", false
 		}
 		key := name + "\x00" + ip.String()
@@ -313,18 +317,22 @@ func (c *loadContext) loadNeighbors(neighbors []*ipv1.NeighborEntry, vrf *routin
 			return factKey{}, "", false
 		}
 		name := n.GetInterfaceName()
-		ip, okIP := parseIP(n.GetIp())
+		ip, errIP := parseIP(n.GetIp())
 		scope := routing.NeighborTableScope(c.src.DeviceID, routing.DefaultVRF, name)
-		if okIP {
+		if errIP == nil {
 			scope = routing.NeighborLookupScope(c.src.DeviceID, routing.DefaultVRF, name, ip)
 		}
-		mac, okMAC := parseMAC(n.GetMac())
+		mac, errMAC := parseMAC(n.GetMac())
 		if n.GetMac() == nil {
 			c.addSkippedAt(scope, name, "ip_neighbor", "neighbor has no mac", analysis.Incomplete, IssueMissingNeighborMAC)
 			return factKey{}, "", false
 		}
-		if !okMAC || mac == (netaddr.MAC{}) || mac.IsGroup() {
-			c.addSkippedAt(scope, name, "ip_neighbor", "mac is not a usable six-octet individual EUI-48 address", analysis.Incomplete, IssueInvalidMAC)
+		if errMAC != nil || mac == (netaddr.MAC{}) || mac.IsGroup() {
+			why := "mac is not a usable six-octet individual EUI-48 address"
+			if errMAC != nil {
+				why = errMAC.Error()
+			}
+			c.addSkippedAt(scope, name, "ip_neighbor", why, analysis.Incomplete, IssueInvalidMAC)
 			return factKey{}, "", false
 		}
 
@@ -333,8 +341,8 @@ func (c *loadContext) loadNeighbors(neighbors []*ipv1.NeighborEntry, vrf *routin
 			return factKey{}, "", false
 		}
 
-		if !okIP {
-			c.addSkippedAt(scope, name, "ip_neighbor", "neighbor address is not a valid IPv4 or IPv6 address", analysis.Incomplete, IssueInvalidIPAddress)
+		if errIP != nil {
+			c.addSkippedAt(scope, name, "ip_neighbor", errIP.Error(), analysis.Incomplete, IssueInvalidIPAddress)
 			return factKey{}, "", false
 		}
 		iface := vrf.Interfaces[name]

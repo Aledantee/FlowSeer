@@ -64,9 +64,13 @@ func (c *loadContext) loadFDB(now time.Time, fdb []*switchingv1.FdbEntry, normCf
 			return factKey{}, "", false
 		}
 
-		mac, ok := parseEUI48(entry.GetMac())
-		if !ok || mac.IsGroup() {
-			c.addSkipped(entry.GetInterfaceName(), "fdb_entry", "mac is not a usable six-octet individual EUI-48 address", analysis.Incomplete, IssueInvalidMAC)
+		mac, err := parseEUI48(entry.GetMac())
+		if err != nil || mac.IsGroup() {
+			why := "mac is not a usable six-octet individual EUI-48 address"
+			if err != nil {
+				why = err.Error()
+			}
+			c.addSkipped(entry.GetInterfaceName(), "fdb_entry", why, analysis.Incomplete, IssueInvalidMAC)
 			return factKey{}, "", false
 		}
 

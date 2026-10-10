@@ -1851,3 +1851,75 @@ func TestLoad_DuplicateVLANInterfaceClaimSkipped(t *testing.T) {
 		t.Errorf("cfg.Validate failed: %v", err)
 	}
 }
+
+func TestLoad_RoutedInterfaceMACFallbackReasons(t *testing.T) {
+	now := time.Date(2026, 9, 10, 18, 0, 0, 0, time.UTC)
+	for _, tc := range []struct {
+		name  string
+		mac   *addrv1.MacAddress
+		skips int
+	}{
+		{"missing", nil, 0},
+		{"malformed", addrv1.MacAddress_builder{Eui48: addrv1.Eui48Address_builder{Octets: []byte{2, 3, 4, 5, 6}}.Build()}.Build(), 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			iface := routedPhysicalInterface("eth1")
+			if tc.mac != nil {
+				iface.SetMac(tc.mac)
+			}
+			// Malformed observations exercise Load without prior schema validation.
+			loaded, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, netmodel.Input{Interfaces: []*interfacev1.Interface{iface}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			cfg := loaded.Spec.Config
+			routed, ok := cfg.Routing.VRFs[routing.DefaultVRF].Interfaces["eth1"]
+			if !ok || routed.MAC != cfg.MAC || routed.MAC == (netaddr.MAC{}) {
+				t.Fatalf("routed MAC = %s, present %t, want base MAC %s", routed.MAC, ok, cfg.MAC)
+			}
+			scope := routing.OwnershipScope("sw1", routing.DefaultVRF, "eth1")
+			skips := 0
+			for _, skip := range loaded.Report.Skipped {
+				if skip.Port == "eth1" && skip.What == "interface_mac" {
+					skips++
+					if skip.Why != "eui48 octets length 5, want 6" || skip.Scope != scope || len(skip.Evidence) == 0 {
+						t.Errorf("MAC skip = %+v, want evidenced width reason at %v", skip, scope)
+					}
+				}
+			}
+			if skips != tc.skips {
+				t.Errorf("MAC skips = %d, want %d", skips, tc.skips)
+			}
+			defaults := 0
+			for _, d := range loaded.Report.Defaults {
+				if d.Port == "eth1" && d.Field == "mac" && d.Value == "device base address" && d.Scope == scope && len(d.Evidence) > 0 {
+					defaults++
+				}
+			}
+			if defaults != 1 {
+				t.Errorf("MAC defaults = %d, want 1", defaults)
+			}
+			assumptions := 0
+			for _, a := range loaded.Metadata.AssumptionsFor(scope) {
+				if a.Statement == "default value applied for mac: device base address" && a.Scope == scope && len(a.Evidence) > 0 {
+					assumptions++
+				}
+			}
+			if assumptions != 1 {
+				t.Errorf("MAC assumptions = %d, want 1", assumptions)
+			}
+			issues := 0
+			for _, issue := range loaded.Metadata.IssuesFor(scope) {
+				if issue.Code == netmodel.IssueInvalidMAC && issue.Scope == scope {
+					issues++
+				}
+			}
+			if issues != tc.skips {
+				t.Errorf("invalid MAC issues = %d, want %d", issues, tc.skips)
+			}
+			if _, err := vswitch.NewWithSpec(loaded.Spec); err != nil {
+				t.Fatalf("NewWithSpec: %v", err)
+			}
+		})
+	}
+}
