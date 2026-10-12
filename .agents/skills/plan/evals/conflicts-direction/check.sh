@@ -42,4 +42,3 @@ if [ "$honored" -eq 1 ]; then
 else
   fail "plan-honors-record"
 fi
-
