@@ -17,10 +17,12 @@ import (
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/device/v1/devicev1connect"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1/edgev1connect"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/identity/v1/identityv1connect"
+	ingestapiv1connect "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/ingest/v1/ingestv1connect"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1/attachv1connect"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/audit/v1/auditv1connect"
 	captureedgev1connect "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/capture/v1/capturev1connect"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1/dispatchv1connect"
+	ingestedgev1connect "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/ingest/v1/ingestv1connect"
 	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/tenant"
@@ -37,6 +39,7 @@ import (
 	"go.aledante.io/FlowSeer/src/services/device/internal/identityapi"
 	"go.aledante.io/FlowSeer/src/services/device/internal/journal"
 	"go.aledante.io/FlowSeer/src/services/device/internal/projector"
+	"go.aledante.io/FlowSeer/src/services/device/internal/rawwindowapi"
 	"go.aledante.io/FlowSeer/src/services/device/internal/registry"
 	"go.aledante.io/FlowSeer/src/services/device/internal/telemetry"
 )
@@ -260,6 +263,17 @@ func (h *assembly) mux(ctx context.Context, resources *busResources, log *slog.L
 			FullPayload:  access.FullPayloadActive,
 		},
 	)
+	rawWindowEdgeService := rawwindowapi.NewEdgeService(resources.rawWindows, rawwindowapi.EdgeServiceConfig{
+		EdgeTenant: resources.edgeTenant,
+		Logger:     log,
+	})
+	rawWindowOperatorService := rawwindowapi.NewOperatorService(resources.rawWindows, rawwindowapi.OperatorServiceConfig{
+		EdgeTenant:   resources.edgeTenant,
+		FullPayload:  access.FullPayloadActive,
+		Registry:     h.registry,
+		Allowance:    h.cfg.RawWindowEdgeAllowanceBytes,
+		NotifyChange: rawWindowEdgeService.NotifyChange,
+	})
 	mux := http.NewServeMux()
 	tenantPath, tenantHandler := identityv1connect.NewTenantServiceHandler(
 		identityapi.NewTenantService(resources.tenants, resources.projector), operatorInterceptors, recoverPanic,
@@ -295,6 +309,11 @@ func (h *assembly) mux(ctx context.Context, resources *busResources, log *slog.L
 
 	capturePath, captureHandler := capturev1connect.NewCaptureServiceHandler(captureOperatorService, operatorInterceptors, recoverPanic)
 	mux.Handle(capturePath, captureHandler)
+
+	rawWindowPath, rawWindowHandler := ingestapiv1connect.NewRawWindowServiceHandler(rawWindowOperatorService, operatorInterceptors, recoverPanic)
+	mux.Handle(rawWindowPath, rawWindowHandler)
+	rawWindowEdgePath, rawWindowEdgeHandler := ingestedgev1connect.NewRawWindowEdgeServiceHandler(rawWindowEdgeService, edgeInterceptors, recoverPanic)
+	mux.Handle(rawWindowEdgePath, middleware.Wrap(rawWindowEdgeHandler))
 
 	// Every message on the upload stream is bounded, in place of the body
 	// limit the assertion middleware applies to a unary edge call. The

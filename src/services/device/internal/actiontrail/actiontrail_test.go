@@ -27,11 +27,14 @@ import (
 	edgev1connect "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1/edgev1connect"
 	identityapiv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/identity/v1"
 	identityapiv1connect "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/identity/v1/identityv1connect"
+	ingestapiv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/ingest/v1"
+	ingestapiv1connect "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/ingest/v1/ingestv1connect"
 	errsv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/errs/v1"
 	operatorv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/operator/v1"
 	modelcapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/capture/v1"
 	modeledgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	identityv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/identity/v1"
+	rawwindowv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/rawwindow/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/service"
 	"go.aledante.io/FlowSeer/src/common/tenant"
@@ -460,6 +463,8 @@ type testHarness struct {
 	captureClient  capturev1connect.CaptureServiceClient
 	tenantClient   identityapiv1connect.TenantServiceClient
 	idAdminClient  identityapiv1connect.TenantAdminServiceClient
+	rawHandler     *fakeRawWindowHandler
+	rawClient      ingestapiv1connect.RawWindowServiceClient
 }
 
 func newTestHarness(t *testing.T, fixedTime time.Time) *testHarness {
@@ -506,6 +511,9 @@ func newHarnessOver(t *testing.T, fixedTime time.Time, pub actiontrail.Publisher
 	mux.Handle(tenantPath, tenantH)
 	idAdminPath, idAdminH := identityapiv1connect.NewTenantAdminServiceHandler(idAdminHandler, opts)
 	mux.Handle(idAdminPath, idAdminH)
+	rawHandler := &fakeRawWindowHandler{}
+	rawPath, rawH := ingestapiv1connect.NewRawWindowServiceHandler(rawHandler, opts)
+	mux.Handle(rawPath, rawH)
 
 	server := httptest.NewServer(mux)
 	t.Cleanup(server.Close)
@@ -522,6 +530,225 @@ func newHarnessOver(t *testing.T, fixedTime time.Time, pub actiontrail.Publisher
 		captureClient:  capturev1connect.NewCaptureServiceClient(server.Client(), server.URL),
 		tenantClient:   identityapiv1connect.NewTenantServiceClient(server.Client(), server.URL),
 		idAdminClient:  identityapiv1connect.NewTenantAdminServiceClient(server.Client(), server.URL),
+		rawHandler:     rawHandler,
+		rawClient:      ingestapiv1connect.NewRawWindowServiceClient(server.Client(), server.URL),
+	}
+}
+
+type fakeRawWindowHandler struct {
+	ingestapiv1connect.UnimplementedRawWindowServiceHandler
+	openCalls  int
+	openFunc   func(context.Context, *connect.Request[ingestapiv1.OpenRawWindowRequest]) (*connect.Response[ingestapiv1.OpenRawWindowResponse], error)
+	closeCalls int
+	closeFunc  func(context.Context, *connect.Request[ingestapiv1.CloseRawWindowRequest]) (*connect.Response[ingestapiv1.CloseRawWindowResponse], error)
+}
+
+func (h *fakeRawWindowHandler) OpenRawWindow(ctx context.Context, req *connect.Request[ingestapiv1.OpenRawWindowRequest]) (*connect.Response[ingestapiv1.OpenRawWindowResponse], error) {
+	h.openCalls++
+	if h.openFunc != nil {
+		return h.openFunc(ctx, req)
+	}
+	return h.UnimplementedRawWindowServiceHandler.OpenRawWindow(ctx, req)
+}
+
+func (h *fakeRawWindowHandler) CloseRawWindow(ctx context.Context, req *connect.Request[ingestapiv1.CloseRawWindowRequest]) (*connect.Response[ingestapiv1.CloseRawWindowResponse], error) {
+	h.closeCalls++
+	if h.closeFunc != nil {
+		return h.closeFunc(ctx, req)
+	}
+	return h.UnimplementedRawWindowServiceHandler.CloseRawWindow(ctx, req)
+}
+
+const testRawWindowID = "88888888-8888-4888-8888-888888888888"
+
+func rawWindowRecord() *rawwindowv1.RawWindowRecord {
+	ref := rawwindowv1.RawWindowGlobalRef_builder{
+		Edge:      edgeGlobalRef(testEdgeID),
+		RawWindow: rawwindowv1.RawWindowLocalRef_builder{Id: new(testRawWindowID)}.Build(),
+	}.Build()
+	return rawwindowv1.RawWindowRecord_builder{
+		Config: rawwindowv1.RawWindowConfig_builder{
+			Ref: ref,
+			Selector: rawwindowv1.RawWindowSelector_builder{
+				Source: rawwindowv1.RawWindowSource_builder{Key: new("syslog")}.Build(),
+			}.Build(),
+			ExpiresAt: timestamppb.New(time.Date(2026, 10, 8, 13, 0, 0, 0, time.UTC)),
+			MaxBytes:  new(uint64(4096)),
+			Authorization: rawwindowv1.RawWindowAuthorization_builder{
+				RequestedBy: testMemberRef(),
+				Reason:      new("intermittent parse failure"),
+			}.Build(),
+		}.Build(),
+		State: rawwindowv1.RawWindowState_builder{
+			Ref:       ref,
+			Lifecycle: rawwindowv1.RawWindowLifecycle_RAW_WINDOW_LIFECYCLE_PENDING.Enum(),
+		}.Build(),
+	}.Build()
+}
+
+func TestRawWindowOpenTrail(t *testing.T) {
+	ctx := context.Background()
+	h := newTestHarness(t, time.Now())
+	h.rawHandler.openFunc = func(context.Context, *connect.Request[ingestapiv1.OpenRawWindowRequest]) (*connect.Response[ingestapiv1.OpenRawWindowResponse], error) {
+		return connect.NewResponse(ingestapiv1.OpenRawWindowResponse_builder{Window: rawWindowRecord()}.Build()), nil
+	}
+
+	// The request names another operator, which the trail must not believe.
+	forged := testMemberRef()
+	_, err := h.rawClient.OpenRawWindow(ctx, connect.NewRequest(ingestapiv1.OpenRawWindowRequest_builder{
+		Edge: edgeGlobalRef(testEdgeID),
+		Authorization: rawwindowv1.RawWindowAuthorization_builder{
+			RequestedBy: forged,
+			Reason:      new("intermittent parse failure"),
+		}.Build(),
+	}.Build()))
+	if err != nil {
+		t.Fatalf("OpenRawWindow: %v", err)
+	}
+
+	events := h.pub.getEvents()
+	if len(events) != 2 {
+		t.Fatalf("published %d events, want an attempt and a completion", len(events))
+	}
+	wantSubject := "flowseer." + testTenant + ".operator.action.raw_window_open"
+	for _, e := range events {
+		if e.subject != wantSubject {
+			t.Errorf("subject = %q, want %q", e.subject, wantSubject)
+		}
+		if e.event.GetAction() != operatorv1.OperatorAction_OPERATOR_ACTION_RAW_WINDOW_OPEN {
+			t.Errorf("action = %v, want RAW_WINDOW_OPEN", e.event.GetAction())
+		}
+		if e.event.GetOperator().GetSubject() != "operator-42" {
+			t.Errorf("operator subject = %q, want the admitted principal operator-42, not the request's %q", e.event.GetOperator().GetSubject(), forged.GetSubject())
+		}
+	}
+	if events[0].event.GetEdge().GetEdge().GetId() != testEdgeID {
+		t.Errorf("attempt object = %v, want the edge", events[0].event.WhichObject())
+	}
+	completion := events[1].event
+	if completion.WhichObject() != operatorv1.OperatorActionEvent_RawWindow_case {
+		t.Fatalf("completion object = %v, want RawWindow_case", completion.WhichObject())
+	}
+	object := completion.GetRawWindow()
+	if object.GetRef().GetRawWindow().GetId() != testRawWindowID {
+		t.Errorf("completion window id = %q, want %s", object.GetRef().GetRawWindow().GetId(), testRawWindowID)
+	}
+	config := object.GetConfig()
+	if config.GetMaxBytes() != 4096 || config.GetAuthorization().GetReason() != "intermittent parse failure" ||
+		config.GetSelector().GetSource().GetKey() != "syslog" || !config.HasExpiresAt() {
+		t.Errorf("completion config = %v, want the selector, expiry, byte budget and reason", config)
+	}
+	if completion.GetCompleted().GetOutcome() != operatorv1.OperatorActionOutcome_OPERATOR_ACTION_OUTCOME_SUCCEEDED {
+		t.Errorf("outcome = %v, want succeeded", completion.GetCompleted().GetOutcome())
+	}
+}
+
+func TestRawWindowCloseTrail(t *testing.T) {
+	ctx := context.Background()
+	h := newTestHarness(t, time.Now())
+	h.rawHandler.closeFunc = func(context.Context, *connect.Request[ingestapiv1.CloseRawWindowRequest]) (*connect.Response[ingestapiv1.CloseRawWindowResponse], error) {
+		return connect.NewResponse(ingestapiv1.CloseRawWindowResponse_builder{Window: rawWindowRecord()}.Build()), nil
+	}
+
+	_, err := h.rawClient.CloseRawWindow(ctx, connect.NewRequest(ingestapiv1.CloseRawWindowRequest_builder{
+		RawWindow: rawwindowv1.RawWindowLocalRef_builder{Id: new(testRawWindowID)}.Build(),
+	}.Build()))
+	if err != nil {
+		t.Fatalf("CloseRawWindow: %v", err)
+	}
+
+	events := h.pub.getEvents()
+	if len(events) != 2 {
+		t.Fatalf("published %d events, want 2", len(events))
+	}
+	if events[0].event.WhichObject() != operatorv1.OperatorActionEvent_Object_not_set_case {
+		t.Errorf("attempt object = %v, want none: the edge is known only from the stored window", events[0].event.WhichObject())
+	}
+	if got := events[1].event.GetRawWindow().GetRef().GetRawWindow().GetId(); got != testRawWindowID {
+		t.Errorf("completion window id = %q, want %s", got, testRawWindowID)
+	}
+	if events[1].event.GetAction() != operatorv1.OperatorAction_OPERATOR_ACTION_RAW_WINDOW_CLOSE {
+		t.Errorf("action = %v, want RAW_WINDOW_CLOSE", events[1].event.GetAction())
+	}
+}
+
+func TestRawWindowOpenIsRefusedWhenTheAttemptCannotBePublished(t *testing.T) {
+	ctx := context.Background()
+	h := newTestHarness(t, time.Now())
+	h.pub.failAttempt = true
+	h.rawHandler.openFunc = func(context.Context, *connect.Request[ingestapiv1.OpenRawWindowRequest]) (*connect.Response[ingestapiv1.OpenRawWindowResponse], error) {
+		t.Fatal("the handler ran although the attempt was not recorded, so a window would exist with no trail")
+		return nil, nil
+	}
+
+	_, err := h.rawClient.OpenRawWindow(ctx, connect.NewRequest(ingestapiv1.OpenRawWindowRequest_builder{Edge: edgeGlobalRef(testEdgeID)}.Build()))
+
+	if connect.CodeOf(err) != connect.CodeUnavailable {
+		t.Fatalf("code = %v, want CodeUnavailable", connect.CodeOf(err))
+	}
+	if h.rawHandler.openCalls != 0 || len(h.pub.getEvents()) != 0 {
+		t.Errorf("handler calls = %d, events = %d, want none", h.rawHandler.openCalls, len(h.pub.getEvents()))
+	}
+}
+
+func TestRawWindowDenialIsRecordedWithTheEdgeAndNoWindow(t *testing.T) {
+	ctx := context.Background()
+	h := newTestHarness(t, time.Now())
+	h.rawHandler.openFunc = func(context.Context, *connect.Request[ingestapiv1.OpenRawWindowRequest]) (*connect.Response[ingestapiv1.OpenRawWindowResponse], error) {
+		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("no full-payload grant"))
+	}
+
+	_, err := h.rawClient.OpenRawWindow(ctx, connect.NewRequest(ingestapiv1.OpenRawWindowRequest_builder{Edge: edgeGlobalRef(testEdgeID)}.Build()))
+	if connect.CodeOf(err) != connect.CodePermissionDenied {
+		t.Fatalf("code = %v, want CodePermissionDenied", connect.CodeOf(err))
+	}
+
+	events := h.pub.getEvents()
+	if len(events) != 2 {
+		t.Fatalf("published %d events, want 2", len(events))
+	}
+	completion := events[1].event
+	if completion.GetCompleted().GetOutcome() != operatorv1.OperatorActionOutcome_OPERATOR_ACTION_OUTCOME_DENIED {
+		t.Errorf("outcome = %v, want denied", completion.GetCompleted().GetOutcome())
+	}
+	if completion.WhichObject() != operatorv1.OperatorActionEvent_Edge_case {
+		t.Errorf("completion object = %v, want the edge the attempt named", completion.WhichObject())
+	}
+}
+
+func TestRawWindowCompletionFailureStillAnswersTheCaller(t *testing.T) {
+	ctx := context.Background()
+	h := newTestHarness(t, time.Now())
+	h.pub.failCompletion = true
+	h.rawHandler.openFunc = func(context.Context, *connect.Request[ingestapiv1.OpenRawWindowRequest]) (*connect.Response[ingestapiv1.OpenRawWindowResponse], error) {
+		return connect.NewResponse(ingestapiv1.OpenRawWindowResponse_builder{Window: rawWindowRecord()}.Build()), nil
+	}
+
+	resp, err := h.rawClient.OpenRawWindow(ctx, connect.NewRequest(ingestapiv1.OpenRawWindowRequest_builder{Edge: edgeGlobalRef(testEdgeID)}.Build()))
+	if err != nil {
+		t.Fatalf("OpenRawWindow: %v", err)
+	}
+	if resp.Msg.GetWindow().GetConfig().GetRef().GetRawWindow().GetId() != testRawWindowID {
+		t.Errorf("response window = %v, want the stored window", resp.Msg.GetWindow())
+	}
+	if got := len(h.pub.getEvents()); got != 1 {
+		t.Errorf("published %d events, want only the attempt", got)
+	}
+	if got := len(h.logs.getRecords()); got != 1 {
+		t.Errorf("logged %d records, want the failed completion", got)
+	}
+}
+
+func TestRawWindowReadIsNotRecorded(t *testing.T) {
+	ctx := context.Background()
+	h := newTestHarness(t, time.Now())
+
+	_, _ = h.rawClient.GetRawWindow(ctx, connect.NewRequest(ingestapiv1.GetRawWindowRequest_builder{
+		RawWindow: rawwindowv1.RawWindowLocalRef_builder{Id: new(testRawWindowID)}.Build(),
+	}.Build()))
+
+	if got := len(h.pub.getEvents()); got != 0 {
+		t.Errorf("published %d events for a read, want none", got)
 	}
 }
 
