@@ -39,3 +39,20 @@ Suggested change: have step 2.5 and the wave run pass `--base <the unit's
 ledger base>` (the `base` the ledger records at `in_progress`), or have the
 verifier's whitespace gate diff from the merge base with `main` when no
 base is given.
+
+## 2026-10-12 next: a phase that waits on another parent's phase reads as ready to re-plan
+Skill or agent: `.claude/skills/next/SKILL.md`, step 1, and `plan record
+after` (`tools/scripts/lib/plans.py:217`).
+What happened: the step was followed and still produced the wrong result.
+`next plan-queue` put Deployment, Phase 1 in `replan` because its state
+holds `after: []`. Its parent plan says no phase is written ready until the
+central high availability plan lands, and central still embeds NATS and
+keeps its certificate under `state_dir`, so the phase cannot be planned yet.
+Recording the dependency with `plan record after` failed: "after names
+docs/plans/2026-10-03-1533-feat-central-high-availability-phase3-plan.md,
+which is neither in the phases nor in the retired list of
+docs/plans/2026-10-03-1533-feat-deployment-plan.md". Deployment, Phase 3
+(waits on edge high availability) has the same shape.
+Suggested change: let `after` name a phase or plan of another parent, and
+have `next plan-queue` read an unfinished one as `waiting`. Failing that, a
+state field such as `blocked_by: <plan>` that `next` reads the same way.
