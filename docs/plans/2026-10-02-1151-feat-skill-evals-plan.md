@@ -62,7 +62,11 @@ or a headless lane cannot finish a scenario without a person.
   model it grades, which `AGENTS.md` (Investigation discipline) rules out.
 - Three variants on one lane base. `current` copies the skill directory
   from the runner's own checkout, uncommitted edits included. `ref:<rev>`
-  takes it from `git archive <rev>`. `none` hides it. `AGENTS.md`, the
+  takes it from `git archive <rev>`. `none` hides it. The runner removes
+  every `evals/`, marks modified and deleted skill files skip-worktree in
+  the lane's own index, and commits files new to HEAD as one lane-only
+  commit before setup, so a `current` or `ref:` lane that adds files sits
+  one commit above a `none` lane. `AGENTS.md`, the
   other skills, the hooks, and user-level skills and plugins stay as they
   are. Why: `current` against `ref:HEAD` measures an edit, `none` is the
   Anthropic baseline, and hiding one skill isolates it.
@@ -224,8 +228,9 @@ current,ref:<rev>,none [--runs N] [--model claude-opus-5-5]
 any directory. Per scenario, variant, and run it adds a worktree under
 `--worktree-root` (default `~/Projects/worktrees/FlowSeer`) named
 `eval-<skill>-<scenario>-<variant>-<n>` on branch `skill-eval/<same>`,
-applies the variant and hides `evals/` (`git sparse-checkout` and
-`update-index --skip-worktree` meet requirement 3), runs `setup.sh`, calls `bench.sh
+applies the variant and hides it from git (removes every `evals/`, marks
+modified and deleted skill files skip-worktree, and commits files new to
+HEAD as one lane-only commit, which meets requirement 3), runs `setup.sh`, calls `bench.sh
 --cli claude --transcript --budget` with `FLOWSEER_RUNLOG` set. It runs
 `check.sh` on `result_text`, writes a JSONL row, and removes the worktree
 and branch unless `--keep`. `--lint` checks requirement 6 in throwaway

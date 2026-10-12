@@ -44,6 +44,12 @@ single run varies, and reject only when `current` passes that check in fewer
 of the three runs than `ref:HEAD`. Quote the table in the edit's commit body.
 Results are never committed as files.
 
+On a reject, restore the edited skill files from `HEAD`, keep the
+observation entry in the queue with the table appended, and report the edit
+as rejected by measurement. Step 6 of `steer` deletes every applied and
+rejected entry and then asks to commit, so a rejected edit left in the tree
+would be committed with the others.
+
 Run `--variants current,none` as well when the skill's value is in doubt.
 When `none` matches or beats `current` on every scenario, log an observation
 through `compound` (Observe) that proposes cuts to the skill, since a skill
@@ -57,7 +63,10 @@ A scenario is `.agents/skills/<skill>/evals/<scenario>/` with three files:
   one sentence per check. The query never names the skill, is the same for
   every variant, and ends with "Do not ask questions. Where you would ask,
   state the question and its options, then stop." The runner replaces
-  `{EVAL_PARENT}` with the fixture commit's parent.
+  `{EVAL_PARENT}` with the fixture commit's parent. A query that uses
+  `{EVAL_PARENT}` needs a `setup.sh`. Without one, a `current` lane that adds
+  skill files sits on the runner's lane-only commit, so the parent differs
+  across variants.
 - `setup.sh` (optional): runs in the lane and commits the fixture, leaving
   `git status --porcelain` empty. A failing setup makes the row `stale`.
 - `check.sh <lane> <result-text>`: runs in the lane with `EVAL_BASE` set to
@@ -81,4 +90,17 @@ uv run "$checkout/tools/scripts/run.py" steer skill-eval --lint --skill <skill> 
 
 It prints how many scenarios it checked. Then hand-make a passing state in a
 lane kept with `--keep` and confirm the `PASS` lines, so the check is
-reachable as well.
+reachable as well. Lanes are named `eval-<skill>-<scenario>-<variant>-<n>`,
+and lint lanes use variant `lint` and run 1. Grade a kept lane with:
+
+```bash
+EVAL_BASE=$(git -C <lane> rev-parse HEAD) <scenario dir>/check.sh <lane> "<text>"
+```
+
+A kept lane is never removed, and the next lint stops on its existing
+`skill-eval/<name>` branch. Remove it when done:
+
+```bash
+git -C "$checkout" worktree remove --force <lane>
+git -C "$checkout" branch -D skill-eval/<name>
+```
