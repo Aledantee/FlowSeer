@@ -147,6 +147,7 @@ type ListedDevice struct {
 	xxx_hidden_SshPort             uint32                  `protobuf:"varint,5,opt,name=ssh_port,json=sshPort"`
 	xxx_hidden_AccessPolicy        *v11.AccessPolicyHandle `protobuf:"bytes,6,opt,name=access_policy,json=accessPolicy"`
 	xxx_hidden_DelayedApplyHorizon *durationpb.Duration    `protobuf:"bytes,7,opt,name=delayed_apply_horizon,json=delayedApplyHorizon"`
+	xxx_hidden_IntegrationId       *string                 `protobuf:"bytes,8,opt,name=integration_id,json=integrationId"`
 	XXX_raceDetectHookData         protoimpl.RaceDetectHookData
 	XXX_presence                   [1]uint32
 	unknownFields                  protoimpl.UnknownFields
@@ -233,14 +234,24 @@ func (x *ListedDevice) GetDelayedApplyHorizon() *durationpb.Duration {
 	return nil
 }
 
+func (x *ListedDevice) GetIntegrationId() string {
+	if x != nil {
+		if x.xxx_hidden_IntegrationId != nil {
+			return *x.xxx_hidden_IntegrationId
+		}
+		return ""
+	}
+	return ""
+}
+
 func (x *ListedDevice) SetDeviceId(v string) {
 	x.xxx_hidden_DeviceId = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 7)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 8)
 }
 
 func (x *ListedDevice) SetBindingId(v string) {
 	x.xxx_hidden_BindingId = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 7)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 8)
 }
 
 func (x *ListedDevice) SetIp(v *v1.IpAddress) {
@@ -249,12 +260,12 @@ func (x *ListedDevice) SetIp(v *v1.IpAddress) {
 
 func (x *ListedDevice) SetSnmpPort(v uint32) {
 	x.xxx_hidden_SnmpPort = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 7)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 8)
 }
 
 func (x *ListedDevice) SetSshPort(v uint32) {
 	x.xxx_hidden_SshPort = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 7)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 8)
 }
 
 func (x *ListedDevice) SetAccessPolicy(v *v11.AccessPolicyHandle) {
@@ -263,6 +274,11 @@ func (x *ListedDevice) SetAccessPolicy(v *v11.AccessPolicyHandle) {
 
 func (x *ListedDevice) SetDelayedApplyHorizon(v *durationpb.Duration) {
 	x.xxx_hidden_DelayedApplyHorizon = v
+}
+
+func (x *ListedDevice) SetIntegrationId(v string) {
+	x.xxx_hidden_IntegrationId = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 7, 8)
 }
 
 func (x *ListedDevice) HasDeviceId() bool {
@@ -314,6 +330,13 @@ func (x *ListedDevice) HasDelayedApplyHorizon() bool {
 	return x.xxx_hidden_DelayedApplyHorizon != nil
 }
 
+func (x *ListedDevice) HasIntegrationId() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 7)
+}
+
 func (x *ListedDevice) ClearDeviceId() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
 	x.xxx_hidden_DeviceId = nil
@@ -346,6 +369,11 @@ func (x *ListedDevice) ClearDelayedApplyHorizon() {
 	x.xxx_hidden_DelayedApplyHorizon = nil
 }
 
+func (x *ListedDevice) ClearIntegrationId() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 7)
+	x.xxx_hidden_IntegrationId = nil
+}
+
 type ListedDevice_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
@@ -372,6 +400,11 @@ type ListedDevice_builder struct {
 	// fresh read, measured on the device. Unset means unmeasured: the edge
 	// serves the device and refuses a mutation on it until it is set.
 	DelayedApplyHorizon *durationpb.Duration
+	// The integration that owns binding_id, as a plain UUID string for the same
+	// reason. A raw window scoped to an integration matches the devices whose
+	// resolved binding names it, and the edge cannot derive it from the
+	// binding id. Must be present.
+	IntegrationId *string
 }
 
 func (b0 ListedDevice_builder) Build() *ListedDevice {
@@ -379,24 +412,28 @@ func (b0 ListedDevice_builder) Build() *ListedDevice {
 	b, x := &b0, m0
 	_, _ = b, x
 	if b.DeviceId != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 7)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 8)
 		x.xxx_hidden_DeviceId = b.DeviceId
 	}
 	if b.BindingId != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 7)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 8)
 		x.xxx_hidden_BindingId = b.BindingId
 	}
 	x.xxx_hidden_Ip = b.Ip
 	if b.SnmpPort != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 7)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 8)
 		x.xxx_hidden_SnmpPort = *b.SnmpPort
 	}
 	if b.SshPort != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 7)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 8)
 		x.xxx_hidden_SshPort = *b.SshPort
 	}
 	x.xxx_hidden_AccessPolicy = b.AccessPolicy
 	x.xxx_hidden_DelayedApplyHorizon = b.DelayedApplyHorizon
+	if b.IntegrationId != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 7, 8)
+		x.xxx_hidden_IntegrationId = b.IntegrationId
+	}
 	return m0
 }
 
@@ -407,7 +444,7 @@ const file_flowseer_edge_attach_v1_device_proto_rawDesc = "" +
 	"$flowseer/edge/attach/v1/device.proto\x12\x17flowseer.edge.attach.v1\x1a%flowseer/model/policy/v1/handle.proto\x1a\x1dflowseer/net/addr/v1/ip.proto\x1a\x1egoogle/protobuf/duration.proto\"\x14\n" +
 	"\x12ListDevicesRequest\"a\n" +
 	"\x13ListDevicesResponse\x12J\n" +
-	"\adevices\x18\x01 \x03(\v2%.flowseer.edge.attach.v1.ListedDeviceB\t\xbaH\x06\x92\x01\x03\x10\x80 R\adevices\"\xa5\x03\n" +
+	"\adevices\x18\x01 \x03(\v2%.flowseer.edge.attach.v1.ListedDeviceB\t\xbaH\x06\x92\x01\x03\x10\x80 R\adevices\"\xd9\x03\n" +
 	"\fListedDevice\x12(\n" +
 	"\tdevice_id\x18\x01 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\bdeviceId\x12*\n" +
 	"\n" +
@@ -417,7 +454,8 @@ const file_flowseer_edge_attach_v1_device_proto_rawDesc = "" +
 	"\bssh_port\x18\x05 \x01(\rB\v\xbaH\b*\x06\x18\xff\xff\x03(\x01R\asshPort\x12Y\n" +
 	"\raccess_policy\x18\x06 \x01(\v2,.flowseer.model.policy.v1.AccessPolicyHandleB\x06\xbaH\x03\xc8\x01\x01R\faccessPolicy\x12Y\n" +
 	"\x15delayed_apply_horizon\x18\a \x01(\v2\x19.google.protobuf.DurationB\n" +
-	"\xbaH\a\xaa\x01\x042\x02\b\x01R\x13delayedApplyHorizonB\xf4\x01\n" +
+	"\xbaH\a\xaa\x01\x042\x02\b\x01R\x13delayedApplyHorizon\x122\n" +
+	"\x0eintegration_id\x18\b \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\rintegrationIdB\xf4\x01\n" +
 	"\x1bcom.flowseer.edge.attach.v1B\vDeviceProtoZKgo.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1;attachv1\xa2\x02\x03FEA\xaa\x02\x17Flowseer.Edge.Attach.V1\xca\x02\x17Flowseer\\Edge\\Attach\\V1\xe2\x02#Flowseer\\Edge\\Attach\\V1\\GPBMetadata\xea\x02\x1aFlowseer::Edge::Attach::V1b\beditionsp\xe9\a"
 
 var file_flowseer_edge_attach_v1_device_proto_msgTypes = make([]protoimpl.MessageInfo, 3)

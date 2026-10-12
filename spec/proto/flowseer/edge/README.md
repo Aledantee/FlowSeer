@@ -18,7 +18,7 @@ never calls it.
 ## Boundaries
 
 Imports: errs, event/access, model/access, model/capture, model/credential,
-model/edge, model/policy, net/addr
+model/edge, model/policy, model/rawwindow, net/addr
 
 Imported by: nothing
 
@@ -31,3 +31,4 @@ consumer to another.
 - `audit/v1/`: `AuditService`, delivering the durable `DeviceOperationEvent` audit record.
 - `capture/v1/`: Edge-facing `CaptureEdgeService`, carrying the capture assignments central owes an edge and the packets that edge uploads back.
 - `dispatch/v1/`: `DispatchService`, the execution envelope central and the edge hosting a device's lane exchange.
+- `ingest/v1/`: Edge-facing `RawWindowEdgeService`, carrying the raw window controls central owes an edge and the state the edge reports back.

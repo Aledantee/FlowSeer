@@ -20,7 +20,7 @@ before one exists.
 
 ## Boundaries
 
-Imports: event/log, model/inventory
+Imports: event/log, model/inventory, model/rawwindow
 
 Imported by: nothing
 

@@ -96,6 +96,13 @@ func parse(data []byte, path string) (*Registry, error) {
 // through.
 func (r *Registry) EdgeID() string { return r.edgeID }
 
+// IntegrationID is the id of the one integration whose bindings reach every
+// device in this registry. A raw window scoped to an integration matches by it,
+// and the edge cannot derive it from an opaque binding id.
+func (r *Registry) IntegrationID() string {
+	return r.registry.GetIntegration().GetRef().GetIntegration().GetId()
+}
+
 // Device returns the registry entry for a device id.
 func (r *Registry) Device(deviceID string) (*storev1.RegistryDevice, bool) {
 	d, ok := r.devices[deviceID]

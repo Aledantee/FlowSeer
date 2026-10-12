@@ -31,6 +31,7 @@ import (
 	"go.aledante.io/FlowSeer/src/services/device/internal/intake"
 	"go.aledante.io/FlowSeer/src/services/device/internal/journal"
 	"go.aledante.io/FlowSeer/src/services/device/internal/projector"
+	"go.aledante.io/FlowSeer/src/services/device/internal/rawwindowapi"
 	"go.aledante.io/FlowSeer/src/services/device/internal/registry"
 	"go.aledante.io/FlowSeer/src/services/device/internal/telemetry"
 	"go.aledante.io/FlowSeer/src/services/device/internal/tenantstore"
@@ -396,6 +397,12 @@ func (h *assembly) buildResources(ctx context.Context, hub *edgebus.Hub, log *sl
 	}
 	broadcaster := captureapi.NewBroadcaster()
 
+	rawWindowsBucket, err := hub.JetStream().KeyValue(ctx, edgebus.RawWindowsBucket)
+	if err != nil {
+		return nil, errs.From(err).Code(ErrCodeStart).Msg("open the raw windows bucket")
+	}
+	rawWindowStore := rawwindowapi.NewStore(rawWindowsBucket, time.Now)
+
 	tenants, err := tenantstore.New(ctx, hub.JetStream(), edgebus.TenantBucket)
 	if err != nil {
 		return nil, errs.From(err).Code(ErrCodeStart).Msg("open tenant store")
@@ -432,6 +439,7 @@ func (h *assembly) buildResources(ctx context.Context, hub *edgebus.Hub, log *sl
 		edges:       edgeStore,
 		captures:    captureStore,
 		broadcaster: broadcaster,
+		rawWindows:  rawWindowStore,
 		tenants:     tenants,
 		projector:   proj,
 	}

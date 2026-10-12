@@ -4,6 +4,7 @@ package flowseer.integration.ingest.v1;
 
 import "flowseer/event/log/v1/syslog_record.proto";
 import "flowseer/model/inventory/v1/provenance.proto";
+import "flowseer/model/rawwindow/v1/raw_window.proto";
 import option "buf/validate/validate.proto";
 
 // An ingested observation record published from an edge or centrally hosted
@@ -32,6 +33,17 @@ message IngestRecord {
 
 // Raw payload bytes and suppression metrics attached to an ingest record.
 message RawEvidence {
+  option (buf.validate.message).cel = {
+    id: "raw_evidence.windows_match_reason"
+    message: "raw evidence names its windows exactly when its reason is window"
+    expression: "(this.reason == 2) == (size(this.windows) > 0)"
+  };
+  option (buf.validate.message).cel = {
+    id: "raw_evidence.window_has_no_suppression"
+    message: "window raw evidence carries no suppression count"
+    expression: "this.reason != 2 || !has(this.suppressed_since_last)"
+  };
+
   // Raw payload bytes from the source. Unset or empty means the device sent an
   // empty datagram. Bounded at 65535 octets.
   bytes data = 1 [(buf.validate.field).bytes.max_len = 65535];
@@ -44,8 +56,13 @@ message RawEvidence {
     }
   ];
   // Number of raw-bearing failures from the same device suppressed since the
-  // last kept failure for that device. Unset means none were suppressed.
+  // last kept failure for that device. Unset means none were suppressed. Never
+  // set for a window reason.
   uint64 suppressed_since_last = 3;
+  // The windows that paid for this copy of the payload, sorted by id and
+  // distinct. Set exactly when the reason is window, and then holds one to
+  // sixteen refs.
+  repeated flowseer.model.rawwindow.v1.RawWindowLocalRef windows = 4 [(buf.validate.field).repeated.max_items = 16];
 }
 
 // The reason raw evidence was attached to an ingest record.

@@ -4,17 +4,22 @@ import (
 	"net/netip"
 	"sync"
 
+	"buf.build/go/protovalidate"
 	"google.golang.org/protobuf/proto"
 
 	attachv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1"
 	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
+	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
 // DeviceEntry is one listed device resolved by its management peer address.
+// Device, Binding, and Integration come from the same listing row, so the
+// integration is the one that owns the binding.
 type DeviceEntry struct {
-	DeviceID string
-	Device   *inventoryv1.DeviceGlobalRef
-	Binding  *inventoryv1.BindingGlobalRef
+	DeviceID    string
+	Device      *inventoryv1.DeviceGlobalRef
+	Binding     *inventoryv1.BindingGlobalRef
+	Integration *inventoryv1.IntegrationGlobalRef
 }
 
 // LookupResult classifies the resolution of an address in [DeviceIndex].
@@ -39,11 +44,13 @@ const (
 // more listed devices resolves to no device (LookupAmbiguous), and an address
 // no listed device claims resolves to none either (LookupUnknown). A device ID
 // listed at two addresses is a claimant at both, each with its own row's
-// binding. Two rows with one device ID at one address are one claim, and the
-// later row's binding stands.
+// binding and integration. Two identical rows are one claim.
 //
 // [DeviceIndex.ApplyListing] replaces the claims as a whole, so a device the
-// next listing omits or moves stops resolving at the old address. The index
+// next listing omits or moves stops resolving at the old address. A listing
+// that is malformed, or whose rows contradict each other, is refused whole and
+// the previous claims stand, because a half-trusted listing would resolve
+// devices to a binding and integration central never paired. The index
 // outlives a lane attempt: a lane restart keeps the last listing, and a process
 // restart starts with an empty index until the first listing.
 type DeviceIndex struct {
@@ -83,41 +90,85 @@ func bindingRefOf(bindingID string) *inventoryv1.BindingGlobalRef {
 	}.Build()
 }
 
-// ApplyListing replaces the claims with those of a whole device listing, so a
-// lookup never sees a partly applied listing. A nil row, a row with an empty
-// device ID, and a row whose address is unusable claim nothing. The other rows
-// each claim their address, in order.
-func (idx *DeviceIndex) ApplyListing(devices []*attachv1.ListedDevice) {
-	if idx == nil {
-		return
-	}
+func integrationRefOf(integrationID string) *inventoryv1.IntegrationGlobalRef {
+	return inventoryv1.IntegrationGlobalRef_builder{
+		Integration: inventoryv1.IntegrationLocalRef_builder{Id: proto.String(integrationID)}.Build(),
+	}.Build()
+}
 
-	claims := make(map[string]map[string]DeviceEntry, len(devices))
-	for _, listed := range devices {
-		deviceID := listed.GetDeviceId()
-		if deviceID == "" {
-			continue
+// claimTable maps an address to the claim each listed device makes on it.
+type claimTable map[string]map[string]DeviceEntry
+
+// claimsOf validates a whole device listing and returns the claims it makes.
+// It refuses the listing when any row is nil or fails the schema's rules
+// (device, binding, and integration ids, and the management address), when two
+// rows claim one device at one address with different bindings or integrations,
+// or when one binding is paired with two integrations. It refuses rather than
+// skips a bad row, so a caller either applies the listing central sent or keeps
+// the one it already holds.
+func claimsOf(devices []*attachv1.ListedDevice) (claimTable, error) {
+	claims := make(claimTable, len(devices))
+	integrationOf := make(map[string]string, len(devices))
+	for row, listed := range devices {
+		if listed == nil {
+			return nil, errs.New().Code(ErrCodeOnboard).Attr("row", row).Msg("listing carries an empty row")
 		}
+		if err := protovalidate.Validate(listed); err != nil {
+			return nil, errs.From(err).Code(ErrCodeOnboard).Attr("row", row).Msg("listed device fails its schema rules")
+		}
+		deviceID, bindingID, integrationID := listed.GetDeviceId(), listed.GetBindingId(), listed.GetIntegrationId()
 		rawAddr, err := addressOf(listed.GetIp())
 		if err != nil {
-			continue
+			return nil, errs.From(err).Code(ErrCodeOnboard).Attr("row", row).Attr("device", deviceID).Msg("listed device has no usable address")
 		}
+		if owner, ok := integrationOf[bindingID]; ok && owner != integrationID {
+			return nil, errs.New().Code(ErrCodeOnboard).Attr("row", row).Attr("binding", bindingID).
+				Msg("listing pairs one binding with two integrations")
+		}
+		integrationOf[bindingID] = integrationID
+
 		addr := normalizeAddress(rawAddr)
 		claimants := claims[addr]
 		if claimants == nil {
 			claimants = make(map[string]DeviceEntry)
 			claims[addr] = claimants
 		}
+		if prior, ok := claimants[deviceID]; ok {
+			if prior.Binding.GetBinding().GetId() != bindingID || prior.Integration.GetIntegration().GetId() != integrationID {
+				return nil, errs.New().Code(ErrCodeOnboard).Attr("row", row).Attr("device", deviceID).
+					Msg("listing claims one device at one address with two bindings or integrations")
+			}
+			continue
+		}
 		claimants[deviceID] = DeviceEntry{
-			DeviceID: deviceID,
-			Device:   deviceRefFor(deviceID),
-			Binding:  bindingRefOf(listed.GetBindingId()),
+			DeviceID:    deviceID,
+			Device:      deviceRefFor(deviceID),
+			Binding:     bindingRefOf(bindingID),
+			Integration: integrationRefOf(integrationID),
 		}
 	}
+	return claims, nil
+}
 
+// replace swaps in a validated claim table.
+func (idx *DeviceIndex) replace(claims claimTable) {
 	idx.mu.Lock()
 	idx.claims = claims
 	idx.mu.Unlock()
+}
+
+// ApplyListing replaces the claims with those of a whole device listing, so a
+// lookup never sees a partly applied listing. A listing [claimsOf] refuses
+// leaves the previous claims in place and returns the refusal.
+func (idx *DeviceIndex) ApplyListing(devices []*attachv1.ListedDevice) error {
+	claims, err := claimsOf(devices)
+	if err != nil {
+		return err
+	}
+	if idx != nil {
+		idx.replace(claims)
+	}
+	return nil
 }
 
 // Lookup returns the device entry mapped to address and the outcome of the resolution.
