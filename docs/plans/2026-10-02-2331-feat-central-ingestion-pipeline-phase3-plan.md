@@ -80,6 +80,10 @@ in-house migrator. This phase adds:
   formula in `src/modules/edgebus/README.md`. Why: the hub reserves budgets
   against 75 % of free disk (`src/modules/edgebus/hub.go:47-59`), and a
   fleet-sized default would stop every hub-starting test on a small host.
+- clickhouse-go v2.48.0 is approved as a direct dependency. U3 writes its
+  statement per `docs/conventions/dependencies.md` with verdict `keep` and
+  `approved: 2026-10-12`, then changes `go.mod`
+  (decided by the user, 2026-10-12).
 
 ## Requirements
 
@@ -199,13 +203,3 @@ Waves: U1 U2 U3 | U4 | U5 | U6
 - The replicated lab cluster the stop condition would need does not exist.
   U6 runs one node, and replication behaviour stays unmeasured until the
   deployment phase builds the cluster.
-- Parked by drive: U3 needs a person to approve the clickhouse-go v2.48.0
-  dependency statement before `go.mod` changes
-  (`docs/conventions/dependencies.md:5-7`). U1 and U2 passed on
-  `parked/ingest-p3-implement`, and the statement is not yet written.
-  Options: a worker writes the statement with `approved` empty and you
-  approve it (the statement is evidence for you to rule on, at the cost of
-  one more round trip) | you write and approve it yourself (fastest when
-  you have already vetted the library) | stop phase 3 here. Recommended:
-  the worker writes it, because the statement needs the publish date, OSV
-  lookup, and import evidence the convention asks for.
