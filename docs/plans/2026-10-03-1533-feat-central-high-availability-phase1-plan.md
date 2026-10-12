@@ -143,14 +143,3 @@ suite, so a stale address there fails a test.
   `baseURL()`, so both are listed in the second unit's files. `deploy/lab/README.md`
   shows a `centralUrl` of `https://127.0.0.1:8443` in its provisioning
   walkthrough, which becomes the edge address.
-
-## Review gaps
-
-- spec/proto/flowseer/store/device/v1/service_config.proto:236: "The bus and edge fields below cannot take 0", while both patterns are `^.+:[0-9]{1,5}$`; fails: `edge: "0.0.0.0:0"` loads and binds a port no `central_url` names; class: convention, hardening
-- src/services/device/internal/host/host.go:687: first listener failure dropped (`_ = err`) survives `go test -race ./src/services/device/internal/host/`; fails: one listener erroring while the other serves returns nil and the module stops unrestarted; class: gap
-- src/services/device/internal/host/shutdown_test.go:43: shutting the two servers down one after the other; fails: shutdown takes two graces; class: gap
-- src/services/device/internal/host/certificate.go:37: "the same key on the API listener and the bus listener"; fails: an edge pins the digest for the edge listener and the bus; class: convention
-- src/services/device/internal/host/host.go:51: "bounds how long the API listener waits"; fails: the grace bounds both listeners, and dispatch streams are on the edge one; class: convention
-- src/services/device/internal/host/config_test.go:36: "the two listeners"; fails: the file has three; class: convention
-- src/services/device/internal/host/host_test.go:84: "the bus still does"; fails: the edge listener also needs a port written in advance; class: convention
-- deploy/lab/provisioning.textproto:16: `central_url: "https://central.example.invalid:8443"`; fails: 8443 is the lab's operator listener, edges dial 8446; class: convention
