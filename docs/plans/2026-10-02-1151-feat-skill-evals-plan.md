@@ -145,6 +145,14 @@ plan-queue`. Why: the plan fields moved into state files (`b0d9c789`), and
 the scripts moved under `run.py`. Cost if wrong: the checks of three
 scenarios.
 
+Ruled: a review fixture is a set of exact-match removals or `.go.txt`
+files that `setup.sh` copies in, not a patch file. Why: a unified diff of
+tab-indented Go puts a space before the tab on each context line, which
+the verifier's `git diff --check` gate rejects, and an attribute exempting
+the patches would be a suppression for this change's own files. A removal
+that matches zero or two times fails the setup, so a drifted fixture
+still reads as `stale`. Cost if wrong: three `setup.sh` files.
+
 ```mermaid
 flowchart LR
   A[worktree add from HEAD] --> B[apply variant, hide evals/]
@@ -258,7 +266,7 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- .agents/skills
 ### U4. Review scenarios
 Files: .agents/skills/review/evals/merge-deadlock/, .agents/skills/review/evals/weakened-test/, .agents/skills/review/evals/branch-verdict/
 After: U2
-Change: each `setup.sh` applies a patch and commits it, and each query
+Change: each `setup.sh` edits the tree and commits it, and each query
 asks for a review of this branch's work since `{EVAL_PARENT}`.
 `merge-deadlock` re-seeds calibration's known review bug (`calibration.md`,
 "The review task") by removing the `stopForwarders` channel from
@@ -273,7 +281,7 @@ message. Checks: the checkpoint file holds a `review` line whose verdict
 is not `accept`, and no tracked file changed. None of the three defects is
 one a conformance gate reports.
 Tests: `steer skill-eval --lint` reports the three. Before committing
-`merge-deadlock`, apply its patch in a scratch worktree and run
+`merge-deadlock`, run its setup in a scratch worktree and run
 `merge_accept_test.go.txt` as `calibration.md` "Acceptance tests" shows.
 `TestMergeAcceptSourceErrorPropagates` must fail, proving the bug real.
 No test re-checks this after landing, so the commit message names it.
