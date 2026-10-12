@@ -63,7 +63,7 @@ var (
 	dhcpOfferIP   = net.IPv4(172, 16, 0, 100)
 
 	// Fixed xids for deterministic fixtures (xids are masked in
-	// field-set comparisons; the harvest uses fixed values so the
+	// field-set comparisons, and the harvest uses fixed values so the
 	// fixture is byte-stable).
 	dhcpXid   uint32 = 0x12345678
 	dhcpv6Xid        = []byte{0x00, 0x11, 0x22}
@@ -281,7 +281,7 @@ func rogueDHCPFrames() [][]byte {
 func rogueDHCPv6Frames() [][]byte {
 	src := srcBytes()
 
-	// Solicit frame (sent by the victim client; the behavior observes it).
+	// Solicit frame (sent by the victim client, and the behavior observes it).
 	solicitEth := &layers.Ethernet{
 		DstMAC:       allDHCPv6MAC,
 		SrcMAC:       dhcpClientMAC,
@@ -533,7 +533,7 @@ func rogueRAFrames() [][]byte {
 }
 
 // RA Guard: forged RA under attack (the watch leg observes it).
-// The attack leg sends a forged RA; the watch leg receives it, proving
+// The attack leg sends a forged RA, and the watch leg receives it, proving
 // traversal (the watch-leg rule).
 
 func raGuardFrames() [][]byte {

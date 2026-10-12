@@ -1,8 +1,8 @@
 // Package ip6 provides DHCP and IPv6 first-hop behaviors for netpen's runner.
-// [Behaviors] lists them for the shipped catalog; the runner supplies the
+// [Behaviors] lists them for the shipped catalog, and the runner supplies the
 // legs, the target, and the emitter. Each behavior reads the victim, server,
 // prefix, and offered address it acts on from the target and its own
-// addresses from the attack leg; a value that only has to be well-formed,
+// addresses from the attack leg, and a value that only has to be well-formed,
 // such as a DHCP transaction ID, a flood frame's stamped MAC, or a lease
 // address, stays a constant in the behavior. DHCPv4 shares this package with
 // DHCPv6 because both use the same fixture harness and runner contracts.

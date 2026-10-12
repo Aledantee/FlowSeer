@@ -1,13 +1,13 @@
 // Package findings holds netpen's typed findings model: the records the
 // JSONL machine contract emits and the in-memory stream the runner
-// delivers to output modes. Every record carries a schema version; the
+// delivers to output modes. Every record carries a schema version, and the
 // record kinds enumerate meta, finding, progress, summary, error, refusal,
 // and the per-attack verdict.
 //
 // Wrap captured credential material in [Secret] before marshaling a
 // finding's detail. Secret's JSON encoding emits only the protocol name
 // and byte length. [Finding.Detail] accepts raw JSON, so callers must
-// redact it before assigning it; records do not sanitize arbitrary JSON.
+// redact it before assigning it, and records do not sanitize arbitrary JSON.
 package findings
 
 import (
@@ -19,7 +19,7 @@ import (
 
 // SchemaVersion is the machine contract's major version. Within a
 // major version evolution is additive-only: new optional fields and record
-// kinds may appear; nothing is renamed, removed, or retyped. Version 2
+// kinds may appear, and nothing is renamed, removed, or retyped. Version 2
 // replaced the resisted, skipped, and pending rollup kinds with one verdict
 // kind and added the confirmed count to the summary.
 const SchemaVersion = 2
@@ -63,7 +63,7 @@ const (
 	// within the observation window.
 	VerdictResisted VerdictKind = "resisted"
 	// VerdictPending means the check has no observable yet, or the
-	// behavior failed before it could decide; the detail says which.
+	// behavior failed before it could decide, and the detail says which.
 	VerdictPending VerdictKind = "pending"
 	// VerdictSkipped means the check did not run: the gate refused it or
 	// its target was incomplete.
@@ -73,7 +73,7 @@ const (
 // Record is one JSONL record of the machine contract. Construct it with
 // [NewRecord] to set the schema version, then set Time and the payload for
 // Kind. Marshaling does not validate kind/payload agreement. Copies share
-// payload pointers and detail bytes; callers must synchronize concurrent
+// payload pointers and detail bytes, and callers must synchronize concurrent
 // access involving writes to a record or its payload.
 type Record struct {
 	SchemaVersion int          `json:"schema_version"`
@@ -103,8 +103,8 @@ type Meta struct {
 
 // Finding carries a protocol family's evidence as JSON. Module names the
 // family (for example, arp or dhcp). Build Detail by marshaling a payload
-// containing [Secret] values before assigning it; arbitrary raw JSON is
-// not redacted. Nil Detail encodes as null; empty or malformed JSON causes
+// containing [Secret] values before assigning it, and arbitrary raw JSON is
+// not redacted. Nil Detail encodes as null, and empty or malformed JSON causes
 // record marshaling to fail. Callers must synchronize concurrent access
 // involving writes, including writes to Detail's backing bytes.
 type Finding struct {
@@ -207,7 +207,7 @@ func NewErrorRecord(err error, attack, mode string) Record {
 // MarshalJSON encodes the record as a JSON object without a trailing newline.
 // It returns encoding errors, including malformed [Finding.Detail] or a time
 // outside JSON's supported range. It does not validate record semantics or
-// redact raw detail; [Secret] redaction happens when callers build that detail.
+// redact raw detail, and [Secret] redaction happens when callers build that detail.
 func (r Record) MarshalJSON() ([]byte, error) {
 	type plain Record
 	return json.Marshal(plain(r))
@@ -215,7 +215,7 @@ func (r Record) MarshalJSON() ([]byte, error) {
 
 // Secret holds captured credential material for in-memory comparison. Its
 // JSON encoding exposes only the protocol name and byte length. This
-// redaction applies to JSON encoding; callers should log only [Secret.Protocol]
+// redaction applies to JSON encoding, and callers should log only [Secret.Protocol]
 // and [Secret.Length]. Construct one with [NewSecret]. The zero value has an
 // empty protocol and no material. Secret values are immutable and safe for
 // concurrent use.
@@ -226,7 +226,7 @@ type Secret struct {
 
 // NewSecret copies captured credential material for the given protocol.
 // Later changes to value do not affect the secret. protocol is public metadata
-// and must not contain credentials; it is emitted unchanged in JSON.
+// and must not contain credentials, and it is emitted unchanged in JSON.
 func NewSecret(protocol string, value []byte) Secret {
 	return Secret{protocol: protocol, value: append([]byte(nil), value...)}
 }
@@ -239,7 +239,7 @@ func (s Secret) Protocol() string { return s.protocol }
 func (s Secret) Length() int { return len(s.value) }
 
 // Equal reports whether two secrets hold the same protocol and value.
-// It is the in-memory comparison path; it does not cross a marshal
+// It is the in-memory comparison path, and it does not cross a marshal
 // boundary.
 func (s Secret) Equal(other Secret) bool {
 	if s.protocol != other.protocol || len(s.value) != len(other.value) {

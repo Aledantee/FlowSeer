@@ -1,5 +1,5 @@
 // llmnr.go implements the LLMNR name-resolution spoofing attack behavior.
-// The attack answers a name with the attacker's own IPv4; the spoofed
+// The attack answers a name with the attacker's own IPv4, and the spoofed
 // answer expires with its 30 s TTL, which the catalog carries as the decay
 // bound.
 
@@ -31,8 +31,8 @@ type llmnrFinding struct {
 // RunLLMNR sends one spoofed answer to the target's victim naming the
 // attack leg's own IPv4. The queried name and the transaction ID are probe
 // content. The verdict is pending: whether the victim resolved the name to
-// the attacker needs a listener for the follow-up connection that phase 2
-// adds. Craft and send failures are returned with operation context.
+// the attacker needs a listener for the follow-up connection it does not
+// have. Craft and send failures are returned with operation context.
 func RunLLMNR(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	if err := deps.Target.Need(check.FieldVictim, check.FieldVictimMAC); err != nil {
 		return check.Verdict{}, err

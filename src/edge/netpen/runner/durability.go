@@ -33,12 +33,12 @@ type gateDecision struct {
 
 	// announce is a run-start announcement record emitted before the
 	// behavior runs: the decay bound of a decaying entry or the accepted
-	// mode of an acknowledged permanent one; nil otherwise. On refusal it
+	// mode of an acknowledged permanent one, and nil otherwise. On refusal it
 	// is the refusal record the gate already sent.
 	announce *findings.Record
 
 	// teardown is the armed-teardown handle handed to a behavior whose
-	// entry restores actively; nil otherwise.
+	// entry restores actively, and nil otherwise.
 	teardown *Teardown
 }
 
@@ -46,7 +46,7 @@ type gateDecision struct {
 // order ceiling, acknowledgment, legs. It consults the entry BEFORE the
 // leg's TX is ever handed to the behavior: a refused behavior never
 // receives a send-capable leg, so zero frames are possible. The ack set is
-// per (name, mode); the orchestration flag closes the permanent path
+// per (name, mode), and the orchestration flag closes the permanent path
 // entirely.
 //
 // On refusal the gate emits the typed refusal record through the stream
@@ -149,7 +149,7 @@ func acceptedAnnouncement(entry check.Entry) *findings.Record {
 
 // Teardown is the arming handle a behavior whose entry restores actively
 // registers its restore steps against. The runner constructs one before
-// invoking the behavior and hands it through [check.Deps.Teardown]; the
+// invoking the behavior and hands it through [check.Deps.Teardown], and the
 // behavior arms each named restore step via [Teardown.Arm] before its first
 // frame. After the behavior returns (or is interrupted), the runner
 // executes the armed steps via [Teardown.Run].
@@ -172,9 +172,9 @@ type Teardown struct {
 	entry  check.Entry
 
 	// mu guards steps, failed, and completed. Arm holds the write lock
-	// to append; execute snapshots steps under the lock then runs them
+	// to append, and execute snapshots steps under the lock then runs them
 	// unlocked (step functions may block), publishing progress under
-	// the lock after each step; the reporting helpers read under the
+	// the lock after each step, and the reporting helpers read under the
 	// lock.
 	mu sync.Mutex
 
@@ -210,9 +210,9 @@ func newTeardown(s *Stream, entry check.Entry) *Teardown {
 }
 
 // Arm registers one named restore step. The behavior calls this before
-// emitting its first frame; the order of Arm calls is the execution order
+// emitting its first frame, and the order of Arm calls is the execution order
 // (reverse-dependency: least-dependent first). A step name identifies the
-// step in the partial-failure record; names should be stable and
+// step in the partial-failure record, and names should be stable and
 // descriptive (e.g. "ip-forward-restore", "neighbor-unicast-repair").
 func (t *Teardown) Arm(name string, fn check.Step) {
 	t.mu.Lock()

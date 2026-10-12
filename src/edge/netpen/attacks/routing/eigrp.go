@@ -54,9 +54,9 @@ type eigrpFinding struct {
 // from the attack leg's own addresses, with a goodbye teardown armed before
 // the first frame. The autonomous system number and the metric are probe
 // content. A response carrying the Goodbye flag within 100 ms is a refused
-// adjacency, which the verdict reports as resisted; otherwise the verdict
-// is pending, since route acceptance needs an update listener that phase 2
-// adds. A receive or decode failure stops the sequence. Cancellation
+// adjacency, which the verdict reports as resisted, and otherwise the verdict
+// is pending, since route acceptance needs an update listener it does not
+// have. A receive or decode failure stops the sequence. Cancellation
 // returns ctx.Err(). Concurrent calls require separate dependencies.
 func RunEIGRP(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	if err := ctx.Err(); err != nil {

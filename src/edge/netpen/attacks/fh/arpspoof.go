@@ -24,8 +24,8 @@ type arpSpoofFinding struct {
 // after arming neighbor repairs on the runner's teardown handle. The
 // preceding ip-forward-restore step is a no-op because this behavior does
 // not change host forwarding. The verdict is pending: whether the victim's
-// cache took the poison needs a probe through the attacker that phase 2
-// adds. Craft and send failures include operation context.
+// cache took the poison needs a probe through the attacker it does not
+// have. Craft and send failures include operation context.
 func RunARPSpoof(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	if err := deps.Target.Need(check.FieldVictim, check.FieldVictimMAC, check.FieldGateway, check.FieldGatewayMAC); err != nil {
 		return check.Verdict{}, err
@@ -37,7 +37,7 @@ func RunARPSpoof(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	// Arm the teardown steps before the first frame so an interrupted
 	// run still restores. The order of Arm calls is the execution order
 	// (reverse-dependency: least-dependent first). ip_forward restore is
-	// host-local state, independent of the wire; neighbor-cache repairs
+	// host-local state, independent of the wire, and neighbor-cache repairs
 	// depend on the attacker's own stack being in a known state, so
 	// ip_forward goes first.
 	deps.Teardown.Arm("ip-forward-restore", func(_ context.Context) error {

@@ -42,14 +42,14 @@ var errNoAttackLeg = errs.New().
 // Error semantics: a behavior erroring mid-run surfaces as a pending
 // verdict carrying the error text and the run of remaining behaviors
 // continues. A behavior whose target lacks a field it needs is a skipped
-// verdict; outside orchestration Run then returns that coded error so a
+// verdict, and outside orchestration Run then returns that coded error so a
 // single command exits 2. A ceiling refusal is a refusal record and a
 // skipped verdict, and the run continues. Dispatch failures, a permanent
 // entry without its acknowledgment, and context cancellation stop the run.
 // Teardown failures are also returned. Cancellation returns the run
 // context's error unwrapped unless teardown failed.
 //
-// The zero value is not usable; construct a Runner via [NewRunner].
+// The zero value is not usable, and construct a Runner via [NewRunner].
 //
 // One goroutine calls Run while one consumer reads [Runner.Stream].
 // Interrupt and Wait may be called concurrently. Run must be called exactly once.
@@ -107,7 +107,7 @@ type Runner struct {
 // A zero Options is accepted but Run rejects a nil AttackLeg with a coded
 // error when Attacks is non-empty. The host is expected to validate
 // domain-level constraints (e.g. a named watch leg exists) before
-// constructing the Runner; the runner enforces only what it can check
+// constructing the Runner, and the runner enforces only what it can check
 // itself (the gates the catalog entries declare).
 func NewRunner(opts Options) *Runner {
 	stopCtx, stopCancel := context.WithCancel(context.Background())
@@ -223,7 +223,7 @@ func (r *Runner) Run(ctx context.Context) (result error) {
 		attackLeg = newPacedLeg(attackLeg, r.opts.Rate)
 	}
 
-	// teardownBudget is the total time the executor may spend; tests
+	// teardownBudget is the total time the executor may spend, and tests
 	// scale it down via [Options.TeardownBudget].
 	teardownBudget := r.opts.TeardownBudget
 
@@ -238,7 +238,7 @@ func (r *Runner) Run(ctx context.Context) (result error) {
 		select {
 		case <-r.stream.pump.Stopped():
 			// The stream was stopped. If the interrupt path set an
-			// error (teardown partial failure), surface it; otherwise
+			// error (teardown partial failure), surface it, and otherwise
 			// a consumer close returns nil.
 			if err := r.interruptError(); err != nil {
 				r.stream.fail(err)
@@ -296,7 +296,7 @@ func (r *Runner) Run(ctx context.Context) (result error) {
 		dec := gate(r.stream, entry, ceiling, ack, r.opts.Orchestrated, r.opts.WatchLeg != nil)
 		if !dec.proceed {
 			if !dec.stop {
-				// A ceiling refusal: the refusal record is out; the
+				// A ceiling refusal: the refusal record is out, and the
 				// skipped verdict counts it, and the next attack runs.
 				if !r.stream.send(verdictRecord(ref.Name, entry.Mode, check.Verdict{Kind: findings.VerdictSkipped, Detail: dec.announce.Refusal.Reason})) {
 					return r.terminated(runCtx)
@@ -399,7 +399,7 @@ func (r *Runner) Run(ctx context.Context) (result error) {
 
 		if behErr != nil {
 			// When the interrupt path engaged teardown, it canceled
-			// the behavior's context; the resulting context.Canceled
+			// the behavior's context, and the resulting context.Canceled
 			// is an expected consequence, not an independent behavior
 			// error. Skip the verdict and let the teardown-partial
 			// error (if any) surface from the interrupt path.
@@ -551,7 +551,7 @@ func (r *Runner) Interrupt() {
 		}
 
 		if td != nil {
-			// Run the teardown. The budget comes from Options; the
+			// Run the teardown. The budget comes from Options, and the
 			// signal path uses the same budget as completion. The
 			// Teardown.Run guard makes the completion-path call a
 			// no-op, so completion and interrupt share one entry
@@ -566,7 +566,7 @@ func (r *Runner) Interrupt() {
 			// a no-op (runOnce), so only this path emits the record.
 			if tdErr != nil {
 				// Store the error for the dispatch loop to
-				// surface as Run's return value; do NOT call
+				// surface as Run's return value, and do NOT call
 				// stream.fail here, because that would stop the
 				// stream and make the dispatch loop treat the
 				// shutdown as a consumer close (returning nil).

@@ -1,9 +1,9 @@
 // Package routing holds netpen's routing-injection and rogue-WPAD attack
 // behaviors: OSPF LSA injection, EIGRP route injection, and the rogue WPAD
-// proxy. [Behaviors] lists them for the shipped catalog; the runner supplies
+// proxy. [Behaviors] lists them for the shipped catalog, and the runner supplies
 // the legs, the target, the emitter, the teardown handle, and the listener.
 // Each behavior reads the router identity or route it injects from the
-// target and its own addresses from the attack leg; a value that only has
+// target and its own addresses from the attack leg, and a value that only has
 // to be well-formed, such as an area, a sequence number, or an autonomous
 // system number, stays a constant in the behavior.
 //

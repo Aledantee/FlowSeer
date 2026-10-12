@@ -30,9 +30,9 @@ type vlanEnumFinding struct {
 }
 
 // RunVlanEnum passively enumerates VLANs from tagged frames on the attack
-// leg; it reads no target. It reports the observed VLANs after 500 ms
+// leg, and it reads no target. It reports the observed VLANs after 500 ms
 // without a received frame or when the receive channel closes, and
-// confirms the inventory as its verdict. Cancellation returns ctx.Err(); a
+// confirms the inventory as its verdict. Cancellation returns ctx.Err(), and a
 // terminal receive error is wrapped and no partial finding is emitted.
 func RunVlanEnum(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	const idleTimeout = 500 * time.Millisecond

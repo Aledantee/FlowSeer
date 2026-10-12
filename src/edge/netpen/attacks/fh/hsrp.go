@@ -34,8 +34,8 @@ type hsrpFinding struct {
 // RunHSRP arms a resign teardown before sending a Coup and hello for the
 // target's group and virtual IP from the attack leg's own addresses. The
 // priority of 255 and the authentication string are probe content. The
-// verdict is pending: coup acceptance needs a hello listener that phase 2
-// adds. Craft and send errors carry operation context.
+// verdict is pending: coup acceptance needs a hello listener it does not
+// have. Craft and send errors carry operation context.
 func RunHSRP(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	if err := deps.Target.Need(check.FieldGroup, check.FieldVirtualIP); err != nil {
 		return check.Verdict{}, err

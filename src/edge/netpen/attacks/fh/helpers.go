@@ -1,8 +1,8 @@
 // Package fh provides first-hop and identity behaviors with bounded send
-// counts. [Behaviors] lists them for the shipped catalog; the runner supplies
+// counts. [Behaviors] lists them for the shipped catalog, and the runner supplies
 // the legs, the target, the emitter, and the teardown handle and applies the
 // catalog gates. Each behavior reads the hosts, groups, and addresses it acts
-// on from the target and its own addresses from the attack leg; a value that
+// on from the target and its own addresses from the attack leg, and a value that
 // only has to be well-formed, such as the redirected datagram's destination
 // or the LLDP system name, stays a constant in the behavior. The behaviors do
 // not configure host IP forwarding or discover live targets.

@@ -22,7 +22,7 @@ var (
 	// exit.
 	ErrCodeTeardownPartial = errs.NewCode("netpen/teardown-partial")
 	// ErrCodeCeilingRefused marks an (attack, mode) pair whose impact
-	// exceeds the run's impact ceiling; the runner records the refusal and
+	// exceeds the run's impact ceiling, and the runner records the refusal and
 	// continues with the next attack.
 	ErrCodeCeilingRefused = errs.NewCode("netpen/ceiling-refused")
 

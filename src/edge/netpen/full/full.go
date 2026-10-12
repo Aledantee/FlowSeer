@@ -4,7 +4,7 @@ package full
 // The orchestrator is a thin coordinator over the runner: it
 // runs recon, arms the burst from the evidence, selects follow-ups from
 // the evidence, and emits a summary. Each phase drives its own runner
-// instance (the runner is single-Run); the orchestrator merges the
+// instance (the runner is single-Run), and the orchestrator merges the
 // findings into one stream the CLI consumes.
 //
 // Phase contract:
@@ -12,7 +12,7 @@ package full
 //  1. recon: ARP sweep + passive listen → typed Evidence.
 //  2. burst: the baseline's bounded attack set, --duration bound, shared
 //     leg. Unconditional core (stproot, camflood, dhcpstarve, gratarp,
-//     dtp, roguera, llmnr) always fires; daddos/arpspoof/vrrp armed by
+//     dtp, roguera, llmnr) always fires, and daddos/arpspoof/vrrp armed by
 //     recon evidence/flags. All run under Orchestrated=true so no
 //     permanent mode can dispatch.
 //  3. follow-ups: sequential, selected ONLY by recon evidence (no
@@ -74,7 +74,7 @@ type Config struct {
 	// Rate limits packet emission (pps, zero = unlimited).
 	Rate int
 	// Catalog resolves every attack the phases dispatch. The command
-	// passes the shipped catalog; tests substitute recording stubs.
+	// passes the shipped catalog, and tests substitute recording stubs.
 	Catalog catalog.Catalog
 	// Target is handed to every phase's runner as the hosts, addresses,
 	// and identities the behaviors act on. A burst behavior whose fields
@@ -98,7 +98,7 @@ type Config struct {
 
 // Full coordinates recon, a bounded burst, sequential follow-ups, and a
 // summary. Construct it with [NewFull] and call Run once. The zero value is
-// unusable. Records may be read concurrently with Run; the record channel
+// unusable. Records may be read concurrently with Run, and the record channel
 // must be drained during Run so a full buffer does not block progress.
 type Full struct {
 	cfg Config
@@ -196,7 +196,7 @@ func (f *Full) Run(ctx context.Context) error {
 	f.appendRecord(progress("full", "", "follow-ups", "done"))
 
 	// Phase 4: report. Each phase's runner emitted one verdict record per
-	// attack; the summary counts them.
+	// attack, and the summary counts them.
 	f.appendRecord(f.summaryRecord(ev, dispatchedRefs, summaryRecs))
 	return nil
 }

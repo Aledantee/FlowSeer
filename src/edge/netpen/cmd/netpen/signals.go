@@ -16,13 +16,13 @@ import (
 // signalHandler installs the three-signal lifecycle (SIGINT, SIGTERM,
 // SIGHUP) over a [runner.Runner]. All three engage the same teardown path:
 // the first signal interrupts the run (canceling the in-flight behavior)
-// and runs the armed teardown steps; a second signal during teardown
+// and runs the armed teardown steps, and a second signal during teardown
 // force-exits the process and reports by name the teardown steps that were
 // abandoned. The runner owns no process, so exit lives here with the
 // command.
 //
 // A signalHandler is single-use: one handler per run. install must be
-// called once; after it returns the handler is safe for concurrent use.
+// called once, and after it returns the handler is safe for concurrent use.
 type signalHandler struct {
 	r      *runner.Runner
 	stderr io.Writer
@@ -108,7 +108,7 @@ func (h *signalHandler) handleSignal() {
 
 // forceExit reports the abandoned teardown steps by name to stderr and
 // exits non-zero. abandoned is nil when no steps were left (rapid
-// double-signal after completion); the exit is still non-zero because the
+// double-signal after completion), and the exit is still non-zero because the
 // operator forced termination.
 func (h *signalHandler) forceExit(abandoned []string) {
 	if len(abandoned) > 0 {

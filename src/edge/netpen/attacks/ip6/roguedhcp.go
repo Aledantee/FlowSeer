@@ -31,7 +31,7 @@ type rogueDHCPFinding struct {
 // the target's offer IP from the attack leg's own IPv4 as server, router,
 // and DNS. The transaction ID and subnet mask are probe content. The
 // verdict is pending: whether the victim took the lease needs a REQUEST
-// listener that phase 2 adds.
+// listener it does not have.
 func RunRogueDHCP(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	if err := deps.Target.Need(check.FieldVictim, check.FieldVictimMAC, check.FieldOfferIP); err != nil {
 		return check.Verdict{}, err

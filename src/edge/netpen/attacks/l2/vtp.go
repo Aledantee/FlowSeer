@@ -35,7 +35,7 @@ type vtpFinding struct {
 // the wipe and set modes send the destructive advertisement the gate has
 // already admitted. The revision, timestamp, and VLAN set are probe
 // content. The verdict is pending: whether a switch took the revision
-// needs a read of the device that phase 2 adds.
+// needs a read of the device it does not have.
 func RunVTP(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	if err := deps.Target.Need(check.FieldVTPDomain); err != nil {
 		return check.Verdict{}, err
@@ -73,7 +73,7 @@ func RunVTP(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 		// SAFE mode: send a summary advertisement with a revision bump.
 		// This is the non-destructive default. The timestamp is set to
 		// a deterministic value matching the fixture (the baseline uses
-		// time.strftime for per-run randomness; the pin is field-set).
+		// time.strftime for per-run randomness, and the pin is field-set).
 		vtp = &layers.VTP{
 			Version:   layers.VTPVersion1,
 			Code:      layers.VTPCodeSummary,

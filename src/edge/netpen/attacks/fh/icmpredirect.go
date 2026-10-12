@@ -32,7 +32,7 @@ type icmpRedirectFinding struct {
 // the target's gateway, naming the attack leg's own IPv4 as the better
 // hop. The quoted datagram's destination is probe content. The verdict is
 // pending: whether the victim's route cache took the redirect needs a
-// probe that phase 2 adds.
+// probe it does not have.
 func RunICMPRedirect(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	if err := deps.Target.Need(check.FieldVictim, check.FieldVictimMAC, check.FieldGateway); err != nil {
 		return check.Verdict{}, err

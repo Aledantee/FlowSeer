@@ -3,7 +3,7 @@
 // Durability (from the catalog): transient-decay. The attack sends a
 // Neighbor Solicitation for the target address during DAD to deny the
 // legitimate host's address configuration. The DAD window passes after
-// the attack stops; no explicit teardown.
+// the attack stops, and no explicit teardown.
 //
 // Edge scenario: against a host that completes DAD before the attack
 // window, the behavior reports resisted rather than failed open. The
@@ -37,9 +37,9 @@ type dadDOSFinding struct {
 // RunDADDOS sends a Neighbor Solicitation for the target's IPv6 victim
 // address during DAD to deny the legitimate host's address configuration.
 // A defending Neighbor Advertisement from the owner within 50 ms shows the
-// host completed DAD first; the finding records it. The verdict is pending:
-// whether the host gave up the address needs a later probe that phase 2
-// adds. Cancellation while observing returns ctx.Err(); terminal receive
+// host completed DAD first, and the finding records it. The verdict is pending:
+// whether the host gave up the address needs a later probe it does not
+// have. Cancellation while observing returns ctx.Err(), and terminal receive
 // errors are wrapped.
 func RunDADDOS(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	if err := deps.Target.Need(check.FieldVictim6); err != nil {

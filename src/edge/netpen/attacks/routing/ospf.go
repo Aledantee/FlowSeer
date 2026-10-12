@@ -1,6 +1,6 @@
 // OSPF models a fixed hello, database-description, and LSA-update sequence.
 // The runner executes the armed flush and goodbye frames after the behavior
-// returns. Packet bytes are fixture data; adjacency and restoration are unverified.
+// returns. Packet bytes are fixture data, and adjacency and restoration are unverified.
 
 package routing
 
@@ -44,9 +44,9 @@ type ospfFinding struct {
 // as the target's router ID from the attack leg's own addresses, with a
 // flush and goodbye teardown armed before the first frame. The backbone
 // area and the LSA sequence are probe content. The verdict is pending:
-// whether the neighbor formed needs a hello listener that phase 2 adds.
+// whether the neighbor formed needs a hello listener it does not have.
 //
-// A missing hello is tolerated after 100 ms; a receive or decode failure
+// A missing hello is tolerated after 100 ms, and a receive or decode failure
 // stops the sequence. Cancellation returns ctx.Err(). Concurrent calls
 // require separate dependencies.
 func RunOSPF(ctx context.Context, deps check.Deps) (check.Verdict, error) {
@@ -96,7 +96,7 @@ func RunOSPF(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	// Phase 2: receive the target's hello (adjacency formation).
 	// The fixture feeds the target's hello via PushRX. We read it with
 	// a short timeout — in the in-memory harness, a missing RX frame is
-	// not fatal; the behavior proceeds with the inject.
+	// not fatal, and the behavior proceeds with the inject.
 	rxCtx, rxCancel := context.WithTimeout(ctx, 100*time.Millisecond)
 	_, rxErr := recvOSPF(rxCtx, deps.AttackLeg)
 	rxCancel()
@@ -380,7 +380,7 @@ func craftLSAUpdate(addr link.Addr, routerID, areaID, seq uint32) ([]byte, error
 
 // craftLSAFlush builds an OSPFv2 Link State Update carrying one router-LSA
 // with LSAge=3600 and the fixture sequence number. The runner sends this
-// during teardown; no acknowledgment or LSDB state is checked.
+// during teardown, and no acknowledgment or LSDB state is checked.
 func craftLSAFlush(addr link.Addr, routerID, areaID uint32) ([]byte, error) {
 	hdr := make([]byte, ospfHeaderLen)
 	hdr[0] = 2

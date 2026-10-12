@@ -32,9 +32,9 @@ type raFloodFinding struct {
 
 // RunRAFlood sends five Router Advertisements, each from a stamped source
 // MAC and its derived link-local address. The stamped sources are probe
-// content; the behavior reads no target and no leg address. The verdict is
+// content, and the behavior reads no target and no leg address. The verdict is
 // pending: whether hosts took the routers needs a probe of their tables
-// that phase 2 adds.
+// it does not have.
 func RunRAFlood(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	frameCount := 5
 

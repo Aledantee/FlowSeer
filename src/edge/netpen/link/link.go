@@ -66,7 +66,7 @@ var interfaceAddrs = func(name string) (net.HardwareAddr, []net.Addr, error) {
 }
 
 // readAddr builds the [Addr] of the named interface. It fails with
-// [ErrCodeLegOpen] when the interface cannot be read; an interface with no
+// [ErrCodeLegOpen] when the interface cannot be read, and an interface with no
 // address of a family leaves that field nil.
 func readAddr(name string) (Addr, error) {
 	mac, addrs, err := interfaceAddrs(name)
@@ -97,7 +97,7 @@ func readAddr(name string) (Addr, error) {
 }
 
 // Leg is one network interface opened for raw send and receive. Both the
-// attack and watch legs implement it; the concrete linux type wraps
+// attack and watch legs implement it, and the concrete linux type wraps
 // afpacket.TPacket and the non-linux stub returns ErrUnsupportedPlatform.
 //
 // A Leg is safe for concurrent use by one writer and one reader: the RX loop
@@ -111,7 +111,7 @@ type Leg interface {
 
 	// Send writes pkt to the wire. It returns an error matching
 	// [ErrCodeLegOpen] when the leg is closed or the write fails.
-	// A canceled context returns ctx.Err() before writing; cancellation
+	// A canceled context returns ctx.Err() before writing, and cancellation
 	// does not interrupt a write already in progress.
 	Send(ctx context.Context, pkt []byte) error
 
@@ -136,8 +136,8 @@ type Leg interface {
 
 // RawInstruction is one BPF instruction, the raw form afpacket.SetBPF accepts.
 // It is the [golang.org/x/net/bpf.RawInstruction] shape re-exported so the
-// platform-neutral file has no linux-only import; the bpf builder produces
-// these from [Instruction] values. Values may be copied; concurrent mutation
+// platform-neutral file has no linux-only import, and the bpf builder produces
+// these from [Instruction] values. Values may be copied, and concurrent mutation
 // of the same value requires synchronization.
 type RawInstruction struct {
 	Op uint16
@@ -147,7 +147,7 @@ type RawInstruction struct {
 }
 
 // Open opens iface as a promiscuous raw leg. On Linux it creates an
-// afpacket.TPacket v3 ring; elsewhere it returns ErrUnsupportedPlatform. A
+// afpacket.TPacket v3 ring, and elsewhere it returns ErrUnsupportedPlatform. A
 // nonexistent or unprivileged interface surfaces as an error carrying
 // [ErrCodeLegOpen], never a panic.
 func Open(iface string) (Leg, error) {

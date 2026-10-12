@@ -32,7 +32,7 @@ type portStealFinding struct {
 // RunPortSteal sends three gratuitous ARP replies claiming the target's
 // victim IP at the attack leg's MAC. The relay mode arms an ip_forward
 // restore step that does no host work yet. The verdict is pending: whether
-// the switch moved the victim's port needs a probe that phase 2 adds.
+// the switch moved the victim's port needs a probe it does not have.
 func RunPortSteal(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	if err := deps.Target.Need(check.FieldVictim); err != nil {
 		return check.Verdict{}, err
@@ -45,7 +45,7 @@ func RunPortSteal(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	if deps.Entry.Restore.Kind == check.RestoreActive {
 		deps.Teardown.Arm("ip-forward-restore", func(_ context.Context) error {
 			// Restoring the original ip_forward sysctl value is host-side
-			// state with no wire effect; the in-memory harness observes the
+			// state with no wire effect, and the in-memory harness observes the
 			// restore via the teardown step name.
 			return nil
 		})

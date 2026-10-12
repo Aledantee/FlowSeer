@@ -33,9 +33,9 @@ type raGuardFinding struct {
 
 // RunRAGuard sends one forged RA for the target's prefix from the attack
 // leg and observes the watch leg for the observation window. A forged RA
-// seen on the watch leg confirms traversal; an empty window is resisted;
+// seen on the watch leg confirms traversal, and an empty window is resisted;
 // without a watch leg the verdict is pending. Cancellation while observing
-// returns ctx.Err(); terminal receive errors are wrapped.
+// returns ctx.Err(), and terminal receive errors are wrapped.
 func RunRAGuard(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	if err := deps.Target.Need(check.FieldPrefix6); err != nil {
 		return check.Verdict{}, err

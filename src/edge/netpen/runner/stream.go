@@ -12,7 +12,7 @@ import (
 // defaultStreamBuffer is the bounded channel size between the runner's
 // producer (the dispatch loop) and the consumer (the host). Large enough to
 // absorb a burst of findings from a fast behavior without forcing the
-// producer to block on a slow consumer; small enough that a stalled consumer
+// producer to block on a slow consumer, and small enough that a stalled consumer
 // does not pin large amounts of memory.
 const defaultStreamBuffer = 64
 
@@ -37,7 +37,7 @@ const defaultStreamBuffer = 64
 // Drop-oldest suits realtime traps but would silently remove a finding here —
 // an audit gap that defeats the tool's purpose.
 //
-// The zero value is not usable; construct a Stream via [NewRunner].
+// The zero value is not usable, and construct a Stream via [NewRunner].
 //
 // Stream is safe for concurrent use by one consumer (iteration) and the
 // single producer (the runner's dispatch loop).
@@ -147,7 +147,7 @@ func (s *Stream) Iter() iter.Seq[findings.Record] {
 }
 
 // Next advances the Scanner-shape state machine to the next record. Returns
-// false when the stream is done; the caller should check [Stream.Err] for
+// false when the stream is done, and the caller should check [Stream.Err] for
 // the terminal cause. Companion to [Stream.Current].
 func (s *Stream) Next() bool {
 	// Select on the data channel and the stop signal so a closed
@@ -184,7 +184,7 @@ func (s *Stream) Next() bool {
 // Current returns the most recent record yielded by [Stream.Next]. Calling
 // Current before Next has returned true at least once yields the zero
 // [findings.Record]. The Scanner-shape is the explicit-control counterpart
-// to [Stream.Iter]; callers should use Iter for the idiomatic range loop.
+// to [Stream.Iter], and callers should use Iter for the idiomatic range loop.
 func (s *Stream) Current() findings.Record {
 	s.currentMu.Lock()
 	defer s.currentMu.Unlock()

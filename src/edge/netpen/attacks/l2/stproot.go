@@ -33,9 +33,9 @@ type stpRootFinding struct {
 
 // RunSTPRoot sends three superior BPDUs claiming root with the attack
 // leg's MAC as the bridge identity. The timers and priority are probe
-// content; the behavior reads no target, and the runner's paced leg
+// content, and the behavior reads no target, and the runner's paced leg
 // spaces the sends. The verdict is pending: whether the fabric accepted
-// the root needs a BPDU listener that phase 2 adds.
+// the root needs a BPDU listener it does not have.
 func RunSTPRoot(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	src := deps.AttackLeg.Addr().MAC
 
@@ -45,7 +45,7 @@ func RunSTPRoot(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	forwardDelay := uint16(2)
 	msgAge := uint16(15)
 
-	// Pre-serialize the BPDU once; the flood path sends it repeatedly
+	// Pre-serialize the BPDU once, and the flood path sends it repeatedly
 	// from the pooled buffer.
 	bpduPkt, err := craftSTPBPDU(src, rootPriority, maxAge, helloTime, forwardDelay, msgAge)
 	if err != nil {

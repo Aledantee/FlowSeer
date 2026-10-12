@@ -4,7 +4,7 @@
 // temporary-restored: the behavior arms a port-channel release teardown
 // step.
 //
-// The baseline (l2l3-audit) does not carry an EtherChannel attack; the LACP/PAgP craft is authored
+// The baseline (l2l3-audit) does not carry an EtherChannel attack, and the LACP/PAgP craft is authored
 // from IEEE 802.1AX and Cisco/Wireshark specs.
 
 package l2
@@ -27,10 +27,10 @@ type etherChannelFinding struct {
 }
 
 // RunEtherChannel sends one LACPDU and one PAgP hello from the attack leg's
-// MAC; the keys, ports, and partner identity are probe content and the
+// MAC, and the keys, ports, and partner identity are probe content and the
 // behavior reads no target. It arms a port-channel release step that does
 // no host work yet. The verdict is pending: whether a channel formed needs
-// a partner-state listener that phase 2 adds.
+// a partner-state listener it does not have.
 func RunEtherChannel(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	src := deps.AttackLeg.Addr().MAC
 
@@ -38,7 +38,7 @@ func RunEtherChannel(ctx context.Context, deps check.Deps) (check.Verdict, error
 	deps.Teardown.Arm("port-channel-release", func(_ context.Context) error {
 		// Issuing the port departure (a `no channel-group` command or an
 		// LACPDU with actor state = 0) is host/peer state with no direct
-		// TX here; the in-memory harness observes the restore via the
+		// TX here, and the in-memory harness observes the restore via the
 		// teardown step name.
 		return nil
 	})

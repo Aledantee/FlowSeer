@@ -31,7 +31,7 @@ type Mode struct {
 }
 
 // Behavior is one shipped check: the base [check.Entry], the [check.Run]
-// that performs it, and its modes. The embedded Entry's Mode is empty; each
+// that performs it, and its modes. The embedded Entry's Mode is empty, and each
 // mode row is derived from Modes. Run is nil only for an Orchestration
 // entry. The zero value is invalid. Callers must synchronize concurrent
 // mutation of a shared Behavior or its slices.
@@ -43,7 +43,7 @@ type Behavior struct {
 
 // Catalog is the validated, sorted set of behaviors a host assembles with
 // [New] and hands to the runner. A Catalog is immutable after New and safe
-// for concurrent use; the slices its methods return are owned by the
+// for concurrent use, and the slices its methods return are owned by the
 // caller. The zero value is an empty catalog.
 type Catalog struct {
 	entries   []check.Entry

@@ -72,7 +72,7 @@ func (t *Teardown) execute(ctx context.Context, budget time.Duration) error {
 		err := step.fn(stepCtx)
 		cancel()
 
-		// A step completes whether it succeeded or failed; record it
+		// A step completes whether it succeeded or failed, and record it
 		// so the abandoned-steps report can distinguish completed from
 		// still-running steps.
 		completed = append(completed, step.name)

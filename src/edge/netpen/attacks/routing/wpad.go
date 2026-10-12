@@ -46,9 +46,9 @@ type wpadState struct {
 // RunWPAD announces the attack leg's own IPv4 as wpad over NBT-NS and
 // LLMNR, then serves a TTL-bound PAC from a listener opened through
 // deps.Listen and closed before return. The name and the transaction IDs
-// are probe content; the behavior reads no target. The verdict is pending:
-// whether a client fetched the PAC needs the listener's request log that
-// phase 2 adds. A bind failure carries [catalog.ErrCodeWPADPortCollision].
+// are probe content, and the behavior reads no target. The verdict is pending:
+// whether a client fetched the PAC needs the listener's request log it does
+// not have. A bind failure carries [catalog.ErrCodeWPADPortCollision].
 // Concurrent calls require separate dependencies.
 func RunWPAD(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	addr := deps.AttackLeg.Addr()
@@ -102,7 +102,7 @@ func RunWPAD(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 // startWPADProxy starts an embedded HTTP server on a listener from listen
 // serving a TTL-bound PAC response. The PAC redirects all traffic to the
 // attacker. ctx bounds only the goroutine that serves the listener, so a
-// panic there is reported with the caller's trace correlation; the server
+// panic there is reported with the caller's trace correlation, and the server
 // itself is stopped by closing state.server and state.listener, not by ctx.
 func startWPADProxy(ctx context.Context, listen func(context.Context, string, string) (net.Listener, error)) (*wpadState, error) {
 	// Bind on a free port (port 0 = OS-chosen).
@@ -127,7 +127,7 @@ func startWPADProxy(ctx context.Context, listen func(context.Context, string, st
 	srv := &http.Server{
 		Handler:           mux,
 		ReadHeaderTimeout: 5 * time.Second,
-		// The PAC body is a handful of bytes; anything longer than these
+		// The PAC body is a handful of bytes, and anything longer than these
 		// bounds is a stuck or hostile client draining the lab operator's
 		// process, so bound both directions.
 		WriteTimeout: 10 * time.Second,

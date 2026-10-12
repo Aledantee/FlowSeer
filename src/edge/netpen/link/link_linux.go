@@ -80,7 +80,7 @@ func open(iface string) (Leg, error) {
 func (l *linuxLeg) Addr() Addr { return l.addr }
 
 // Send skips canceled writes and orders the write against SetFilter and
-// Close; it never waits on a poll.
+// Close, and it never waits on a poll.
 func (l *linuxLeg) Send(ctx context.Context, pkt []byte) error {
 	l.wmu.Lock()
 	defer l.wmu.Unlock()
@@ -103,7 +103,7 @@ func (l *linuxLeg) Send(ctx context.Context, pkt []byte) error {
 	return nil
 }
 
-// SetFilter replaces the socket filter; an empty program removes it.
+// SetFilter replaces the socket filter, and an empty program removes it.
 // Call SetFilter before Receive.
 func (l *linuxLeg) SetFilter(raw []RawInstruction) error {
 	l.wmu.Lock()

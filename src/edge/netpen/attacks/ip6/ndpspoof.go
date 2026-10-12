@@ -31,8 +31,8 @@ type ndpSpoofFinding struct {
 // RunNDPSpoof sends one Neighbor Advertisement to the target's IPv6 victim
 // claiming the victim's own address is at the attack leg's MAC, from the
 // leg's IPv6 address. The flags are probe content. The verdict is pending:
-// whether the victim's neighbor cache took the entry needs a probe that
-// phase 2 adds.
+// whether the victim's neighbor cache took the entry needs a probe it does
+// not have.
 func RunNDPSpoof(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	if err := deps.Target.Need(check.FieldVictim6, check.FieldVictim6MAC); err != nil {
 		return check.Verdict{}, err

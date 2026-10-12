@@ -272,7 +272,7 @@ func TestVlanHop_RestoreArmed(t *testing.T) {
 	if err != nil {
 		t.Fatalf("run vlanhop: %v", err)
 	}
-	// The runner runs the teardown step; a behavior that armed zero steps
+	// The runner runs the teardown step, and a behavior that armed zero steps
 	// would fail the run, so a nil error means the restore step ran.
 	tx := leg.TX()
 	if len(tx) != 1 {

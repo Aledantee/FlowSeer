@@ -251,7 +251,7 @@ func lldpVoiceFrame() []byte {
 		EthernetType: layers.EthernetTypeLinkLayerDiscovery,
 	}
 	// Build LLDP payload as raw bytes (the fork's LLDP layer API is
-	// cumbersome; the wire format is straightforward TLVs).
+	// cumbersome, and the wire format is straightforward TLVs).
 	lldpPayload := buildLLDPVoiceVLANPayload()
 	buf := gopacket.NewSerializeBuffer()
 	if err := gopacket.SerializeLayers(buf, gopacket.SerializeOptions{}, &eth, gopacket.Payload(lldpPayload)); err != nil {

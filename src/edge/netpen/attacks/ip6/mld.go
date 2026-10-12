@@ -33,8 +33,8 @@ type mldFinding struct {
 // RunMLD sends five MLDv1 reports for a fixed multicast group from the
 // attack leg's MAC and link-local address. The group is probe content;
 // the behavior reads no target. The verdict is pending: whether the
-// snooping table took the membership needs a read of the device that phase
-// 2 adds.
+// snooping table took the membership needs a read of the device it does not
+// have.
 func RunMLD(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	addr := deps.AttackLeg.Addr()
 	mcastGroup := net.ParseIP("ff0e::1234")

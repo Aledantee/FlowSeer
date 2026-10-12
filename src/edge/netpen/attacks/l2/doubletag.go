@@ -32,7 +32,7 @@ type doubleTagFinding struct {
 // RunDoubleTag sends one QinQ frame tagged with the target's outer and
 // inner VLANs from the attack leg's MAC. The echo request inside and its
 // addresses are probe content. The verdict is pending: whether the frame
-// reached the inner VLAN needs a watch leg there, which phase 2 adds.
+// reached the inner VLAN needs a watch leg there, which it does not have.
 func RunDoubleTag(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	if err := deps.Target.Need(check.FieldOuterVLAN, check.FieldInnerVLAN); err != nil {
 		return check.Verdict{}, err

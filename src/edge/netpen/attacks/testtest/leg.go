@@ -20,7 +20,7 @@ import (
 // a pre-loaded queue (pushed via [Leg.PushRX]); TX frames are recorded in
 // order for post-run assertion. The leg is safe for one reader and one
 // writer (the behavior's goroutine), matching the [link.Leg] contract.
-// Use [New] to initialize a Leg; its zero value is not usable.
+// Use [New] to initialize a Leg, and its zero value is not usable.
 type Leg struct {
 	mu       sync.Mutex   // guards rx
 	rx       []link.Frame // pending frames not yet delivered
@@ -105,7 +105,7 @@ func (l *Leg) Send(ctx context.Context, pkt []byte) error {
 	return nil
 }
 
-// SetFilter is a no-op; the test harness does not filter.
+// SetFilter is a no-op, and the test harness does not filter.
 func (l *Leg) SetFilter(_ []link.RawInstruction) error { return nil }
 
 // Receive returns a channel that delivers queued RX frames until the

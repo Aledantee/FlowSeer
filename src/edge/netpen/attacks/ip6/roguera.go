@@ -2,7 +2,7 @@
 //
 // Durability (from the catalog): transient-decay. The attack sends a
 // Router Advertisement claiming to be a router with a ~1800s lifetime.
-// The RA lifetime decays after the attack stops; no explicit teardown.
+// The RA lifetime decays after the attack stops, and no explicit teardown.
 
 package ip6
 
@@ -32,8 +32,8 @@ type rogueRAFinding struct {
 // from the attack leg's MAC and its EUI-64 link-local address, with the
 // 1800 s router lifetime the catalog carries as the decay bound. The
 // preferred lifetime and flags are probe content. The verdict is pending:
-// whether hosts took the router needs a probe of their tables that phase
-// 2 adds.
+// whether hosts took the router needs a probe of their tables it does not
+// have.
 func RunRogueRA(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	if err := deps.Target.Need(check.FieldPrefix6); err != nil {
 		return check.Verdict{}, err

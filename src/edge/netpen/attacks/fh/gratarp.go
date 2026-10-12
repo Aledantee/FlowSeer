@@ -26,7 +26,7 @@ type gratARPFinding struct {
 // RunGratARP sends gratuitous ARP replies announcing the attacker's MAC
 // for the target's virtual IP, the address the attacker claims. The burst
 // of three is probe content. The verdict is pending: whether a neighbor
-// cache took the announcement needs a probe that phase 2 adds.
+// cache took the announcement needs a probe it does not have.
 func RunGratARP(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	if err := deps.Target.Need(check.FieldVirtualIP); err != nil {
 		return check.Verdict{}, err

@@ -212,7 +212,7 @@ func runDoubleSignalChild() {
 	}()
 	_ = r.Run(context.Background())
 	stop()
-	// Reaching here means teardown completed before the second signal; the
+	// Reaching here means teardown completed before the second signal, and the
 	// force-exit path in the handler exits 1 on its own.
 	os.Exit(1)
 }

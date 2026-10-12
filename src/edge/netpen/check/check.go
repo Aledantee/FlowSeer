@@ -1,5 +1,5 @@
 // Package check is the contract between netpen's runner and its behaviors.
-// A behavior is a [Run] over [Deps] that returns a [Verdict]; the catalog
+// A behavior is a [Run] over [Deps] that returns a [Verdict], and the catalog
 // describes each behavior and mode as an [Entry] whose [Impact], [Restore],
 // and [Affects] state what the check costs the network, and the runner gates
 // dispatch on those fields. The package imports only findings and link so the
@@ -52,7 +52,7 @@ type RestoreKind string
 const (
 	// RestoreNone means the check leaves nothing to restore or expire.
 	RestoreNone RestoreKind = "none"
-	// RestoreDecay means the state expires on its own; the run announces
+	// RestoreDecay means the state expires on its own, and the run announces
 	// the bound when one is known.
 	RestoreDecay RestoreKind = "decay"
 	// RestoreActive means the run restores the state itself through the
@@ -62,7 +62,7 @@ const (
 
 // Restore describes the mechanism by which a check's state goes away. Bound
 // is the decay lifetime the probe itself announces, or zero when no source
-// states one; it is only meaningful with [RestoreDecay]. Restore values are
+// states one, and it is only meaningful with [RestoreDecay]. Restore values are
 // safe for concurrent reads.
 type Restore struct {
 	Kind  RestoreKind
@@ -106,7 +106,7 @@ const (
 type Entry struct {
 	// Name is the behavior's command name, the dispatch key.
 	Name string
-	// Mode is the mode flag without the leading dashes; empty for the
+	// Mode is the mode flag without the leading dashes, and empty for the
 	// base row.
 	Mode string
 	// Protocols lists the protocol families the behavior exercises.
@@ -136,7 +136,7 @@ type Verdict struct {
 	Observed time.Duration
 }
 
-// Pending is the verdict of a check with no observable yet; detail names
+// Pending is the verdict of a check with no observable yet, and detail names
 // the observable it lacks.
 func Pending(detail string) Verdict {
 	return Verdict{Kind: findings.VerdictPending, Detail: detail}
@@ -156,7 +156,7 @@ func Resisted(detail string, observed time.Duration) Verdict {
 
 // Emitter is the typed sink a behavior writes records through. The runner
 // supplies one per attack that stamps the attack and mode. An Emitter
-// supports one goroutine, the behavior's own; a behavior that spawns
+// supports one goroutine, the behavior's own, and a behavior that spawns
 // workers serializes its calls itself.
 type Emitter interface {
 	// Emit delivers one record and reports false when the run is
@@ -185,7 +185,7 @@ type Teardown interface {
 }
 
 // Deps supplies a [Run] with its resolved entry, target, legs, and handles.
-// Treat the fields as immutable; each handle documents its own concurrency
+// Treat the fields as immutable, and each handle documents its own concurrency
 // contract.
 type Deps struct {
 	// AttackLeg is the leg the behavior sends and receives on, never nil.
@@ -194,7 +194,7 @@ type Deps struct {
 	// WatchLeg is the passive observation leg, nil when the run has none.
 	// A [WatchRequired] behavior is never invoked without one.
 	WatchLeg link.Leg
-	// Target holds the addresses and identities the behavior reads; it
+	// Target holds the addresses and identities the behavior reads, and it
 	// calls [Target.Need] for the fields it cannot run without.
 	Target Target
 	// Entry is the resolved catalog row for this (behavior, mode) pair.
@@ -215,7 +215,7 @@ type Deps struct {
 
 // Run is one check. It reads its target from deps, sends through the legs,
 // and returns the verdict. A non-nil error means the behavior could not
-// decide; the runner records it as a [findings.VerdictPending] verdict
+// decide, and the runner records it as a [findings.VerdictPending] verdict
 // carrying the error text and continues with the next attack. The context is derived from the
 // run's context, so a behavior returns promptly on ctx.Done().
 type Run func(ctx context.Context, deps Deps) (Verdict, error)

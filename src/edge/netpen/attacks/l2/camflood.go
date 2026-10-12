@@ -40,10 +40,10 @@ var camFloodPayload = []byte("flood")
 // RunCAMFlood sends five frames with unique source MACs to overflow the
 // CAM table. The stamped MACs, addresses, and payload are probe content and
 // the behavior reads no target. The verdict is pending: whether the switch
-// went fail-open needs a unicast probe through the watch leg that phase 2
-// adds.
+// went fail-open needs a unicast probe through the watch leg it does not
+// have.
 func RunCAMFlood(ctx context.Context, deps check.Deps) (check.Verdict, error) {
-	// Serialize the frame template once; each burst packet stamps its
+	// Serialize the frame template once, and each burst packet stamps its
 	// unique source MAC into a pooled copy, keeping the flood loop
 	// allocation-free after pool warmup.
 	template, err := craftCAMFloodFrame(0)

@@ -5,7 +5,7 @@
 // AVG (Active Virtual Gateway) role. The teardown arms a resign hello
 // (lowered priority, listen state) to restore the virtual-router state.
 //
-// The baseline (l2l3-audit) does not carry a GLBP attack; the craft is
+// The baseline (l2l3-audit) does not carry a GLBP attack, and the craft is
 // authored from Wireshark's packet-glbp.c at commit
 // 1dbb8baf9c5bb2e9501b15cce98cea6a3c0f41a3, lines 137-218 and 289-365.
 
@@ -36,7 +36,7 @@ type glbpFinding struct {
 // RunGLBP arms a resign teardown before sending a high-priority hello for
 // the target's group and virtual IP from the attack leg's own addresses.
 // The priorities are probe content. The verdict is pending: whether the
-// gateway yielded the AVG role needs a hello listener that phase 2 adds.
+// gateway yielded the AVG role needs a hello listener it does not have.
 func RunGLBP(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	if err := deps.Target.Need(check.FieldGroup, check.FieldVirtualIP); err != nil {
 		return check.Verdict{}, err

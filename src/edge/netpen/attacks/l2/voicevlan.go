@@ -26,11 +26,11 @@ type voiceVLANFinding struct {
 }
 
 // RunVoiceVLAN sends one LLDP-MED network-policy frame advertising the
-// target's voice VLAN from the attack leg's MAC; the port name, TTL,
+// target's voice VLAN from the attack leg's MAC, and the port name, TTL,
 // priority, and DSCP are probe content. The base entry arms a restore step
-// that does no host work yet; the persist mode is permanent and arms
+// that does no host work yet, and the persist mode is permanent and arms
 // nothing. The verdict is pending: whether a phone moved needs a listener
-// for its traffic on the voice VLAN that phase 2 adds.
+// for its traffic on the voice VLAN it does not have.
 func RunVoiceVLAN(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	if err := deps.Target.Need(check.FieldVoiceVLAN); err != nil {
 		return check.Verdict{}, err
@@ -70,7 +70,7 @@ func RunVoiceVLAN(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 
 // craftLLDPVoiceVLAN builds an LLDP frame with a Network Policy TLV
 // advertising the given voice VLAN. The LLDP payload is crafted as raw
-// TLV bytes (the fork's LLDP layer API is cumbersome; the wire format
+// TLV bytes (the fork's LLDP layer API is cumbersome, and the wire format
 // is straightforward).
 func craftLLDPVoiceVLAN(src net.HardwareAddr, voiceVLAN uint16) ([]byte, error) {
 	eth := &layers.Ethernet{

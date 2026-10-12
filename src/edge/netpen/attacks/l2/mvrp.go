@@ -26,9 +26,9 @@ type mvrpFinding struct {
 }
 
 // RunMVRP sends one JoinIn per VLAN of a fixed pair from the attack leg's
-// MAC. The VLAN ids are probe content, since any id registers; the
+// MAC. The VLAN ids are probe content, since any id registers, and the
 // behavior reads no target. The verdict is pending: whether the switch
-// registered them needs a read of the device that phase 2 adds.
+// registered them needs a read of the device it does not have.
 func RunMVRP(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	src := deps.AttackLeg.Addr().MAC
 

@@ -7,7 +7,7 @@
 //
 // VRRPv2 rides directly on IP (protocol 112), not UDP. gopacket's VRRPv2
 // decoder has no SerializeTo, so the body is built as raw bytes matching
-// the baseline's vrrp_frame; fixtures verify the field set rather than
+// the baseline's vrrp_frame, and fixtures verify the field set rather than
 // the byte-for-byte checksum.
 
 package fh
@@ -34,8 +34,8 @@ type vrrpFinding struct {
 // RunVRRP sends two advertisements for the target's VRID and virtual IP
 // from the attack leg's own addresses. The priority of 120 and the
 // advertisement interval are probe content. The verdict is pending:
-// whether the master yielded needs an advertisement listener that phase 2
-// adds.
+// whether the master yielded needs an advertisement listener it does not
+// have.
 func RunVRRP(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	if err := deps.Target.Need(check.FieldVRID, check.FieldVirtualIP); err != nil {
 		return check.Verdict{}, err
@@ -85,7 +85,7 @@ func craftVRRP(addr link.Addr, vrid, priority uint8, vips []net.IP) ([]byte, err
 	body[3] = byte(len(vips))
 	body[4] = 0 // auth type
 	body[5] = 1 // adver interval
-	// checksum at [6:8] — left 0; field-set verified.
+	// checksum at [6:8] — left 0, and field-set verified.
 	for i, vip := range vips {
 		copy(body[8+4*i:], vip.To4())
 	}
