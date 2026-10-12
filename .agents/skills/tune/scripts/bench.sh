@@ -3,21 +3,28 @@
 # worktree, recording wall time and the CLI's own usage report.
 #
 # bench.sh --lane NAME --cli claude|codex|agy|omp --model ID [--effort LEVEL]
+#          [--transcript] [--budget USD]
 #          --brief FILE --dir WORKTREE --out FILE.json
 #
 # The raw CLI output lands beside --out as FILE.raw. Each CLI runs with its
 # permission prompts disabled; the worktree is the isolation boundary, so
 # never point --dir at a checkout you care about. Run unsandboxed.
+#
+# --transcript (claude only) runs claude with stream-json output and adds
+# result_text, skills_listed, and skills_invoked to the result. --budget
+# (claude only) caps the lane's spend through claude's --max-budget-usd.
 
 set -uo pipefail
 
-lane='' cli='' model='' effort='' brief='' dir='' out=''
+lane='' cli='' model='' effort='' brief='' dir='' out='' budget='' transcript=''
 while (($#)); do
   case "$1" in
     --lane) lane=$2; shift 2 ;;
     --cli) cli=$2; shift 2 ;;
     --model) model=$2; shift 2 ;;
     --effort) effort=$2; shift 2 ;;
+    --transcript) transcript=1; shift ;;
+    --budget) budget=$2; shift 2 ;;
     --brief) brief=$2; shift 2 ;;
     --dir) dir=$2; shift 2 ;;
     --out) out=$2; shift 2 ;;
@@ -34,6 +41,17 @@ if [[ -n "$effort" && "$cli" == agy ]]; then
   exit 2
 fi
 
+# Same rule for the claude-only flags: a lane that silently ignored them
+# would look like a measured run.
+if [[ -n "$transcript" && "$cli" != claude ]]; then
+  echo "--transcript cannot be applied on $cli; only claude streams a transcript" >&2
+  exit 2
+fi
+if [[ -n "$budget" && "$cli" != claude ]]; then
+  echo "--budget cannot be applied on $cli; only claude takes --max-budget-usd" >&2
+  exit 2
+fi
+
 raw="${out%.json}.raw"
 prompt=$(cat "$brief")
 start=$(date +%s)
@@ -44,8 +62,11 @@ cd "$dir" || exit 2
 rm -f "$raw" "$raw.err" "$out"
 case "$cli" in
   claude)
+    format=(--output-format json)
+    [[ -n "$transcript" ]] && format=(--output-format stream-json --verbose)
     env -u CLAUDECODE -u CLAUDE_CODE_ENTRYPOINT claude -p "$prompt" --model "$model" \
-      ${effort:+--effort "$effort"} --output-format json --dangerously-skip-permissions >"$raw" 2>"$raw.err" </dev/null ;;
+      ${effort:+--effort "$effort"} ${budget:+--max-budget-usd "$budget"} "${format[@]}" \
+      --dangerously-skip-permissions >"$raw" 2>"$raw.err" </dev/null ;;
   codex)
     # A globally installed compound-engineering plugin runs its own review
     # workflow inside the lane and can stretch a run past 100 minutes, so a
@@ -68,9 +89,9 @@ esac
 code=$?
 end=$(date +%s)
 
-python3 - "$cli" "$raw" "$lane" "$model" "$effort" "$((end - start))" "$code" "$out" <<'EOF'
+python3 - "$cli" "$raw" "$lane" "$model" "$effort" "$((end - start))" "$code" "$out" "$transcript" <<'EOF'
 import json, re, sys
-cli, raw, lane, model, effort, wall, code, out = sys.argv[1:]
+cli, raw, lane, model, effort, wall, code, out, transcript = sys.argv[1:]
 usage = {"input": 0, "output": 0, "cache_read": 0, "reasoning": 0}
 cost = error = None
 # served: the model ids the CLI reports actually ran the lane, so a silent
@@ -82,6 +103,16 @@ cost = error = None
 # declining.
 served, refused, refuse_reason, denied = set(), False, None, None
 REFUSAL_TEXT = re.compile(r"could not be submitted|sensitive words|prohibited|I can't help|I cannot help|I won't", re.I)
+
+def json_line(line):
+    try:
+        return json.loads(line)
+    except json.JSONDecodeError:
+        return None
+
+# extra: keys only a --transcript lane carries, so the json path's output
+# keeps exactly its earlier keys.
+extra = {}
 
 def add(k, v):
     usage[k] += int(v or 0)
@@ -96,7 +127,26 @@ if text is None or (text == "" and int(code) != 0):
 else:
     if cli == "claude":
         try:
-            d = json.loads(text)
+            if transcript:
+                # The stream's `result` event carries the fields the json
+                # output carries, so both paths share the parsing below.
+                events = [e for e in map(json_line, text.splitlines()) if isinstance(e, dict)]
+                d = next((e for e in reversed(events) if e.get("type") == "result"), None)
+                if d is None:
+                    raise json.JSONDecodeError("no result event", text, 0)
+                extra["result_text"] = d.get("result")
+                for e in events:
+                    if e.get("type") == "system" and e.get("subtype") == "init":
+                        extra["skills_listed"] = e.get("skills")
+                extra["skills_invoked"] = [
+                    b["input"]["skill"]
+                    for e in events if e.get("type") == "assistant"
+                    for b in (e.get("message") or {}).get("content") or []
+                    if isinstance(b, dict) and b.get("type") == "tool_use"
+                    and b.get("name") == "Skill" and isinstance(b.get("input"), dict)
+                    and "skill" in b["input"]]
+            else:
+                d = json.loads(text)
             u = d.get("usage", {})
             add("input", u.get("input_tokens")); add("output", u.get("output_tokens"))
             add("cache_read", u.get("cache_read_input_tokens"))
@@ -110,8 +160,8 @@ else:
                     served.add(mu["canonicalModel"])
             if d.get("stop_reason") == "refusal" or d.get("subtype") == "refusal":
                 refused, refuse_reason = True, "stop_reason=refusal"
-            # Whether a hook's deny lands in `permission_denials` is
-            # unverified, so a denial is recorded, not graded as a refusal.
+            # A denial is recorded, never graded as a refusal: this
+            # repository's own hooks deny edits too.
             if d.get("permission_denials"):
                 denied = sorted({p.get("tool_name", "?") for p in d["permission_denials"]})
         except json.JSONDecodeError:
@@ -199,6 +249,7 @@ result = {"lane": lane, "cli": cli, "model": model, "effort": effort or None,
           "served_model": served_list or None, "served_foreign": served_foreign,
           "downgraded": downgraded, "refused": refused, "refuse_reason": refuse_reason,
           "denied_tools": denied}
+result.update(extra)
 if error is not None:
     result["error"] = error
 json.dump(result, open(out, "w"), indent=1)
