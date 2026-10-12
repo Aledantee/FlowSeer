@@ -83,8 +83,9 @@ const (
 // It is a race: between the release and the service's bind, anything on the
 // machine may take the port. The API listener no longer needs it — that
 // address is configured as port 0 and read back from Options.Bound — but the
-// bus still does, because an edge dials the cluster_urls the same file names
-// and those have to be written before the service starts.
+// bus and the edge listener still do, because an edge dials the cluster_urls
+// and the central_url the same file names, and those have to be written
+// before the service starts.
 func freePort(t *testing.T) int {
 	t.Helper()
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
