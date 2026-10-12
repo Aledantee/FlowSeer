@@ -35,8 +35,8 @@ var ErrCodeCertificate = errs.NewCode("host/certificate")
 const certificateValidity = 10 * 365 * 24 * time.Hour
 
 // Certificate is what the service serves and what an edge is provisioned to
-// accept: the same key on the API listener and the bus listener, so an edge
-// pins one digest for both.
+// accept: the same key on the API, edge, and bus listeners, so an edge pins
+// one digest for the edge listener and the bus.
 type Certificate struct {
 	// TLS is the pair the listeners serve.
 	TLS tls.Certificate

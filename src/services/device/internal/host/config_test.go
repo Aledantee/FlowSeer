@@ -34,7 +34,7 @@ edges {
 `
 
 // validConfig is the shortest file that starts a service: the three paths, the
-// two listeners, what an edge is told, and the required authentication and
+// three listeners, what an edge is told, and the required authentication and
 // authorization sections. Everything else has a default.
 const validConfig = baseConfig + `
 authentication {

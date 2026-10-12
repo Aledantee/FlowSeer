@@ -48,10 +48,11 @@ var ErrCodePanic = errs.NewCode("host/handler-panic")
 const (
 	serviceName      = "device"
 	serviceNamespace = "flowseer"
-	// shutdownGrace bounds how long the API listener waits for calls in
-	// flight before they are cut. An edge holds a dispatch stream open
-	// indefinitely, so for those this is not a deadline they respect: the
-	// grace expires and the connections are closed underneath them.
+	// shutdownGrace bounds how long each HTTP listener, API and edge, waits
+	// for calls in flight before they are cut. Dispatch streams are on the
+	// edge listener, and an edge holds one open indefinitely, so for those
+	// this is not a deadline they respect: the grace expires and the
+	// connections are closed underneath them.
 	//
 	// It does less than "let in-flight calls finish" suggests. The
 	// supervisor cancels every child in reverse declaration order and only
@@ -672,9 +673,10 @@ func serveListeners(ctx context.Context, listeners []connectListener) error {
 			results <- serveConnect(ctx, l.name, l.server, l.listener.Addr().String(), func() error {
 				// The certificate and key are already in TLSConfig;
 				// ServeTLS takes them from there when both paths are
-				// empty. It closes the listener on return, including the
-				// ErrServerClosed return from Shutdown, so nothing else
-				// has to.
+				// empty. Once it is serving it closes the listener on
+				// return, including the ErrServerClosed return from
+				// Shutdown. A return before it serves, such as a
+				// certificate that fails to load, leaves the listener open.
 				return l.server.ServeTLS(l.listener, "", "")
 			})
 		}, spawn.ReportTo(func(err error) { results <- err }))
