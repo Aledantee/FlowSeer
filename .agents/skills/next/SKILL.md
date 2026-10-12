@@ -50,10 +50,18 @@ A phase line names its parent, which is the path to hand `drive`. Take two
 
 With an argument, keep the lines whose path or title matches it.
 
+Then apply the Priority list in `GOALS.md` across the groups `land`,
+`in-progress`, `unchecked`, `replan`, and `ready`. A line that serves the
+first priority goes ahead of every line that serves none, then the second
+priority the same way, and the script's order holds within each tier. A
+`harness` flag marks the harness tier. For a named area such as
+monitoring, read the plan's Goal and count the plan when its work is part
+of that area. Say in the report which tier each candidate came from.
+
 ## 2. Check the top candidates against the tree
 
 Take the first three lines that are not `waiting` or `retire`, in the
-order printed, and
+order step 1 settled, and
 report the count of `retire` lines as clean-up owed. For each,
 before recommending it:
 
@@ -99,7 +107,8 @@ to the user as an addition to `GOALS.md`, and do not plan from it. When
 the file is missing or empty, say so and ask whether to draft it; do not
 reconstruct goals from the package layout.
 
-Order the gaps by what they unblock: a gap other goals depend on first,
+Order the gaps by the Priority list in `GOALS.md` first. Within a tier,
+order them by what they unblock: a gap other goals depend on first,
 then the one with the most evidence of intent (a direction record, a
 research dossier, a schema with no consumer).
 
