@@ -39,6 +39,10 @@ record = {
     "runlog_parent_exists": Path(os.environ.get("FLOWSEER_RUNLOG", "/nonexistent")).parent.is_dir(),
     "cwd": os.getcwd(),
     "status": git("status", "--porcelain"),
+    "parent": git("rev-parse", "HEAD^").strip(),
+    "diff_head": git("diff", "--name-only", "HEAD"),
+    "diff_parent": git("diff", "--name-only", "HEAD^"),
+    "others": git("ls-files", "--others", "--exclude-standard"),
     "subject": git("log", "-1", "--format=%s").strip(),
     "head_files": git("show", "--name-only", "--format=", "HEAD").split(),
     "evals": [str(p) for p in lane.glob(".agents/skills/*/evals")],
@@ -47,6 +51,14 @@ record = {
 }
 with open(os.environ["STUB_LOG"], "a") as stream:
     stream.write(json.dumps(record) + "\\n")
+
+mode = os.environ.get("STUB_MODE")
+if mode == "no-result":
+    Path(options["--out"]).write_text(json.dumps({"exit": 1, "error": "no result event", "refused": False, "downgraded": None, "cost_usd_reported": None, "usage": {}}))
+    sys.exit(0)
+if mode == "no-listing":
+    Path(options["--out"]).write_text(json.dumps({"result_text": "report about demo", "exit": 0, "refused": False, "downgraded": None, "cost_usd_reported": 0.1, "usage": {}}))
+    sys.exit(0)
 
 listed = sorted(p.name for p in lane.glob(".agents/skills/*"))
 if os.environ.get("STUB_LIST_ALWAYS"):
@@ -220,8 +232,14 @@ class SkillEvalTest(Fixture):
             self.assertEqual(call["evals"], [], name)
         self.assertEqual(by_lane["eval-demo-beta-current-1"]["subject"], "fixture commit")
         self.assertEqual(by_lane["eval-demo-beta-current-1"]["head_files"], ["fixture.txt"])
-        self.assertEqual(by_lane["eval-demo-alpha-current-1"]["subject"], "skill v2")
+        self.assertEqual(by_lane["eval-demo-alpha-current-1"]["subject"], "chore: add skill files")
         self.assertIsNone(by_lane["eval-demo-alpha-none-1"]["skill_text"])
+
+        for name, call in by_lane.items():
+            self.assertEqual(call["diff_head"], "", name)
+            self.assertEqual(call["others"], "", name)
+        self.assertEqual(by_lane["eval-demo-beta-current-1"]["diff_parent"], "fixture.txt\n")
+        self.assertEqual(by_lane["eval-demo-alpha-none-1"]["subject"], "skill v2")
 
         current = self.lanes / "eval-demo-alpha-current-1"
         self.assertEqual((current / ".agents/skills/demo/NEW.md").read_text(), "new\n")
@@ -234,6 +252,23 @@ class SkillEvalTest(Fixture):
         self.assertEqual(sh("git", "config", "--list", "--local", cwd=self.repo).count("sparse"), 0)
         self.assertNotIn("worktreeconfig", sh("git", "config", "--list", "--local", cwd=self.repo))
 
+    def test_a_bench_result_without_a_report_is_invalid_and_ungraded(self):
+        code, stdout, stderr = self.run_eval("--scenario", "alpha", "--variants", "current,none", env={"STUB_MODE": "no-result"})
+        self.assertEqual(code, 0, stderr)
+        for row in self.rows():
+            self.assertEqual((row["status"], row["pass"], row["checks"]), ("invalid", None, []), row)
+            self.assertIn("exit 1", row["note"])
+            self.assertIn("no result event", row["note"])
+        self.assertIn("invalid", stdout)
+
+    def test_a_none_lane_without_a_skill_listing_is_invalid(self):
+        code, _, stderr = self.run_eval("--scenario", "alpha", "--variants", "current,none", env={"STUB_MODE": "no-listing"})
+        self.assertEqual(code, 0, stderr)
+        current, none = self.rows()
+        self.assertEqual((current["status"], current["pass"]), ("ok", "2/2"))
+        self.assertEqual((none["status"], none["pass"], none["checks"]), ("invalid", None, []))
+        self.assertIn("skills_listed", none["note"])
+
     def test_parent_placeholder_and_flags_reach_bench(self):
         spec = self.repo / ".agents/skills/demo/evals/beta/scenario.json"
         spec.write_text(json.dumps({"query": "Review the work since {EVAL_PARENT}."}))
@@ -241,8 +276,8 @@ class SkillEvalTest(Fixture):
         self.assertEqual(code, 0, stderr)
         calls = {call["name"]: call for call in self.calls()}
         beta = calls["eval-demo-beta-current-1"]
-        parent = sh("git", "rev-parse", "HEAD", cwd=self.repo).strip()
-        self.assertEqual(beta["brief"], f"Review the work since {parent}.")
+        self.assertEqual(beta["brief"], f"Review the work since {beta['parent']}.")
+        self.assertNotEqual(beta["parent"], sh("git", "rev-parse", "HEAD", cwd=self.repo).strip())
         self.assertEqual(calls["eval-demo-alpha-current-1"]["brief"], "Do the thing.")
         argv = calls["eval-demo-alpha-current-1"]["argv"]
         for flag, value in (("--cli", "claude"), ("--model", "claude-opus-5-5"), ("--budget", "2")):
