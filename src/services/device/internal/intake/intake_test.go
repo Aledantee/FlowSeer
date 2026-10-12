@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -23,6 +24,7 @@ import (
 	ingestv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/ingest/v1"
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
+	rawwindowv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/rawwindow/v1"
 	"go.aledante.io/FlowSeer/src/common/secret"
 	"go.aledante.io/FlowSeer/src/common/service"
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
@@ -540,6 +542,66 @@ func TestRawEvidenceIsMovedToTheEvidenceStream(t *testing.T) {
 	}
 	if got.GetRaw() != nil {
 		t.Fatal("typed record retained raw evidence")
+	}
+}
+
+func TestWindowEvidenceKeepsItsRefsAndTheTypedRecordKeepsNone(t *testing.T) {
+	system := newTestSystem(t, Config{})
+	envelope, _ := validEnvelope(t, testEdge, testDevice, testRecordID, false)
+	windows := []string{"0198a3c0-0000-7000-8000-000000000a01", "0198a3c0-0000-7000-8000-000000000a02"}
+	refs := make([]*rawwindowv1.RawWindowLocalRef, len(windows))
+	for i, id := range windows {
+		refs[i] = rawwindowv1.RawWindowLocalRef_builder{Id: proto.String(id)}.Build()
+	}
+	envelope.SetRaw(ingestv1.RawEvidence_builder{
+		Data:    []byte("window bytes"),
+		Reason:  ingestv1.RawReason_RAW_REASON_WINDOW.Enum(),
+		Windows: refs,
+	}.Build())
+	if err := validateEnvelope(envelope); err != nil {
+		t.Fatalf("validate window envelope: %v", err)
+	}
+	data, err := proto.Marshal(envelope)
+	if err != nil {
+		t.Fatalf("marshal window envelope: %v", err)
+	}
+	if err := system.leaf.Publish(context.Background(), system.leaf.Subject("ingest.syslog"), data, ""); err != nil {
+		t.Fatalf("publish window envelope: %v", err)
+	}
+
+	typed, evidence := centralStreams(t, system.hub)
+	waitFor(t, "typed and evidence records", func() bool {
+		typedInfo, typedErr := typed.Info(context.Background())
+		evidenceInfo, evidenceErr := evidence.Info(context.Background())
+		return typedErr == nil && evidenceErr == nil && typedInfo.State.Msgs == 1 && evidenceInfo.State.Msgs == 1
+	})
+
+	evidenceMsg, err := evidence.GetLastMsgForSubject(context.Background(), edgebus.EvidenceSubject(testTenant, edgebus.IngestRecordTypeSyslog, testDevice))
+	if err != nil {
+		t.Fatalf("read evidence: %v", err)
+	}
+	var kept ingestv1.IngestRecord
+	if err := proto.Unmarshal(evidenceMsg.Data, &kept); err != nil {
+		t.Fatalf("decode evidence: %v", err)
+	}
+	var got []string
+	for _, ref := range kept.GetRaw().GetWindows() {
+		got = append(got, ref.GetId())
+	}
+	if !slices.Equal(got, windows) {
+		t.Errorf("evidence window refs = %v, want %v", got, windows)
+	}
+
+	typedMsg, err := typed.GetLastMsgForSubject(context.Background(), edgebus.CentralIngestSubject(testTenant, edgebus.IngestRecordTypeSyslog, testDevice))
+	if err != nil {
+		t.Fatalf("read typed record: %v", err)
+	}
+	var published ingestv1.IngestRecord
+	if err := proto.Unmarshal(typedMsg.Data, &published); err != nil {
+		t.Fatalf("decode typed record: %v", err)
+	}
+	if published.HasRaw() {
+		t.Errorf("typed record kept raw evidence with refs %v, want none", published.GetRaw().GetWindows())
 	}
 }
 

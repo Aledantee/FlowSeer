@@ -232,3 +232,48 @@ evaluates whether to attach the raw payload. The first 20 failures per device
 per minute retain raw bytes under reason `RAW_REASON_PARSE_FAILURE`, and 1 in
 100 thereafter, recording the suppressed count. Oversized messages beyond 65,527
 bytes are truncated and marked with `message_truncated`.
+
+## Raw windows
+
+An operator can open a raw window for a device, an integration, or the `syslog`
+source. The agent keeps the original bytes only while a window it holds permits
+them, and central learns what happened through reports, not through the
+connection.
+
+The agent advances a durable boot generation (`raw-window-epoch.textproto` in
+its state directory) before it connects, then draws a UUID process epoch. One
+`rawwindow.Controller` lives for the process, outside the module attempts the
+supervisor restarts. It opens the `RawWindowEdgeService.Subscribe` stream with
+the generation, epoch and enabled sources, applies the controls central sends,
+and reports cumulative usage through `Report` on a five second tick and when a
+window ends. A generation that cannot advance disables raw windows for the
+process and logs `flowseer.edge.raw_window.disabled`. The rest of the agent runs.
+
+```mermaid
+sequenceDiagram
+    participant C as Central
+    participant R as Controller
+    participant S as Syslog source
+    C->>R: open control (revision, immutable config)
+    R-->>C: report ACTIVE
+    S->>R: Select(device, integration, source, bytes)
+    R-->>S: window ids that paid
+    S->>S: WINDOW evidence, or parse-failure policy when none paid
+```
+
+The source asks the controller for every resolved record, before the
+parse-failure policy. A window that paid keeps the payload as `RAW_REASON_WINDOW`
+naming the sorted distinct window ids and carrying no suppression count. Every
+matching window with room is charged the record's original length, once, so
+overlapping windows keep one copy and account independently. A window whose
+remainder cannot hold the whole record ends without truncating it. The envelope
+is built once per record, so a publish retry reuses its debit.
+
+Expiry is checked per record against two clocks: the wall-clock expiry in the
+control, read through a nondecreasing high-water mark, and an elapsed deadline
+fixed when the window is first admitted and never longer than an hour. A
+repeated start reports the current state and renews neither. A close leaves a
+tombstone through the original expiry, so a delayed start cannot reopen it. A
+restart starts with no windows: central ends the old epoch's windows, and
+collection resumes only through a new open. Intake moves `WINDOW` evidence to
+the evidence stream with its refs and republishes the typed record without it.
