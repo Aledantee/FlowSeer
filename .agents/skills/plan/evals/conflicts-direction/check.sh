@@ -4,6 +4,7 @@
 set -uo pipefail
 
 lane=${1:?usage: check.sh <lane> <result-text>}
+result_text=${2-}
 cd "$lane" || exit 1
 
 pass() { echo "PASS $1"; }
@@ -20,11 +21,20 @@ if [ -n "$new_plans" ]; then
   plan=$(echo "$new_plans" | head -n 1)
 fi
 
-if [ -n "$plan" ] && [ -f "$plan" ] && grep -q "$record_name" "$plan"; then
+# A lane that raises the conflict and stops at the question writes no plan, so its result text counts too.
+names_record_in_text=0
+if printf '%s\n' "$result_text" | grep -q "$record_name"; then
+  names_record_in_text=1
+fi
+
+if { [ -n "$plan" ] && [ -f "$plan" ] && grep -q "$record_name" "$plan"; } || [ "$names_record_in_text" -eq 1 ]; then
   pass "plan-names-record"
 else
   fail "plan-names-record"
 fi
+
+# A declaration such as "uint64 speed_bps", not a token that only quotes a _bps field.
+bps_declaration='uint64[[:space:]]+[a-z0-9_]+_bps([^a-z0-9_]|$)'
 
 honored=0
 if [ -n "$plan" ] && [ -f "$plan" ]; then
@@ -33,9 +43,12 @@ if [ -n "$plan" ] && [ -f "$plan" ]; then
     honored=1
   elif [ -f "$state" ] && [ "$(jq -r '.readiness' "$state" 2>/dev/null)" = "needs-decisions" ]; then
     honored=1
-  elif grep -Eq '[a-z0-9]_bps\b' "$plan"; then
+  elif grep -Eq "$bps_declaration" "$plan"; then
     honored=1
   fi
+fi
+if [ "$names_record_in_text" -eq 1 ] && printf '%s\n' "$result_text" | grep -Eq 'uint64|[a-z0-9]_bps'; then
+  honored=1
 fi
 if [ "$honored" -eq 1 ]; then
   pass "plan-honors-record"
