@@ -291,3 +291,13 @@ Waves: U1 | U2 | U3 U4 | U5 | U6
 - [ ] Package documentation and accepted direction amendments land with code.
 - [ ] Record the six-unit implementation through `plan record implemented`.
 - [ ] Unit and requirement labels appear only in this plan.
+
+## Review gaps
+
+- src/edge/agent/internal/rawwindow/controller_test.go:256: mutation `case !now.Before(w.expiresAt):` -> `case now.After(w.expiresAt):` survives because the elapsed deadline ends the window at the same instant; fails: a wall-clock expiry reached while the elapsed clock lags; class: false test
+- src/services/device/internal/rawwindowapi/operator_service_test.go:501: the title claims notification only on change, but a no-op `CloseRawWindow` notifies; fails: an idempotent close waking the relay; class: false test
+- src/services/device/internal/rawwindowapi/store.go:221: `fit` runs only on Open, so Report, Close, Subscribe, and expiry writes can exceed the 256 KiB bound by a few KiB; fails: an Open near the bound followed by reports on 16 live rows; class: hardening
+- spec/proto/flowseer/store/device/v1/raw_window_record.proto:55: "at most 64 are terminal" is wrong, since `prune` caps 64 expired rows; fails: a reader trusting 64 terminal rows; class: convention
+- src/services/device/internal/rawwindowapi/errors.go:65: claims the cross-service consistency check reads `ClientErrors`, but `connecterr/consistency_test.go` does not list it; fails: an unmapped code goes unnoticed; class: convention
+- spec/proto/flowseer/event/operator/v1/operator_action_event.proto:137: describes a close of an unknown window, which the interceptor never records, so a denied close's trail does not name the window; fails: an auditor looking for a denied close's window; class: convention
+- spec/proto/flowseer/store/agent/v1/raw_window_epoch.proto:19: `process_epoch` has no writer; fails: an operator reading the file never sees an epoch; class: convention
