@@ -37,7 +37,7 @@ tasks:
   test:
     desc: 'Run tests with -race (mock leg only; real-link test is tagged out)'
     cmds:
-      - CGO_ENABLED=0 go test -race {{.GOFLAGS}} ./...
+      - go test -race {{.GOFLAGS}} ./...
 
   test-linktest:
     desc: 'Run the opt-in real-link round-trip test (linux + linktest tag + NETPEN_LINK_IFACE)'

@@ -136,6 +136,24 @@ type Verdict struct {
 	Observed time.Duration
 }
 
+// Pending is the verdict of a check with no observable yet; detail names
+// the observable it lacks.
+func Pending(detail string) Verdict {
+	return Verdict{Kind: findings.VerdictPending, Detail: detail}
+}
+
+// Confirmed is the verdict of a check whose observable showed the attack
+// taking effect within observed.
+func Confirmed(detail string, observed time.Duration) Verdict {
+	return Verdict{Kind: findings.VerdictConfirmed, Detail: detail, Observed: observed}
+}
+
+// Resisted is the verdict of a check whose observable stayed quiet for the
+// whole of observed.
+func Resisted(detail string, observed time.Duration) Verdict {
+	return Verdict{Kind: findings.VerdictResisted, Detail: detail, Observed: observed}
+}
+
 // Emitter is the typed sink a behavior writes records through. The runner
 // supplies one per attack that stamps the attack and mode. An Emitter
 // supports one goroutine, the behavior's own; a behavior that spawns

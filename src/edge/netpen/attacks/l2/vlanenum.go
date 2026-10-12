@@ -12,14 +12,15 @@ import (
 	"context"
 	"encoding/json"
 	"sort"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gopacket/gopacket"
 	"github.com/gopacket/gopacket/layers"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
-
-	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
+	"go.aledante.io/FlowSeer/src/edge/netpen/check"
 )
 
 type vlanEnumFinding struct {
@@ -29,15 +30,17 @@ type vlanEnumFinding struct {
 }
 
 // RunVlanEnum passively enumerates VLANs from tagged frames on the attack
-// leg. It reports the observed VLANs after 500 ms without a received frame
-// or when the receive channel closes. Cancellation returns ctx.Err(); a
+// leg; it reads no target. It reports the observed VLANs after 500 ms
+// without a received frame or when the receive channel closes, and
+// confirms the inventory as its verdict. Cancellation returns ctx.Err(); a
 // terminal receive error is wrapped and no partial finding is emitted.
-func RunVlanEnum(ctx context.Context, deps runner.Deps) error {
+func RunVlanEnum(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	const idleTimeout = 500 * time.Millisecond
 
 	if err := ctx.Err(); err != nil {
-		return err
+		return check.Verdict{}, err
 	}
+	started := time.Now()
 
 	rx := deps.AttackLeg.Receive(ctx)
 	vlanSet := make(map[uint16]bool)
@@ -49,7 +52,7 @@ func RunVlanEnum(ctx context.Context, deps runner.Deps) error {
 		case <-timer.C:
 			goto done
 		case <-ctx.Done():
-			return ctx.Err()
+			return check.Verdict{}, ctx.Err()
 		case frame, ok := <-rx:
 			if !ok {
 				goto done
@@ -60,9 +63,9 @@ func RunVlanEnum(ctx context.Context, deps runner.Deps) error {
 			timer.Reset(idleTimeout)
 			if frame.Err != nil {
 				if err := ctx.Err(); err != nil {
-					return err
+					return check.Verdict{}, err
 				}
-				return errs.Wrap(frame.Err, "vlanenum: receive")
+				return check.Verdict{}, errs.Wrap(frame.Err, "vlanenum: receive")
 			}
 			pkt := gopacket.NewPacket(frame.Data, layers.LayerTypeEthernet, gopacket.Lazy)
 			dot1q := pkt.Layer(layers.LayerTypeDot1Q)
@@ -79,7 +82,7 @@ func RunVlanEnum(ctx context.Context, deps runner.Deps) error {
 
 done:
 	if err := ctx.Err(); err != nil {
-		return err
+		return check.Verdict{}, err
 	}
 
 	vlans := make([]uint16, 0, len(vlanSet))
@@ -89,7 +92,7 @@ done:
 	sort.Slice(vlans, func(i, j int) bool { return vlans[i] < vlans[j] })
 
 	if len(vlans) == 0 {
-		return errs.Msg("vlanenum: no tagged frames observed")
+		return check.Verdict{}, errs.Msg("vlanenum: no tagged frames observed")
 	}
 
 	detail, _ := json.Marshal(vlanEnumFinding{
@@ -99,5 +102,9 @@ done:
 	})
 	deps.Emitter.Finding("vlan", detail)
 
-	return nil
+	ids := make([]string, len(vlans))
+	for i, v := range vlans {
+		ids[i] = strconv.Itoa(int(v))
+	}
+	return check.Confirmed("VLANs "+strings.Join(ids, ", "), time.Since(started)), nil
 }

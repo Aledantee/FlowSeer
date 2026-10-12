@@ -12,6 +12,7 @@ package ip6
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net"
 	"time"
 
@@ -19,8 +20,7 @@ import (
 	"github.com/gopacket/gopacket/layers"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
-
-	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
+	"go.aledante.io/FlowSeer/src/edge/netpen/check"
 )
 
 type raGuardFinding struct {
@@ -31,43 +31,50 @@ type raGuardFinding struct {
 	Attributed string `json:"attributed"`
 }
 
-// RunRAGuard sends a forged RA from the attack leg and observes the
-// watch leg for traversal evidence (the watch-leg rule). The behavior
-// records whether the forged RA traversed the fabric.
-// Cancellation while observing returns ctx.Err(); terminal receive errors are wrapped.
-func RunRAGuard(ctx context.Context, deps runner.Deps) error {
-	src := srcMAC()
+// RunRAGuard sends one forged RA for the target's prefix from the attack
+// leg and observes the watch leg for the observation window. A forged RA
+// seen on the watch leg confirms traversal; an empty window is resisted;
+// without a watch leg the verdict is pending. Cancellation while observing
+// returns ctx.Err(); terminal receive errors are wrapped.
+func RunRAGuard(ctx context.Context, deps check.Deps) (check.Verdict, error) {
+	if err := deps.Target.Need(check.FieldPrefix6); err != nil {
+		return check.Verdict{}, err
+	}
+	src := deps.AttackLeg.Addr().MAC
 
 	// Craft and send the forged RA (same as rogue RA).
-	pkt, err := craftRogueRA(src)
+	pkt, err := craftRogueRA(src, deps.Target.Prefix6)
 	if err != nil {
-		return errs.Wrap(err, "raguard: craft RA")
+		return check.Verdict{}, errs.Wrap(err, "raguard: craft RA")
 	}
 	if err := deps.AttackLeg.Send(ctx, pkt); err != nil {
-		return errs.Wrap(err, "raguard: send RA")
+		return check.Verdict{}, errs.Wrap(err, "raguard: send RA")
 	}
 
 	sent := 1
 	observed := 0
 	attackAttributed := 0
 	ambientAttributed := 0
+	started := time.Now()
 
-	// Observe the watch leg for traversal evidence. The observation
-	// is bounded by a short timeout: if no frame arrives within the
-	// window, the behavior records what it observed and exits.
+	// Observe the watch leg for traversal evidence until the window ends,
+	// the frames sent plus one ambient frame arrived, or the receive
+	// closed.
 	if deps.WatchLeg != nil {
+		window := time.NewTimer(deps.Observe)
+		defer window.Stop()
 		ch := deps.WatchLeg.Receive(ctx)
 		for range sent + 1 { // sent + possible ambient
 			select {
 			case frame, ok := <-ch:
 				if err := ctx.Err(); err != nil {
-					return err
+					return check.Verdict{}, err
 				}
 				if !ok {
 					goto done
 				}
 				if frame.Err != nil {
-					return errs.Wrap(frame.Err, "raguard: receive observation")
+					return check.Verdict{}, errs.Wrap(frame.Err, "raguard: receive observation")
 				}
 				observed++
 				if isRAGuardFrame(frame.Data, src) {
@@ -75,17 +82,18 @@ func RunRAGuard(ctx context.Context, deps runner.Deps) error {
 				} else {
 					ambientAttributed++
 				}
-			case <-time.After(100 * time.Millisecond):
+			case <-window.C:
 				goto done
 			case <-ctx.Done():
-				return ctx.Err()
+				return check.Verdict{}, ctx.Err()
 			}
 		}
 	}
 done:
 	if err := ctx.Err(); err != nil {
-		return err
+		return check.Verdict{}, err
 	}
+	elapsed := time.Since(started)
 
 	traversal := "not-forwarded"
 	if attackAttributed > 0 {
@@ -107,7 +115,14 @@ done:
 	})
 	deps.Emitter.Finding("ra", detail)
 
-	return nil
+	switch {
+	case deps.WatchLeg == nil:
+		return check.Pending("no observable: traversal needs a watch leg"), nil
+	case attackAttributed > 0:
+		return check.Confirmed(fmt.Sprintf("%d forged RA crossed to the watch leg", attackAttributed), elapsed), nil
+	default:
+		return check.Resisted(fmt.Sprintf("0 forged RA in %s", elapsed.Round(time.Millisecond)), elapsed), nil
+	}
 }
 
 // isRAGuardFrame checks whether a frame's Ethernet source MAC matches

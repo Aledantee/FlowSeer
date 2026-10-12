@@ -1,11 +1,15 @@
-// Package l2 provides L2 switching behaviors for the netpen runner. Register
-// them with [Behaviors]. Callers must supply dependencies through the runner
-// so catalog gates are evaluated before transmission.
+// Package l2 provides L2 switching behaviors for the netpen runner.
+// [Behaviors] lists them for the shipped catalog; the runner supplies the
+// legs, the target, the emitter, and the teardown handle and applies the
+// catalog gates. Each behavior reads the VLANs, domain, and victim it acts
+// on from the target and its own MAC from the attack leg; a value that only
+// has to be well-formed, such as a flood frame's stamped MAC or an MVRP
+// VLAN id, stays a constant in the behavior.
 //
-// Active behaviors send bounded sequences with fixed fixture addresses and
-// VLANs. Their findings describe attempted operations, without confirming a
-// peer's state. Only DTP sends a restore frame; other registered restore
-// callbacks perform no recovery. VLAN enumeration passively reads the leg.
+// Active behaviors send bounded sequences. Their findings describe
+// attempted operations, without confirming a peer's state. Only DTP sends
+// a restore frame; other armed restore steps perform no recovery. VLAN
+// enumeration passively reads the leg.
 package l2
 
 import (

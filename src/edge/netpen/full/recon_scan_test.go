@@ -22,6 +22,7 @@ import (
 	"github.com/gopacket/gopacket/layers"
 	"github.com/gopacket/gopacket/pcapgo"
 
+	"go.aledante.io/FlowSeer/src/edge/netpen/check"
 	"go.aledante.io/FlowSeer/src/edge/netpen/findings"
 	"go.aledante.io/FlowSeer/src/edge/netpen/link"
 )
@@ -706,13 +707,14 @@ func TestDefaultRecon_FullOrchestration(t *testing.T) {
 		Duration:  50 * time.Millisecond,
 		ScanTime:  200 * time.Millisecond,
 		SweepNet:  "10.0.0.0/30",
-		Behaviors: allBehaviors(),
+		Catalog:   allCatalog(),
+		MaxImpact: check.ImpactTemporary,
 		// No ReconFn: uses defaultRecon (production path).
 	})
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	if err := f.Run(ctx); err != nil {
+	if err := runFull(ctx, f); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
 

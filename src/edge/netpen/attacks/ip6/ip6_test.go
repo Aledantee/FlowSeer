@@ -1,32 +1,70 @@
 // ip6_test.go tests the DHCP/IPv6 attack behaviors against fixture-
-// mirrored TX sequences: byte-for-byte where deterministic,
-// field-set where randomized. Tests use the in-memory [testtest.Leg]
-// harness (pcap-fed RX + recorded TX) and exercise each behavior
-// through the runner, which creates the Stream, Teardown, and Deps.
-// Durability duties, finding emission, decay bounds, and the
-// watch-leg rule are asserted via the recorded TX and findings.
+// mirrored TX sequences: byte-for-byte where deterministic, field-set
+// where randomized. Tests use the in-memory [testtest.Leg] harness
+// (pcap-fed RX + recorded TX) and exercise each behavior through the
+// runner, which creates the Stream and Deps. The target and the leg's
+// addresses are the fixture's values, so the frames the harvest generator
+// pinned still come out byte for byte.
 
 package ip6_test
 
 import (
 	"context"
 	"encoding/json"
+	"net"
+	"strings"
 	"testing"
+	"time"
 
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/ip6"
 	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/testtest"
 	"go.aledante.io/FlowSeer/src/edge/netpen/catalog"
+	"go.aledante.io/FlowSeer/src/edge/netpen/check"
 	"go.aledante.io/FlowSeer/src/edge/netpen/findings"
+	"go.aledante.io/FlowSeer/src/edge/netpen/link"
 	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
 )
 
-// runOne runs a single behavior through the runner and returns the
-// findings and the run error. The stream is drained concurrently with
-// Run.
+// fixtureMAC is the attacker MAC every fixture frame carries as its source.
+var fixtureMAC = net.HardwareAddr{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
+
+// fixtureTarget builds the target the fixtures were harvested against: the
+// DHCPv4 client and the address offered to it, the IPv6 victim the
+// neighbor-discovery fixtures name, the rogue DHCPv6 server address, and
+// the advertised prefix.
+func fixtureTarget() check.Target {
+	_, prefix6, _ := net.ParseCIDR("fd00::/64")
+	clientMAC := net.HardwareAddr{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x01}
+	return check.Target{
+		Victim:  check.Host{IP: net.IPv4(172, 16, 0, 10), MAC: clientMAC},
+		OfferIP: net.IPv4(172, 16, 0, 100),
+		Victim6: check.Host{IP: net.ParseIP("fd00::10"), MAC: clientMAC},
+		Server6: check.Host{IP: net.ParseIP("fd00::1")},
+		Prefix6: prefix6,
+	}
+}
+
+// fixtureLeg returns a test leg whose own addresses are the fixture MAC,
+// the rogue DHCPv4 server's IPv4, and the given IPv6.
+func fixtureLeg(t *testing.T, ipv6 net.IP) *testtest.Leg {
+	t.Helper()
+	leg := testtest.New()
+	t.Cleanup(func() { _ = leg.Close() })
+	leg.SetAddr(link.Addr{MAC: fixtureMAC, IPv4: net.IPv4(172, 16, 0, 99).To4(), IPv6: ipv6})
+	return leg
+}
+
+// runOne runs the attacks through the runner over the family's own
+// catalog and returns the findings and the run error. The stream is drained
+// concurrently with Run.
 func runOne(t *testing.T, opts runner.Options) ([]findings.Record, error) {
 	t.Helper()
-	if opts.Behaviors == nil {
-		opts.Behaviors = ip6.Behaviors()
+	if len(opts.Catalog.Entries()) == 0 {
+		opts.Catalog = catalog.MustNew(ip6.Behaviors()...)
+	}
+	if opts.MaxImpact == "" {
+		opts.MaxImpact = check.ImpactTemporary
 	}
 	r := runner.NewRunner(opts)
 
@@ -45,28 +83,21 @@ func runOne(t *testing.T, opts runner.Options) ([]findings.Record, error) {
 	return recs, err
 }
 
-// runSingle is a convenience for running one attack on a single leg.
-//
-//nolint:unparam // mode mirrors fh/l2's shape for catalog parity.
-func runSingle(t *testing.T, leg *testtest.Leg, name, mode string, ack ...runner.AttackRef) ([]findings.Record, error) {
+// runSingle runs one attack on a single leg against the given target.
+func runSingle(t *testing.T, leg *testtest.Leg, name string, target check.Target) ([]findings.Record, error) {
 	t.Helper()
-	opts := runner.Options{
+	return runOne(t, runner.Options{
 		AttackLeg: leg,
-		Attacks:   []runner.AttackRef{{Name: name, Mode: mode}},
-		Behaviors: ip6.Behaviors(),
-	}
-	if len(ack) > 0 {
-		opts.Acknowledged = ack
-	}
-	return runOne(t, opts)
+		Attacks:   []runner.AttackRef{{Name: name}},
+		Target:    target,
+	})
 }
 
-//nolint:unparam // mode mirrors fh/l2's shape for catalog parity.
-func mustEntry(t *testing.T, name, mode string) catalog.Entry {
+func mustEntry(t *testing.T, name string) check.Entry {
 	t.Helper()
-	e, ok := runner.ResolveEntry(name, mode)
+	e, _, ok := catalog.MustNew(ip6.Behaviors()...).Lookup(name, "")
 	if !ok {
-		t.Fatalf("catalog entry not found: %s/%s", name, mode)
+		t.Fatalf("catalog entry not found: %s", name)
 	}
 	return e
 }
@@ -82,16 +113,25 @@ func findFinding(t *testing.T, recs []findings.Record) *findings.Finding {
 	return nil
 }
 
+// verdictOf returns the attack's verdict record payload, or nil.
+func verdictOf(recs []findings.Record) *findings.Verdict {
+	for i := range recs {
+		if recs[i].Kind == findings.KindVerdict {
+			return recs[i].Verdict
+		}
+	}
+	return nil
+}
+
 func fixturePackets(t *testing.T, name string) [][]byte {
 	t.Helper()
 	return testtest.ReadPcap(t, testtest.FixturePath(t, "ip6/"+name))
 }
 
 func TestDHCPStarve_FixturePins(t *testing.T) {
-	leg := testtest.New()
-	defer func() { _ = leg.Close() }()
+	leg := fixtureLeg(t, nil)
 
-	recs, err := runSingle(t, leg, "dhcpstarve", "")
+	recs, err := runSingle(t, leg, "dhcpstarve", fixtureTarget())
 	if err != nil {
 		t.Fatalf("run dhcpstarve: %v", err)
 	}
@@ -103,22 +143,20 @@ func TestDHCPStarve_FixturePins(t *testing.T) {
 
 	fixtures := fixturePackets(t, "dhcpstarve.pcap")
 	for i, frame := range tx {
-		// DHCP xids and chaddr are randomized fields; the
-		// behavior uses the same fixed values as the harvest for
-		// byte-stable fixtures.
 		testtest.AssertBytesEqual(t, "DHCP starve frame", frame, fixtures[i])
 	}
 
-	if len(recs) == 0 {
-		t.Fatal("no findings emitted")
+	if findFinding(t, recs) == nil {
+		t.Fatal("no finding emitted")
 	}
 }
 
+// TestRogueDHCP_FixturePins pins the OFFER and ACK against the fixture and
+// that the finding carries no credential fields.
 func TestRogueDHCP_FixturePins(t *testing.T) {
-	leg := testtest.New()
-	defer func() { _ = leg.Close() }()
+	leg := fixtureLeg(t, nil)
 
-	recs, err := runSingle(t, leg, "roguedhcp", "")
+	recs, err := runSingle(t, leg, "roguedhcp", fixtureTarget())
 	if err != nil {
 		t.Fatalf("run roguedhcp: %v", err)
 	}
@@ -132,40 +170,60 @@ func TestRogueDHCP_FixturePins(t *testing.T) {
 	testtest.AssertBytesEqual(t, "Rogue DHCP OFFER", tx[0], fixtures[0])
 	testtest.AssertBytesEqual(t, "Rogue DHCP ACK", tx[1], fixtures[1])
 
-	if len(recs) == 0 {
-		t.Fatal("no findings emitted")
+	f := findFinding(t, recs)
+	if f == nil {
+		t.Fatal("no finding emitted")
 	}
+	var detail map[string]any
+	if err := json.Unmarshal(f.Detail, &detail); err != nil {
+		t.Fatalf("unmarshal finding: %v", err)
+	}
+	for _, field := range []string{"protocol", "length"} {
+		if _, ok := detail[field]; ok {
+			t.Errorf("finding carries %q; the behavior captures no credential", field)
+		}
+	}
+	if detail["server_id"] != "172.16.0.99" {
+		t.Errorf("server_id = %v, want the leg's own IPv4", detail["server_id"])
+	}
+}
 
-	// Verify the finding carries secret-material metadata (protocol +
-	// length, not the value).
-	for _, rec := range recs {
-		if rec.Kind == findings.KindFinding && rec.Finding != nil {
-			var detail struct {
-				Protocol string `json:"protocol"`
-				Length   int    `json:"length"`
-			}
-			if err := json.Unmarshal(rec.Finding.Detail, &detail); err != nil {
-				continue
-			}
-			if detail.Protocol != "dhcp" {
-				t.Errorf("secret protocol: got %q, want %q", detail.Protocol, "dhcp")
-			}
-			if detail.Length <= 0 {
-				t.Errorf("secret length: got %d, want > 0", detail.Length)
-			}
+// TestEmptyTargetIsSkipped pins the one-round contract on a real behavior:
+// with no target the rogue server sends nothing, the runner records a
+// skipped verdict naming the missing fields, and the run returns the
+// exit-2 error.
+func TestEmptyTargetIsSkipped(t *testing.T) {
+	leg := fixtureLeg(t, nil)
+	recs, err := runSingle(t, leg, "roguedhcp", check.Target{})
+	if code, ok := errs.CodeOf(err); !ok || code != check.ErrCodeTargetMissing {
+		t.Fatalf("run roguedhcp with no target = %v, want %q", err, check.ErrCodeTargetMissing)
+	}
+	if errs.ExitCode(err) != 2 {
+		t.Errorf("exit code = %d, want 2", errs.ExitCode(err))
+	}
+	if leg.SendCount() != 0 {
+		t.Errorf("sends = %d, want 0", leg.SendCount())
+	}
+	v := verdictOf(recs)
+	if v == nil || v.Kind != findings.VerdictSkipped {
+		t.Fatalf("verdict = %+v, want skipped", v)
+	}
+	for _, field := range []string{"victim", "victim-mac", "offer-ip"} {
+		if !strings.Contains(v.Detail, field) {
+			t.Errorf("verdict detail %q does not name %s", v.Detail, field)
 		}
 	}
 }
 
 func TestRogueDHCPv6_SolicitAdvertiseCycle(t *testing.T) {
-	leg := testtest.New()
-	defer func() { _ = leg.Close() }()
+	leg := fixtureLeg(t, nil)
 
-	// Feed the SOLICIT frame as RX so the behavior can decode it.
 	fixtures := fixturePackets(t, "roguedhcp6.pcap")
 	leg.PushRX(fixtures[0]) // SOLICIT
 
-	recs, err := runSingle(t, leg, "roguedhcp6", "")
+	target := fixtureTarget()
+	target.Victim6.IP = net.ParseIP("fd00::100")
+	recs, err := runSingle(t, leg, "roguedhcp6", target)
 	if err != nil {
 		t.Fatalf("run roguedhcp6: %v", err)
 	}
@@ -174,16 +232,12 @@ func TestRogueDHCPv6_SolicitAdvertiseCycle(t *testing.T) {
 	if len(tx) != 1 {
 		t.Fatalf("TX count: got %d, want 1 (advertise)", len(tx))
 	}
-
-	// Verify the ADVERTISE matches the fixture.
 	testtest.AssertBytesEqual(t, "Rogue DHCPv6 ADVERTISE", tx[0], fixtures[1])
 
-	// Verify the finding carries the decay note.
 	f := findFinding(t, recs)
 	if f == nil {
 		t.Fatal("no finding emitted")
 	}
-
 	var detail struct {
 		Action    string `json:"action"`
 		DecayNote string `json:"decay_note"`
@@ -200,10 +254,9 @@ func TestRogueDHCPv6_SolicitAdvertiseCycle(t *testing.T) {
 }
 
 func TestNDPSpoof_FixturePins(t *testing.T) {
-	leg := testtest.New()
-	defer func() { _ = leg.Close() }()
+	leg := fixtureLeg(t, net.ParseIP("fd00::999"))
 
-	recs, err := runSingle(t, leg, "ndpspoof", "")
+	recs, err := runSingle(t, leg, "ndpspoof", fixtureTarget())
 	if err != nil {
 		t.Fatalf("run ndpspoof: %v", err)
 	}
@@ -213,20 +266,20 @@ func TestNDPSpoof_FixturePins(t *testing.T) {
 		t.Fatalf("TX count: got %d, want 1", len(tx))
 	}
 
-	// The poison answer matches the reference fixture's fields.
 	fixtures := fixturePackets(t, "ndpspoof.pcap")
 	testtest.AssertBytesEqual(t, "NDP spoof NA", tx[0], fixtures[0])
 
-	if len(recs) == 0 {
-		t.Fatal("no findings emitted")
+	if findFinding(t, recs) == nil {
+		t.Fatal("no finding emitted")
 	}
 }
 
 func TestDADDOS_NoDefense_AttackProceeds(t *testing.T) {
-	leg := testtest.New()
-	defer func() { _ = leg.Close() }()
+	leg := fixtureLeg(t, nil)
+	target := fixtureTarget()
+	target.Victim6.IP = net.ParseIP("fd00::dead")
 
-	recs, err := runSingle(t, leg, "daddos", "")
+	recs, err := runSingle(t, leg, "daddos", target)
 	if err != nil {
 		t.Fatalf("run daddos: %v", err)
 	}
@@ -236,16 +289,13 @@ func TestDADDOS_NoDefense_AttackProceeds(t *testing.T) {
 		t.Fatalf("TX count: got %d, want 1", len(tx))
 	}
 
-	// Verify the DAD NS matches the fixture.
 	fixtures := fixturePackets(t, "daddos.pcap")
 	testtest.AssertBytesEqual(t, "DAD NS", tx[0], fixtures[0])
 
-	// The finding should report not resisted (no defense observed).
 	f := findFinding(t, recs)
 	if f == nil {
 		t.Fatal("no finding emitted")
 	}
-
 	var detail struct {
 		Resisted bool `json:"resisted"`
 	}
@@ -258,15 +308,14 @@ func TestDADDOS_NoDefense_AttackProceeds(t *testing.T) {
 }
 
 func TestDADDOS_HostCompletesDAD_ReportsResisted(t *testing.T) {
-	leg := testtest.New()
-	defer func() { _ = leg.Close() }()
+	leg := fixtureLeg(t, nil)
+	target := fixtureTarget()
+	target.Victim6.IP = net.ParseIP("fd00::dead")
 
-	// Feed the defending NA from the legitimate owner (the host
-	// completed DAD before the attack window).
 	fixtures := fixturePackets(t, "daddos_resisted.pcap")
 	leg.PushRX(fixtures[0]) // defending NA
 
-	recs, err := runSingle(t, leg, "daddos", "")
+	recs, err := runSingle(t, leg, "daddos", target)
 	if err != nil {
 		t.Fatalf("run daddos: %v", err)
 	}
@@ -276,13 +325,10 @@ func TestDADDOS_HostCompletesDAD_ReportsResisted(t *testing.T) {
 		t.Fatalf("TX count: got %d, want 1", len(tx))
 	}
 
-	// The finding should report resisted (the host completed DAD
-	// before the attack window — never failed open).
 	f := findFinding(t, recs)
 	if f == nil {
 		t.Fatal("no finding emitted")
 	}
-
 	var detail struct {
 		Resisted bool `json:"resisted"`
 	}
@@ -295,10 +341,9 @@ func TestDADDOS_HostCompletesDAD_ReportsResisted(t *testing.T) {
 }
 
 func TestRogueRA_FixturePins(t *testing.T) {
-	leg := testtest.New()
-	defer func() { _ = leg.Close() }()
+	leg := fixtureLeg(t, nil)
 
-	recs, err := runSingle(t, leg, "roguera", "")
+	recs, err := runSingle(t, leg, "roguera", fixtureTarget())
 	if err != nil {
 		t.Fatalf("run roguera: %v", err)
 	}
@@ -311,50 +356,40 @@ func TestRogueRA_FixturePins(t *testing.T) {
 	fixtures := fixturePackets(t, "roguera.pcap")
 	testtest.AssertBytesEqual(t, "Rogue RA", tx[0], fixtures[0])
 
-	if len(recs) == 0 {
-		t.Fatal("no findings emitted")
+	if findFinding(t, recs) == nil {
+		t.Fatal("no finding emitted")
 	}
 }
 
 func TestRAGuard_TraversalAttribution(t *testing.T) {
-	attackLeg := testtest.New()
-	defer func() { _ = attackLeg.Close() }()
+	attackLeg := fixtureLeg(t, nil)
+	watchLeg := fixtureLeg(t, nil)
 
-	watchLeg := testtest.New()
-	defer func() { _ = watchLeg.Close() }()
-
-	// Feed the watch leg with the forged RA (attack-leg-produced).
 	raFixtures := fixturePackets(t, "raguard.pcap")
 	for _, f := range raFixtures {
 		watchLeg.PushRX(f)
 	}
 
-	opts := runner.Options{
+	recs, err := runOne(t, runner.Options{
 		AttackLeg: attackLeg,
 		WatchLeg:  watchLeg,
 		Attacks:   []runner.AttackRef{{Name: "raguard"}},
-		Behaviors: ip6.Behaviors(),
-	}
-	recs, err := runOne(t, opts)
+		Target:    fixtureTarget(),
+	})
 	if err != nil {
 		t.Fatalf("run raguard: %v", err)
 	}
 
-	// The attack leg sent 1 frame.
 	tx := attackLeg.TX()
 	if len(tx) != 1 {
 		t.Fatalf("attack TX count: got %d, want 1", len(tx))
 	}
-
-	// Verify the attack frame matches the fixture.
 	testtest.AssertBytesEqual(t, "RAGuard forged RA", tx[0], raFixtures[0])
 
-	// The finding should report traversal evidence and attribution.
 	f := findFinding(t, recs)
 	if f == nil {
 		t.Fatal("no finding emitted")
 	}
-
 	var detail struct {
 		Sent       int    `json:"sent"`
 		Observed   int    `json:"observed"`
@@ -364,21 +399,54 @@ func TestRAGuard_TraversalAttribution(t *testing.T) {
 	if err := json.Unmarshal(f.Detail, &detail); err != nil {
 		t.Fatalf("unmarshal finding: %v", err)
 	}
-
 	if detail.Traversal != "forwarded" {
 		t.Errorf("traversal: got %q, want %q", detail.Traversal, "forwarded")
 	}
 	if detail.Attributed == "none" {
 		t.Error("attribution: got none, want attack-only or attack-distinguished-from-ambient")
 	}
+	if v := verdictOf(recs); v == nil || v.Kind != findings.VerdictConfirmed {
+		t.Errorf("verdict = %+v, want confirmed", v)
+	}
+}
+
+// TestRAGuard_EmptyWindowIsResisted pins the observation window: a watch
+// leg that delivers nothing yields a resisted verdict once the window
+// ends, with the observed time at or above the window and the run back
+// within a generous bound of it. The bound is the timing under test.
+func TestRAGuard_EmptyWindowIsResisted(t *testing.T) {
+	attackLeg := fixtureLeg(t, nil)
+	watchLeg := fixtureLeg(t, nil)
+	const window = 50 * time.Millisecond
+
+	start := time.Now()
+	recs, err := runOne(t, runner.Options{
+		AttackLeg: attackLeg,
+		WatchLeg:  watchLeg,
+		Attacks:   []runner.AttackRef{{Name: "raguard"}},
+		Target:    fixtureTarget(),
+		Observe:   window,
+	})
+	elapsed := time.Since(start)
+	if err != nil {
+		t.Fatalf("run raguard: %v", err)
+	}
+	v := verdictOf(recs)
+	if v == nil || v.Kind != findings.VerdictResisted {
+		t.Fatalf("verdict = %+v, want resisted on an empty window", v)
+	}
+	if v.ObservedMS < window.Milliseconds() {
+		t.Errorf("observed_ms = %d, want at least the %d ms window", v.ObservedMS, window.Milliseconds())
+	}
+	if elapsed > 20*window {
+		t.Errorf("run took %v, want it bounded by the %v window", elapsed, window)
+	}
 }
 
 func TestRAGuard_WithoutWatchLeg_ReportsSentOnly(t *testing.T) {
-	leg := testtest.New()
-	defer func() { _ = leg.Close() }()
+	leg := fixtureLeg(t, nil)
 
-	// No watch leg set (raguard is WatchOptional).
-	recs, err := runSingle(t, leg, "raguard", "")
+	recs, err := runSingle(t, leg, "raguard", fixtureTarget())
 	if err != nil {
 		t.Fatalf("run raguard: %v", err)
 	}
@@ -392,7 +460,6 @@ func TestRAGuard_WithoutWatchLeg_ReportsSentOnly(t *testing.T) {
 	if f == nil {
 		t.Fatal("no finding emitted")
 	}
-
 	var detail struct {
 		Sent      int    `json:"sent"`
 		Traversal string `json:"traversal"`
@@ -406,272 +473,129 @@ func TestRAGuard_WithoutWatchLeg_ReportsSentOnly(t *testing.T) {
 	if detail.Traversal != "not-forwarded" {
 		t.Errorf("traversal: got %q, want %q (no watch leg)", detail.Traversal, "not-forwarded")
 	}
-}
-
-func TestRAFlood_BoundedBurst(t *testing.T) {
-	leg := testtest.New()
-	defer func() { _ = leg.Close() }()
-
-	recs, err := runSingle(t, leg, "raflood", "")
-	if err != nil {
-		t.Fatalf("run raflood: %v", err)
-	}
-
-	tx := leg.TX()
-	if len(tx) != 5 {
-		t.Fatalf("TX count: got %d, want 5", len(tx))
-	}
-
-	fixtures := fixturePackets(t, "raflood.pcap")
-	for i, frame := range tx {
-		testtest.AssertBytesEqual(t, "RA flood frame", frame, fixtures[i])
-	}
-
-	// The finding should report frame counts and bounded=true.
-	f := findFinding(t, recs)
-	if f == nil {
-		t.Fatal("no finding emitted")
-	}
-
-	var detail struct {
-		FrameCount int  `json:"frame_count"`
-		Bounded    bool `json:"bounded"`
-	}
-	if err := json.Unmarshal(f.Detail, &detail); err != nil {
-		t.Fatalf("unmarshal finding: %v", err)
-	}
-	if detail.FrameCount != 5 {
-		t.Errorf("frame count: got %d, want 5", detail.FrameCount)
-	}
-	if !detail.Bounded {
-		t.Error("bounded: got false, want true")
+	if v := verdictOf(recs); v == nil || v.Kind != findings.VerdictPending {
+		t.Errorf("verdict = %+v, want pending without a watch leg", v)
 	}
 }
 
-// TestRAFlood_Reproducibility: two in-memory runs over the
-// same fixture produce the same findings class.
-func TestRAFlood_Reproducibility(t *testing.T) {
-	leg1 := testtest.New()
-	recs1, _ := runSingle(t, leg1, "raflood", "")
-	defer func() { _ = leg1.Close() }()
+func TestBoundedBursts(t *testing.T) {
+	for _, c := range []struct {
+		name    string
+		fixture string
+		ipv6    net.IP
+	}{
+		{"raflood", "raflood.pcap", nil},
+		{"mld", "mld.pcap", net.ParseIP("fe80::1")},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			leg := fixtureLeg(t, c.ipv6)
 
-	leg2 := testtest.New()
-	recs2, _ := runSingle(t, leg2, "raflood", "")
-	defer func() { _ = leg2.Close() }()
+			recs, err := runSingle(t, leg, c.name, fixtureTarget())
+			if err != nil {
+				t.Fatalf("run %s: %v", c.name, err)
+			}
 
-	f1 := findFinding(t, recs1)
-	f2 := findFinding(t, recs2)
-	if f1 == nil || f2 == nil {
-		t.Fatal("expected findings from both runs")
-	}
-	if f1.Module != f2.Module {
-		t.Errorf("module mismatch: %q vs %q", f1.Module, f2.Module)
-	}
+			tx := leg.TX()
+			if len(tx) != 5 {
+				t.Fatalf("TX count: got %d, want 5", len(tx))
+			}
+			fixtures := fixturePackets(t, c.fixture)
+			for i, frame := range tx {
+				testtest.AssertBytesEqual(t, c.name+" frame", frame, fixtures[i])
+			}
 
-	var d1, d2 struct {
-		Action string `json:"action"`
-	}
-	_ = json.Unmarshal(f1.Detail, &d1)
-	_ = json.Unmarshal(f2.Detail, &d2)
-	if d1.Action != d2.Action {
-		t.Errorf("action mismatch: %q vs %q", d1.Action, d2.Action)
-	}
-
-	tx1, tx2 := leg1.TX(), leg2.TX()
-	if len(tx1) != len(tx2) {
-		t.Fatalf("TX count mismatch: %d vs %d", len(tx1), len(tx2))
-	}
-	for i := range tx1 {
-		if string(tx1[i]) != string(tx2[i]) {
-			t.Errorf("TX[%d] mismatch", i)
-		}
+			f := findFinding(t, recs)
+			if f == nil {
+				t.Fatal("no finding emitted")
+			}
+			var detail struct {
+				FrameCount int  `json:"frame_count"`
+				Bounded    bool `json:"bounded"`
+			}
+			if err := json.Unmarshal(f.Detail, &detail); err != nil {
+				t.Fatalf("unmarshal finding: %v", err)
+			}
+			if detail.FrameCount != 5 {
+				t.Errorf("frame count: got %d, want 5", detail.FrameCount)
+			}
+			if !detail.Bounded {
+				t.Error("bounded: got false, want true")
+			}
+		})
 	}
 }
 
-func TestMLD_BoundedBurst(t *testing.T) {
-	leg := testtest.New()
-	defer func() { _ = leg.Close() }()
+// TestReproducibility: two in-memory runs over the same fixture produce
+// the same finding class and TX bytes.
+func TestReproducibility(t *testing.T) {
+	for _, c := range []struct {
+		name string
+		ipv6 net.IP
+	}{{"raflood", nil}, {"mld", net.ParseIP("fe80::1")}} {
+		t.Run(c.name, func(t *testing.T) {
+			leg1 := fixtureLeg(t, c.ipv6)
+			recs1, _ := runSingle(t, leg1, c.name, fixtureTarget())
+			leg2 := fixtureLeg(t, c.ipv6)
+			recs2, _ := runSingle(t, leg2, c.name, fixtureTarget())
 
-	recs, err := runSingle(t, leg, "mld", "")
-	if err != nil {
-		t.Fatalf("run mld: %v", err)
-	}
-
-	tx := leg.TX()
-	if len(tx) != 5 {
-		t.Fatalf("TX count: got %d, want 5", len(tx))
-	}
-
-	fixtures := fixturePackets(t, "mld.pcap")
-	for i, frame := range tx {
-		testtest.AssertBytesEqual(t, "MLD report frame", frame, fixtures[i])
-	}
-
-	// The finding should report frame counts and bounded=true.
-	f := findFinding(t, recs)
-	if f == nil {
-		t.Fatal("no finding emitted")
-	}
-
-	var detail struct {
-		FrameCount int  `json:"frame_count"`
-		Bounded    bool `json:"bounded"`
-	}
-	if err := json.Unmarshal(f.Detail, &detail); err != nil {
-		t.Fatalf("unmarshal finding: %v", err)
-	}
-	if detail.FrameCount != 5 {
-		t.Errorf("frame count: got %d, want 5", detail.FrameCount)
-	}
-	if !detail.Bounded {
-		t.Error("bounded: got false, want true")
+			f1 := findFinding(t, recs1)
+			f2 := findFinding(t, recs2)
+			if f1 == nil || f2 == nil {
+				t.Fatal("expected findings from both runs")
+			}
+			if f1.Module != f2.Module {
+				t.Errorf("module mismatch: %q vs %q", f1.Module, f2.Module)
+			}
+			var d1, d2 struct {
+				Action string `json:"action"`
+			}
+			_ = json.Unmarshal(f1.Detail, &d1)
+			_ = json.Unmarshal(f2.Detail, &d2)
+			if d1.Action != d2.Action {
+				t.Errorf("action mismatch: %q vs %q", d1.Action, d2.Action)
+			}
+			tx1, tx2 := leg1.TX(), leg2.TX()
+			if len(tx1) != len(tx2) {
+				t.Fatalf("TX count mismatch: %d vs %d", len(tx1), len(tx2))
+			}
+			for i := range tx1 {
+				if string(tx1[i]) != string(tx2[i]) {
+					t.Errorf("TX[%d] mismatch", i)
+				}
+			}
+		})
 	}
 }
 
-// TestMLD_Reproducibility: two in-memory runs over the
-// same fixture produce the same findings class.
-func TestMLD_Reproducibility(t *testing.T) {
-	leg1 := testtest.New()
-	recs1, _ := runSingle(t, leg1, "mld", "")
-	defer func() { _ = leg1.Close() }()
-
-	leg2 := testtest.New()
-	recs2, _ := runSingle(t, leg2, "mld", "")
-	defer func() { _ = leg2.Close() }()
-
-	f1 := findFinding(t, recs1)
-	f2 := findFinding(t, recs2)
-	if f1 == nil || f2 == nil {
-		t.Fatal("expected findings from both runs")
+// TestCatalogCostFields pins each behavior's impact and restore, and the
+// decay bounds the probes announce: the DHCPv6 advertise's 300 s valid
+// lifetime and the 1800 s router lifetime and DHCPv4 lease.
+func TestCatalogCostFields(t *testing.T) {
+	cases := []struct {
+		name    string
+		impact  check.Impact
+		restore check.RestoreKind
+		bound   time.Duration
+	}{
+		{"dhcpstarve", check.ImpactTemporary, check.RestoreDecay, 0},
+		{"roguedhcp", check.ImpactTemporary, check.RestoreDecay, 1800 * time.Second},
+		{"roguedhcp6", check.ImpactTemporary, check.RestoreDecay, 300 * time.Second},
+		{"daddos", check.ImpactTemporary, check.RestoreDecay, 0},
+		{"ndpspoof", check.ImpactTemporary, check.RestoreDecay, 0},
+		{"raguard", check.ImpactNone, check.RestoreNone, 0},
+		{"roguera", check.ImpactTemporary, check.RestoreDecay, 1800 * time.Second},
+		{"raflood", check.ImpactTemporary, check.RestoreDecay, 0},
+		{"mld", check.ImpactTemporary, check.RestoreDecay, 0},
 	}
-	if f1.Module != f2.Module {
-		t.Errorf("module mismatch: %q vs %q", f1.Module, f2.Module)
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			entry := mustEntry(t, c.name)
+			if entry.Impact != c.impact || entry.Restore.Kind != c.restore || entry.Restore.Bound != c.bound {
+				t.Errorf("%s = impact %s, restore %s bound %v; want %s, %s, %v", c.name, entry.Impact, entry.Restore.Kind, entry.Restore.Bound, c.impact, c.restore, c.bound)
+			}
+		})
 	}
-
-	var d1, d2 struct {
-		Action string `json:"action"`
-	}
-	_ = json.Unmarshal(f1.Detail, &d1)
-	_ = json.Unmarshal(f2.Detail, &d2)
-	if d1.Action != d2.Action {
-		t.Errorf("action mismatch: %q vs %q", d1.Action, d2.Action)
-	}
-
-	tx1, tx2 := leg1.TX(), leg2.TX()
-	if len(tx1) != len(tx2) {
-		t.Fatalf("TX count mismatch: %d vs %d", len(tx1), len(tx2))
-	}
-	for i := range tx1 {
-		if string(tx1[i]) != string(tx2[i]) {
-			t.Errorf("TX[%d] mismatch", i)
-		}
-	}
-}
-
-func TestSecretMaterialRedaction(t *testing.T) {
-	secret := findings.NewSecret("dhcp", []byte("rogue-auth-secret"))
-
-	data, err := json.Marshal(secret)
-	if err != nil {
-		t.Fatalf("marshal secret: %v", err)
-	}
-
-	var m map[string]any
-	if err := json.Unmarshal(data, &m); err != nil {
-		t.Fatalf("unmarshal: %v", err)
-	}
-
-	if m["protocol"] != "dhcp" {
-		t.Errorf("protocol: got %v, want %v", m["protocol"], "dhcp")
-	}
-	if m["length"] != float64(len("rogue-auth-secret")) {
-		t.Errorf("length: got %v, want %d", m["length"], len("rogue-auth-secret"))
-	}
-	if string(data) != `{"protocol":"dhcp","length":17}` {
-		t.Errorf("secret JSON leaked value: %s", string(data))
-	}
-}
-
-func TestDHCPStarveCatalogClassIsTransientDecay(t *testing.T) {
-	entry := mustEntry(t, "dhcpstarve", "")
-	if entry.Class != catalog.TransientDecay {
-		t.Errorf("dhcpstarve class: got %v, want %v", entry.Class, catalog.TransientDecay)
-	}
-}
-
-func TestRogueDHCPv4CatalogClassIsTransientDecay(t *testing.T) {
-	entry := mustEntry(t, "roguedhcp", "")
-	if entry.Class != catalog.TransientDecay {
-		t.Errorf("roguedhcp class: got %v, want %v", entry.Class, catalog.TransientDecay)
-	}
-}
-
-func TestRogueDHCPv6CatalogClassIsTransientDecay(t *testing.T) {
-	entry := mustEntry(t, "roguedhcp6", "")
-	if entry.Class != catalog.TransientDecay {
-		t.Errorf("roguedhcp6 class: got %v, want %v", entry.Class, catalog.TransientDecay)
-	}
-}
-
-func TestDADDOSCatalogClassIsTransientDecay(t *testing.T) {
-	entry := mustEntry(t, "daddos", "")
-	if entry.Class != catalog.TransientDecay {
-		t.Errorf("daddos class: got %v, want %v", entry.Class, catalog.TransientDecay)
-	}
-}
-
-func TestNDPSpoofCatalogClassIsTransientDecay(t *testing.T) {
-	entry := mustEntry(t, "ndpspoof", "")
-	if entry.Class != catalog.TransientDecay {
-		t.Errorf("ndpspoof class: got %v, want %v", entry.Class, catalog.TransientDecay)
-	}
-}
-
-func TestRAGuardCatalogClassIsNonDestructive(t *testing.T) {
-	entry := mustEntry(t, "raguard", "")
-	if entry.Class != catalog.NonDestructive {
-		t.Errorf("raguard class: got %v, want %v", entry.Class, catalog.NonDestructive)
-	}
-}
-
-func TestRogueRACatalogClassIsTransientDecay(t *testing.T) {
-	entry := mustEntry(t, "roguera", "")
-	if entry.Class != catalog.TransientDecay {
-		t.Errorf("roguera class: got %v, want %v", entry.Class, catalog.TransientDecay)
-	}
-}
-
-func TestRAFloodCatalogClassIsTransientDecay(t *testing.T) {
-	entry := mustEntry(t, "raflood", "")
-	if entry.Class != catalog.TransientDecay {
-		t.Errorf("raflood class: got %v, want %v", entry.Class, catalog.TransientDecay)
-	}
-}
-
-func TestMLDCatalogClassIsTransientDecay(t *testing.T) {
-	entry := mustEntry(t, "mld", "")
-	if entry.Class != catalog.TransientDecay {
-		t.Errorf("mld class: got %v, want %v", entry.Class, catalog.TransientDecay)
-	}
-}
-
-func TestRogueDHCPv6DecayBoundIs300s(t *testing.T) {
-	entry := mustEntry(t, "roguedhcp6", "")
-	if entry.Teardown != "~300s lifetime announced" {
-		t.Errorf("roguedhcp6 decay bound: got %q, want %q", entry.Teardown, "~300s lifetime announced")
-	}
-}
-
-func TestRogueRADecayBoundIs1800s(t *testing.T) {
-	entry := mustEntry(t, "roguera", "")
-	if entry.Teardown != "~1800s lifetime announced" {
-		t.Errorf("roguera decay bound: got %q, want %q", entry.Teardown, "~1800s lifetime announced")
-	}
-}
-
-func TestRogueDHCPv4DecayBoundIs1800s(t *testing.T) {
-	entry := mustEntry(t, "roguedhcp", "")
-	if entry.Teardown != "client leases ~1800s" {
-		t.Errorf("roguedhcp decay bound: got %q, want %q", entry.Teardown, "client leases ~1800s")
+	if legs := mustEntry(t, "raguard").Legs; legs != check.WatchOptional {
+		t.Errorf("raguard legs = %s, want %s", legs, check.WatchOptional)
 	}
 }

@@ -2,15 +2,13 @@
 //
 // Parity deviation: the baseline's dtp flips a port to trunk and only
 // restores with --restore, leaving a persistent trunk otherwise. netpen
-// instead classifies the vanilla run temporary-restored with the
-// access-port restore armed by default; an explicit --keep-trunk flag is
-// the permanent-destructive opt-in that skips the restore.
-
+// instead restores the access port by default; an explicit --keep-trunk
+// flag is the permanent opt-in that skips the restore.
+//
 //  1. Sends a DTP "desirable" frame (trunk-status=0x03) to negotiate a trunk.
 //  2. Emits a finding reporting the negotiated trunk state.
 //  3. Unless --keep-trunk, arms a teardown step that sends a DTP "access"
-//     frame (trunk-status=0x02) to restore the port. The restore step is
-//     armed unconditionally before the first frame and asserted in the
+//     frame (trunk-status=0x02) to restore the port, asserted in the
 //     recorded TX order: negotiate frames then restore frames.
 
 package l2
@@ -21,9 +19,8 @@ import (
 	"net"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
-	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/internal/craft"
+	"go.aledante.io/FlowSeer/src/edge/netpen/check"
 	"go.aledante.io/FlowSeer/src/edge/netpen/layers"
-	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
 )
 
 // dtpFinding is the typed finding the DTP behavior emits.
@@ -35,29 +32,21 @@ type dtpFinding struct {
 	Durability string `json:"durability"`
 }
 
-// RunDTP is the DTP behavior. It negotiates a trunk via DTP and arms
-// the access-port restore unless the keep-trunk mode is active.
-func RunDTP(ctx context.Context, deps runner.Deps) error {
-	src := srcMAC(deps)
-	mode := deps.Entry.Mode // "" for vanilla, "keep-trunk" for permanent
+// RunDTP negotiates a trunk with a DTP desirable frame from the attack
+// leg's MAC, which is also the neighbor TLV. It reads no target; the domain
+// and trunk type are probe content. The base entry restores actively, so
+// the access-port restore is armed before the first frame; the keep-trunk
+// mode is permanent and arms nothing. The verdict is pending: whether the
+// port went to trunk needs a tagged probe that phase 2 adds.
+func RunDTP(ctx context.Context, deps check.Deps) (check.Verdict, error) {
+	src := deps.AttackLeg.Addr().MAC
+	mode := deps.Entry.Mode
 
-	// Arm the restore step before the first frame. The keep-trunk mode
-	// is permanent-destructive and skips the restore; the gate has
-	// already verified the opt-in by this point. The gate treats
-	// acknowledged permanent like temporary-restored for teardown
-	// arming, so keep-trunk arms a no-op "no-restore" step to
-	// satisfy the runner's armed-step requirement while documenting that
-	// the restore is intentionally skipped.
 	restoreArmed := "no"
-	if mode == "keep-trunk" {
-		deps.Teardown.Arm("no-restore-opt-in", func(context.Context) error {
-			return nil
-		})
-	} else {
-		// Build the restore frame now so the teardown step has it ready.
+	if deps.Entry.Restore.Kind == check.RestoreActive {
 		restorePkt, err := craftDTPFrame(src, layers.DTPStatusAccess)
 		if err != nil {
-			return errs.Wrap(err, "dtp: craft restore frame")
+			return check.Verdict{}, errs.Wrap(err, "dtp: craft restore frame")
 		}
 		deps.Teardown.Arm("access-port-restore", func(ctx context.Context) error {
 			return deps.AttackLeg.Send(ctx, restorePkt)
@@ -65,26 +54,24 @@ func RunDTP(ctx context.Context, deps runner.Deps) error {
 		restoreArmed = "yes"
 	}
 
-	// Send the DTP "desirable" frame to negotiate the trunk.
 	desirablePkt, err := craftDTPFrame(src, layers.DTPStatusDesirable)
 	if err != nil {
-		return errs.Wrap(err, "dtp: craft desirable frame")
+		return check.Verdict{}, errs.Wrap(err, "dtp: craft desirable frame")
 	}
 	if err := deps.AttackLeg.Send(ctx, desirablePkt); err != nil {
-		return errs.Wrap(err, "dtp: send desirable")
+		return check.Verdict{}, errs.Wrap(err, "dtp: send desirable")
 	}
 
-	// Emit the finding.
 	detail, _ := json.Marshal(dtpFinding{
 		Action:     "trunk-negotiation",
 		Mode:       modeName(mode),
 		Neighbor:   src.String(),
 		Restore:    restoreArmed,
-		Durability: "temporary-restored",
+		Durability: string(deps.Entry.Impact) + "/" + string(deps.Entry.Restore.Kind),
 	})
 	deps.Emitter.Finding("dtp", detail)
 
-	return nil
+	return check.Pending("no observable: trunk formation needs a tagged probe across the port"), nil
 }
 
 // craftDTPFrame builds a full DTP frame with the given trunk-status value.
@@ -101,15 +88,6 @@ func craftDTPFrame(src net.HardwareAddr, trunkStatus uint8) ([]byte, error) {
 		},
 	}
 	return craftDot3SNAP(dtpDstMAC, src, snapPIDDTP, dtp)
-}
-
-// srcMAC returns the source MAC for the behavior. In tests this is the
-// fixture MAC; in production it would come from the leg. Since the leg
-// interface does not expose a MAC, we use the fixture MAC as the default.
-// This is acceptable because DTP's neighbor TLV is informational — the
-// attack works regardless of the exact MAC value.
-func srcMAC(_ runner.Deps) net.HardwareAddr {
-	return craft.FixtureSrcMAC
 }
 
 // modeName returns the human-readable mode name for a DTP mode.

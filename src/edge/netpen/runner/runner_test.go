@@ -3,6 +3,7 @@ package runner_test
 import (
 	"context"
 	"errors"
+	"net"
 	"runtime"
 	"sync"
 	"sync/atomic"
@@ -10,7 +11,9 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/edge/netpen/attacks"
 	"go.aledante.io/FlowSeer/src/edge/netpen/catalog"
+	"go.aledante.io/FlowSeer/src/edge/netpen/check"
 	"go.aledante.io/FlowSeer/src/edge/netpen/findings"
 	"go.aledante.io/FlowSeer/src/edge/netpen/link"
 	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
@@ -67,8 +70,6 @@ func (m *mockLeg) Close() error {
 	return nil
 }
 
-// Compile-time assertion that mockLeg satisfies [link.Leg].
-
 // closeLeg is a t.Cleanup helper that closes a mock leg and fails the test
 // on error.
 func closeLeg(t *testing.T, leg *mockLeg) {
@@ -78,6 +79,34 @@ func closeLeg(t *testing.T, leg *mockLeg) {
 			t.Errorf("leg close: %v", err)
 		}
 	})
+}
+
+// pending is the verdict every stub returns unless the test is about the
+// verdict itself.
+var pending = check.Pending("stub")
+
+// stubCatalog returns the shipped catalog with the named behaviors' Run
+// functions replaced by stubs, so a test drives the runner through real
+// entries (their impact, restore, and legs) without sending a frame.
+func stubCatalog(stubs map[string]check.Run) catalog.Catalog {
+	bs := attacks.Behaviors()
+	for i := range bs {
+		if fn, ok := stubs[bs[i].Name]; ok {
+			bs[i].Run = fn
+		}
+	}
+	return catalog.MustNew(bs...)
+}
+
+// newRunner builds a runner over the stub catalog. A test that leaves
+// MaxImpact empty gets the command's default ceiling, temporary, so the
+// entries most tests drive are admitted.
+func newRunner(opts runner.Options, stubs map[string]check.Run) *runner.Runner {
+	opts.Catalog = stubCatalog(stubs)
+	if opts.MaxImpact == "" {
+		opts.MaxImpact = check.ImpactTemporary
+	}
+	return runner.NewRunner(opts)
 }
 
 // drainStream consumes all records from the stream until it ends, returning
@@ -93,8 +122,7 @@ func drainStream(s *runner.Stream) []findings.Record {
 
 // drainStreamAsync starts Run in a goroutine and drains the stream
 // concurrently, returning the records and the Run error.
-func drainStreamAsync(t *testing.T, ctx context.Context, r *runner.Runner) ([]findings.Record, error) { //nolint:revive // test helper: *testing.T conventionally precedes ctx
-	t.Helper()
+func drainStreamAsync(ctx context.Context, r *runner.Runner) ([]findings.Record, error) {
 	var (
 		recs []findings.Record
 		err  error
@@ -113,33 +141,47 @@ func drainStreamAsync(t *testing.T, ctx context.Context, r *runner.Runner) ([]fi
 	return recs, err
 }
 
+// verdicts returns the verdict records of recs keyed by attack name.
+func verdicts(recs []findings.Record) map[string]findings.Record {
+	out := map[string]findings.Record{}
+	for _, rec := range recs {
+		if rec.Kind == findings.KindVerdict {
+			out[rec.Attack] = rec
+		}
+	}
+	return out
+}
+
 func TestStubBehaviorOrderedFindings(t *testing.T) {
 	leg := newMockLeg()
 	closeLeg(t, leg)
 
-	// Register a stub behavior that emits three findings in order.
-	stub := func(_ context.Context, deps runner.Deps) error {
+	stub := func(_ context.Context, deps check.Deps) (check.Verdict, error) {
 		deps.Emitter.Finding("arp", []byte(`{"host":"10.0.0.1"}`))
 		deps.Emitter.Finding("arp", []byte(`{"host":"10.0.0.2"}`))
 		deps.Emitter.Finding("arp", []byte(`{"host":"10.0.0.3"}`))
-		return nil
+		return pending, nil
 	}
 
-	r := runner.NewRunner(runner.Options{
+	r := newRunner(runner.Options{
 		AttackLeg: leg,
 		Attacks:   []runner.AttackRef{{Name: "arpsweep"}},
-		Behaviors: map[string]runner.Behavior{"arpsweep": stub},
-	})
+	}, map[string]check.Run{"arpsweep": stub})
 
-	recs, err := drainStreamAsync(t, context.Background(), r)
+	recs, err := drainStreamAsync(context.Background(), r)
 	if err != nil {
 		t.Fatalf("Run returned error: %v", err)
 	}
 
-	if len(recs) != 3 {
-		t.Fatalf("got %d records, want 3", len(recs))
+	if len(recs) != 4 {
+		t.Fatalf("got %d records, want 4 (3 findings + the verdict)", len(recs))
 	}
-	for i, rec := range recs {
+	wantHosts := []string{
+		`{"host":"10.0.0.1"}`,
+		`{"host":"10.0.0.2"}`,
+		`{"host":"10.0.0.3"}`,
+	}
+	for i, rec := range recs[:3] {
 		if rec.Kind != findings.KindFinding {
 			t.Errorf("record %d: kind %q, want %q", i, rec.Kind, findings.KindFinding)
 		}
@@ -152,18 +194,54 @@ func TestStubBehaviorOrderedFindings(t *testing.T) {
 		if rec.Finding.Module != "arp" {
 			t.Errorf("record %d: module %q, want %q", i, rec.Finding.Module, "arp")
 		}
-	}
-	// Verify order: the detail payloads carry distinct hosts.
-	wantHosts := []string{
-		`{"host":"10.0.0.1"}`,
-		`{"host":"10.0.0.2"}`,
-		`{"host":"10.0.0.3"}`,
-	}
-	for i, rec := range recs {
-		got := string(rec.Finding.Detail)
-		if got != wantHosts[i] {
+		if got := string(rec.Finding.Detail); got != wantHosts[i] {
 			t.Errorf("record %d: detail %q, want %q", i, got, wantHosts[i])
 		}
+	}
+	if recs[3].Kind != findings.KindVerdict {
+		t.Errorf("record 3: kind %q, want the verdict last", recs[3].Kind)
+	}
+}
+
+// TestVerdictRecordPerAttack pins that the runner emits each behavior's
+// verdict as the attack's last record, stamped with the attack and mode and
+// carrying the observed window in milliseconds.
+func TestVerdictRecordPerAttack(t *testing.T) {
+	leg := newMockLeg()
+	closeLeg(t, leg)
+
+	r := newRunner(runner.Options{
+		AttackLeg: leg,
+		Attacks:   []runner.AttackRef{{Name: "ghost"}, {Name: "portsteal", Mode: "relay"}},
+		WatchLeg:  leg,
+	}, map[string]check.Run{
+		"ghost": func(_ context.Context, _ check.Deps) (check.Verdict, error) {
+			return check.Resisted("0 frames in 3s", 3*time.Second), nil
+		},
+		"portsteal": func(_ context.Context, deps check.Deps) (check.Verdict, error) {
+			deps.Teardown.Arm("ip-forward-restore", func(context.Context) error { return nil })
+			return check.Confirmed("moved", 10*time.Millisecond), nil
+		},
+	})
+
+	recs, err := drainStreamAsync(context.Background(), r)
+	if err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+	got := verdicts(recs)
+	ghost, ok := got["ghost"]
+	if !ok || ghost.Verdict == nil {
+		t.Fatalf("no verdict record for ghost in %+v", recs)
+	}
+	if ghost.Verdict.Kind != findings.VerdictResisted || ghost.Verdict.Detail != "0 frames in 3s" || ghost.Verdict.ObservedMS != 3000 {
+		t.Errorf("ghost verdict = %+v, want resisted, \"0 frames in 3s\", 3000 ms", *ghost.Verdict)
+	}
+	steal, ok := got["portsteal"]
+	if !ok || steal.Verdict == nil {
+		t.Fatalf("no verdict record for portsteal in %+v", recs)
+	}
+	if steal.Mode != "relay" || steal.Verdict.Kind != findings.VerdictConfirmed || steal.Verdict.ObservedMS != 10 {
+		t.Errorf("portsteal verdict = mode %q %+v, want mode relay, confirmed, 10 ms", steal.Mode, *steal.Verdict)
 	}
 }
 
@@ -172,21 +250,20 @@ func TestCloseStopsProducerAndIdempotent(t *testing.T) {
 	closeLeg(t, leg)
 
 	// A behavior that blocks forever (until ctx canceled).
-	block := func(ctx context.Context, _ runner.Deps) error {
+	block := func(ctx context.Context, _ check.Deps) (check.Verdict, error) {
 		<-ctx.Done()
-		return ctx.Err()
+		return check.Verdict{}, ctx.Err()
 	}
 
-	r := runner.NewRunner(runner.Options{
+	r := newRunner(runner.Options{
 		AttackLeg: leg,
 		Attacks: []runner.AttackRef{
 			{Name: "arpsweep"},
-			{Name: "scan"},
+			{Name: "vlanenum"},
 		},
-		Behaviors: map[string]runner.Behavior{
-			"arpsweep": block,
-			"scan":     block,
-		},
+	}, map[string]check.Run{
+		"arpsweep": block,
+		"vlanenum": block,
 	})
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -207,9 +284,6 @@ func TestCloseStopsProducerAndIdempotent(t *testing.T) {
 	r.Wait()
 	elapsed := time.Since(start)
 
-	// The producer should stop within a generous bound of one poll cycle.
-	// The behavior blocks on ctx; Close signals stop but does not cancel
-	// the run ctx. The behavior finishes when we cancel ctx.
 	cancel()
 	r.Wait()
 
@@ -231,36 +305,34 @@ func TestEarlyLeaveNoGoroutineLeak(t *testing.T) {
 	// behavior that also emits. The consumer leaves after the first
 	// record.
 	emitted := atomic.Int32{}
-	stub1 := func(_ context.Context, deps runner.Deps) error {
+	stub1 := func(_ context.Context, deps check.Deps) (check.Verdict, error) {
 		for i := 0; i < 10; i++ {
 			if !deps.Emitter.Finding("arp", []byte(`{}`)) {
-				return nil
+				return pending, nil
 			}
 			emitted.Add(1)
 		}
-		return nil
+		return pending, nil
 	}
-	stub2 := func(_ context.Context, deps runner.Deps) error {
+	stub2 := func(_ context.Context, deps check.Deps) (check.Verdict, error) {
 		deps.Emitter.Finding("arp", []byte(`{}`))
-		return nil
+		return pending, nil
 	}
 
-	r := runner.NewRunner(runner.Options{
+	r := newRunner(runner.Options{
 		AttackLeg: leg,
 		Attacks: []runner.AttackRef{
 			{Name: "arpsweep"},
-			{Name: "scan"},
+			{Name: "vlanenum"},
 		},
-		Behaviors: map[string]runner.Behavior{
-			"arpsweep": stub1,
-			"scan":     stub2,
-		},
+	}, map[string]check.Run{
+		"arpsweep": stub1,
+		"vlanenum": stub2,
 	})
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// Start Run in a goroutine.
 	go func() { _ = r.Run(ctx) }()
 
 	// Consume one record then leave.
@@ -279,121 +351,177 @@ func TestEarlyLeaveNoGoroutineLeak(t *testing.T) {
 	// finishes when Emitter.Finding returns false.
 	r.Wait()
 
-	// Cancel the context to unblock any remaining work.
 	cancel()
 
 	// Give goroutines a moment to exit.
 	time.Sleep(50 * time.Millisecond)
 
-	// Assert no goroutine leak: the delta should be near zero. We
-	// allow a small tolerance for runtime-internal goroutines.
 	got := runtime.NumGoroutine()
-	// The test itself runs in a goroutine; the baseline is whatever
-	// was running before the run started. We check that it's not
-	// grown significantly.
 	if got > 20 {
 		t.Errorf("goroutine count %d after early leave, want <= 20 (no leak)", got)
 	}
 }
 
-func TestBehaviorErrorTypedRecordAndContinues(t *testing.T) {
+// TestBehaviorErrorIsPendingVerdictAndContinues pins the error path: a
+// behavior that fails gets a pending verdict carrying its error text, no
+// error record, and the behaviors after it still run.
+func TestBehaviorErrorIsPendingVerdictAndContinues(t *testing.T) {
 	leg := newMockLeg()
 	closeLeg(t, leg)
 
 	behErr := errs.New().Code(runner.ErrCodeRunner).Msg("behavior exploded")
 
 	callOrder := atomic.Int32{}
-	stub1 := func(_ context.Context, deps runner.Deps) error {
+	stub1 := func(_ context.Context, deps check.Deps) (check.Verdict, error) {
 		callOrder.Add(1)
 		deps.Emitter.Finding("arp", []byte(`{"step":1}`))
-		return nil
+		return pending, nil
 	}
-	stub2 := func(_ context.Context, deps runner.Deps) error {
+	stub2 := func(_ context.Context, deps check.Deps) (check.Verdict, error) {
 		callOrder.Add(1)
-		// arpspoof is temporary-restored: arm a restore step so the
+		// arpspoof restores actively: arm a restore step so the
 		// teardown gate does not fail it for arming zero steps.
-		if deps.Teardown != nil {
-			deps.Teardown.Arm("restore", func(_ context.Context) error { return nil })
-		}
-		return behErr // errors mid-run
+		deps.Teardown.Arm("restore", func(_ context.Context) error { return nil })
+		return check.Verdict{}, behErr
 	}
-	stub3 := func(_ context.Context, deps runner.Deps) error {
+	stub3 := func(_ context.Context, deps check.Deps) (check.Verdict, error) {
 		callOrder.Add(1)
 		deps.Emitter.Finding("arp", []byte(`{"step":3}`))
-		return nil
+		return pending, nil
 	}
 
-	r := runner.NewRunner(runner.Options{
+	r := newRunner(runner.Options{
 		AttackLeg: leg,
 		Attacks: []runner.AttackRef{
 			{Name: "arpsweep"},
 			{Name: "arpspoof"},
-			{Name: "scan"},
+			{Name: "vlanenum"},
 		},
-		Behaviors: map[string]runner.Behavior{
-			"arpsweep": stub1,
-			"arpspoof": stub2,
-			"scan":     stub3,
-		},
+	}, map[string]check.Run{
+		"arpsweep": stub1,
+		"arpspoof": stub2,
+		"vlanenum": stub3,
 	})
 
-	recs, err := drainStreamAsync(t, context.Background(), r)
+	recs, err := drainStreamAsync(context.Background(), r)
 	if err != nil {
 		t.Fatalf("Run returned error: %v", err)
 	}
 
-	// All three behaviors ran.
 	if got := callOrder.Load(); got != 3 {
 		t.Errorf("call order count %d, want 3", got)
 	}
-
-	// Records: 2 findings + 1 error record = 3.
-	if len(recs) != 3 {
-		t.Fatalf("got %d records, want 3 (2 findings + 1 error)", len(recs))
-	}
-
-	// Find the error record.
-	var errRec *findings.ErrorRecord
 	for _, rec := range recs {
 		if rec.Kind == findings.KindError {
-			if errRec != nil {
-				t.Fatal("multiple error records")
-			}
-			errRec = rec.Error
+			t.Errorf("unexpected error record %+v; a behavior error is a pending verdict", rec.Error)
 		}
 	}
-	if errRec == nil {
-		t.Fatal("no error record in stream")
+	v, ok := verdicts(recs)["arpspoof"]
+	if !ok || v.Verdict == nil {
+		t.Fatalf("no verdict record for arpspoof in %+v", recs)
 	}
-	if errRec.Attack != "arpspoof" {
-		t.Errorf("error record attack %q, want %q", errRec.Attack, "arpspoof")
+	if v.Verdict.Kind != findings.VerdictPending || v.Verdict.Detail != "behavior exploded" {
+		t.Errorf("arpspoof verdict = %+v, want pending with the error text", *v.Verdict)
 	}
-	if errRec.Code != "netpen/runner" {
-		t.Errorf("error record code %q, want %q", errRec.Code, "netpen/runner")
+}
+
+// TestMissingTargetIsSkippedVerdict pins the target error path: a behavior
+// whose Need fails gets a skipped verdict naming the fields and sends
+// nothing. On a single command Run returns the coded error so the command
+// exits 2; under orchestration the run continues to the next attack.
+func TestMissingTargetIsSkippedVerdict(t *testing.T) {
+	for _, orchestrated := range []bool{false, true} {
+		name := "single command"
+		if orchestrated {
+			name = "orchestrated"
+		}
+		t.Run(name, func(t *testing.T) {
+			leg := newMockLeg()
+			closeLeg(t, leg)
+			var sends atomic.Int32
+			second := atomic.Bool{}
+			r := newRunner(runner.Options{
+				AttackLeg:    leg,
+				Attacks:      []runner.AttackRef{{Name: "arpspoof"}, {Name: "arpsweep"}},
+				Orchestrated: orchestrated,
+			}, map[string]check.Run{
+				"arpspoof": func(ctx context.Context, deps check.Deps) (check.Verdict, error) {
+					if err := deps.Target.Need(check.FieldVictim, check.FieldGateway); err != nil {
+						return check.Verdict{}, err
+					}
+					sends.Add(1)
+					return pending, nil
+				},
+				"arpsweep": func(context.Context, check.Deps) (check.Verdict, error) {
+					second.Store(true)
+					return pending, nil
+				},
+			})
+
+			recs, err := drainStreamAsync(context.Background(), r)
+			v, ok := verdicts(recs)["arpspoof"]
+			if !ok || v.Verdict == nil || v.Verdict.Kind != findings.VerdictSkipped {
+				t.Fatalf("arpspoof verdict = %+v, want skipped", v.Verdict)
+			}
+			for _, field := range []string{"victim", "gateway"} {
+				if !contains(v.Verdict.Detail, field) {
+					t.Errorf("verdict detail %q does not name %s", v.Verdict.Detail, field)
+				}
+			}
+			if sends.Load() != 0 {
+				t.Errorf("behavior sent %d times after a missing target", sends.Load())
+			}
+			if orchestrated {
+				if err != nil {
+					t.Errorf("Run under orchestration = %v, want nil", err)
+				}
+				if !second.Load() {
+					t.Error("the next attack did not run after a skipped one under orchestration")
+				}
+				return
+			}
+			if code, ok := errs.CodeOf(err); !ok || code != check.ErrCodeTargetMissing {
+				t.Errorf("Run error = %v (code %q), want %q", err, code, check.ErrCodeTargetMissing)
+			}
+			if errs.ExitCode(err) != 2 {
+				t.Errorf("exit code = %d, want 2", errs.ExitCode(err))
+			}
+			if second.Load() {
+				t.Error("the next attack ran after a missing target on a single command")
+			}
+		})
 	}
-	if errRec.Message != "behavior exploded" {
-		t.Errorf("error record message %q, want %q", errRec.Message, "behavior exploded")
+}
+
+func contains(s, sub string) bool {
+	return len(sub) == 0 || (len(s) >= len(sub) && indexOf(s, sub) >= 0)
+}
+
+func indexOf(s, sub string) int {
+	for i := 0; i+len(sub) <= len(s); i++ {
+		if s[i:i+len(sub)] == sub {
+			return i
+		}
 	}
+	return -1
 }
 
 func TestWatchLegRequiredFastFailure(t *testing.T) {
 	leg := newMockLeg()
 	closeLeg(t, leg)
 
-	stub := func(_ context.Context, _ runner.Deps) error {
+	stub := func(_ context.Context, _ check.Deps) (check.Verdict, error) {
 		t.Error("behavior should not be invoked")
-		return nil
+		return pending, nil
 	}
 
-	r := runner.NewRunner(runner.Options{
+	r := newRunner(runner.Options{
 		AttackLeg: leg,
 		// No WatchLeg set.
-		Attacks:   []runner.AttackRef{{Name: "ghost"}},
-		Behaviors: map[string]runner.Behavior{"ghost": stub},
-	})
+		Attacks: []runner.AttackRef{{Name: "ghost"}},
+	}, map[string]check.Run{"ghost": stub})
 
-	ctx := context.Background()
-	err := r.Run(ctx)
+	err := r.Run(context.Background())
 	r.Wait()
 
 	if err == nil {
@@ -404,81 +532,64 @@ func TestWatchLegRequiredFastFailure(t *testing.T) {
 	}
 }
 
-func TestInMemoryConsumerReceivesTypedStream(t *testing.T) {
+// TestDepsCarryObserveTargetAndListen pins what a behavior receives: the
+// run's target, the observation window with its default, the entry it was
+// resolved to, and a working listener seam.
+func TestDepsCarryObserveTargetAndListen(t *testing.T) {
 	leg := newMockLeg()
 	closeLeg(t, leg)
-
-	stub := func(_ context.Context, deps runner.Deps) error {
-		deps.Emitter.Finding("arp", []byte(`{"host":"10.0.0.1"}`))
-		deps.Emitter.Progress("scan-complete", "segment scanned")
-		return nil
-	}
-
-	r := runner.NewRunner(runner.Options{
+	target := check.Target{VTPDomain: "lab"}
+	var got check.Deps
+	r := newRunner(runner.Options{
 		AttackLeg: leg,
-		Attacks:   []runner.AttackRef{{Name: "arpsweep"}},
-		Behaviors: map[string]runner.Behavior{"arpsweep": stub},
-		// SuppressOutput is the embed seam for a host that consumes the
-		// stream programmatically and suppresses CLI output.
-		SuppressOutput: true,
-	})
-
-	var recs []findings.Record
-	var mu sync.Mutex
-	wg := sync.WaitGroup{}
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		for rec := range r.Stream().Iter() {
-			mu.Lock()
-			recs = append(recs, rec)
-			mu.Unlock()
-		}
-	}()
-
-	err := r.Run(context.Background())
-	r.Wait()
-	wg.Wait()
-
+		Attacks:   []runner.AttackRef{{Name: "vtp"}},
+		Target:    target,
+	}, map[string]check.Run{"vtp": func(_ context.Context, deps check.Deps) (check.Verdict, error) {
+		got = deps
+		return pending, nil
+	}})
+	if _, err := drainStreamAsync(context.Background(), r); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if got.Target.VTPDomain != "lab" {
+		t.Errorf("Deps.Target.VTPDomain = %q, want lab", got.Target.VTPDomain)
+	}
+	if got.Observe != runner.DefaultObserve {
+		t.Errorf("Deps.Observe = %v, want the default %v", got.Observe, runner.DefaultObserve)
+	}
+	if got.Entry.Name != "vtp" || got.Entry.Restore.Kind != check.RestoreDecay {
+		t.Errorf("Deps.Entry = %+v, want the vtp base row", got.Entry)
+	}
+	if got.Listen == nil {
+		t.Fatal("Deps.Listen is nil")
+	}
+	ln, err := got.Listen(context.Background(), "tcp", "127.0.0.1:0")
 	if err != nil {
-		t.Fatalf("Run returned error: %v", err)
+		t.Skipf("local listen unavailable: %v", err)
 	}
-	mu.Lock()
-	defer mu.Unlock()
-	if len(recs) != 2 {
-		t.Fatalf("got %d records, want 2", len(recs))
+	if _, ok := ln.Addr().(*net.TCPAddr); !ok {
+		t.Errorf("Listen returned %T address, want TCP", ln.Addr())
 	}
-	if recs[0].Kind != findings.KindFinding {
-		t.Errorf("record 0: kind %q, want %q", recs[0].Kind, findings.KindFinding)
-	}
-	if recs[1].Kind != findings.KindProgress {
-		t.Errorf("record 1: kind %q, want %q", recs[1].Kind, findings.KindProgress)
-	}
+	_ = ln.Close()
 }
 
 func TestStreamCloseLatency(t *testing.T) {
 	leg := newMockLeg()
 	closeLeg(t, leg)
 
-	// A behavior that returns immediately.
-	stub := func(_ context.Context, _ runner.Deps) error {
-		return nil
+	stub := func(_ context.Context, _ check.Deps) (check.Verdict, error) {
+		return pending, nil
 	}
 
-	r := runner.NewRunner(runner.Options{
+	r := newRunner(runner.Options{
 		AttackLeg: leg,
 		Attacks:   []runner.AttackRef{{Name: "arpsweep"}},
-		Behaviors: map[string]runner.Behavior{
-			"arpsweep": stub,
-		},
-	})
+	}, map[string]check.Run{"arpsweep": stub})
 
 	go func() { _ = r.Run(context.Background()) }()
 
-	// Wait for the run to complete.
 	r.Wait()
 
-	// Now Close should return immediately (the stream is already done).
 	start := time.Now()
 	if err := r.Stream().Close(); err != nil {
 		t.Fatalf("Close: %v", err)
@@ -493,11 +604,10 @@ func TestUnknownAttackCodedFailure(t *testing.T) {
 	leg := newMockLeg()
 	closeLeg(t, leg)
 
-	r := runner.NewRunner(runner.Options{
+	r := newRunner(runner.Options{
 		AttackLeg: leg,
 		Attacks:   []runner.AttackRef{{Name: "nonexistent"}},
-		Behaviors: map[string]runner.Behavior{},
-	})
+	}, nil)
 
 	err := r.Run(context.Background())
 	r.Wait()
@@ -510,13 +620,32 @@ func TestUnknownAttackCodedFailure(t *testing.T) {
 	}
 }
 
+// TestOrchestrationEntryCodedFailure pins that the one entry with no Run
+// cannot be dispatched through the runner and fails with the unknown
+// behavior code, not a nil call.
+func TestOrchestrationEntryCodedFailure(t *testing.T) {
+	leg := newMockLeg()
+	closeLeg(t, leg)
+	r := newRunner(runner.Options{
+		AttackLeg: leg,
+		Attacks:   []runner.AttackRef{{Name: "scan"}},
+	}, nil)
+	err := r.Run(context.Background())
+	r.Wait()
+	if code, _ := errs.CodeOf(err); code != catalog.ErrCodeUnknownBehavior {
+		t.Errorf("got %v, want unknown behavior error", err)
+	}
+	if code, _ := errs.CodeOf(r.Stream().Err()); code != catalog.ErrCodeUnknownBehavior {
+		t.Errorf("got stream error %v, want unknown behavior error", r.Stream().Err())
+	}
+}
+
 func TestNilAttackLegCodedFailure(t *testing.T) {
-	r := runner.NewRunner(runner.Options{
+	r := newRunner(runner.Options{
 		AttackLeg: nil,
 		Attacks:   []runner.AttackRef{{Name: "arpsweep"}},
-		Behaviors: map[string]runner.Behavior{
-			"arpsweep": func(_ context.Context, _ runner.Deps) error { return nil },
-		},
+	}, map[string]check.Run{
+		"arpsweep": func(_ context.Context, _ check.Deps) (check.Verdict, error) { return pending, nil },
 	})
 
 	err := r.Run(context.Background())
@@ -530,32 +659,14 @@ func TestNilAttackLegCodedFailure(t *testing.T) {
 	}
 }
 
-func TestNilBehaviorCodedFailure(t *testing.T) {
-	leg := newMockLeg()
-	closeLeg(t, leg)
-	r := runner.NewRunner(runner.Options{
-		AttackLeg: leg,
-		Attacks:   []runner.AttackRef{{Name: "arpsweep"}},
-		Behaviors: map[string]runner.Behavior{"arpsweep": nil},
-	})
-	err := r.Run(context.Background())
-	r.Wait()
-	if code, _ := errs.CodeOf(err); code != catalog.ErrCodeUnknownBehavior {
-		t.Errorf("got %v, want unknown behavior error", err)
-	}
-	if code, _ := errs.CodeOf(r.Stream().Err()); code != catalog.ErrCodeUnknownBehavior {
-		t.Errorf("got stream error %v, want unknown behavior error", r.Stream().Err())
-	}
-}
-
 func TestEmptyAttacksReturnsNil(t *testing.T) {
 	leg := newMockLeg()
 	closeLeg(t, leg)
 
-	r := runner.NewRunner(runner.Options{
+	r := newRunner(runner.Options{
 		AttackLeg: leg,
 		Attacks:   nil,
-	})
+	}, nil)
 
 	err := r.Run(context.Background())
 	r.Wait()
@@ -570,19 +681,16 @@ func TestContextCancellationReturnsCtxErr(t *testing.T) {
 	closeLeg(t, leg)
 
 	started := make(chan struct{})
-	block := func(ctx context.Context, _ runner.Deps) error {
+	block := func(ctx context.Context, _ check.Deps) (check.Verdict, error) {
 		close(started)
 		<-ctx.Done()
-		return ctx.Err()
+		return check.Verdict{}, ctx.Err()
 	}
 
-	r := runner.NewRunner(runner.Options{
+	r := newRunner(runner.Options{
 		AttackLeg: leg,
 		Attacks:   []runner.AttackRef{{Name: "arpsweep"}},
-		Behaviors: map[string]runner.Behavior{
-			"arpsweep": block,
-		},
-	})
+	}, map[string]check.Run{"arpsweep": block})
 
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
@@ -615,20 +723,20 @@ func TestCancellationUnblocksFullStream(t *testing.T) {
 			t.Cleanup(cancel)
 			opts := runner.Options{
 				AttackLeg: leg,
-				Attacks:   []runner.AttackRef{{Name: "arpsweep"}, {Name: "scan"}},
-				Behaviors: map[string]runner.Behavior{
-					"arpsweep": func(_ context.Context, deps runner.Deps) error {
-						for range 64 {
-							deps.Emitter.Progress("scan", "")
-						}
-						close(full)
-						deps.Emitter.Progress("blocked", "")
-						return nil
-					},
-					"scan": func(_ context.Context, _ runner.Deps) error {
-						t.Error("dispatched another behavior after cancellation")
-						return nil
-					},
+				Attacks:   []runner.AttackRef{{Name: "arpsweep"}, {Name: "vlanenum"}},
+			}
+			stubs := map[string]check.Run{
+				"arpsweep": func(_ context.Context, deps check.Deps) (check.Verdict, error) {
+					for range 64 {
+						deps.Emitter.Progress("scan", "")
+					}
+					close(full)
+					deps.Emitter.Progress("blocked", "")
+					return pending, nil
+				},
+				"vlanenum": func(_ context.Context, _ check.Deps) (check.Verdict, error) {
+					t.Error("dispatched another behavior after cancellation")
+					return pending, nil
 				},
 			}
 			wantErr := context.Canceled
@@ -636,7 +744,7 @@ func TestCancellationUnblocksFullStream(t *testing.T) {
 				opts.Timeout = 50 * time.Millisecond
 				wantErr = context.DeadlineExceeded
 			}
-			r := runner.NewRunner(opts)
+			r := newRunner(opts, stubs)
 			result := make(chan error, 1)
 			go func() { result <- r.Run(ctx) }()
 			<-full
@@ -666,24 +774,21 @@ func TestModeBearingBehaviorResolvesEntry(t *testing.T) {
 	leg := newMockLeg()
 	closeLeg(t, leg)
 
-	var gotEntry catalog.Entry
-	stub := func(_ context.Context, deps runner.Deps) error {
+	var gotEntry check.Entry
+	stub := func(_ context.Context, deps check.Deps) (check.Verdict, error) {
 		gotEntry = deps.Entry
-		// portsteal --relay is temporary-restored: arm a restore step.
-		if deps.Teardown != nil {
-			deps.Teardown.Arm("ip-forward-restore", func(_ context.Context) error { return nil })
-		}
+		// portsteal --relay restores actively: arm a restore step.
+		deps.Teardown.Arm("ip-forward-restore", func(_ context.Context) error { return nil })
 		deps.Emitter.Finding("arp", []byte(`{}`))
-		return nil
+		return pending, nil
 	}
 
-	r := runner.NewRunner(runner.Options{
+	r := newRunner(runner.Options{
 		AttackLeg: leg,
 		Attacks:   []runner.AttackRef{{Name: "portsteal", Mode: "relay"}},
-		Behaviors: map[string]runner.Behavior{"portsteal": stub},
-	})
+	}, map[string]check.Run{"portsteal": stub})
 
-	recs, err := drainStreamAsync(t, context.Background(), r)
+	recs, err := drainStreamAsync(context.Background(), r)
 	if err != nil {
 		t.Fatalf("Run returned error: %v", err)
 	}
@@ -694,15 +799,17 @@ func TestModeBearingBehaviorResolvesEntry(t *testing.T) {
 	if gotEntry.Mode != "relay" {
 		t.Errorf("entry mode %q, want %q", gotEntry.Mode, "relay")
 	}
-	if gotEntry.Class != catalog.TemporaryRestored {
-		t.Errorf("entry class %q, want %q", gotEntry.Class, catalog.TemporaryRestored)
+	if gotEntry.Restore.Kind != check.RestoreActive {
+		t.Errorf("entry restore %q, want %q", gotEntry.Restore.Kind, check.RestoreActive)
 	}
 
-	if len(recs) != 1 {
-		t.Fatalf("got %d records, want 1", len(recs))
+	if len(recs) != 2 {
+		t.Fatalf("got %d records, want 2 (finding + verdict)", len(recs))
 	}
-	if recs[0].Mode != "relay" {
-		t.Errorf("record mode %q, want %q", recs[0].Mode, "relay")
+	for i, rec := range recs {
+		if rec.Mode != "relay" {
+			t.Errorf("record %d mode %q, want %q", i, rec.Mode, "relay")
+		}
 	}
 }
 
@@ -710,30 +817,27 @@ func TestBackpressureBoundedChannel(t *testing.T) {
 	leg := newMockLeg()
 	closeLeg(t, leg)
 
-	// A behavior that tries to emit many records quickly.
 	emitted := atomic.Int32{}
-	stub := func(_ context.Context, deps runner.Deps) error {
+	stub := func(_ context.Context, deps check.Deps) (check.Verdict, error) {
 		for i := 0; i < 1000; i++ {
 			if !deps.Emitter.Finding("arp", []byte(`{}`)) {
-				return nil
+				return pending, nil
 			}
 			emitted.Add(1)
 		}
-		return nil
+		return pending, nil
 	}
 
-	r := runner.NewRunner(runner.Options{
+	r := newRunner(runner.Options{
 		AttackLeg: leg,
 		Attacks:   []runner.AttackRef{{Name: "arpsweep"}},
-		Behaviors: map[string]runner.Behavior{"arpsweep": stub},
-	})
+	}, map[string]check.Run{"arpsweep": stub})
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	go func() { _ = r.Run(ctx) }()
 
-	// Slow consumer: read one record every 1ms.
 	consumed := 0
 	for rec := range r.Stream().Iter() {
 		_ = rec
@@ -749,10 +853,6 @@ func TestBackpressureBoundedChannel(t *testing.T) {
 	}
 	r.Wait()
 
-	// The behavior emitted at most buffer + consumed records (bounded).
-	// The stream buffer is 64; the consumer consumed ~10; the behavior
-	// should have emitted at most ~74, not 1000. We check it emitted
-	// far fewer than 1000, proving backpressure.
 	got := emitted.Load()
 	if got > 200 {
 		t.Errorf("emitted %d records, want <= 200 (backpressure)", got)

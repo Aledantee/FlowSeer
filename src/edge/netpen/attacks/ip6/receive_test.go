@@ -3,24 +3,38 @@ package ip6_test
 import (
 	"context"
 	"errors"
+	"net"
 	"testing"
 
 	"github.com/gopacket/gopacket"
 	"github.com/gopacket/gopacket/layers"
 
 	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/ip6"
-	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/testtest"
+	"go.aledante.io/FlowSeer/src/edge/netpen/catalog"
+	"go.aledante.io/FlowSeer/src/edge/netpen/check"
 	"go.aledante.io/FlowSeer/src/edge/netpen/link"
 	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
 )
 
 type receiveLeg struct {
-	*testtest.Leg
+	link.Leg
 	receive func(context.Context) <-chan link.Frame
 }
 
 func (l *receiveLeg) Receive(ctx context.Context) <-chan link.Frame {
 	return l.receive(ctx)
+}
+
+// wrapped returns the family catalog with name's Run wrapped so a test can
+// observe the behavior's own error.
+func wrapped(name string, wrap func(run check.Run) check.Run) catalog.Catalog {
+	bs := ip6.Behaviors()
+	for i := range bs {
+		if bs[i].Name == name {
+			bs[i].Run = wrap(bs[i].Run)
+		}
+	}
+	return catalog.MustNew(bs...)
 }
 
 func TestReceiveFailures(t *testing.T) {
@@ -37,16 +51,13 @@ func TestReceiveFailures(t *testing.T) {
 			{name: "receive error", closed: true, want: errReceive},
 		} {
 			t.Run(name+"/"+tc.name, func(t *testing.T) {
-				leg := &receiveLeg{Leg: testtest.New()}
-				t.Cleanup(func() { _ = leg.Close() })
-				behavior := ip6.Behaviors()[name]
+				leg := &receiveLeg{Leg: fixtureLeg(t, nil)}
 				var got error
+				target := fixtureTarget()
+				target.Victim6.IP = net.ParseIP("fd00::100")
 				recs, err := runOne(t, runner.Options{
-					AttackLeg: leg,
-					WatchLeg:  leg,
-					Attacks:   []runner.AttackRef{{Name: name}},
-					Behaviors: map[string]runner.Behavior{
-						name: func(ctx context.Context, deps runner.Deps) error {
+					Catalog: wrapped(name, func(run check.Run) check.Run {
+						return func(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 							ctx, cancel := context.WithCancel(ctx)
 							defer cancel()
 							leg.receive = func(context.Context) <-chan link.Frame {
@@ -61,10 +72,15 @@ func TestReceiveFailures(t *testing.T) {
 								}
 								return ch
 							}
-							got = behavior(ctx, deps)
-							return got
-						},
-					},
+							var v check.Verdict
+							v, got = run(ctx, deps)
+							return v, got
+						}
+					}),
+					AttackLeg: leg,
+					WatchLeg:  leg,
+					Attacks:   []runner.AttackRef{{Name: name}},
+					Target:    target,
 				})
 				if err != nil {
 					t.Fatalf("run: %v", err)
@@ -113,19 +129,22 @@ func TestRogueDHCPv6MalformedSolicit(t *testing.T) {
 		{name: "empty client ID", data: buf.Bytes()},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			leg := testtest.New()
-			t.Cleanup(func() { _ = leg.Close() })
+			leg := fixtureLeg(t, nil)
 			leg.PushRX(tc.data)
 			var got error
+			target := fixtureTarget()
+			target.Victim6.IP = net.ParseIP("fd00::100")
 			recs, err := runOne(t, runner.Options{
+				Catalog: wrapped("roguedhcp6", func(run check.Run) check.Run {
+					return func(ctx context.Context, deps check.Deps) (check.Verdict, error) {
+						var v check.Verdict
+						v, got = run(ctx, deps)
+						return v, got
+					}
+				}),
 				AttackLeg: leg,
 				Attacks:   []runner.AttackRef{{Name: "roguedhcp6"}},
-				Behaviors: map[string]runner.Behavior{
-					"roguedhcp6": func(ctx context.Context, deps runner.Deps) error {
-						got = ip6.RunRogueDHCPv6(ctx, deps)
-						return got
-					},
-				},
+				Target:    target,
 			})
 			if err != nil {
 				t.Fatalf("run: %v", err)

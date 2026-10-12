@@ -9,13 +9,14 @@ import (
 	"go.aledante.io/FlowSeer/src/edge/netpen/catalog"
 )
 
-// TestValidationMatrixCompleteness walks the catalog and asserts every
-// (behavior, mode) pair appears in VALIDATION_MATRIX.md. This is the
-// single-source guard: the catalog is the source of truth,
-// and the matrix cannot drift from it.
-//
-// It checks the first two columns, including the explicit base mode, without
-// treating prose elsewhere in the file as evidence for a missing matrix row.
+// matrixColumns is the header the matrix rows follow, in order.
+const matrixColumns = "| Behavior | Mode | Impact | Restore | Affects | Observable | Fixture provenance | t1 AE6 | t2 |"
+
+// TestValidationMatrixCompleteness walks the shipped catalog and asserts
+// every (behavior, mode) pair appears in VALIDATION_MATRIX.md with the
+// catalog's own impact, restore, and affects in the first five columns and
+// a non-empty observable column. This is the single-source guard: the
+// catalog is the source of truth, and the matrix cannot drift from it.
 func TestValidationMatrixCompleteness(t *testing.T) {
 	matrixPath := filepath.Join(".", "VALIDATION_MATRIX.md")
 	data, err := os.ReadFile(matrixPath)
@@ -23,16 +24,36 @@ func TestValidationMatrixCompleteness(t *testing.T) {
 		t.Fatalf("read %s: %v", matrixPath, err)
 	}
 	matrix := string(data)
+	if !strings.Contains(matrix, "\n"+matrixColumns+"\n") {
+		t.Fatalf("VALIDATION_MATRIX.md lacks the header %q", matrixColumns)
+	}
 
-	entries := catalog.Entries()
-	for _, e := range entries {
+	for _, e := range catalog.GeneratedEntries {
 		mode := e.Mode
 		if mode == "" {
 			mode = "base"
 		}
-		prefix := "| " + e.Name + " | " + mode + " |"
-		if !strings.Contains(matrix, "\n"+prefix) {
-			t.Errorf("behavior %q mode %q missing from VALIDATION_MATRIX.md", e.Name, mode)
+		restore := string(e.Restore.Kind)
+		if e.Restore.Bound > 0 {
+			restore += " " + e.Restore.Bound.String()
+		}
+		prefix := "| " + e.Name + " | " + mode + " | " + string(e.Impact) + " | " + restore + " | " + string(e.Affects) + " | "
+		start := strings.Index(matrix, "\n"+prefix)
+		if start < 0 {
+			t.Errorf("behavior %q mode %q missing from VALIDATION_MATRIX.md with its cost fields: want a row starting %q", e.Name, e.Mode, prefix)
+			continue
+		}
+		row := matrix[start+1:]
+		if end := strings.Index(row, "\n"); end >= 0 {
+			row = row[:end]
+		}
+		cells := strings.Split(strings.Trim(row, "|"), "|")
+		if len(cells) != 9 {
+			t.Errorf("row for %q mode %q has %d cells, want 9: %s", e.Name, e.Mode, len(cells), row)
+			continue
+		}
+		if strings.TrimSpace(cells[5]) == "" {
+			t.Errorf("row for %q mode %q has an empty Observable column", e.Name, e.Mode)
 		}
 	}
 }

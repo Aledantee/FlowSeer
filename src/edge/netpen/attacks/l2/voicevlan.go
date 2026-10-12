@@ -16,7 +16,7 @@ import (
 	"github.com/gopacket/gopacket/layers"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
-	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
+	"go.aledante.io/FlowSeer/src/edge/netpen/check"
 )
 
 type voiceVLANFinding struct {
@@ -25,21 +25,26 @@ type voiceVLANFinding struct {
 	Restore string `json:"restore"`
 }
 
-// RunVoiceVLAN sends an LLDP-MED network-policy TLV advertising a voice
-// VLAN and arms a restore step unless --persist is active.
-func RunVoiceVLAN(ctx context.Context, deps runner.Deps) error {
-	src := srcMAC(deps)
-	mode := deps.Entry.Mode
-
-	voiceVLAN := uint16(20)
+// RunVoiceVLAN sends one LLDP-MED network-policy frame advertising the
+// target's voice VLAN from the attack leg's MAC; the port name, TTL,
+// priority, and DSCP are probe content. The base entry arms a restore step
+// that does no host work yet; the persist mode is permanent and arms
+// nothing. The verdict is pending: whether a phone moved needs a listener
+// for its traffic on the voice VLAN that phase 2 adds.
+func RunVoiceVLAN(ctx context.Context, deps check.Deps) (check.Verdict, error) {
+	if err := deps.Target.Need(check.FieldVoiceVLAN); err != nil {
+		return check.Verdict{}, err
+	}
+	src := deps.AttackLeg.Addr().MAC
+	voiceVLAN := deps.Target.VoiceVLAN
 
 	pkt, err := craftLLDPVoiceVLAN(src, voiceVLAN)
 	if err != nil {
-		return errs.Wrap(err, "voicevlan: craft frame")
+		return check.Verdict{}, errs.Wrap(err, "voicevlan: craft frame")
 	}
 
 	restoreArmed := "no"
-	if mode != "persist" {
+	if deps.Entry.Restore.Kind == check.RestoreActive {
 		deps.Teardown.Arm("lldp-voice-vlan-restore", func(_ context.Context) error {
 			return nil
 		})
@@ -47,7 +52,7 @@ func RunVoiceVLAN(ctx context.Context, deps runner.Deps) error {
 	}
 
 	if err := deps.AttackLeg.Send(ctx, pkt); err != nil {
-		return errs.Wrap(err, "voicevlan: send")
+		return check.Verdict{}, errs.Wrap(err, "voicevlan: send")
 	}
 
 	detail, _ := json.Marshal(voiceVLANFinding{
@@ -57,7 +62,10 @@ func RunVoiceVLAN(ctx context.Context, deps runner.Deps) error {
 	})
 	deps.Emitter.Finding("lldp", detail)
 
-	return nil
+	if restoreArmed == "yes" {
+		return check.Pending("no observable: a phone's move needs a listener on the voice VLAN, and the lldp-voice-vlan-restore step is a no-op"), nil
+	}
+	return check.Pending("no observable: a phone's move needs a listener on the voice VLAN"), nil
 }
 
 // craftLLDPVoiceVLAN builds an LLDP frame with a Network Policy TLV

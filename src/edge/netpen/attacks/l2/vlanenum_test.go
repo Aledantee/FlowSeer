@@ -10,8 +10,8 @@ import (
 
 	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/l2"
 	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/testtest"
+	"go.aledante.io/FlowSeer/src/edge/netpen/check"
 	"go.aledante.io/FlowSeer/src/edge/netpen/link"
-	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
 )
 
 func TestVlanEnumReturnsCancellation(t *testing.T) {
@@ -22,7 +22,8 @@ func TestVlanEnumReturnsCancellation(t *testing.T) {
 		defer cancel()
 		done := make(chan error, 1)
 		go func() {
-			done <- l2.RunVlanEnum(ctx, runner.Deps{AttackLeg: leg})
+			_, err := l2.RunVlanEnum(ctx, check.Deps{AttackLeg: leg})
+			done <- err
 		}()
 		synctest.Wait()
 		cancel()
@@ -41,7 +42,7 @@ func TestVlanEnumReturnsReceiveError(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 		started := time.Now()
-		err := l2.RunVlanEnum(ctx, runner.Deps{AttackLeg: leg})
+		_, err := l2.RunVlanEnum(ctx, check.Deps{AttackLeg: leg})
 		if !errors.Is(err, errReceive) {
 			t.Errorf("RunVlanEnum() error = %v, want %v", err, errReceive)
 		}
@@ -61,7 +62,7 @@ func TestVlanEnumIgnoresTruncatedHeaders(t *testing.T) {
 				leg.PushRX(frame[:n])
 				ctx, cancel := context.WithCancel(context.Background())
 				defer cancel()
-				if err := l2.RunVlanEnum(ctx, runner.Deps{AttackLeg: leg}); err == nil {
+				if _, err := l2.RunVlanEnum(ctx, check.Deps{AttackLeg: leg}); err == nil {
 					t.Errorf("RunVlanEnum() with %d header bytes returned nil, want error", n)
 				}
 			})

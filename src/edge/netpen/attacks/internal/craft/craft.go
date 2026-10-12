@@ -1,20 +1,11 @@
-// Package craft holds the packet-crafting fixtures shared by netpen's attack
-// behavior packages (attacks/ip6, attacks/l2, attacks/routing, attacks/fh).
-// It owns the default serialize path and the fixed fixture source MAC those
-// packages build frames with, so the value and the serialize options stay
-// identical across every attack family.
+// Package craft holds the serialize path shared by netpen's attack behavior
+// packages (attacks/ip6, attacks/l2, attacks/routing, attacks/fh), so the
+// serialize options stay identical across every attack family.
 package craft
 
 import (
-	"net"
-
 	"github.com/gopacket/gopacket"
 )
-
-// FixtureSrcMAC is the fixed source MAC the attack behaviors and their fixture
-// generators build frames with. Behaviors do not derive it from the attack
-// leg. Callers must not mutate it concurrently with a behavior run.
-var FixtureSrcMAC = net.HardwareAddr{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
 
 // Default serializes layers with the default craft path: SerializeLayers with
 // ComputeChecksums and FixLengths enabled. It returns an owned copy of the

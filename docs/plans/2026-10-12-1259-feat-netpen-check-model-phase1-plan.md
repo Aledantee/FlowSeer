@@ -221,7 +221,7 @@ before. The new validation applies only to `New`. `codes.go` adds
 Ruled: the registration table's own `Behavior` and `Mode` types, used
 only inside `catalog`, become the unexported `registration` and
 `registrationMode` so the new types take the names the Decisions give
-them; `catalog.Legs` becomes an alias of `check.Legs` so the table and
+them, and `catalog.Legs` becomes an alias of `check.Legs` so the table and
 the value share one type. The cutover deletes both renamed types.
 Tests: `catalog_test.go` gains cases that reject a `decay` restore with a
 negative bound, an unknown impact, an unknown affects, a nil `Run` on an
@@ -246,7 +246,7 @@ verdict records with the new kind and `summaryRecord` counts them.
 kinds. `findings_class_test.go` expects version 2. Ruled: `findings`
 owns `VerdictKind` and its four constants, since it is the wire and
 `check` imports it, so `check.Verdict.Kind` is a `findings.VerdictKind`
-and `check` declares no kind of its own; `Summary.Count` tallies one
+and `check` declares no kind of its own. `Summary.Count` tallies one
 verdict so the three consumers share one switch.
 Tests: `findings_test.go` marshals each kind and the verdict example of
 requirement 2. `json_test.go` and `tui_test.go` golden outputs carry the
@@ -315,6 +315,21 @@ target comes from flags. The Taskfile's `test` task drops `CGO_ENABLED=0`.
 `README.md` describes the check model, the cost fields, the ceiling, and
 the target flags with one worked command. A conformance gate rejects
 `os.Exit` and `signal.Notify` under `src/edge/netpen/runner/`.
+Ruled: `Affects` is `device` for switch or router state (CAM, DTP, LLDP,
+MVRP, LACP, DHCP pool, snooping), `clients` for end hosts' caches,
+leases, and first-hop choice, `fabric` for domain-wide protocol state
+(STP, VTP, OSPF, EIGRP), and `none` for the no-impact entries;
+`doubletag` is `none` since the registration text said nothing persists.
+Ruled: a host flag takes `<ip>` or `<ip>,<mac>`, and `Target` names the
+MAC as its own field (`victim-mac`), so a behavior that frames to a host
+asks for both parts. Ruled: `arpsweep` keeps the 16-byte protocol
+addresses its fixture carries and requests the first three hosts of
+`--sweep-net` from the leg's own IPv4. Ruled: a ceiling refusal records
+a refusal and a skipped verdict, and a behavior whose target check fails
+runs no teardown, since it armed nothing. Ruled: `full` keeps no verdict
+list of its own, and the summary counts the verdict records each phase's
+runner emitted. Ruled: `attacks.Behaviors()` returns the shipped list so
+tests replace a `Run` before building their own catalog.
 Tests: `runner_test.go` covers the gate order, the ceiling refusal that
 continues, the verdict record per attack, the error-to-pending path, and
 the target error as `skipped` with and without `Orchestrated`.

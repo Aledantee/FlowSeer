@@ -14,8 +14,8 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 
+	"go.aledante.io/FlowSeer/src/edge/netpen/check"
 	"go.aledante.io/FlowSeer/src/edge/netpen/layers"
-	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
 )
 
 type mvrpFinding struct {
@@ -25,10 +25,12 @@ type mvrpFinding struct {
 	Event  string   `json:"event"`
 }
 
-// RunMVRP sends MVRP JoinIn messages for a set of VLANs. The burst is
-// bounded for the in-memory test shape.
-func RunMVRP(ctx context.Context, deps runner.Deps) error {
-	src := srcMAC(deps)
+// RunMVRP sends one JoinIn per VLAN of a fixed pair from the attack leg's
+// MAC. The VLAN ids are probe content, since any id registers; the
+// behavior reads no target. The verdict is pending: whether the switch
+// registered them needs a read of the device that phase 2 adds.
+func RunMVRP(ctx context.Context, deps check.Deps) (check.Verdict, error) {
+	src := deps.AttackLeg.Addr().MAC
 
 	vlans := []uint16{10, 20}
 
@@ -47,10 +49,10 @@ func RunMVRP(ctx context.Context, deps runner.Deps) error {
 		}
 		pkt, err := craftEtherType(mvrpDstMAC, src, ethertypeMVRP, mvrp)
 		if err != nil {
-			return errs.Wrapf(err, "mvrp: craft frame for VLAN %d", vid)
+			return check.Verdict{}, errs.Wrapf(err, "mvrp: craft frame for VLAN %d", vid)
 		}
 		if err := deps.AttackLeg.Send(ctx, pkt); err != nil {
-			return errs.Wrapf(err, "mvrp: send for VLAN %d", vid)
+			return check.Verdict{}, errs.Wrapf(err, "mvrp: send for VLAN %d", vid)
 		}
 	}
 
@@ -62,5 +64,5 @@ func RunMVRP(ctx context.Context, deps runner.Deps) error {
 	})
 	deps.Emitter.Finding("mvrp", detail)
 
-	return nil
+	return check.Pending("no observable: registration needs a read of the device's VLAN table"), nil
 }

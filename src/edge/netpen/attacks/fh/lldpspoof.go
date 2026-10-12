@@ -20,7 +20,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/errs"
 
 	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/internal/craft"
-	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
+	"go.aledante.io/FlowSeer/src/edge/netpen/check"
 )
 
 type lldpSpoofFinding struct {
@@ -29,21 +29,24 @@ type lldpSpoofFinding struct {
 	Count  int    `json:"count"`
 }
 
-// RunLLDPSpoof sends spoofed LLDP frames with a false chassis ID, port ID,
-// and system name. The in-memory test shape sends a bounded burst.
-func RunLLDPSpoof(ctx context.Context, deps runner.Deps) error {
-	src := srcMAC()
+// RunLLDPSpoof sends two LLDP frames from the attack leg's MAC with a
+// false port ID, system name, and capabilities; all of those are probe
+// content and the behavior reads no target. The verdict is pending: whether
+// the neighbor table took the entry needs a read of the device that phase
+// 2 adds.
+func RunLLDPSpoof(ctx context.Context, deps check.Deps) (check.Verdict, error) {
+	src := deps.AttackLeg.Addr().MAC
 	ttl := uint16(120)
 	count := 2
 
 	pkt, err := craftLLDPSpoof(src, ttl)
 	if err != nil {
-		return errs.Wrap(err, "lldpspoof: craft frame")
+		return check.Verdict{}, errs.Wrap(err, "lldpspoof: craft frame")
 	}
 
 	for range count {
 		if err := deps.AttackLeg.Send(ctx, pkt); err != nil {
-			return errs.Wrap(err, "lldpspoof: send frame")
+			return check.Verdict{}, errs.Wrap(err, "lldpspoof: send frame")
 		}
 	}
 
@@ -54,7 +57,7 @@ func RunLLDPSpoof(ctx context.Context, deps runner.Deps) error {
 	})
 	deps.Emitter.Finding("lldp", detail)
 
-	return nil
+	return check.Pending("no observable: neighbor table acceptance needs a read of the device"), nil
 }
 
 // craftLLDPSpoof builds an LLDP frame with spoofed chassis/port/TTL.

