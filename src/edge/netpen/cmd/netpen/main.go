@@ -42,7 +42,7 @@ var versionCmd = version.String
 
 // subcommand is one entry in the dispatch table. Each command gets its own
 // flag.FlagSet. setup registers the command-specific flags into the
-// cmdFlags struct, and run reads them after parsing.
+// cmdFlags struct. run reads them after parsing.
 type subcommand struct {
 	name  string
 	short string
@@ -51,7 +51,7 @@ type subcommand struct {
 }
 
 // cmdFlags holds all per-command flags. Each command populates only the
-// fields it uses, and the rest stay zero-valued.
+// fields it uses. The rest stay zero-valued.
 type cmdFlags struct {
 	// Global flags (available on every command).
 	iface     string
@@ -444,9 +444,9 @@ func streamAndRun(ctx context.Context, ch <-chan findings.Record, meta findings.
 	defer cancel()
 	done := make(chan error, 1)
 	// done is a rendezvous: runErr, <-done below blocks until exactly one
-	// send reaches it. The normal path sends at the end of fn, and the sink
-	// sends on a panic, so a panicking output consumer cannot hang this
-	// call forever.
+	// send reaches it. The normal path sends at the end of fn. The sink
+	// sends on a panic instead, so a panicking output consumer cannot hang
+	// this call forever.
 	spawn.Go(ctx, "netpen stream output", func() {
 		var err error
 		if mode == output.ModeJSON {

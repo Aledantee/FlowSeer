@@ -1,5 +1,5 @@
 // llmnr.go implements the LLMNR name-resolution spoofing attack behavior.
-// The attack answers a name with the attacker's own IPv4, and the spoofed
+// The attack answers a name with the attacker's own IPv4. The spoofed
 // answer expires with its 30 s TTL, which the catalog carries as the decay
 // bound.
 

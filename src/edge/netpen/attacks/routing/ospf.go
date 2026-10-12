@@ -1,6 +1,7 @@
 // OSPF models a fixed hello, database-description, and LSA-update sequence.
 // The runner executes the armed flush and goodbye frames after the behavior
-// returns. Packet bytes are fixture data, and adjacency and restoration are unverified.
+// returns. Packet bytes are fixture data. Neither adjacency nor restoration
+// is verified.
 
 package routing
 
@@ -46,8 +47,8 @@ type ospfFinding struct {
 // area and the LSA sequence are probe content. The verdict is pending:
 // whether the neighbor formed needs a hello listener it does not have.
 //
-// A missing hello is tolerated after 100 ms, and a receive or decode failure
-// stops the sequence. Cancellation returns ctx.Err(). Concurrent calls
+// A hello that has not arrived after 100 ms is tolerated. A receive or
+// decode failure stops the sequence. Cancellation returns ctx.Err(). Concurrent calls
 // require separate dependencies.
 func RunOSPF(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	if err := ctx.Err(); err != nil {
@@ -94,9 +95,9 @@ func RunOSPF(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	}
 
 	// Phase 2: receive the target's hello (adjacency formation).
-	// The fixture feeds the target's hello via PushRX. We read it with
-	// a short timeout — in the in-memory harness, a missing RX frame is
-	// not fatal, and the behavior proceeds with the inject.
+	// The fixture feeds the target's hello via PushRX. Read it with a
+	// short timeout: in the in-memory harness a missing RX frame is not
+	// fatal, so the behavior proceeds with the inject either way.
 	rxCtx, rxCancel := context.WithTimeout(ctx, 100*time.Millisecond)
 	_, rxErr := recvOSPF(rxCtx, deps.AttackLeg)
 	rxCancel()
@@ -380,7 +381,7 @@ func craftLSAUpdate(addr link.Addr, routerID, areaID, seq uint32) ([]byte, error
 
 // craftLSAFlush builds an OSPFv2 Link State Update carrying one router-LSA
 // with LSAge=3600 and the fixture sequence number. The runner sends this
-// during teardown, and no acknowledgment or LSDB state is checked.
+// during teardown without checking for an acknowledgment or LSDB state.
 func craftLSAFlush(addr link.Addr, routerID, areaID uint32) ([]byte, error) {
 	hdr := make([]byte, ospfHeaderLen)
 	hdr[0] = 2

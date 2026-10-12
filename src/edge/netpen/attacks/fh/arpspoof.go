@@ -36,10 +36,10 @@ func RunARPSpoof(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 
 	// Arm the teardown steps before the first frame so an interrupted
 	// run still restores. The order of Arm calls is the execution order
-	// (reverse-dependency: least-dependent first). ip_forward restore is
-	// host-local state, independent of the wire, and neighbor-cache repairs
-	// depend on the attacker's own stack being in a known state, so
-	// ip_forward goes first.
+	// (reverse-dependency: least-dependent first). ip_forward goes first
+	// because restoring it touches only host-local state, while the
+	// neighbor-cache repairs that follow need the attacker's own stack in
+	// a known state.
 	deps.Teardown.Arm("ip-forward-restore", func(_ context.Context) error {
 		return nil
 	})

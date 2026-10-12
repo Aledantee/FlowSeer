@@ -2,7 +2,8 @@
 //
 // Durability (from the catalog): transient-decay. The attack sends a
 // Router Advertisement claiming to be a router with a ~1800s lifetime.
-// The RA lifetime decays after the attack stops, and no explicit teardown.
+// The RA lifetime runs out on its own after the attack stops, so there is
+// no explicit teardown.
 
 package ip6
 

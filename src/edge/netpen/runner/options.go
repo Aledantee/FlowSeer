@@ -8,9 +8,9 @@
 //
 // The package follows naabu's embeddable shape (Options + Runner + Run) and
 // zgrab2's per-attack context cancellation (a behavior runs under a context
-// derived from Run's ctx). The CLI is one host, and an embedding FlowSeer agent
-// is another and consumes the stream programmatically. The runner owns no
-// process: signal handling and exit live in the host.
+// derived from Run's ctx). The CLI is one host. An embedding FlowSeer agent
+// is another, one that consumes the stream programmatically. The runner owns
+// no process: signal handling and exit live in the host.
 package runner
 
 import (
@@ -35,10 +35,10 @@ type Options struct {
 	// in Attacks the catalog lacks is a dispatch-level failure.
 	Catalog catalog.Catalog
 
-	// AttackLeg is the leg attacks send and receive on. Required for any
-	// run with a non-empty Attacks list, and a nil AttackLeg causes Run to
-	// return a coded error before dispatch. The runner wraps it in a
-	// pacer when Rate is positive.
+	// AttackLeg is the leg attacks send and receive on. Any run with a
+	// non-empty Attacks list requires it: Run returns a coded error before
+	// dispatch when it is nil. The runner wraps it in a pacer when Rate is
+	// positive.
 	AttackLeg link.Leg
 
 	// WatchLeg is the optional passive observation leg. A behavior
@@ -73,14 +73,14 @@ type Options struct {
 	Rate int
 
 	// Timeout bounds the whole run. Zero means no timeout. The runner
-	// derives a context with this deadline from Run's ctx, and a behavior
+	// derives a context with this deadline from Run's ctx, so a behavior
 	// that exceeds it observes ctx.Err() (context.DeadlineExceeded).
 	Timeout time.Duration
 
 	// Acknowledged is the per-run opt-in set naming each permanent
 	// (attack, mode) pair the operator explicitly accepted. A pair in
 	// [Options.Attacks] whose impact is [check.ImpactPermanent] dispatches
-	// only when the same (name, mode) appears here, and without it the gate
+	// only when the same (name, mode) appears here. Without it the gate
 	// refuses before any frame is emitted. The acknowledgment is per pair,
 	// not global: accepting "vtp wipe" does not accept "vtp set".
 	Acknowledged []AttackRef
@@ -99,8 +99,8 @@ type Options struct {
 	TeardownBudget time.Duration
 }
 
-// AttackRef is one entry in [Options.Attacks]: a (behavior, mode) pair. Mode
-// is empty for the base (mode-less) behavior, and a non-empty Mode selects a
+// AttackRef is one entry in [Options.Attacks]: a (behavior, mode) pair. An
+// empty Mode names the base behavior. A non-empty Mode selects a
 // flag-gated variant (e.g. portsteal's "relay").
 // An AttackRef can be shared between goroutines if it is not modified.
 type AttackRef struct {

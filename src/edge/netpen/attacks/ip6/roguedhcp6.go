@@ -38,8 +38,8 @@ type rogueDHCPv6Finding struct {
 // address, which is also the DNS server it offers. The leased address,
 // the lifetimes, and the IAID are probe content. The verdict is pending:
 // whether the client took the lease needs a REQUEST listener it does not
-// have. It waits until a frame arrives or ctx is canceled, and callers must
-// supply a deadline to bound an idle receive. Cancellation while waiting
+// have. It waits until a frame arrives or ctx is canceled, so the caller
+// bounds an idle receive with a deadline. Cancellation while waiting
 // returns ctx.Err(). Receive and decode errors, and missing or empty client
 // IDs, return errors without a reply.
 func RunRogueDHCPv6(ctx context.Context, deps check.Deps) (check.Verdict, error) {

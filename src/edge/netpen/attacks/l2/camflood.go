@@ -43,8 +43,8 @@ var camFloodPayload = []byte("flood")
 // went fail-open needs a unicast probe through the watch leg it does not
 // have.
 func RunCAMFlood(ctx context.Context, deps check.Deps) (check.Verdict, error) {
-	// Serialize the frame template once, and each burst packet stamps its
-	// unique source MAC into a pooled copy, keeping the flood loop
+	// Serialize the frame template once. Each burst packet then stamps its
+	// unique source MAC into a pooled copy, which keeps the flood loop
 	// allocation-free after pool warmup.
 	template, err := craftCAMFloodFrame(0)
 	if err != nil {

@@ -30,11 +30,11 @@ type ghostFinding struct {
 
 // RunGhost sends two ghost-SA frames and observes the required watch leg
 // for the observation window, or until three frames arrived or the
-// receive closed. The ghost source address and the sentinel are probe
-// content, and the behavior reads no target. A ghost frame on the watch leg
-// within the window confirms traversal, and an empty window is resisted.
-// Observation cancellation returns ctx.Err(), and receive errors are wrapped
-// and emit no finding. Attribution matches the source MAC only, and it does not
+// receive closed. The behavior reads no target: the ghost source address and
+// the sentinel are probe content. A ghost frame on the watch leg within the
+// window confirms traversal. An empty window is resisted. Cancellation during
+// the observation returns ctx.Err(). A receive error comes back wrapped and
+// emits no finding. Attribution matches the source MAC only, so it cannot
 // establish that an observed frame is one sent by this run.
 func RunGhost(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	// The runner guarantees a non-nil WatchLeg for WatchRequired

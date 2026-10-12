@@ -21,8 +21,8 @@ type Host struct {
 }
 
 // Target holds every value that names a host, address, group, or identity
-// on the network a behavior acts on. The attacker's own addresses are not
-// here, and they come from the leg. A nil address, nil network, empty string,
+// on the network a behavior acts on. The attacker's own addresses come
+// from the leg, not from here. A nil address, nil network, empty string,
 // or zero number is absent. Callers must synchronize concurrent mutation
 // of a shared Target.
 type Target struct {

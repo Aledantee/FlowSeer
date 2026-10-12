@@ -10,9 +10,9 @@
 // frames with unique chaddr and the per-packet allocation cost
 // dominates the GC.
 //
-// Determinism pin: DHCP xids and chaddr are masked in field-set comparisons
-// (per-run randomness), and the fixture uses fixed values for byte-stable
-// generation.
+// Determinism pin: DHCP xids and chaddr vary per run, so field-set
+// comparisons mask them. The fixture uses fixed values so its bytes stay
+// stable.
 
 package ip6
 
@@ -51,8 +51,8 @@ var dhcpParamRequest = []byte{
 }
 
 // RunDHCPStarve sends five DISCOVER frames with incrementing chaddr tails
-// from the attack leg's MAC. The chaddr tails and transaction IDs are probe
-// content, and the behavior reads no target. The verdict is pending: whether
+// from the attack leg's MAC. The behavior reads no target: the chaddr tails
+// and transaction IDs are probe content. The verdict is pending: whether
 // the pool ran dry needs an offer listener it does not have.
 func RunDHCPStarve(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	src := deps.AttackLeg.Addr().MAC

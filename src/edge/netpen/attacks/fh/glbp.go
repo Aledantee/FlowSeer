@@ -5,7 +5,7 @@
 // AVG (Active Virtual Gateway) role. The teardown arms a resign hello
 // (lowered priority, listen state) to restore the virtual-router state.
 //
-// The baseline (l2l3-audit) does not carry a GLBP attack, and the craft is
+// The baseline (l2l3-audit) does not carry a GLBP attack. The craft is
 // authored from Wireshark's packet-glbp.c at commit
 // 1dbb8baf9c5bb2e9501b15cce98cea6a3c0f41a3, lines 137-218 and 289-365.
 

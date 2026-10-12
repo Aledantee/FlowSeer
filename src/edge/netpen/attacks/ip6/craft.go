@@ -1,7 +1,8 @@
 // craft.go holds the flood-class craft path for ip6 behaviors.
 // Flood-class behaviors (dhcpstarve, raflood, mld bursts) use the
-// shared pool-craft path for pre-serialized buffers, and the
-// default craft path uses SerializeLayers+ComputeChecksums+FixLengths.
+// shared pool-craft path for pre-serialized buffers. Everything else
+// goes through the default craft path, which runs SerializeLayers with
+// ComputeChecksums and FixLengths.
 
 package ip6
 

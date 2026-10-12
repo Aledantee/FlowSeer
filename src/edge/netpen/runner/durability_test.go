@@ -402,8 +402,8 @@ func TestNoImpactNoAnnouncementNoTeardown(t *testing.T) {
 
 // TestInterruptTeardownCompletesPartialFailure proves that when an
 // interrupt arrives mid-run on an actively restored behavior, the
-// teardown completes before exit, and one step planted to fail still lets
-// later steps run, and the partial record names the failed step, and exit is 1.
+// teardown completes before exit. One step planted to fail still lets
+// later steps run. The partial record names the failed step. Exit is 1.
 func TestInterruptTeardownCompletesPartialFailure(t *testing.T) {
 	leg := &sendCountingLeg{}
 	t.Cleanup(func() { _ = leg.Close() })

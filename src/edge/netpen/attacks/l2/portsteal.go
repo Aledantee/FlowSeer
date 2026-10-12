@@ -45,8 +45,8 @@ func RunPortSteal(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	if deps.Entry.Restore.Kind == check.RestoreActive {
 		deps.Teardown.Arm("ip-forward-restore", func(_ context.Context) error {
 			// Restoring the original ip_forward sysctl value is host-side
-			// state with no wire effect, and the in-memory harness observes the
-			// restore via the teardown step name.
+			// state with no wire effect. The in-memory harness sees the
+			// restore through the teardown step name.
 			return nil
 		})
 		restoreArmed = "yes"

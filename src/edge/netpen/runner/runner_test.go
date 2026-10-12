@@ -347,7 +347,7 @@ func TestEarlyLeaveNoGoroutineLeak(t *testing.T) {
 	}
 
 	// Wait for Run to finish. The Stopped check in the dispatch loop
-	// prevents new behaviors from starting, and the in-flight behavior
+	// prevents new behaviors from starting. The in-flight behavior
 	// finishes when Emitter.Finding returns false.
 	r.Wait()
 
@@ -428,7 +428,7 @@ func TestBehaviorErrorIsPendingVerdictAndContinues(t *testing.T) {
 // TestMissingTargetIsSkippedVerdict pins the target error path: a behavior
 // whose Need fails gets a skipped verdict naming the fields and sends
 // nothing. On a single command Run returns the coded error so the command
-// exits 2, and under orchestration the run continues to the next attack.
+// exits 2. Under orchestration the run continues to the next attack.
 func TestMissingTargetIsSkippedVerdict(t *testing.T) {
 	for _, orchestrated := range []bool{false, true} {
 		name := "single command"

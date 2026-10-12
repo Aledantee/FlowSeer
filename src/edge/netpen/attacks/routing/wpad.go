@@ -45,8 +45,8 @@ type wpadState struct {
 
 // RunWPAD announces the attack leg's own IPv4 as wpad over NBT-NS and
 // LLMNR, then serves a TTL-bound PAC from a listener opened through
-// deps.Listen and closed before return. The name and the transaction IDs
-// are probe content, and the behavior reads no target. The verdict is pending:
+// deps.Listen and closed before return. The behavior reads no target: the
+// name and the transaction IDs are probe content. The verdict is pending:
 // whether a client fetched the PAC needs the listener's request log it does
 // not have. A bind failure carries [catalog.ErrCodeWPADPortCollision].
 // Concurrent calls require separate dependencies.
@@ -102,8 +102,8 @@ func RunWPAD(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 // startWPADProxy starts an embedded HTTP server on a listener from listen
 // serving a TTL-bound PAC response. The PAC redirects all traffic to the
 // attacker. ctx bounds only the goroutine that serves the listener, so a
-// panic there is reported with the caller's trace correlation, and the server
-// itself is stopped by closing state.server and state.listener, not by ctx.
+// panic there is reported with the caller's trace correlation. Stopping the
+// server itself means closing state.server and state.listener, not ctx.
 func startWPADProxy(ctx context.Context, listen func(context.Context, string, string) (net.Listener, error)) (*wpadState, error) {
 	// Bind on a free port (port 0 = OS-chosen).
 	ln, err := listen(ctx, "tcp", "127.0.0.1:0")
@@ -127,9 +127,9 @@ func startWPADProxy(ctx context.Context, listen func(context.Context, string, st
 	srv := &http.Server{
 		Handler:           mux,
 		ReadHeaderTimeout: 5 * time.Second,
-		// The PAC body is a handful of bytes, and anything longer than these
-		// bounds is a stuck or hostile client draining the lab operator's
-		// process, so bound both directions.
+		// The PAC body is a handful of bytes. A client that needs longer
+		// than these bounds is stuck or hostile and would drain the lab
+		// operator's process, so both directions are bounded.
 		WriteTimeout: 10 * time.Second,
 		IdleTimeout:  30 * time.Second,
 	}

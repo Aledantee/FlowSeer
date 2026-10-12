@@ -23,16 +23,16 @@ type arpSweepFinding struct {
 
 // RunARPSweep requests the first three hosts of the target's sweep network
 // from the attack leg's own IPv4 address. Its verdict confirms the requested
-// targets as the inventory, and replies are not read. The sweep network is the
-// target, and the three-host bound is probe content.
+// targets as the inventory without reading any reply. The sweep network comes
+// from the target. The three-host bound is probe content.
 func RunARPSweep(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	if err := deps.Target.Need(check.FieldSweepNet); err != nil {
 		return check.Verdict{}, err
 	}
 	src := deps.AttackLeg.Addr().MAC
 	// The fixture carries the protocol addresses in their 16-byte form,
-	// which gopacket serializes as is, and the request's shape is pinned
-	// until the sweep's source changes with recon.
+	// which gopacket serializes as is. The request keeps that shape until
+	// the sweep's source changes with recon.
 	srcIP := deps.AttackLeg.Addr().IPv4.To16()
 	targets := firstHosts(deps.Target.SweepNet, 3)
 

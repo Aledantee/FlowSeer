@@ -5,8 +5,8 @@
 // management topology maps. The spoofed entries decay after the LLDP
 // holdtime (TTL) expires — no explicit teardown.
 //
-// The baseline does not carry a generic LLDP spoofing attack, and the craft
-// is spec-authored from IEEE 802.1AB.
+// The baseline does not carry a generic LLDP spoofing attack. The craft
+// is authored from IEEE 802.1AB.
 
 package fh
 
@@ -30,8 +30,8 @@ type lldpSpoofFinding struct {
 }
 
 // RunLLDPSpoof sends two LLDP frames from the attack leg's MAC with a
-// false port ID, system name, and capabilities, and all of those are probe
-// content and the behavior reads no target. The verdict is pending: whether
+// false port ID, system name, and capabilities. All three are probe
+// content, so the behavior reads no target. The verdict is pending: whether
 // the neighbor table took the entry needs a read of the device it does not
 // have.
 func RunLLDPSpoof(ctx context.Context, deps check.Deps) (check.Verdict, error) {

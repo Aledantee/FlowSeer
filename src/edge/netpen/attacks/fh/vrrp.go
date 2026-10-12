@@ -7,8 +7,8 @@
 //
 // VRRPv2 rides directly on IP (protocol 112), not UDP. gopacket's VRRPv2
 // decoder has no SerializeTo, so the body is built as raw bytes matching
-// the baseline's vrrp_frame, and fixtures verify the field set rather than
-// the byte-for-byte checksum.
+// the baseline's vrrp_frame. The fixtures therefore verify the field set
+// rather than the byte-for-byte checksum.
 
 package fh
 
@@ -85,7 +85,7 @@ func craftVRRP(addr link.Addr, vrid, priority uint8, vips []net.IP) ([]byte, err
 	body[3] = byte(len(vips))
 	body[4] = 0 // auth type
 	body[5] = 1 // adver interval
-	// checksum at [6:8] — left 0, and field-set verified.
+	// The checksum at [6:8] stays 0. The fixture compares the field set, not the bytes.
 	for i, vip := range vips {
 		copy(body[8+4*i:], vip.To4())
 	}

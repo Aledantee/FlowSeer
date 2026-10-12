@@ -2,8 +2,8 @@
 //
 // Parity deviation: the baseline's dtp flips a port to trunk and only
 // restores with --restore, leaving a persistent trunk otherwise. netpen
-// instead restores the access port by default, and an explicit --keep-trunk
-// flag is the permanent opt-in that skips the restore.
+// restores the access port by default. Skipping the restore takes the
+// explicit --keep-trunk flag, the permanent opt-in.
 //
 //  1. Sends a DTP "desirable" frame (trunk-status=0x03) to negotiate a trunk.
 //  2. Emits a finding reporting the negotiated trunk state.
@@ -33,9 +33,9 @@ type dtpFinding struct {
 }
 
 // RunDTP negotiates a trunk with a DTP desirable frame from the attack
-// leg's MAC, which is also the neighbor TLV. It reads no target, and the domain
+// leg's MAC, which is also the neighbor TLV. It reads no target: the domain
 // and trunk type are probe content. The base entry restores actively, so
-// the access-port restore is armed before the first frame, and the keep-trunk
+// it arms the access-port restore before the first frame. The keep-trunk
 // mode is permanent and arms nothing. The verdict is pending: whether the
 // port went to trunk needs a tagged probe it does not have.
 func RunDTP(ctx context.Context, deps check.Deps) (check.Verdict, error) {

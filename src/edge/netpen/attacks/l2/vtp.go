@@ -71,9 +71,9 @@ func RunVTP(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 		}
 	default:
 		// SAFE mode: send a summary advertisement with a revision bump.
-		// This is the non-destructive default. The timestamp is set to
-		// a deterministic value matching the fixture (the baseline uses
-		// time.strftime for per-run randomness, and the pin is field-set).
+		// This is the non-destructive default. The timestamp is a fixed
+		// value matching the fixture. The baseline stamps the wall clock
+		// there, which is why the fixture pins the field set, not the bytes.
 		vtp = &layers.VTP{
 			Version:   layers.VTPVersion1,
 			Code:      layers.VTPCodeSummary,
