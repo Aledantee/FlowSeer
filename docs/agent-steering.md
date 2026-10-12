@@ -829,6 +829,24 @@ runtime's registrations but cannot say whether a rule in `AGENTS.md` has
 an enforcer at all, or whether a hook added for Claude was also registered
 for Codex.
 
+Measure a skill edit before it grows the skill. SWE-Skills-Bench found no
+pass-rate gain from 39 of 49 public skills, and Vercel found skills never
+fired in 56% of eval cases, so a longer skill is not evidence of a better
+one. Anthropic's best practices ask for evaluations first: three scenarios,
+a baseline without the skill, and a comparison against it. A skill's
+scenarios live in its `evals/` directory, and `uv run tools/scripts/run.py
+steer skill-eval` runs them headless in throwaway worktrees for the edited
+skill, the skill at a ref, and no skill. It grades each lane with
+mechanical checks, never a judge model, since a judge shares the beliefs
+of the model it grades. It also records whether the skill fired, because a
+skill that never loads measures nothing. `steer` applies an edit that adds
+lines to a skill with scenarios only when the edited skill loses no check
+the previous one passed, and proposes cuts when the baseline without the
+skill does as well. A
+skill without scenarios is still edited and reported unmeasured, since
+requiring a scenario set first would stall the queue.
+`steer/references/skill-evals.md` holds the procedure and the cost limits.
+
 Leave policy surfaces to people. Earlier tooling edited `AGENTS.md`,
 `CLAUDE.md`, and `CONCEPTS.md` after a chat consent. `compound` proposes
 vocabulary and never edits an instruction file.

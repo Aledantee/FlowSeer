@@ -76,7 +76,9 @@ Skills, agents, `docs/agent-steering.md`, and `docs/agent-observations.md`:
 edit in place. Keep a skill body under about 150 lines; past that, move
 episodic material to a `references/` file whose pointer states when to load
 it. Before saving, run every command embedded in the edited text once,
-verbatim, from a fresh shell in the scratchpad directory.
+verbatim, from a fresh shell in the scratchpad directory. Before an edit
+that adds lines to a skill with an `evals/` directory, load
+`references/skill-evals.md` and measure the edit as it describes.
 
 The policy surfaces are the paths `AGENTS.md`, Hard boundaries, names. For
 one of them, write the change, including the matching assertion in
