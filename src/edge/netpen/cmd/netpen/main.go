@@ -100,7 +100,7 @@ func (a *ackList) String() string { return fmt.Sprint([]runner.AttackRef(*a)) }
 func (a *ackList) Set(s string) error {
 	name, mode, ok := strings.Cut(s, "=")
 	if !ok || name == "" || mode == "" {
-		return fmt.Errorf("want <name>=<mode>, got %q", s)
+		return errs.Msgf("want <name>=<mode>, got %q", s)
 	}
 	*a = append(*a, runner.AttackRef{Name: name, Mode: mode})
 	return nil

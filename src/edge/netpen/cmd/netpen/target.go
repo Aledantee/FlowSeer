@@ -2,11 +2,11 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"net"
 	"strconv"
 	"strings"
 
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/edge/netpen/check"
 )
 
@@ -54,13 +54,13 @@ func (h hostFlag) Set(s string) error {
 	ipText, macText, hasMAC := strings.Cut(s, ",")
 	ip := net.ParseIP(ipText)
 	if ip == nil {
-		return fmt.Errorf("want <ip> or <ip>,<mac>, got %q", s)
+		return errs.Msgf("want <ip> or <ip>,<mac>, got %q", s)
 	}
 	host := check.Host{IP: ip}
 	if hasMAC {
 		mac, err := net.ParseMAC(macText)
 		if err != nil {
-			return fmt.Errorf("want <ip>,<mac>, got %q: %w", s, err)
+			return errs.Wrapf(err, "want <ip>,<mac>, got %q", s)
 		}
 		host.MAC = mac
 	}
@@ -80,7 +80,7 @@ func (f ipFlag) String() string {
 func (f ipFlag) Set(s string) error {
 	ip := net.ParseIP(s)
 	if ip == nil {
-		return fmt.Errorf("want an IP address, got %q", s)
+		return errs.Msgf("want an IP address, got %q", s)
 	}
 	*f.ip = ip
 	return nil
@@ -98,7 +98,7 @@ func (f cidrFlag) String() string {
 func (f cidrFlag) Set(s string) error {
 	_, network, err := net.ParseCIDR(s)
 	if err != nil {
-		return fmt.Errorf("want CIDR notation, got %q", s)
+		return errs.Msgf("want CIDR notation, got %q", s)
 	}
 	*f.network = network
 	return nil
@@ -121,7 +121,7 @@ func (f uintFlag) String() string {
 func (f uintFlag) Set(s string) error {
 	v, err := strconv.ParseUint(s, 10, f.bits)
 	if err != nil || v == 0 {
-		return fmt.Errorf("want a number from 1 to %d, got %q", 1<<f.bits-1, s)
+		return errs.Msgf("want a number from 1 to %d, got %q", 1<<f.bits-1, s)
 	}
 	*f.value = uint16(v)
 	return nil
@@ -139,7 +139,7 @@ func (f uint8Flag) String() string {
 func (f uint8Flag) Set(s string) error {
 	v, err := strconv.ParseUint(s, 10, 8)
 	if err != nil || v == 0 {
-		return fmt.Errorf("want a number from 1 to 255, got %q", s)
+		return errs.Msgf("want a number from 1 to 255, got %q", s)
 	}
 	*f.value = uint8(v)
 	return nil
