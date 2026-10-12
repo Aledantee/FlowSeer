@@ -1,6 +1,6 @@
 ---
 name: next
-description: Decides what FlowSeer work comes next. Orders the open plans under docs/plans/ against the ledger and unmerged branches and recommends one with alternatives; with no plan open, compares GOALS.md with the tree and proposes what to plan. Use when asked what to do next, what is open, where things stand, or to pick up work. Not for the state of one plan being implemented; `implement` resumes that from its ledger.
+description: Decides what FlowSeer work comes next. Orders the open plans under docs/plans/ against the ledger, unmerged branches, and the Priority list in GOALS.md and recommends one with alternatives; with no plan open, compares GOALS.md with the tree and proposes what to plan. Use when asked what to do next, what is open, where things stand, or to pick up work. Not for the state of one plan being implemented; `implement` resumes that from its ledger.
 argument-hint: "[area or plan path to narrow to]"
 ---
 
@@ -20,7 +20,7 @@ units' `Files:` lines, the ledger of this worktree and of every other, and
 the unmerged branches that change a plan. Take the
 queue from its output, never from plans read
 earlier in the session or one by one. Its groups, in the order to take
-them:
+them within a priority tier (end of this step):
 
 | Group | Meaning | Next skill |
 | --- | --- | --- |
@@ -36,27 +36,38 @@ them:
 branches. `uv run tools/scripts/run.py plan record show <plan>` prints the
 fields behind one line.
 
-The script also orders the lines, and that order is the one to take:
+The script also orders the lines, and that order is the one to take
+within a priority tier:
 
 - Within a group a line flagged `harness` comes first. Such a plan changes
-  the skills, hooks, or host-side scripts and no product code, and product
-  work started before it runs on the old workflow.
-- A line flagged `shares files with <plan>` is printed after that plan,
-  even when its own group comes earlier, since the named plan is further
-  along on a file both change.
+  the workflow files the script lists (skills, agent runtime config, hooks,
+  host-side scripts, agent docs) and beside them only docs and root files,
+  and product work started before it runs on the old workflow.
+- A line flagged `shares files with <plans>` is printed after every plan
+  it names, even when its own group comes earlier, since a named plan is
+  further along on a file both change.
 
 A phase line names its parent, which is the path to hand `drive`. Take two
   `in-progress` phases of one parent in the parent's state order.
 
 With an argument, keep the lines whose path or title matches it.
 
-Then apply the Priority list in `GOALS.md` across the groups `land`,
-`in-progress`, `unchecked`, `replan`, and `ready`. A line that serves the
-first priority goes ahead of every line that serves none, then the second
-priority the same way, and the script's order holds within each tier. A
-`harness` flag marks the harness tier. For a named area such as
-monitoring, read the plan's Goal and count the plan when its work is part
-of that area. Say in the report which tier each candidate came from.
+Then apply the Priority list in `GOALS.md` across the groups
+`in-progress`, `unchecked`, `replan`, and `ready`. The `land` group stays
+ahead of every tier, since its work is finished and gates every plan the
+branch carries past `main`. Lines that serve the first priority come
+first, then those that serve the second, then the rest, and the script's
+order holds within each tier. A `harness` flag marks the harness tier.
+For a named area such as monitoring, read the plan's Goal and count the
+plan when its work is part of that area.
+
+One rule outranks the tiers: a line flagged `shares files with <plans>`
+stays after every plan it names. Lift each named plan that sits in a later
+tier into the line's tier, then the plans those plans' own flags name, and
+so on until no named plan sits in a later tier. A named plan already in an
+earlier tier stays there. Two `in-progress` phases of one parent keep the
+parent's state order across tiers. Say in the report which tier each candidate came
+from, and for a lifted plan, the line that lifted it.
 
 ## 2. Check the top candidates against the tree
 
@@ -107,7 +118,8 @@ to the user as an addition to `GOALS.md`, and do not plan from it. When
 the file is missing or empty, say so and ask whether to draft it; do not
 reconstruct goals from the package layout.
 
-Order the gaps by the Priority list in `GOALS.md` first. Within a tier,
+Order the gaps by the Priority list in `GOALS.md` first, skipping the
+harness tier, which applies to plans only. Within a tier,
 order them by what they unblock: a gap other goals depend on first,
 then the one with the most evidence of intent (a direction record, a
 research dossier, a schema with no consumer).
@@ -115,7 +127,9 @@ research dossier, a schema with no consumer).
 ## 4. Recommend and ask
 
 Report, outcome first: the one recommendation with its reason in a
-sentence, then every plan the script printed, `waiting` included and `retire`
+sentence, then every plan the script printed, in the order step 1
+settled with the tier of each tiered plan (a `land` or `waiting` line by
+its group), `waiting` included and `retire`
 given only as step 2's count, then anything step 2 found blocked. Name each
 plan, here
 and in the options, by its full title as the script prints it, followed by

@@ -3,9 +3,9 @@
 What FlowSeer is being built to do, one line per goal, each with the record
 that states it. The `next` skill orders open plans by the Priority list
 below, and when no plan is open it looks for goals with nothing behind
-them, so a goal belongs here only when a person has decided it. This file records no status: whether a goal has
-landed is read from the tree and the direction records, and a status column here
-would be wrong within a week.
+them, so a goal belongs here only when a person has decided it. This file
+records no status: whether a goal has landed is read from the tree and the
+direction records, and a status column here would be wrong within a week.
 
 Add a goal by naming the record that decides it, or by writing the decision
 here first and the record after. Remove a goal when it is dropped, with the
@@ -17,15 +17,17 @@ The `next` skill orders its recommendation by this list, and a person
 changes it here. It names areas of work, not plans, so it stays true while
 plans come and go.
 
-1. Harness plans: plans that change the skills, hooks, or host-side scripts
-   and no product code. Product work started before them runs on the old
-   workflow.
+1. Harness plans: the plans `next plan-queue` flags `harness`, which change
+   the workflow (skills, hooks, agent docs, host-side scripts) and no
+   product code. Product work started before them runs on the old workflow.
+   This tier applies to plans only.
 2. Monitoring, the goal under [Monitoring](#monitoring). Any plan that moves
    an observation from a device to an operator's query counts: edge
    collection, intake, the history and current-state stores, the query API,
    and a runnable stack.
 
-Everything else follows in the order `next` already uses.
+Everything else follows in the order `next` already uses. Finished work
+waiting to land stays ahead of both, since it gates the branch it sits on.
 
 ## Monitoring
 
