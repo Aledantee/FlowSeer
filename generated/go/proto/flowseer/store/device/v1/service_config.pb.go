@@ -1292,18 +1292,17 @@ type ServiceListeners_builder struct {
 	// service logs and reports the address it actually bound, so a caller that
 	// wrote 0 can find out which port it got.
 	//
-	// The bus and edge fields below cannot take 0 for a reason that does not
-	// apply here, and they are worth reading together: the API can take a port
-	// it did not choose because nothing else has to know it in advance, while
-	// the bus cannot because an edge dials the cluster_urls this same file
-	// names, and the edge listener cannot because an edge dials the central_url
-	// this same file names. Each of those listeners has exactly the half the
-	// API lacks, which is why they differ.
+	// The bus and edge fields below must name a fixed port for a reason that
+	// does not apply here. An edge dials the cluster_urls and central_url this
+	// same file names, so a port of 0 there leaves edges dialing a port nothing
+	// serves. The pattern accepts :0 and nothing else refuses it, so the fixed
+	// port is the operator's to choose. The API alone can take a port it did not
+	// choose because nothing else has to know it in advance.
 	Api *string
 	// host:port for the bus's WebSocket listener. Must be present and must
-	// carry a port, for the same reason api does — and more sharply, since an
-	// edge dials the cluster_urls this same file names and a bus on an
-	// unpredictable port matches none of them. It serves the same certificate
+	// carry a port. Use a fixed port, not 0: an edge dials the cluster_urls this
+	// same file names, and validation accepts :0 but a bus on a port the kernel
+	// picked matches none of them. It serves the same certificate
 	// the API does, so an edge pins one digest for both.
 	Bus *string
 	// The certificate and private key to serve, in PEM. Unset means the service
@@ -1316,9 +1315,9 @@ type ServiceListeners_builder struct {
 	// host:port for the services an edge calls: EdgeService, including Enroll,
 	// DispatchService, AuditService, and CaptureEdgeService.
 	// EdgeEnrollmentPolicy.central_url names this listener. Must be present and
-	// must carry a port, for the same reason bus does: an edge dials central_url,
-	// so an edge listener on an unpredictable port matches nothing an edge was
-	// told. It serves the same certificate as api and bus.
+	// must carry a port. Use a fixed port, not 0: an edge dials central_url, and
+	// validation accepts :0 but an edge listener on a port the kernel picked
+	// matches nothing an edge was told. It serves the same certificate as api and bus.
 	Edge *string
 }
 
