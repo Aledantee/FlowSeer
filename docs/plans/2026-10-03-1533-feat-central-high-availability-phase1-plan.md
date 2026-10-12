@@ -80,13 +80,13 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- spec/proto/flo
 
 ### U2. Host, lab files, and docs
 
-Files: src/services/device/internal/host/config.go, src/services/device/internal/host/serve.go, src/services/device/internal/host/host.go, src/services/device/internal/host/certificate.go, src/services/device/internal/host/certificate_test.go, src/services/device/internal/host/shutdown_test.go, src/services/device/internal/host/config_test.go, src/services/device/internal/host/host_test.go, src/services/device/internal/host/serve_internal_test.go, src/services/device/internal/host/serveconnect_internal_test.go, src/services/device/test/integration/fixture_test.go, src/services/device/test/integration/bootstrap_env_test.go, src/services/device/test/integration/e2e_test.go, src/services/device/test/integration/capture_test.go, src/services/device/test/integration/runbook_test.go, src/services/device/test/integration/lab_fixtures_test.go, deploy/lab/central.textproto, deploy/lab/README.md, docs/runbooks/lab-icx7150-first-write.md, src/services/device/README.md, docs/architecture/2026-08-20-device-service-and-inventory-direction.md
+Files: src/services/device/internal/host/config.go, src/services/device/internal/host/serve.go, src/services/device/internal/host/host.go, src/services/device/internal/host/certificate.go, src/services/device/internal/host/certificate_test.go, src/services/device/internal/host/shutdown_test.go, src/services/device/internal/host/config_test.go, src/services/device/internal/host/host_test.go, src/services/device/internal/host/serve_internal_test.go, src/services/device/internal/host/serveconnect_internal_test.go, src/services/device/test/integration/fixture_test.go, src/services/device/test/integration/bootstrap_env_test.go, src/services/device/test/integration/e2e_test.go, src/services/device/test/integration/capture_test.go, src/services/device/test/integration/runbook_test.go, src/services/device/test/integration/lab_fixtures_test.go, src/services/device/test/integration/agent_test.go, src/services/device/test/integration/authz_enforcement_test.go, deploy/lab/central.textproto, deploy/lab/README.md, docs/runbooks/lab-icx7150-first-write.md, src/services/device/README.md, docs/architecture/2026-08-20-device-service-and-inventory-direction.md
 After: U1
 Change: `Config` has an `EdgeAddress` accessor. `serve.go` builds two muxes:
 the edge mux holds the `EdgeService`, `DispatchService`, `AuditService`, and
 `CaptureEdgeService` routes with their middleware and body bounds unchanged,
-and the API mux holds `EdgeAdminService`, `DeviceService`, and
-`CaptureService`. The Connect module binds both addresses before serving
+and the API mux holds `TenantService`, `TenantAdminService`,
+`EdgeAdminService`, `DeviceService`, and `CaptureService`. The Connect module binds both addresses before serving
 either, closes the first if the second fails to bind, and shuts both down
 within `shutdownGrace`. It logs the edge address it bound. The generated
 certificate names the edge address beside the API and bus addresses
@@ -136,3 +136,10 @@ suite, so a stale address there fails a test.
 - Whether a test fixture can still ask for a kernel-chosen edge port. The
   `bus` field cannot, and the fixtures already choose a bus port, so the
   same helper should serve both.
+- The tree moved after this plan was written. `serve.go` now also mounts
+  the operator `TenantService` and `TenantAdminService`, which belong on the
+  API mux. `agent_test.go` starts agents with a central URL, and
+  `authz_enforcement_test.go` calls only operator services through
+  `baseURL()`, so both are listed in the second unit's files. `deploy/lab/README.md`
+  shows a `centralUrl` of `https://127.0.0.1:8443` in its provisioning
+  walkthrough, which becomes the edge address.
