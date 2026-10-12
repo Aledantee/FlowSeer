@@ -1,0 +1,9 @@
+{
+  "skill": "plan",
+  "query": "Plan this change: in src/common/secret/README.md, reword the sentence \"This README maps the surface.\" to \"This README maps the public surface.\" Do not ask questions. Where you would ask, state the question and its options, then stop.",
+  "budget_usd": 3,
+  "expected_behavior": [
+    "No new file appears under docs/plans/.",
+    "The changed paths include src/common/secret/README.md."
+  ]
+}
