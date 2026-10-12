@@ -7,7 +7,7 @@
 // descend here.
 module go.aledante.io/FlowSeer/src/protocol/snmp/bench
 
-go 1.27
+go 1.27.2
 
 replace go.aledante.io/FlowSeer => ../../../..
 

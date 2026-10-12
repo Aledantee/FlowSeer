@@ -11,7 +11,7 @@
 // break, and because a reader who knows one bench module knows both.
 module go.aledante.io/FlowSeer/src/protocol/smi/bench
 
-go 1.27
+go 1.27.2
 
 replace go.aledante.io/FlowSeer => ../../../..
 
