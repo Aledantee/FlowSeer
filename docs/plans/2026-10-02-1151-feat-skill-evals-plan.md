@@ -14,8 +14,8 @@ execution: mixed
 helps. One command runs a skill's scenarios headless in throwaway
 worktrees under up to three variants (the skill as edited, the skill at a
 ref, no skill), grades each lane with mechanical checks, and prints
-passes, cost, and whether the skill fired. The means: a runner in
-`steer/scripts/` that reuses `tune`'s `bench.sh`, three scenarios each for
+passes, cost, and whether the skill fired. The means: a `steer
+skill-eval` command under `tools/scripts/` that reuses `tune`'s `bench.sh`, three scenarios each for
 `plan` and `review`, and a `steer` step that runs them before a skill
 grows.
 
@@ -54,7 +54,7 @@ or a headless lane cannot finish a scenario without a person.
   scores `PASS`/`FAIL` lines as partial credit ("Acceptance tests").
 - Grade mechanically, never with a judge model. A check reads files on
   disk, frontmatter fields, `$(git rev-parse --git-dir)/flowseer-checkpoints`,
-  the changed paths, `check-prose.py` or `plan-queue.py` output, or a grep
+  the changed paths, `verify check-prose` or `next plan-queue` output, or a grep
   of the final report for a path and symbol. Changed paths are `git diff
   --name-only $EVAL_BASE` plus untracked files, since a lane may leave its
   work uncommitted. No check runs `verify-change.sh`, for the cost
@@ -95,9 +95,9 @@ or a headless lane cannot finish a scenario without a person.
   such a skill the runner checks the lane's filesystem. Why: an ablation
   that leaves the skill loadable measures nothing.
 - Each lane exports `FLOWSEER_RUNLOG` to a lane-local file. Why: `review`
-  logs every reviewer through `runlog.py` (`review/SKILL.md`, step 5),
+  logs every reviewer through `delegate runlog` (`review/SKILL.md`, step 5),
   whose default `~/.claude/models/runs.jsonl` feeds `tune`'s reviewer
-  ranking (`tune/scripts/field.py`), and eval lanes would skew it.
+  ranking (`tools/scripts/skills/tune/field.py`), and eval lanes would skew it.
 - First scenarios cover `plan` (files the scripts parse) and `review` (a
   report and a checkpoint verdict). Cost bounds: `--budget` per lane from
   `budget_usd` (default 3) and `--max-total-usd` per invocation (default
@@ -119,6 +119,32 @@ or a headless lane cannot finish a scenario without a person.
 - One plan, no phases: the `After:` lines join all five units into one
   cluster under `.agents/skills/` (`plan/references/phases.md`).
 
+Ruled: the runner is the `skill-eval` command of a `steer` group,
+`tools/scripts/skills/steer/skill_eval.py` with its tests in
+`tools/scripts/tests/skills/steer/test_skill_eval.py`, started as `uv run
+tools/scripts/run.py steer skill-eval`, and `test_bench.py` lives at
+`tools/scripts/tests/skills/tune/test_bench.py`. Why: after this plan was
+written, the skill scripts moved under `run.py` (`1db1efa9`), and
+`docs/code-style-python.md` gives a skill's commands one package under
+`skills/<skill>/`, which `run.py` registers from its `COMMANDS` literal
+without a change to `run.py`. Cost if wrong: moving two modules and the
+command line in `steer/references/skill-evals.md`.
+
+Ruled: `bench.sh` keeps `denied_tools` ungraded on both Claude paths, and
+`refused` stays a refusal stop reason. The denial rule above is dropped.
+Why: `calibration.md` ("Refusal and downgrade", `642b3ad8`, committed after
+this plan) records a denial ungraded because this repository's hooks deny
+edits too, and a lane whose hook blocks one edit would otherwise read as
+`refused`. Cost if wrong: one condition in `bench.sh`, its two test cases,
+and one bullet in `calibration.md`.
+
+Ruled: plan scenarios read a plan's state from its `.state.json` (`status`,
+`readiness`) and its frontmatter's `artifact_contract: flowseer-plan/v2`,
+and call `uv run tools/scripts/run.py verify check-prose` and `next
+plan-queue`. Why: the plan fields moved into state files (`b0d9c789`), and
+the scripts moved under `run.py`. Cost if wrong: the checks of three
+scenarios.
+
 ```mermaid
 flowchart LR
   A[worktree add from HEAD] --> B[apply variant, hide evals/]
@@ -131,7 +157,7 @@ flowchart LR
 
 ## Requirements
 
-1. `skill-eval.py --skill plan --variants current,none` prints one row per
+1. `steer skill-eval --skill plan --variants current,none` prints one row per
    scenario and variant: `pass` as `k/n`, `invoked`, `cost_usd`, `wall_s`,
    and `status` (`ok`, `invalid`, `stale`, `refused`, `downgraded`,
    `skipped`). Example: three scenarios, two variants, six rows.
@@ -166,24 +192,24 @@ flowchart LR
 ## Units
 
 ### U1. Transcript, budget, and denials in bench.sh
-Files: .agents/skills/tune/scripts/bench.sh, .agents/skills/tune/scripts/test_bench.py, .agents/skills/tune/references/calibration.md
+Files: .agents/skills/tune/scripts/bench.sh, tools/scripts/tests/skills/tune/test_bench.py, .agents/skills/tune/references/calibration.md
 After: none
-Change: `--transcript`, `--budget`, and the denial rule behave as
-Decisions state. `--budget` on another CLI exits 2. Apart from the denial
-rule, output without the new flags is unchanged. `calibration.md`, "Run a
-lane", names the two flags.
+Change: `--transcript` and `--budget` behave as Decisions state, and the
+transcript path fills `denied_tools` as the `json` path does (the denial
+ruling). `--budget` on another CLI exits 2. Output without the new flags is
+unchanged. `calibration.md`, "Run a lane", names the two flags.
 Tests: `test_bench.py` stubs `claude` on `PATH` as it does omp. A stream
 with `init`, one `Skill` tool use, and `result` gives `skills_listed`,
 `skills_invoked: ["prose"]`, `result_text`, and the result's cost. The
 `json` path keeps its other fields. `--budget 2` reaches the stub as
-`--max-budget-usd 2`, and on omp exits 2. On both paths an
-`AskUserQuestion` denial gives `refused: false`, a `Bash` denial `true`.
-Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- .agents/skills/tune/scripts/bench.sh .agents/skills/tune/scripts/test_bench.py .agents/skills/tune/references/calibration.md`
+`--max-budget-usd 2`, and on omp exits 2. A `Bash` denial in the stream's
+`result` gives `denied_tools: ["Bash"]` and `refused: false`.
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- .agents/skills/tune/scripts/bench.sh tools/scripts/tests/skills/tune/test_bench.py .agents/skills/tune/references/calibration.md`
 
 ### U2. The skill-eval runner
-Files: .agents/skills/steer/scripts/skill-eval.py, .agents/skills/steer/scripts/test_skill_eval.py
+Files: tools/scripts/skills/steer/__init__.py, tools/scripts/skills/steer/skill_eval.py, tools/scripts/tests/skills/steer/__init__.py, tools/scripts/tests/skills/steer/test_skill_eval.py
 After: none
-Change: `skill-eval.py --skill <name> [--scenario <s>] --variants
+Change: `steer skill-eval --skill <name> [--scenario <s>] --variants
 current,ref:<rev>,none [--runs N] [--model claude-opus-5-5]
 [--max-total-usd 30] [--worktree-root <dir>] [--bench <path>] [--keep]
 --out <jsonl>`. It finds its checkout from its own path, so it runs from
@@ -204,17 +230,17 @@ directory and `--bench` at a stub. It covers requirements 1, 2, 3, and 5,
 `FLOWSEER_RUNLOG`. One case runs `--lint` on the real tree and asserts its
 count equals the `scenario.json` files `git ls-files --cached --others
 --exclude-standard` lists, so a scenario discovery misses fails the test.
-Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- .agents/skills/steer/scripts/skill-eval.py .agents/skills/steer/scripts/test_skill_eval.py`
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- tools/scripts/skills/steer tools/scripts/tests/skills/steer`
 
 ### U3. Plan scenarios
 Files: .agents/skills/plan/evals/bounded-feature/, .agents/skills/plan/evals/skip-trivial/, .agents/skills/plan/evals/conflicts-direction/
 After: U2
 Change: `bounded-feature` asks for a plan for a small multi-file change in
 one existing package. Checks: one new `docs/plans/*-plan.md` with
-`artifact_contract: flowseer-plan/v1`, `status: planned`, and a template
-`artifact_readiness`, a `### U1.` heading, `Files:` and `After:` under
-every unit, a `Waves:` line, `check-prose.py` clean, `plan-queue.py`
-listing it as `ready` or `replan` (`plan-state.py` reads parent plans
+`artifact_contract: flowseer-plan/v2`, a `.state.json` beside it with
+`status: planned`, a `### U1.` heading, `Files:` and `After:` under
+every unit, a `Waves:` line, `verify check-prose` clean, `next plan-queue`
+listing it as `ready` or `replan` (`drive plan-state` reads parent plans
 only), and every changed path under `docs/plans/`. `skip-trivial` asks to
 plan a one-line wording fix in one README. Checks: no new file under
 `docs/plans/`, and the changed paths include that README.
@@ -223,9 +249,9 @@ speed as a `float` in Mbit/s, which the accepted
 `docs/architecture/2026-09-25-schema-building-blocks-direction.md`
 ("One canonical unit per quantity") rules out in favor of `uint64` with
 `_bps`. Checks: the plan names that record, and either a unit's `Files:`
-names it, `artifact_readiness` is `needs-decisions`, or the plan's field
+names it, the state's `readiness` is `needs-decisions`, or the plan's field
 ends in `_bps`.
-Tests: `skill-eval.py --lint` reports the three, each with a `FAIL` on an
+Tests: `steer skill-eval --lint` reports the three, each with a `FAIL` on an
 untouched lane.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- .agents/skills/plan/evals`
 
@@ -246,7 +272,7 @@ report names that file and test function, and no tracked file changed.
 message. Checks: the checkpoint file holds a `review` line whose verdict
 is not `accept`, and no tracked file changed. None of the three defects is
 one a conformance gate reports.
-Tests: `skill-eval.py --lint` reports the three. Before committing
+Tests: `steer skill-eval --lint` reports the three. Before committing
 `merge-deadlock`, apply its patch in a scratch worktree and run
 `merge_accept_test.go.txt` as `calibration.md` "Acceptance tests" shows.
 `TestMergeAcceptSourceErrorPropagates` must fail, proving the bug real.
@@ -264,7 +290,7 @@ layout, and how to write a check that fails on an untouched lane.
 `docs/agent-steering.md`, "Project skills", gains a paragraph on measuring
 skill edits, citing the two sources already in "Research basis".
 Tests: steer step 4 runs each embedded command once from the scratchpad:
-`skill-eval.py --lint`, and one live `--skill plan --scenario skip-trivial
+`steer skill-eval --lint`, and one live `--skill plan --scenario skip-trivial
 --variants current,none` pair whose table goes in the commit body.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- .agents/skills/steer/SKILL.md .agents/skills/steer/references/skill-evals.md docs/agent-steering.md`
 
@@ -273,9 +299,9 @@ Waves: U1 U2 | U3 U4 | U5
 ## Verification
 
 ```bash
-python3 .agents/skills/steer/scripts/skill-eval.py --lint
-python3 .agents/skills/steer/scripts/skill-eval.py --skill plan --variants current,none --out "$TMPDIR/plan-eval.jsonl"
-python3 .agents/skills/steer/scripts/skill-eval.py --skill review --variants current,none --out "$TMPDIR/review-eval.jsonl"
+uv run tools/scripts/run.py steer skill-eval --lint
+uv run tools/scripts/run.py steer skill-eval --skill plan --variants current,none --out "$TMPDIR/plan-eval.jsonl"
+uv run tools/scripts/run.py steer skill-eval --skill review --variants current,none --out "$TMPDIR/review-eval.jsonl"
 ```
 
 The live runs (unsandboxed, twelve lanes) go in U5's commit body.
