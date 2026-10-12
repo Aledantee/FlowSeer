@@ -17,6 +17,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"testing"
@@ -144,7 +145,9 @@ func writeRegistry(t *testing.T, dir string) string {
 }
 
 type testService struct {
+	// Base is the API listener's URL and EdgeBase the edge listener's.
 	Base        string
+	EdgeBase    string
 	Stop        func()
 	WaitStopped func() error
 	Issuer      *authntest.Issuer
@@ -215,6 +218,7 @@ func startTestService(
 	engine.Grant("user:"+principalID, "manage", "edge")
 	engine.Grant("user:"+principalID, "capture", "edge")
 	busPort := freePort(t)
+	edgePort := freePort(t)
 	body := fmt.Sprintf(`
 state_dir: %q
 registry_path: %q
@@ -222,9 +226,10 @@ credential_root: %q
 listeners {
   api: "127.0.0.1:0"
   bus: "127.0.0.1:%d"
+  edge: "127.0.0.1:%d"
 }
 edges {
-  central_url: "https://127.0.0.1"
+  central_url: "https://127.0.0.1:%d"
   assertion_audience: "flowseer-device-test"
   cluster_urls: "ws://127.0.0.1:%d"
 }
@@ -242,7 +247,7 @@ authorization {
   model_id: "01JK1234567890ABCDEFGHJKMM"
   preshared_key_file: %q
 }
-`, stateDir, writeRegistry(t, dir), credentialRoot, busPort, busPort, iss.URL(), caPath, keyPath)
+`, stateDir, writeRegistry(t, dir), credentialRoot, busPort, edgePort, edgePort, busPort, iss.URL(), caPath, keyPath)
 
 	cfg, err := host.LoadConfig(writeConfig(t, body))
 	if err != nil {
@@ -326,17 +331,21 @@ authorization {
 	}
 
 	base := "https://" + api
+	edgeBase := fmt.Sprintf("https://127.0.0.1:%d", edgePort)
 
 	serviceAuthMu.Lock()
-	serviceAuth[base] = authInfo{
-		token:    token,
-		tenant:   edgebus.DefaultTenant,
-		certFile: filepath.Join(stateDir, "tls.crt"),
+	for _, address := range []string{base, edgeBase} {
+		serviceAuth[address] = authInfo{
+			token:    token,
+			tenant:   edgebus.DefaultTenant,
+			certFile: filepath.Join(stateDir, "tls.crt"),
+		}
 	}
 	serviceAuthMu.Unlock()
 	t.Cleanup(func() {
 		serviceAuthMu.Lock()
 		delete(serviceAuth, base)
+		delete(serviceAuth, edgeBase)
 		serviceAuthMu.Unlock()
 	})
 
@@ -354,6 +363,7 @@ authorization {
 
 	return &testService{
 		Base:        base,
+		EdgeBase:    edgeBase,
 		Stop:        stop,
 		WaitStopped: waitStopped,
 		Issuer:      iss,
@@ -632,7 +642,7 @@ func TestTheServiceReportsThePortItWasGiven(t *testing.T) {
 // bound is the handler's own, and it is the only thing standing between the
 // listener and a body sized to exhaust the process.
 func TestEnrollRefusesABodyPastTheBound(t *testing.T) {
-	base := runningService(t)
+	base := startTestService(t, nil).EdgeBase
 	client := serviceClient()
 	waitUntilServing(t, client, base)
 
@@ -655,18 +665,165 @@ func TestEnrollRefusesABodyPastTheBound(t *testing.T) {
 // test is how far it gets, not what it says.
 func postEnroll(t *testing.T, client *http.Client, base string, body []byte) int {
 	t.Helper()
-	req, err := http.NewRequest(http.MethodPost, base+attachv1connect.EdgeServiceEnrollProcedure, bytes.NewReader(body))
+	return postProcedure(t, client, base, attachv1connect.EdgeServiceEnrollProcedure, body)
+}
+
+// postProcedure sends body to procedure over the Connect protocol and reports
+// the HTTP status, so a test can ask whether a listener routes a procedure at
+// all without needing the request to be valid.
+func postProcedure(t *testing.T, client *http.Client, base, procedure string, body []byte) int {
+	t.Helper()
+	req, err := http.NewRequest(http.MethodPost, base+procedure, bytes.NewReader(body))
 	if err != nil {
 		t.Fatalf("build the request: %v", err)
 	}
 	req.Header.Set("Content-Type", "application/proto")
 	resp, err := client.Do(req)
 	if err != nil {
-		t.Fatalf("post to Enroll: %v", err)
+		t.Fatalf("post to %s: %v", procedure, err)
 	}
 	_, _ = io.Copy(io.Discard, resp.Body)
 	_ = resp.Body.Close()
 	return resp.StatusCode
+}
+
+// The edge listener is the one a deployment exposes to edges, so it must not
+// route an operator procedure: a caller who can reach it has no business
+// learning that the procedure exists. One procedure per operator service.
+func TestTheEdgeListenerDoesNotRouteOperatorProcedures(t *testing.T) {
+	svc := startTestService(t, nil)
+	client := rawServiceClient()
+	for _, procedure := range []string{
+		devicev1connect.DeviceServiceGetDeviceAccessStatusProcedure,
+		edgev1connect.EdgeAdminServiceGetEdgeProcedure,
+		capturev1connect.CaptureServiceGetCaptureSessionProcedure,
+		identityv1connect.TenantServiceCreateTenantProcedure,
+		identityv1connect.TenantAdminServiceListMembersProcedure,
+	} {
+		t.Run(procedure[strings.LastIndexByte(procedure, '/')+1:], func(t *testing.T) {
+			if got := postProcedure(t, client, svc.EdgeBase, procedure, nil); got != http.StatusNotFound {
+				t.Errorf("%s on the edge address answered HTTP %d, want %d", procedure, got, http.StatusNotFound)
+			}
+			// The same call on the API address is routed, which is what
+			// makes the 404 above the listener's answer and not a typo in
+			// the procedure name.
+			if got := postProcedure(t, client, svc.Base, procedure, nil); got == http.StatusNotFound {
+				t.Errorf("%s on the API address answered HTTP %d, want it routed", procedure, got)
+			}
+		})
+	}
+}
+
+// The API listener serves operators, so an edge procedure on it is a
+// misdirected call, and Enroll and UploadCapture, the two mounted in front of
+// the assertion middleware, are the ones an unauthenticated caller could
+// otherwise reach there.
+func TestTheAPIListenerDoesNotRouteEdgeProcedures(t *testing.T) {
+	svc := startTestService(t, nil)
+	client := rawServiceClient()
+	for _, procedure := range []string{
+		attachv1connect.EdgeServiceEnrollProcedure,
+		attachv1connect.EdgeServiceHeartbeatProcedure,
+		dispatchv1connect.DispatchServiceReportProcedure,
+		auditv1connect.AuditServiceDeliverProcedure,
+		captureedgev1connect.CaptureEdgeServiceUploadCaptureProcedure,
+	} {
+		t.Run(procedure[strings.LastIndexByte(procedure, '/')+1:], func(t *testing.T) {
+			if got := postProcedure(t, client, svc.Base, procedure, nil); got != http.StatusNotFound {
+				t.Errorf("%s on the API address answered HTTP %d, want %d", procedure, got, http.StatusNotFound)
+			}
+			if got := postProcedure(t, client, svc.EdgeBase, procedure, nil); got == http.StatusNotFound {
+				t.Errorf("%s on the edge address answered HTTP %d, want it routed", procedure, got)
+			}
+		})
+	}
+}
+
+// An edge pins one digest for the edge listener and the bus, and an operator
+// sees that same digest on the API, so every listener must present the same
+// leaf. The digest is read from the handshake, not from the file.
+func TestBothListenersPresentTheSameCertificate(t *testing.T) {
+	svc := startTestService(t, nil)
+
+	// Dialed with the generated certificate as the only root, so a listener
+	// presenting any other leaf fails the handshake before the digest is read.
+	pemBytes, err := os.ReadFile(filepath.Join(svc.StateDir, "tls.crt"))
+	if err != nil {
+		t.Fatalf("read the service certificate: %v", err)
+	}
+	roots := x509.NewCertPool()
+	if !roots.AppendCertsFromPEM(pemBytes) {
+		t.Fatal("the service certificate does not parse")
+	}
+	digest := func(base string) [sha256.Size]byte {
+		t.Helper()
+		conn, err := tls.Dial("tcp", strings.TrimPrefix(base, "https://"), &tls.Config{
+			MinVersion: tls.VersionTLS12,
+			RootCAs:    roots,
+		})
+		if err != nil {
+			t.Fatalf("dial %s: %v", base, err)
+		}
+		defer func() { _ = conn.Close() }()
+		return sha256.Sum256(conn.ConnectionState().PeerCertificates[0].RawSubjectPublicKeyInfo)
+	}
+
+	api, edge := digest(svc.Base), digest(svc.EdgeBase)
+	if api != edge {
+		t.Fatalf("the API listener presents key digest %x and the edge listener %x, want one", api, edge)
+	}
+}
+
+// Both listeners are bound before either serves, and the first is given back
+// when the second cannot be, so a restart that follows an operator fixing the
+// edge address does not trip over the API address it just lost.
+func TestAnEdgeAddressInUseFailsTheRunAndLeavesTheAPIAddressFree(t *testing.T) {
+	taken, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("occupy a port: %v", err)
+	}
+	t.Cleanup(func() { _ = taken.Close() })
+	apiAddress := fmt.Sprintf("127.0.0.1:%d", freePort(t))
+
+	body := startupConfig(t, "https://authz.example.test:8081", "01JK1234567890ABCDEFGHJKMN", "", "")
+	body = strings.Replace(body, `api: "127.0.0.1:0"`, fmt.Sprintf("api: %q", apiAddress), 1)
+	body = regexp.MustCompile(`edge: "127\.0\.0\.1:\d+"`).ReplaceAllString(body, fmt.Sprintf("edge: %q", taken.Addr().String()))
+	cfg, err := host.LoadConfig(writeConfig(t, body))
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	if cfg.APIAddress() != apiAddress || cfg.EdgeAddress() != taken.Addr().String() {
+		t.Fatalf("the configuration names api %q and edge %q, want %q and %q",
+			cfg.APIAddress(), cfg.EdgeAddress(), apiAddress, taken.Addr())
+	}
+
+	bound := make(chan string, 1)
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	done := make(chan error, 1)
+	go func() {
+		done <- host.Run(ctx, cfg, "test", host.Options{
+			Engine: authztest.New(),
+			Bound:  func(api string) { bound <- api },
+		})
+	}()
+
+	select {
+	case api := <-bound:
+		t.Fatalf("the service reported the API address %s although the edge address was taken", api)
+	case err := <-done:
+		if got, ok := errs.CodeOf(err); !ok || got != host.ErrCodeStart {
+			t.Fatalf("host.Run error = %v, want code %v", err, host.ErrCodeStart)
+		}
+	case <-time.After(30 * time.Second):
+		t.Fatal("host.Run did not return although the edge address was taken")
+	}
+
+	again, err := net.Listen("tcp", apiAddress)
+	if err != nil {
+		t.Fatalf("the API address is still held after the failed run: %v", err)
+	}
+	_ = again.Close()
 }
 
 // waitUntilServing blocks until the API listener answers, so a test that
@@ -732,6 +889,7 @@ func TestStartupDoesNotIndexUnindexedRegistryEdge(t *testing.T) {
 	}
 
 	busPort := freePort(t)
+	edgePort := freePort(t)
 	body := fmt.Sprintf(`
 state_dir: %q
 registry_path: %q
@@ -739,9 +897,10 @@ credential_root: %q
 listeners {
   api: "127.0.0.1:0"
   bus: "127.0.0.1:%d"
+  edge: "127.0.0.1:%d"
 }
 edges {
-  central_url: "https://127.0.0.1"
+  central_url: "https://127.0.0.1:%d"
   assertion_audience: "flowseer-device-test"
   cluster_urls: "ws://127.0.0.1:%d"
 }
@@ -759,7 +918,7 @@ authorization {
   model_id: "01JK1234567890ABCDEFGHJKMM"
   preshared_key_file: %q
 }
-`, stateDir, writeRegistry(t, dir), credentialRoot, busPort, busPort, iss.URL(), caPath, keyPath)
+`, stateDir, writeRegistry(t, dir), credentialRoot, busPort, edgePort, edgePort, busPort, iss.URL(), caPath, keyPath)
 
 	cfg, err := host.LoadConfig(writeConfig(t, body))
 	if err != nil {
@@ -975,7 +1134,7 @@ func TestHostMountsServicesOnTheCorrectInterceptorChains(t *testing.T) {
 			if err != nil {
 				t.Fatalf("marshal request: %v", err)
 			}
-			req, err := http.NewRequest(http.MethodPost, svc.Base+tc.procedure, bytes.NewReader(body))
+			req, err := http.NewRequest(http.MethodPost, svc.EdgeBase+tc.procedure, bytes.NewReader(body))
 			if err != nil {
 				t.Fatalf("build request: %v", err)
 			}
@@ -1001,7 +1160,7 @@ func TestHostMountsServicesOnTheCorrectInterceptorChains(t *testing.T) {
 			},
 			Timeout: 10 * time.Second,
 		}
-		captureEdgeClient := captureedgev1connect.NewCaptureEdgeServiceClient(client, svc.Base)
+		captureEdgeClient := captureedgev1connect.NewCaptureEdgeServiceClient(client, svc.EdgeBase)
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 		stream, err := captureEdgeClient.SubscribeCaptureAssignments(
@@ -1030,7 +1189,7 @@ func TestHostMountsServicesOnTheCorrectInterceptorChains(t *testing.T) {
 		auditv1connect.AuditServiceDeliverProcedure,
 	} {
 		t.Run("edge/refusal-code/"+procedure[strings.LastIndexByte(procedure, '/')+1:], func(t *testing.T) {
-			req, err := http.NewRequest(http.MethodPost, svc.Base+procedure, strings.NewReader("{}"))
+			req, err := http.NewRequest(http.MethodPost, svc.EdgeBase+procedure, strings.NewReader("{}"))
 			if err != nil {
 				t.Fatalf("build request: %v", err)
 			}
@@ -1268,7 +1427,7 @@ func TestHostRecoversAnEdgeHandlerPanicBeforeTelemetry(t *testing.T) {
 	if err != nil {
 		t.Fatalf("generate first edge key: %v", err)
 	}
-	edgeClient := attachv1connect.NewEdgeServiceClient(serviceClient(), svc.Base)
+	edgeClient := attachv1connect.NewEdgeServiceClient(serviceClient(), svc.EdgeBase)
 	if _, err := edgeClient.Enroll(context.Background(), enrollRequest(t, setupKey, keyID, firstPublic, firstPrivate)); err != nil {
 		t.Fatalf("first Enroll: %v", err)
 	}
@@ -1305,6 +1464,7 @@ func TestEdgeServicesNeedNoTokenWhileClosedPortEngineRefusesOperator(t *testing.
 		t.Fatalf("credential dir: %v", err)
 	}
 	busPort := freePort(t)
+	edgePort := freePort(t)
 
 	body := fmt.Sprintf(`
 state_dir: %q
@@ -1313,9 +1473,10 @@ credential_root: %q
 listeners {
   api: "127.0.0.1:0"
   bus: "127.0.0.1:%d"
+  edge: "127.0.0.1:%d"
 }
 edges {
-  central_url: "https://127.0.0.1"
+  central_url: "https://127.0.0.1:%d"
   assertion_audience: "flowseer-device-test"
   cluster_urls: "ws://127.0.0.1:%d"
 }
@@ -1333,7 +1494,7 @@ authorization {
   model_id: "01JK1234567890ABCDEFGHJKMM"
   preshared_key_file: %q
 }
-`, stateDir, writeRegistry(t, dir), credentialRoot, busPort, busPort, iss.URL(), caPath, closedPort, keyPath)
+`, stateDir, writeRegistry(t, dir), credentialRoot, busPort, edgePort, edgePort, busPort, iss.URL(), caPath, closedPort, keyPath)
 
 	cfg, err := host.LoadConfig(writeConfig(t, body))
 	if err != nil {
@@ -1372,17 +1533,20 @@ authorization {
 	}
 
 	base := "https://" + api
+	edgeBase := fmt.Sprintf("https://127.0.0.1:%d", edgePort)
 	serviceAuthMu.Lock()
 	serviceAuth[base] = authInfo{certFile: filepath.Join(stateDir, "tls.crt")}
+	serviceAuth[edgeBase] = authInfo{certFile: filepath.Join(stateDir, "tls.crt")}
 	serviceAuthMu.Unlock()
 	t.Cleanup(func() {
 		serviceAuthMu.Lock()
 		delete(serviceAuth, base)
+		delete(serviceAuth, edgeBase)
 		serviceAuthMu.Unlock()
 	})
 
 	// 1. EdgeService.Enroll with an unknown setup key gets the answer it gets with the engine reachable.
-	edgeClient := attachv1connect.NewEdgeServiceClient(rawServiceClient(), base)
+	edgeClient := attachv1connect.NewEdgeServiceClient(rawServiceClient(), edgeBase)
 	unknownKey := "fse1_aaaaaaaaaaaaaaaaaaaaaaaaaa_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
 	pub, priv, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
@@ -1406,7 +1570,7 @@ authorization {
 		Proof:    proof,
 	}.Build())
 	reachable := startTestService(t, nil)
-	_, reachableErr := attachv1connect.NewEdgeServiceClient(rawServiceClient(), reachable.Base).Enroll(
+	_, reachableErr := attachv1connect.NewEdgeServiceClient(rawServiceClient(), reachable.EdgeBase).Enroll(
 		context.Background(), connect.NewRequest(enrollReq.Msg),
 	)
 	_, enrollErr := edgeClient.Enroll(context.Background(), enrollReq)
@@ -1457,6 +1621,7 @@ func TestAbsentPresharedKeyFileRefusesStartBeforeListenerBinds(t *testing.T) {
 		t.Fatalf("credential dir: %v", err)
 	}
 	busPort := freePort(t)
+	edgePort := freePort(t)
 
 	body := fmt.Sprintf(`
 state_dir: %q
@@ -1465,9 +1630,10 @@ credential_root: %q
 listeners {
   api: "127.0.0.1:0"
   bus: "127.0.0.1:%d"
+  edge: "127.0.0.1:%d"
 }
 edges {
-  central_url: "https://127.0.0.1"
+  central_url: "https://127.0.0.1:%d"
   assertion_audience: "flowseer-device-test"
   cluster_urls: "ws://127.0.0.1:%d"
 }
@@ -1485,7 +1651,7 @@ authorization {
   model_id: "01JK1234567890ABCDEFGHJKMM"
   preshared_key_file: %q
 }
-`, stateDir, writeRegistry(t, dir), credentialRoot, busPort, busPort, iss.URL(), caPath, absentKey)
+`, stateDir, writeRegistry(t, dir), credentialRoot, busPort, edgePort, edgePort, busPort, iss.URL(), caPath, absentKey)
 
 	cfg, err := host.LoadConfig(writeConfig(t, body))
 	if err != nil {
@@ -1527,6 +1693,7 @@ func startupConfig(t *testing.T, endpoint, storeID, authnCA, authzCA string) str
 		t.Fatalf("write key: %v", err)
 	}
 	busPort := freePort(t)
+	edgePort := freePort(t)
 	authnCAField := ""
 	if authnCA != "" {
 		authnCAField = fmt.Sprintf("  ca_file: %q\n", authnCA)
@@ -1543,9 +1710,10 @@ credential_root: %q
 listeners {
   api: "127.0.0.1:0"
   bus: "127.0.0.1:%d"
+  edge: "127.0.0.1:%d"
 }
 edges {
-  central_url: "https://127.0.0.1"
+  central_url: "https://127.0.0.1:%d"
   assertion_audience: "flowseer-device-test"
   cluster_urls: "ws://127.0.0.1:%d"
 }
@@ -1564,7 +1732,7 @@ authorization {
   preshared_key_file: %q
 %s
 }
-`, stateDir, writeRegistry(t, dir), credentialRoot, busPort, busPort, issuer.URL(), authnCAField,
+`, stateDir, writeRegistry(t, dir), credentialRoot, busPort, edgePort, edgePort, busPort, issuer.URL(), authnCAField,
 		endpoint, storeID, keyPath, authzCAField)
 }
 

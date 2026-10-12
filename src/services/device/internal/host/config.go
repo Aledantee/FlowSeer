@@ -97,8 +97,14 @@ func (c *Config) RegistryPath() string { return c.msg.GetRegistryPath() }
 // CredentialRoot is the directory the credential files are mounted under.
 func (c *Config) CredentialRoot() string { return c.msg.GetCredentialRoot() }
 
-// APIAddress is the host:port the Connect APIs are served on.
+// APIAddress is the host:port the operator-facing Connect services are served
+// on.
 func (c *Config) APIAddress() string { return c.msg.GetListeners().GetApi() }
+
+// EdgeAddress is the host:port the edge-facing Connect services are served on.
+// It is the address [Config.CentralURL] names, so an edge only finds the
+// service if the port written here is the port bound.
+func (c *Config) EdgeAddress() string { return c.msg.GetListeners().GetEdge() }
 
 // BusAddress is the host:port the bus's WebSocket listener binds.
 func (c *Config) BusAddress() string { return c.msg.GetListeners().GetBus() }

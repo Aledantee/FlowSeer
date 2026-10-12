@@ -560,8 +560,9 @@ func (h *assembly) setupDrift(ctx context.Context) (service.Attempt, error) {
 	return service.Attempt{Runner: poller.Run}, nil
 }
 
-// setupConnect serves the edge-facing services and the operator-facing ones;
-// [assembly.mux] says which is which and why.
+// setupConnect serves the edge-facing services on the edge listener and the
+// operator-facing ones on the API listener; [assembly.mux] says which is which
+// and why. One module owns both, so they start, stop, and restart together.
 func (h *assembly) setupConnect(ctx context.Context) (service.Attempt, error) {
 	resources, err := h.hub.await(ctx)
 	if err != nil {
@@ -575,7 +576,7 @@ func (h *assembly) setupConnect(ctx context.Context) (service.Attempt, error) {
 		return service.Attempt{}, err
 	}
 
-	handler, err := h.mux(ctx, resources, service.Logger(ctx), view)
+	muxes, err := h.mux(ctx, resources, service.Logger(ctx), view)
 	if err != nil {
 		return service.Attempt{}, err
 	}
@@ -587,58 +588,117 @@ func (h *assembly) setupConnect(ctx context.Context) (service.Attempt, error) {
 	// service came up. Binding before the runner also moves an address
 	// already in use from a failure the runner reports asynchronously to
 	// one Setup returns, which is where a configuration failure belongs.
-	listener, err := net.Listen("tcp", h.cfg.APIAddress())
+	apiListener, err := net.Listen("tcp", h.cfg.APIAddress())
 	if err != nil {
 		return service.Attempt{}, errs.From(err).Code(ErrCodeStart).
 			Attr("address", h.cfg.APIAddress()).Msg("bind the device api listener")
 	}
+	// Both are bound before either serves, and the first is released when the
+	// second fails, so a refused edge address leaves the API address free for
+	// the restart that follows.
+	edgeListener, err := net.Listen("tcp", h.cfg.EdgeAddress())
+	if err != nil {
+		_ = apiListener.Close()
+		return service.Attempt{}, errs.From(err).Code(ErrCodeStart).
+			Attr("address", h.cfg.EdgeAddress()).Msg("bind the device edge listener")
+	}
 	// Same window as the hub's, and narrowed the same way for the same
-	// reason: an attempt whose Runner is never called would leave this
-	// listener bound with nothing serving it, and a restart would then fail
-	// to bind the port it just lost. See setupHub for why this narrows the
+	// reason: an attempt whose Runner is never called would leave these
+	// listeners bound with nothing serving them, and a restart would then fail
+	// to bind the ports it just lost. See setupHub for why this narrows the
 	// window rather than closing it.
 	if err := ctx.Err(); err != nil {
-		_ = listener.Close()
+		_ = apiListener.Close()
+		_ = edgeListener.Close()
 		return service.Attempt{}, err
 	}
-	bound := listener.Addr().String()
-	service.Logger(ctx).Info("device api listening", slog.String("flowseer.device.api.address", bound))
+	apiBound := apiListener.Addr().String()
+	edgeBound := edgeListener.Addr().String()
+	log := service.Logger(ctx)
+	log.Info("device api listening", slog.String("flowseer.device.api.address", apiBound))
+	log.Info("device edge listening", slog.String("flowseer.device.edge.address", edgeBound))
 	if h.opts.Bound != nil {
-		h.opts.Bound(bound)
+		h.opts.Bound(apiBound)
 	}
 
-	server := &http.Server{
-		Handler:           handler,
-		TLSConfig:         h.serverTLS(),
-		ReadHeaderTimeout: 10 * time.Second,
-		// Without this, net/http writes a recovered handler panic and every
-		// TLS handshake failure to the standard logger: plain lines on
-		// stderr, outside the JSON stream everything else in this process
-		// goes to, with no service attributes and no trace correlation. A
-		// handshake failure is how a misprovisioned edge presents, so these
-		// are lines an operator needs to be able to find with the rest.
-		ErrorLog: slog.NewLogLogger(service.Logger(ctx).Handler(), slog.LevelWarn),
+	newServer := func(handler http.Handler) *http.Server {
+		return &http.Server{
+			Handler:           handler,
+			TLSConfig:         h.serverTLS(),
+			ReadHeaderTimeout: 10 * time.Second,
+			// Without this, net/http writes a recovered handler panic and every
+			// TLS handshake failure to the standard logger: plain lines on
+			// stderr, outside the JSON stream everything else in this process
+			// goes to, with no service attributes and no trace correlation. A
+			// handshake failure is how a misprovisioned edge presents, so these
+			// are lines an operator needs to be able to find with the rest.
+			ErrorLog: slog.NewLogLogger(log.Handler(), slog.LevelWarn),
+		}
+	}
+	listeners := []connectListener{
+		{name: "api", server: newServer(muxes.api), listener: apiListener},
+		{name: "edge", server: newServer(muxes.edge), listener: edgeListener},
 	}
 
 	return service.Attempt{Runner: func(ctx context.Context) error {
-		return serveConnect(ctx, server, bound, func() error {
-			// The certificate and key are already in TLSConfig; ServeTLS
-			// takes them from there when both paths are empty. It closes
-			// the listener on return, including the ErrServerClosed return
-			// from Shutdown below, so nothing else has to.
-			return server.ServeTLS(listener, "", "")
-		})
+		return serveListeners(ctx, listeners)
 	}}, nil
+}
+
+// connectListener is one bound listener and the server that answers on it.
+type connectListener struct {
+	// name says which listener this is in spawn labels and errors.
+	name     string
+	server   *http.Server
+	listener net.Listener
+}
+
+// serveListeners serves every listener until ctx ends or one stops, then
+// shuts the rest down, each within its own [shutdownGrace]. They run
+// concurrently, so the grace is spent once and not once per listener. The
+// first failure is the attempt's error: a listener that stopped while the
+// other kept answering would leave a half-working service no supervisor
+// restarts.
+func serveListeners(ctx context.Context, listeners []connectListener) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	// Each listener reports once, and the sink of a panic outside
+	// serveConnect's own recovery adds at most one more, so this never blocks
+	// a sender.
+	results := make(chan error, 2*len(listeners))
+	for _, l := range listeners {
+		spawn.Go(ctx, "device "+l.name+" listener", func() {
+			results <- serveConnect(ctx, l.name, l.server, l.listener.Addr().String(), func() error {
+				// The certificate and key are already in TLSConfig;
+				// ServeTLS takes them from there when both paths are
+				// empty. It closes the listener on return, including the
+				// ErrServerClosed return from Shutdown, so nothing else
+				// has to.
+				return l.server.ServeTLS(l.listener, "", "")
+			})
+		}, spawn.ReportTo(func(err error) { results <- err }))
+	}
+
+	var failure error
+	for range listeners {
+		err := <-results
+		if err != nil && failure == nil {
+			failure = err
+		}
+		cancel()
+	}
+	return failure
 }
 
 // serveConnect runs serve under the supervised spawn helper until it returns
 // or ctx ends, translating a non-clean exit into this attempt's error. serve
 // is a parameter rather than a direct call to server.ServeTLS so a panic in
 // it — the case this function exists to cover — can be forced from a test
-// without a real TLS handshake.
-func serveConnect(ctx context.Context, server *http.Server, bound string, serve func() error) error {
+// without a real TLS handshake. name is the listener's, for the error.
+func serveConnect(ctx context.Context, name string, server *http.Server, bound string, serve func() error) error {
 	errCh := make(chan error, 1)
-	spawn.Go(ctx, "device api ServeTLS", func() {
+	spawn.Go(ctx, "device "+name+" ServeTLS", func() {
 		errCh <- serve()
 	}, spawn.ReportTo(func(err error) { errCh <- err }))
 
@@ -647,7 +707,7 @@ func serveConnect(ctx context.Context, server *http.Server, bound string, serve 
 		if errors.Is(err, http.ErrServerClosed) {
 			return nil
 		}
-		return errs.From(err).Code(ErrCodeStart).Attr("address", bound).Msg("serve the device api")
+		return errs.From(err).Code(ErrCodeStart).Attr("address", bound).Msg("serve the device " + name + " listener")
 	case <-ctx.Done():
 		shutdown, cancel := context.WithTimeout(context.WithoutCancel(ctx), shutdownGrace)
 		defer cancel()

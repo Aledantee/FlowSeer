@@ -188,8 +188,9 @@ func bootstrapEnvironment(t *testing.T, dir string) string {
 	authnCAPath := iss.WriteCACertFile(t)
 	fgaEndpoint, fgaCAFile, fgaKeyFile := startFakeOpenFGA(t, dir)
 
-	apiPort, busPort := freePort(t), freePort(t)
+	apiPort, edgePort, busPort := freePort(t), freePort(t), freePort(t)
 	central := fmt.Sprintf("https://127.0.0.1:%d", apiPort)
+	edgeURL := fmt.Sprintf("https://127.0.0.1:%d", edgePort)
 
 	writeFile(t, filepath.Join(dir, "device.textproto"), []byte(fmt.Sprintf(`
 state_dir: %q
@@ -198,6 +199,7 @@ credential_root: %q
 listeners {
   api: "127.0.0.1:%d"
   bus: "127.0.0.1:%d"
+  edge: "127.0.0.1:%d"
 }
 edges {
   central_url: %q
@@ -222,7 +224,7 @@ authorization {
   preshared_key_file: %q
   ca_file: %q
 }
-`, state, registry, credentials, apiPort, busPort, central, busPort,
+`, state, registry, credentials, apiPort, busPort, edgePort, edgeURL, busPort,
 		iss.URL(), authnCAPath,
 		fgaEndpoint, fgaKeyFile, fgaCAFile)))
 
@@ -253,6 +255,7 @@ export AGENT_CONFIG=%q
 export REGISTRY=%q
 export PROVISIONING=%q
 export CENTRAL=%q
+export EDGE_URL=%q
 export CACERT=%q
 export DEVICE_ID=%q
 export INTERFACE=%q
@@ -261,7 +264,7 @@ export TENANT=default
 `, template, repo, run,
 		filepath.Join(dir, "device.textproto"),
 		filepath.Join(dir, "agent.textproto"),
-		registry, provisioning, central,
+		registry, provisioning, central, edgeURL,
 		filepath.Join(state, "tls.crt"),
 		fixtureDeviceID, fixtureInterface,
 		token)

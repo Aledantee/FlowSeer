@@ -168,6 +168,7 @@ func TestTheRunbooksCommandsRun(t *testing.T) {
 	// and the commands that consume them are the runbook's.
 	script.WriteString("export FLOWSEER_REPO=" + shellQuote(absRepo) + "\n")
 	script.WriteString("export CENTRAL=" + shellQuote(d.central.baseURL()) + "\n")
+	script.WriteString("export EDGE_URL=" + shellQuote(d.central.edgeURL()) + "\n")
 	script.WriteString("export CACERT=" + shellQuote(filepath.Join(d.dir, "central-state", "tls.crt")) + "\n")
 	script.WriteString("export DEVICE_ID=" + shellQuote(fixtureDeviceID) + "\n")
 	script.WriteString("export INTERFACE=" + shellQuote(fixtureInterface) + "\n")
@@ -272,6 +273,7 @@ func TestTheRunbooksRecoveryStepsRun(t *testing.T) {
 	script.WriteString("set -eu\n")
 	script.WriteString("export FLOWSEER_REPO=" + shellQuote(absRepo) + "\n")
 	script.WriteString("export CENTRAL=" + shellQuote(d.central.baseURL()) + "\n")
+	script.WriteString("export EDGE_URL=" + shellQuote(d.central.edgeURL()) + "\n")
 	script.WriteString("export CACERT=" + shellQuote(filepath.Join(d.dir, "central-state", "tls.crt")) + "\n")
 	script.WriteString("export DEVICE_ID=" + shellQuote(fixtureDeviceID) + "\n")
 	script.WriteString("export INTERFACE=" + shellQuote(fixtureInterface) + "\n")

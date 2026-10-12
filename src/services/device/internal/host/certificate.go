@@ -198,7 +198,7 @@ func addSubjectNames(template *x509.Certificate, cfg *Config) {
 	template.DNSNames = []string{"localhost"}
 	template.IPAddresses = []net.IP{net.ParseIP("127.0.0.1"), net.ParseIP("::1")}
 
-	for _, address := range []string{cfg.APIAddress(), cfg.BusAddress(), cfg.CentralURL()} {
+	for _, address := range []string{cfg.APIAddress(), cfg.EdgeAddress(), cfg.BusAddress(), cfg.CentralURL()} {
 		host := hostOf(address)
 		if host == "" {
 			continue

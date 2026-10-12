@@ -13,10 +13,13 @@ listeners {
   # default worth copying: that port is the one that yields device credentials.
   api: "127.0.0.1:8443"
   bus: "127.0.0.1:8444"
+  # What an edge calls. central_url below names this address, and the
+  # operator calls on api never reach it.
+  edge: "127.0.0.1:8446"
 }
 
 edges {
-  central_url: "https://127.0.0.1:8443"
+  central_url: "https://127.0.0.1:8446"
   assertion_audience: "flowseer-lab"
   cluster_urls: "wss://127.0.0.1:8444"
 }

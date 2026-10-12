@@ -20,7 +20,7 @@ func TestAServeConnectPanicIsTheAttemptsError(t *testing.T) {
 
 	done := make(chan error, 1)
 	go func() {
-		done <- serveConnect(context.Background(), server, "127.0.0.1:0", func() error {
+		done <- serveConnect(context.Background(), "api", server, "127.0.0.1:0", func() error {
 			panic("serve tls fell over")
 		})
 	}()
@@ -52,7 +52,7 @@ func TestAServeConnectShutdownStillJoinsAfterAPanic(t *testing.T) {
 
 	done := make(chan error, 1)
 	go func() {
-		done <- serveConnect(ctx, server, "127.0.0.1:0", func() error {
+		done <- serveConnect(ctx, "api", server, "127.0.0.1:0", func() error {
 			<-release
 			panic("serve tls fell over after ctx ended")
 		})
