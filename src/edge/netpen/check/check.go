@@ -126,29 +126,12 @@ type Entry struct {
 	Orchestration bool
 }
 
-// VerdictKind is the outcome of one check. The zero value names no
-// outcome. VerdictKind values are safe for concurrent reads.
-type VerdictKind string
-
-const (
-	// Confirmed means the observable showed the attack taking effect.
-	Confirmed VerdictKind = "confirmed"
-	// Resisted means the observable showed the target holding within the
-	// observation window.
-	Resisted VerdictKind = "resisted"
-	// Pending means the check has no observable yet, or the behavior
-	// failed before it could decide; Detail says which.
-	Pending VerdictKind = "pending"
-	// Skipped means the check did not run: the gate refused it or its
-	// target was incomplete.
-	Skipped VerdictKind = "skipped"
-)
-
 // Verdict is what a [Run] returns: the kind, a detail a person can read,
-// and how long the behavior observed before deciding. Verdict values are
-// safe for concurrent reads.
+// and how long the behavior observed before deciding. The runner emits it
+// as the attack's [findings.KindVerdict] record. Verdict values are safe
+// for concurrent reads.
 type Verdict struct {
-	Kind     VerdictKind
+	Kind     findings.VerdictKind
 	Detail   string
 	Observed time.Duration
 }
@@ -214,7 +197,7 @@ type Deps struct {
 
 // Run is one check. It reads its target from deps, sends through the legs,
 // and returns the verdict. A non-nil error means the behavior could not
-// decide; the runner records it as a [Pending] verdict carrying the error
-// text and continues with the next attack. The context is derived from the
+// decide; the runner records it as a [findings.VerdictPending] verdict
+// carrying the error text and continues with the next attack. The context is derived from the
 // run's context, so a behavior returns promptly on ctx.Done().
 type Run func(ctx context.Context, deps Deps) (Verdict, error)

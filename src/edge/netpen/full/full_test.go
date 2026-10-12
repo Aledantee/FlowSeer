@@ -443,7 +443,7 @@ func TestTraversalPendingWithoutWatchLeg(t *testing.T) {
 		t.Fatal("no verdicts recorded")
 	}
 	for _, v := range verds {
-		if v.kind != findings.KindPending {
+		if v.kind != findings.VerdictPending {
 			t.Errorf("verdict for %q: kind = %s, want pending (no watch leg)", v.attack, v.kind)
 		}
 	}
@@ -478,8 +478,8 @@ func TestTraversalConfirmedWithWatchLegRecording(t *testing.T) {
 		t.Fatal("no verdicts recorded")
 	}
 	for _, v := range verds {
-		if v.kind != findings.KindFinding {
-			t.Errorf("verdict for %q: kind = %s, want finding (confirmed)", v.attack, v.kind)
+		if v.kind != findings.VerdictConfirmed {
+			t.Errorf("verdict for %q: kind = %s, want confirmed", v.attack, v.kind)
 		}
 	}
 }
@@ -510,7 +510,7 @@ func TestTraversalResistedWithWatchLegNoRecording(t *testing.T) {
 	f.mu.Unlock()
 
 	for _, v := range verds {
-		if v.kind != findings.KindResisted {
+		if v.kind != findings.VerdictResisted {
 			t.Errorf("verdict for %q: kind = %s, want resisted (watch leg, no traversal)", v.attack, v.kind)
 		}
 	}

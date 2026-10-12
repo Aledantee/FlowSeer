@@ -243,7 +243,11 @@ kind, detail, and observed milliseconds. `Summary` counts `Confirmed`,
 modes render a verdict line per attack. `full.computeVerdicts` builds
 verdict records with the new kind and `summaryRecord` counts them.
 `cmd/netpen/stream.go` counts the verdict kind where it counts the rollup
-kinds. `findings_class_test.go` expects version 2.
+kinds. `findings_class_test.go` expects version 2. Ruled: `findings`
+owns `VerdictKind` and its four constants, since it is the wire and
+`check` imports it, so `check.Verdict.Kind` is a `findings.VerdictKind`
+and `check` declares no kind of its own; `Summary.Count` tallies one
+verdict so the three consumers share one switch.
 Tests: `findings_test.go` marshals each kind and the verdict example of
 requirement 2. `json_test.go` and `tui_test.go` golden outputs carry the
 verdict line. `feed_test.go` counts verdicts into the summary.

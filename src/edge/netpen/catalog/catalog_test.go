@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/edge/netpen/check"
+	"go.aledante.io/FlowSeer/src/edge/netpen/findings"
 )
 
 // TestGeneratedCatalogIsCurrent is the drift gate: regenerating the
@@ -156,7 +157,7 @@ func TestRegisterReturnsErrorAndLeavesCatalogUnchanged(t *testing.T) {
 }
 
 func noopRun(context.Context, check.Deps) (check.Verdict, error) {
-	return check.Verdict{Kind: check.Pending}, nil
+	return check.Verdict{Kind: findings.VerdictPending}, nil
 }
 
 func validBehavior(name string) Behavior {

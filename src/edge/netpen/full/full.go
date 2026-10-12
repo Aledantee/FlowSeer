@@ -104,7 +104,7 @@ type Full struct {
 type verdict struct {
 	attack string
 	mode   string
-	kind   findings.Kind // resisted, skipped, pending, or empty (confirmed via finding)
+	kind   findings.VerdictKind
 	detail string
 }
 
@@ -290,7 +290,7 @@ func observeTraversal(ctx context.Context, watch link.Leg, window time.Duration)
 // the watch-leg recording. A behavior that ran in the burst gets:
 //   - pending: no watch leg (indistinguishable from resisted without one)
 //   - resisted: watch leg present but no traversal evidence
-//   - confirmed: watch leg recorded burst frames (upgrade pending->confirmed)
+//   - confirmed: watch leg recorded burst frames
 //
 // The upgrade is the two-leg semantics: the watch-leg evidence window
 // derives from the ACTUAL burst end (recorded by Run), not flag
@@ -304,15 +304,16 @@ func (f *Full) computeVerdicts(ev Evidence) {
 
 	burstRefs := armBurst(ev, f.cfg.NoSpoof)
 	for _, ref := range burstRefs {
-		if !hasWatch {
-			f.appendVerdict(verdict{attack: ref.Name, mode: ref.Mode, kind: findings.KindPending, detail: "no -w watch leg to observe traversal"})
-			continue
+		v := verdict{attack: ref.Name, mode: ref.Mode}
+		switch {
+		case !hasWatch:
+			v.kind, v.detail = findings.VerdictPending, "no -w watch leg to observe traversal"
+		case watchRecorded:
+			v.kind, v.detail = findings.VerdictConfirmed, "traversal confirmed on watch leg"
+		default:
+			v.kind, v.detail = findings.VerdictResisted, "watch leg saw no traversal"
 		}
-		if watchRecorded {
-			f.appendVerdict(verdict{attack: ref.Name, mode: ref.Mode, kind: findings.KindFinding, detail: "traversal confirmed on watch leg"})
-		} else {
-			f.appendVerdict(verdict{attack: ref.Name, mode: ref.Mode, kind: findings.KindResisted, detail: "watch leg saw no traversal"})
-		}
+		f.appendVerdict(v)
 	}
 }
 
@@ -324,60 +325,36 @@ func (f *Full) summaryRecord(ev Evidence, dispatchedRefs []runner.AttackRef, rec
 	copy(verds, f.verds)
 	f.verdsMu.Unlock()
 
-	counts := countByKind(recs)
-	for _, v := range verds {
-		switch v.kind {
-		case findings.KindResisted:
-			counts.resisted++
-		case findings.KindPending:
-			counts.pending++
-		case findings.KindSkipped:
-			counts.skipped++
-		case findings.KindError:
-			counts.errors++
-		}
-	}
-
 	sweep, _ := ev["sweep-net"].(string)
+	s := countByKind(recs)
+	for _, v := range verds {
+		s.Count(v.kind)
+	}
+	s.Attacks = len(dispatchedRefs)
+	s.SweepNet = sweep
 
 	r := findings.NewRecord(findings.KindSummary)
-	r.Summary = &findings.Summary{
-		Attacks:  len(dispatchedRefs),
-		Findings: counts.findings,
-		Resisted: counts.resisted,
-		Skipped:  counts.skipped,
-		Pending:  counts.pending,
-		Errors:   counts.errors,
-		SweepNet: sweep,
-	}
+	r.Summary = &s
 	return r
 }
 
-type kindCounts struct {
-	findings int
-	resisted int
-	skipped  int
-	pending  int
-	errors   int
-}
-
-func countByKind(recs []findings.Record) kindCounts {
-	var c kindCounts
+// countByKind tallies the findings, verdicts, and errors of one phase's
+// records into a summary with no attack count or sweep net.
+func countByKind(recs []findings.Record) findings.Summary {
+	var s findings.Summary
 	for _, r := range recs {
 		switch r.Kind {
 		case findings.KindFinding:
-			c.findings++
-		case findings.KindResisted:
-			c.resisted++
-		case findings.KindSkipped:
-			c.skipped++
-		case findings.KindPending:
-			c.pending++
+			s.Findings++
+		case findings.KindVerdict:
+			if r.Verdict != nil {
+				s.Count(r.Verdict.Kind)
+			}
 		case findings.KindError:
-			c.errors++
+			s.Errors++
 		}
 	}
-	return c
+	return s
 }
 
 //nolint:unparam // mode is always "" for progress records

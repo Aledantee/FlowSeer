@@ -2,7 +2,7 @@
 // JSONL machine contract emits and the in-memory stream the runner
 // delivers to output modes. Every record carries a schema version; the
 // record kinds enumerate meta, finding, progress, summary, error, refusal,
-// and the per-attack resisted/skipped/pending rollups.
+// and the per-attack verdict.
 //
 // Wrap captured credential material in [Secret] before marshaling a
 // finding's detail. Secret's JSON encoding emits only the protocol name
@@ -19,13 +19,15 @@ import (
 
 // SchemaVersion is the machine contract's major version. Within a
 // major version evolution is additive-only: new optional fields and record
-// kinds may appear; nothing is renamed, removed, or retyped.
-const SchemaVersion = 1
+// kinds may appear; nothing is renamed, removed, or retyped. Version 2
+// replaced the resisted, skipped, and pending rollup kinds with one verdict
+// kind and added the confirmed count to the summary.
+const SchemaVersion = 2
 
 // Kind is the record type carried on every JSONL line. The kinds enumerate
 // the machine-mode surface so the output mode loses nothing the TUI shows:
 // a run header, per-module findings, progress, summary, error and
-// refusal, and the per-attack resisted/skipped/pending rollups.
+// refusal, and the per-attack verdict.
 // The zero value names no record kind. Kind values are safe for concurrent use.
 type Kind string
 
@@ -44,16 +46,28 @@ const (
 	// KindRefusal is a dispatch-gate refusal (e.g. a permanent-destructive
 	// attack without its opt-in acknowledgment).
 	KindRefusal Kind = "refusal"
-	// KindResisted is the per-attack rollup for a target that resisted an
-	// attack — the run completed but the attack did not take effect.
-	KindResisted Kind = "resisted"
-	// KindSkipped is the per-attack rollup for an attack the gate or recon
-	// evidence declined to run.
-	KindSkipped Kind = "skipped"
-	// KindPending is the per-attack rollup for an attack left without a
-	// traversal verdict (indistinguishable from resisted without a watch
-	// leg).
-	KindPending Kind = "pending"
+	// KindVerdict is the per-attack outcome: confirmed, resisted, pending,
+	// or skipped, with the detail and observation window in [Verdict].
+	KindVerdict Kind = "verdict"
+)
+
+// VerdictKind is the outcome of one check. The zero value names no
+// outcome. VerdictKind values are safe for concurrent use.
+type VerdictKind string
+
+const (
+	// VerdictConfirmed means the observable showed the attack taking
+	// effect.
+	VerdictConfirmed VerdictKind = "confirmed"
+	// VerdictResisted means the observable showed the target holding
+	// within the observation window.
+	VerdictResisted VerdictKind = "resisted"
+	// VerdictPending means the check has no observable yet, or the
+	// behavior failed before it could decide; the detail says which.
+	VerdictPending VerdictKind = "pending"
+	// VerdictSkipped means the check did not run: the gate refused it or
+	// its target was incomplete.
+	VerdictSkipped VerdictKind = "skipped"
 )
 
 // Record is one JSONL record of the machine contract. Construct it with
@@ -73,7 +87,7 @@ type Record struct {
 	Summary       *Summary     `json:"summary,omitempty"`
 	Error         *ErrorRecord `json:"error,omitempty"`
 	Refusal       *Refusal     `json:"refusal,omitempty"`
-	Rollup        *Rollup      `json:"rollup,omitempty"`
+	Verdict       *Verdict     `json:"verdict,omitempty"`
 }
 
 // Meta is the run-header payload: the tool identity, its version,
@@ -105,18 +119,36 @@ type Progress struct {
 	Detail string `json:"detail,omitempty"`
 }
 
-// Summary closes a run with aggregate counts. Additive-only within
-// schema major version 1: optional fields may appear over time
-// but no field is renamed, removed, or retyped.
+// Summary closes a run with aggregate counts: the attacks dispatched, the
+// findings emitted, one count per verdict kind, and the errors. Additive-only
+// within a schema major version: optional fields may appear over time but no
+// field is renamed, removed, or retyped.
 // Callers must synchronize concurrent access involving writes.
 type Summary struct {
-	Attacks  int    `json:"attacks"`
-	Findings int    `json:"findings"`
-	Resisted int    `json:"resisted"`
-	Skipped  int    `json:"skipped"`
-	Pending  int    `json:"pending"`
-	Errors   int    `json:"errors"`
-	SweepNet string `json:"sweep_net,omitempty"`
+	Attacks   int    `json:"attacks"`
+	Findings  int    `json:"findings"`
+	Confirmed int    `json:"confirmed"`
+	Resisted  int    `json:"resisted"`
+	Skipped   int    `json:"skipped"`
+	Pending   int    `json:"pending"`
+	Errors    int    `json:"errors"`
+	SweepNet  string `json:"sweep_net,omitempty"`
+}
+
+// Count adds one verdict of kind k to the summary. An unknown kind counts
+// nowhere, so a consumer tallying a stream it did not produce cannot
+// inflate a count it does not understand.
+func (s *Summary) Count(k VerdictKind) {
+	switch k {
+	case VerdictConfirmed:
+		s.Confirmed++
+	case VerdictResisted:
+		s.Resisted++
+	case VerdictPending:
+		s.Pending++
+	case VerdictSkipped:
+		s.Skipped++
+	}
 }
 
 // ErrorRecord is a runtime failure record: the code (stable identity), the
@@ -135,11 +167,14 @@ type Refusal struct {
 	Reason string `json:"reason"`
 }
 
-// Rollup is the per-attack resisted/skipped/pending verdict.
+// Verdict is the per-attack outcome: the kind, a detail a person can read,
+// and how many milliseconds the behavior observed before deciding. The
+// enclosing [Record] identifies the attack and mode.
 // Callers must synchronize concurrent access involving writes.
-type Rollup struct {
-	Verdict Kind   `json:"verdict"`
-	Detail  string `json:"detail,omitempty"`
+type Verdict struct {
+	Kind       VerdictKind `json:"kind"`
+	Detail     string      `json:"detail,omitempty"`
+	ObservedMS int64       `json:"observed_ms"`
 }
 
 // NewRecord sets the schema version and kind, leaving Time and the payload
