@@ -1,0 +1,9 @@
+{
+  "skill": "plan",
+  "query": "Plan a new field on the wired attachment message in spec/proto/flowseer/net/endpoint/v1/wired_attachment.proto that carries the negotiated link speed as a float in Mbit/s. Do not ask questions. Where you would ask, state the question and its options, then stop.",
+  "budget_usd": 3,
+  "expected_behavior": [
+    "The plan names docs/architecture/2026-09-25-schema-building-blocks-direction.md.",
+    "The plan honors that record: a unit's Files: line names it, the state's readiness is needs-decisions, or the plan's field name ends in _bps."
+  ]
+}
