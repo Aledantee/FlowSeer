@@ -295,6 +295,13 @@ class SkillEvalTest(Fixture):
         self.assertEqual(sorted(p.name for p in self.lanes.iterdir()), ["eval-demo-alpha-current-1", "eval-demo-alpha-none-1"])
         self.assertEqual(len(stdout.splitlines()), 5)
 
+    def test_no_lane_launches_once_cost_equals_the_cap(self):
+        code, _, stderr = self.run_eval("--variants", "current,none", "--max-total-usd", "1.0", env={"STUB_COST": "0.5"})
+        self.assertEqual(code, 0, stderr)
+        rows = self.rows()
+        self.assertEqual([r["status"] for r in rows], ["ok", "ok", "skipped", "skipped"])
+        self.assertEqual(len(self.calls()), 2)
+
     def test_ref_variant_restores_that_revisions_skill(self):
         code, _, stderr = self.run_eval("--scenario", "alpha", "--variants", "current,ref:HEAD~1,none")
         self.assertEqual(code, 0, stderr)
