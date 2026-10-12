@@ -6,7 +6,7 @@
 // directory; root `go build ./...` / `go mod tidy` do not descend here.
 module go.aledante.io/FlowSeer/src/edge/netpen
 
-go 1.27
+go 1.27.2
 
 replace go.aledante.io/FlowSeer => ../../../
 
@@ -17,7 +17,7 @@ require (
 	github.com/gopacket/gopacket v1.7.3
 	go.aledante.io/FlowSeer v0.0.0-00010101000000-000000000000
 	golang.org/x/crypto v0.57.0
-	golang.org/x/net v0.59.0
+	golang.org/x/net v0.60.0
 	golang.org/x/term v0.46.0
 )
 
