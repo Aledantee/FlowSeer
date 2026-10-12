@@ -92,9 +92,10 @@ type Controller struct {
 	log        *slog.Logger
 	changed    chan struct{}
 
-	mu       sync.Mutex // guards wallHigh and windows
+	mu       sync.Mutex // guards wallHigh, windows, and ended
 	wallHigh time.Time
 	windows  map[string]*window
+	ended    bool // a window ended since the reporter was last woken
 }
 
 // window is one window's state. A terminal window stays in the table until its
@@ -269,6 +270,7 @@ func (c *Controller) end(w *window, reason rawwindowv1.RawWindowStopReason, at t
 	w.stop = reason
 	w.endedAt = at
 	w.version++
+	c.ended = true
 	c.log.Info("raw window ended",
 		slog.String("otel.event.name", "flowseer.edge.raw_window.ended"),
 		slog.String("flowseer.raw_window.id", w.ref.GetRawWindow().GetId()),
@@ -325,19 +327,18 @@ func (c *Controller) Select(obs Observation) []string {
 			c.end(w, rawwindowv1.RawWindowStopReason_RAW_WINDOW_STOP_REASON_BYTE_BUDGET, now)
 		}
 	}
-	if len(paid) > 0 || c.anyUnreported() {
-		c.signal()
-	}
+	c.signalIfEnded()
 	return paid
 }
 
-func (c *Controller) anyUnreported() bool {
-	for _, w := range c.windows {
-		if w.version != w.reported {
-			return true
-		}
+// signalIfEnded wakes a reporter after a window ended. Usage counters change
+// on every selected record, so they wait for the reporter's timer rather than
+// waking it once per record.
+func (c *Controller) signalIfEnded() {
+	if c.ended {
+		c.ended = false
+		c.signal()
 	}
-	return false
 }
 
 func (w *window) matches(obs Observation) bool {
@@ -364,9 +365,7 @@ func (c *Controller) Sweep() {
 	now := c.now()
 	c.expire(now, c.elapsed())
 	c.reap(now)
-	if c.anyUnreported() {
-		c.signal()
-	}
+	c.signalIfEnded()
 }
 
 // reap forgets a terminal window once nothing can reopen it: its expiry has

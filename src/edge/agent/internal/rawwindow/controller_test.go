@@ -705,6 +705,27 @@ func TestSweepReportsAnExpiryWithoutAnyTraffic(t *testing.T) {
 	}
 }
 
+func TestOnlyALifecycleChangeWakesTheReporter(t *testing.T) {
+	c := newClocks()
+	ctrl := newController(t, c)
+	apply(t, ctrl, open(t, windowOne, 1, deviceSelector(deviceA), c.Wall().Add(time.Hour), 10))
+	<-ctrl.Changed()
+
+	ctrl.Select(obs(deviceA, 4))
+	select {
+	case <-ctrl.Changed():
+		t.Fatal("a selected record woke the reporter, which would send one report per record")
+	default:
+	}
+
+	ctrl.Select(obs(deviceA, 6))
+	select {
+	case <-ctrl.Changed():
+	default:
+		t.Error("the record that spent the budget did not wake the reporter")
+	}
+}
+
 func TestConcurrentSelectionNeverOverspendsTheBudget(t *testing.T) {
 	c := newClocks()
 	ctrl := newController(t, c)
