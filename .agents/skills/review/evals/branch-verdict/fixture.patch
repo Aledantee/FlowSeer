@@ -1,0 +1,53 @@
+diff --git a/src/common/pump/take.go b/src/common/pump/take.go
+new file mode 100644
+index 00000000..2f6a09ab
+--- /dev/null
++++ b/src/common/pump/take.go
+@@ -0,0 +1,22 @@
++package pump
++
++import "context"
++
++// Take receives at most n values from p and returns them in arrival order.
++// It returns fewer when p's data channel closes or ctx ends first, and never
++// blocks past ctx. It does not stop or cancel p.
++func Take[T any](ctx context.Context, p *Pump[T], n int) []T {
++	var out []T
++	for len(out) <= n {
++		select {
++		case <-ctx.Done():
++			return out
++		case value, ok := <-p.Data():
++			if !ok {
++				return out
++			}
++			out = append(out, value)
++		}
++	}
++	return out
++}
+diff --git a/src/common/pump/take_test.go b/src/common/pump/take_test.go
+new file mode 100644
+index 00000000..ef9d07de
+--- /dev/null
++++ b/src/common/pump/take_test.go
+@@ -0,0 +1,19 @@
++package pump
++
++import (
++	"context"
++	"slices"
++	"testing"
++)
++
++func TestTakeReturnsEverythingWhenSourceIsShort(t *testing.T) {
++	t.Parallel()
++	p := New[int](context.Background(), 4)
++	t.Cleanup(p.Cancel)
++	p.Send(1)
++	p.Send(2)
++	p.CloseData()
++	if got := Take(context.Background(), p, 5); !slices.Equal(got, []int{1, 2}) {
++		t.Fatalf("Take() = %v, want [1 2]", got)
++	}
++}
