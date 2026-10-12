@@ -8,7 +8,7 @@ package catalog
 // they do not register catalog metadata.
 
 func init() {
-	nonDestructive := []Behavior{
+	nonDestructive := []registration{
 		{Name: "scan", Protocols: []string{"arp", "ipv6-nd"}, Preconditions: nil, Legs: WatchOptional, Class: NonDestructive, Help: "passive/active segment discovery"},
 		{Name: "arpsweep", Protocols: []string{"arp"}, Legs: AttackOnly, Class: NonDestructive, Help: "sweep a subnet for live hosts via ARP"},
 		{Name: "vlanenum", Protocols: []string{"vlan", "stp"}, Legs: AttackOnly, Class: NonDestructive, Help: "enumerate VLANs from a trunk port"},
@@ -19,7 +19,7 @@ func init() {
 		MustRegister(b)
 	}
 
-	transientDecay := []Behavior{
+	transientDecay := []registration{
 		{Name: "stproot", Protocols: []string{"stp"}, Legs: AttackOnly, Class: TransientDecay, Teardown: "engineered max_age~6s", Help: "claim STP root with superior BPDUs"},
 		{Name: "camflood", Protocols: []string{"eth"}, Legs: AttackOnly, Class: TransientDecay, Teardown: "CAM table ages out", Help: "flood the CAM table to force fail-open switching"},
 		{Name: "doubletag", Protocols: []string{"vlan"}, Legs: AttackOnly, Class: TransientDecay, Teardown: "one-shot injected frames; nothing persists", Help: "VLAN double-tagging hop to another VLAN"},
@@ -36,7 +36,7 @@ func init() {
 		{Name: "mvrp", Protocols: []string{"mvrp"}, Legs: AttackOnly, Class: TransientDecay, Teardown: "MRP timers, minutes", Help: "MVRP VLAN registration flood"},
 		{
 			Name: "vtp", Protocols: []string{"vtp"}, Legs: AttackOnly, Class: TransientDecay, Teardown: "revision-bump side effect recorded", Help: "VTP domain manipulation (SAFE mode default)",
-			Modes: []Mode{
+			Modes: []registrationMode{
 				{Flag: "wipe", Class: PermanentDestructive, Teardown: "requires per-run opt-in", Help: "VTP VLAN-database wipe"},
 				{Flag: "set", Class: PermanentDestructive, Teardown: "requires per-run opt-in", Help: "VTP VLAN-database overwrite"},
 			},
@@ -51,31 +51,31 @@ func init() {
 		MustRegister(b)
 	}
 
-	MustRegister(Behavior{
+	MustRegister(registration{
 		Name: "portsteal", Protocols: []string{"arp"}, Legs: AttackOnly, Class: TransientDecay, Teardown: "CAM aging", Help: "port-steal ARP spoofing",
-		Modes: []Mode{
+		Modes: []registrationMode{
 			{Flag: "relay", Class: TemporaryRestored, Teardown: "ip_forward restore armed", Help: "port-steal with relay enabled"},
 		},
 	})
 
-	temporaryRestored := []Behavior{
+	temporaryRestored := []registration{
 		{Name: "arpspoof", Protocols: []string{"arp"}, Legs: AttackOnly, Class: TemporaryRestored, Teardown: "neighbor unicast repairs + ip_forward restore", Help: "ARP cache poisoning"},
 		{
 			Name: "vlanhop", Protocols: []string{"vlan"}, Legs: AttackOnly, Class: TemporaryRestored, Teardown: "active restore armed", Help: "VLAN hopping attack",
-			Modes: []Mode{
+			Modes: []registrationMode{
 				{Flag: "persist", Class: PermanentDestructive, Teardown: "host-side persistence, flag is the opt-in", Help: "persistent VLAN hop"},
 			},
 		},
 		{
 			Name: "voicevlan", Protocols: []string{"vlan", "lldp"}, Legs: AttackOnly, Class: TemporaryRestored, Teardown: "active restore armed", Help: "voice-VLAN hijack",
-			Modes: []Mode{
+			Modes: []registrationMode{
 				{Flag: "persist", Class: PermanentDestructive, Teardown: "host-side persistence, flag is the opt-in", Help: "persistent voice-VLAN hijack"},
 			},
 		},
 		{Name: "hsrp", Protocols: []string{"hsrp"}, Legs: AttackOnly, Class: TemporaryRestored, Teardown: "resign teardown", Help: "HSRP active-router hijack"},
 		{
 			Name: "dtp", Protocols: []string{"dtp"}, Legs: AttackOnly, Class: TemporaryRestored, Teardown: "access-port restore armed by default", Help: "DTP trunk negotiation",
-			Modes: []Mode{
+			Modes: []registrationMode{
 				{Flag: "keep-trunk", Class: PermanentDestructive, Teardown: "opt-in to keep the negotiated trunk", Help: "keep the negotiated trunk (no restore)"},
 			},
 		},

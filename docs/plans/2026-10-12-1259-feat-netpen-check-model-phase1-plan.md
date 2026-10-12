@@ -216,7 +216,13 @@ validation of the new fields. Today's `Register`, `MustRegister`, `Entry`,
 `Durability`, the latch, `registrations.go`, and the generated file are
 untouched, so `runner`, `full`, `cmd`, and the attack packages build as
 before. The new validation applies only to `New`. `codes.go` adds
-`ErrCodeTargetMissing` and `ErrCodeCeilingRefused`.
+`ErrCodeCeilingRefused`. `ErrCodeTargetMissing` lives in `check` beside
+`Target.Need`, which returns it, since `check` cannot import `catalog`.
+Ruled: the registration table's own `Behavior` and `Mode` types, used
+only inside `catalog`, become the unexported `registration` and
+`registrationMode` so the new types take the names the Decisions give
+them; `catalog.Legs` becomes an alias of `check.Legs` so the table and
+the value share one type. The cutover deletes both renamed types.
 Tests: `catalog_test.go` gains cases that reject a `decay` restore with a
 negative bound, an unknown impact, an unknown affects, a nil `Run` on an
 entry not flagged `Orchestration`, and a duplicate (name, mode) pair, and

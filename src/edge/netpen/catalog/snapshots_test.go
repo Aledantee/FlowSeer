@@ -18,10 +18,10 @@ func TestRegistrationMetadataIsDetached(t *testing.T) {
 		mu.Unlock()
 	})
 
-	b := Behavior{
+	b := registration{
 		Name: "snapshot", Protocols: []string{"arp"}, Preconditions: []string{"watch-leg"},
 		Legs: WatchRequired, Class: NonDestructive, Help: "snapshot fixture",
-		Modes: []Mode{{Flag: "persist", Class: PermanentDestructive, Help: "persistent fixture"}},
+		Modes: []registrationMode{{Flag: "persist", Class: PermanentDestructive, Help: "persistent fixture"}},
 	}
 	if err := Register(b); err != nil {
 		t.Fatalf("Register(%q): %v", b.Name, err)
@@ -35,7 +35,7 @@ func TestRegistrationMetadataIsDetached(t *testing.T) {
 		t.Errorf("entries after input mutation = %+v, want %+v", got, want)
 	}
 
-	snapshot := Behaviors()[0]
+	snapshot := registrations()[0]
 	snapshot.Protocols[0] = "changed again"
 	snapshot.Preconditions[0] = "changed again"
 	snapshot.Modes[0].Flag = "changed"

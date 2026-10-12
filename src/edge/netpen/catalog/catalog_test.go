@@ -2,6 +2,7 @@ package catalog
 
 import (
 	"bytes"
+	"context"
 	"go/ast"
 	"go/parser"
 	"go/token"
@@ -10,7 +11,11 @@ import (
 	"path/filepath"
 	"reflect"
 	"strconv"
+	"strings"
 	"testing"
+	"time"
+
+	"go.aledante.io/FlowSeer/src/edge/netpen/check"
 )
 
 // TestGeneratedCatalogIsCurrent is the drift gate: regenerating the
@@ -97,15 +102,15 @@ func TestFamilyGuardRejectsUnknownClass(t *testing.T) {
 func TestRegistrationValidatorRejectsBadRegistrations(t *testing.T) {
 	cases := []struct {
 		name string
-		b    Behavior
+		b    registration
 	}{
-		{"missing help", Behavior{Name: "bogus", Class: NonDestructive, Legs: AttackOnly, Help: ""}},
-		{"missing name", Behavior{Name: "", Class: NonDestructive, Legs: AttackOnly, Help: "x"}},
-		{"unknown class", Behavior{Name: "bogus", Class: "nope", Legs: AttackOnly, Help: "x"}},
-		{"unknown legs", Behavior{Name: "bogus", Class: NonDestructive, Legs: "nope", Help: "x"}},
-		{"mode missing flag", Behavior{Name: "bogus", Class: NonDestructive, Legs: AttackOnly, Help: "x", Modes: []Mode{{Class: NonDestructive, Help: "m"}}}},
-		{"mode missing help", Behavior{Name: "bogus", Class: NonDestructive, Legs: AttackOnly, Help: "x", Modes: []Mode{{Flag: "f", Class: NonDestructive}}}},
-		{"mode unknown class", Behavior{Name: "bogus", Class: NonDestructive, Legs: AttackOnly, Help: "x", Modes: []Mode{{Flag: "f", Class: "nope", Help: "m"}}}},
+		{"missing help", registration{Name: "bogus", Class: NonDestructive, Legs: AttackOnly, Help: ""}},
+		{"missing name", registration{Name: "", Class: NonDestructive, Legs: AttackOnly, Help: "x"}},
+		{"unknown class", registration{Name: "bogus", Class: "nope", Legs: AttackOnly, Help: "x"}},
+		{"unknown legs", registration{Name: "bogus", Class: NonDestructive, Legs: "nope", Help: "x"}},
+		{"mode missing flag", registration{Name: "bogus", Class: NonDestructive, Legs: AttackOnly, Help: "x", Modes: []registrationMode{{Class: NonDestructive, Help: "m"}}}},
+		{"mode missing help", registration{Name: "bogus", Class: NonDestructive, Legs: AttackOnly, Help: "x", Modes: []registrationMode{{Flag: "f", Class: NonDestructive}}}},
+		{"mode unknown class", registration{Name: "bogus", Class: NonDestructive, Legs: AttackOnly, Help: "x", Modes: []registrationMode{{Flag: "f", Class: "nope", Help: "m"}}}},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -131,23 +136,142 @@ func TestRegisterReturnsErrorAndLeavesCatalogUnchanged(t *testing.T) {
 		mu.Unlock()
 	})
 
-	bad := Behavior{Name: "", Class: NonDestructive, Legs: AttackOnly, Help: "x"}
+	bad := registration{Name: "", Class: NonDestructive, Legs: AttackOnly, Help: "x"}
 	if err := Register(bad); err == nil {
 		t.Fatal("Register with an empty Name returned nil; want an error")
 	}
-	if got := len(Behaviors()); got != 0 {
-		t.Fatalf("Behaviors() has %d entries after a rejected registration; want 0", got)
+	if got := len(registrations()); got != 0 {
+		t.Fatalf("registrations() has %d entries after a rejected registration; want 0", got)
 	}
 
-	// Behaviors() above latched the catalog as read, so a well-formed
+	// registrations() above latched the catalog as read, so a well-formed
 	// registration now fails with the post-read error.
-	good := Behavior{Name: "late", Class: NonDestructive, Legs: AttackOnly, Help: "x"}
+	good := registration{Name: "late", Class: NonDestructive, Legs: AttackOnly, Help: "x"}
 	if err := Register(good); err == nil {
 		t.Fatal("Register after the catalog was read returned nil; want an error")
 	}
 
 	assertPanics(t, "MustRegister(bad)", func() { MustRegister(bad) })
 	assertPanics(t, "MustRegister after read", func() { MustRegister(good) })
+}
+
+func noopRun(context.Context, check.Deps) (check.Verdict, error) {
+	return check.Verdict{Kind: check.Pending}, nil
+}
+
+func validBehavior(name string) Behavior {
+	return Behavior{
+		Entry: check.Entry{
+			Name: name, Protocols: []string{"arp"}, Legs: AttackOnly,
+			Impact: check.ImpactNone, Restore: check.Restore{Kind: check.RestoreNone},
+			Affects: check.AffectsNone, Help: "fixture",
+		},
+		Run: noopRun,
+	}
+}
+
+// TestNewRejectsInvalidBehaviors pins that the cost fields the ceiling gate
+// reads cannot be unknown, that a bound only a decay could announce is
+// refused elsewhere, that a check without a Run cannot ship unless it is
+// orchestration, and that two rows cannot share a (name, mode) key.
+func TestNewRejectsInvalidBehaviors(t *testing.T) {
+	negative := validBehavior("b")
+	negative.Restore = check.Restore{Kind: check.RestoreDecay, Bound: -time.Second}
+	boundOnActive := validBehavior("b")
+	boundOnActive.Restore = check.Restore{Kind: check.RestoreActive, Bound: time.Second}
+	impact := validBehavior("b")
+	impact.Impact = "catastrophic"
+	affects := validBehavior("b")
+	affects.Affects = "everyone"
+	noRun := validBehavior("b")
+	noRun.Run = nil
+	baseMode := validBehavior("b")
+	baseMode.Mode = "relay"
+	dupMode := validBehavior("b")
+	dupMode.Modes = []Mode{
+		{Flag: "relay", Help: "m", Impact: check.ImpactNone, Restore: check.Restore{Kind: check.RestoreNone}, Affects: check.AffectsNone},
+		{Flag: "relay", Help: "m", Impact: check.ImpactNone, Restore: check.Restore{Kind: check.RestoreNone}, Affects: check.AffectsNone},
+	}
+	badMode := validBehavior("b")
+	badMode.Modes = []Mode{{Flag: "relay", Help: "m", Impact: "nope", Restore: check.Restore{Kind: check.RestoreNone}, Affects: check.AffectsNone}}
+
+	cases := []struct {
+		name      string
+		behaviors []Behavior
+		want      string
+	}{
+		{"negative decay bound", []Behavior{negative}, "negative"},
+		{"bound on active", []Behavior{boundOnActive}, "only decay carries a bound"},
+		{"unknown impact", []Behavior{impact}, `unknown impact "catastrophic"`},
+		{"unknown affects", []Behavior{affects}, `unknown affects "everyone"`},
+		{"nil run", []Behavior{noRun}, "run function is required"},
+		{"mode on the base entry", []Behavior{baseMode}, "base entry carries mode"},
+		{"duplicate behavior", []Behavior{validBehavior("b"), validBehavior("b")}, `duplicate behavior "b"`},
+		{"duplicate mode", []Behavior{dupMode}, `duplicate entry "b" mode "relay"`},
+		{"unknown mode impact", []Behavior{badMode}, `mode "relay": unknown impact "nope"`},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			_, err := New(c.behaviors...)
+			if err == nil {
+				t.Fatalf("New accepted %+v", c.behaviors)
+			}
+			if !strings.Contains(err.Error(), c.want) {
+				t.Errorf("error = %q, want it to contain %q", err, c.want)
+			}
+		})
+	}
+}
+
+// TestNewAcceptsOrchestrationWithoutRun pins the one case a nil Run is
+// valid: an entry that scripts other behaviors.
+func TestNewAcceptsOrchestrationWithoutRun(t *testing.T) {
+	b := validBehavior("full")
+	b.Run = nil
+	b.Orchestration = true
+	if _, err := New(b); err != nil {
+		t.Fatalf("New(orchestration without Run): %v", err)
+	}
+}
+
+// TestNewEntriesComeBackSorted pins the (Name, Mode) order the generator
+// relies on for byte stability, with modes expanded into their own rows
+// carrying the mode's own cost fields.
+func TestNewEntriesComeBackSorted(t *testing.T) {
+	zeta := validBehavior("zeta")
+	alpha := validBehavior("alpha")
+	alpha.Impact = check.ImpactTemporary
+	alpha.Restore = check.Restore{Kind: check.RestoreDecay, Bound: 6 * time.Second}
+	alpha.Affects = check.AffectsFabric
+	alpha.Modes = []Mode{
+		{Flag: "persist", Help: "keep it", Impact: check.ImpactPermanent, Restore: check.Restore{Kind: check.RestoreNone}, Affects: check.AffectsDevice},
+	}
+	c, err := New(zeta, alpha)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	got := c.Entries()
+	want := []check.Entry{
+		{Name: "alpha", Protocols: []string{"arp"}, Legs: AttackOnly, Impact: check.ImpactTemporary, Restore: check.Restore{Kind: check.RestoreDecay, Bound: 6 * time.Second}, Affects: check.AffectsFabric, Help: "fixture"},
+		{Name: "alpha", Mode: "persist", Protocols: []string{"arp"}, Legs: AttackOnly, Impact: check.ImpactPermanent, Restore: check.Restore{Kind: check.RestoreNone}, Affects: check.AffectsDevice, Help: "keep it"},
+		{Name: "zeta", Protocols: []string{"arp"}, Legs: AttackOnly, Impact: check.ImpactNone, Restore: check.Restore{Kind: check.RestoreNone}, Affects: check.AffectsNone, Help: "fixture"},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("Entries() =\n%+v\nwant\n%+v", got, want)
+	}
+
+	entry, run, ok := c.Lookup("alpha", "persist")
+	if !ok || run == nil || entry.Impact != check.ImpactPermanent {
+		t.Errorf("Lookup(alpha, persist) = %+v, run nil %v, ok %v", entry, run == nil, ok)
+	}
+	if _, _, ok := c.Lookup("alpha", "relay"); ok {
+		t.Error("Lookup(alpha, relay) found a mode the catalog does not have")
+	}
+
+	got[0].Protocols[0] = "changed"
+	if again := c.Entries(); again[0].Protocols[0] != "arp" {
+		t.Errorf("Entries() shares its Protocols slice with the caller: %q", again[0].Protocols[0])
+	}
 }
 
 func assertPanics(t *testing.T, what string, fn func()) {

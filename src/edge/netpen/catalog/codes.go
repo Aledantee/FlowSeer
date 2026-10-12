@@ -21,6 +21,10 @@ var (
 	// could not complete every step — reported by name with a non-zero
 	// exit.
 	ErrCodeTeardownPartial = errs.NewCode("netpen/teardown-partial")
+	// ErrCodeCeilingRefused marks an (attack, mode) pair whose impact
+	// exceeds the run's impact ceiling; the runner records the refusal and
+	// continues with the next attack.
+	ErrCodeCeilingRefused = errs.NewCode("netpen/ceiling-refused")
 
 	// ErrCodeWPADPortCollision marks a rogue WPAD proxy that could not
 	// bind its embedded PAC listener because the chosen port is already
