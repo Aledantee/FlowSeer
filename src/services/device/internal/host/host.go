@@ -280,14 +280,14 @@ func (h *assembly) forwarderGate() service.Gate {
 // as it does.
 func (h *assembly) setupHub(ctx context.Context) (service.Attempt, error) {
 	log := service.Logger(ctx)
-	hub, err := edgebus.StartHub(ctx, edgebus.HubConfig{
+	hub, err := edgebus.StartHub(ctx, h.cfg.IngestStreams().apply(edgebus.HubConfig{
 		StateDir:    h.cfg.StateDir(),
 		FsyncPolicy: service.BusFsyncPerMessage,
 		ListenHost:  listenHostOf(h.cfg.BusAddress()),
 		ListenPort:  portOf(h.cfg.BusAddress()),
 		TLS:         h.serverTLS(),
 		Logger:      log,
-	})
+	}))
 	if err != nil {
 		return service.Attempt{}, err
 	}

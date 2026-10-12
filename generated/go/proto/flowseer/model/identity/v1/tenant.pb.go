@@ -72,6 +72,62 @@ func (x TenantLifecycle) Number() protoreflect.EnumNumber {
 	return protoreflect.EnumNumber(x)
 }
 
+// How long a tenant's observation history is kept. Each class names a
+// retention period per kind of data in the history store record
+// (docs/architecture/2026-10-08-history-store-direction.md); the numbers are
+// the stamped value on every stored row, so they never change.
+type RetentionClass int32
+
+const (
+	// No class named. A tenant config without one is treated as
+	// RETENTION_CLASS_STANDARD; the zero value is not a legal input.
+	RetentionClass_RETENTION_CLASS_UNSPECIFIED RetentionClass = 0
+	// The shortest retention.
+	RetentionClass_RETENTION_CLASS_SHORT RetentionClass = 1
+	// The default retention.
+	RetentionClass_RETENTION_CLASS_STANDARD RetentionClass = 2
+	// The longest retention.
+	RetentionClass_RETENTION_CLASS_LONG RetentionClass = 3
+)
+
+// Enum value maps for RetentionClass.
+var (
+	RetentionClass_name = map[int32]string{
+		0: "RETENTION_CLASS_UNSPECIFIED",
+		1: "RETENTION_CLASS_SHORT",
+		2: "RETENTION_CLASS_STANDARD",
+		3: "RETENTION_CLASS_LONG",
+	}
+	RetentionClass_value = map[string]int32{
+		"RETENTION_CLASS_UNSPECIFIED": 0,
+		"RETENTION_CLASS_SHORT":       1,
+		"RETENTION_CLASS_STANDARD":    2,
+		"RETENTION_CLASS_LONG":        3,
+	}
+)
+
+func (x RetentionClass) Enum() *RetentionClass {
+	p := new(RetentionClass)
+	*p = x
+	return p
+}
+
+func (x RetentionClass) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (RetentionClass) Descriptor() protoreflect.EnumDescriptor {
+	return file_flowseer_model_identity_v1_tenant_proto_enumTypes[1].Descriptor()
+}
+
+func (RetentionClass) Type() protoreflect.EnumType {
+	return &file_flowseer_model_identity_v1_tenant_proto_enumTypes[1]
+}
+
+func (x RetentionClass) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
 // The local reference to a tenant.
 type TenantLocalRef struct {
 	state                  protoimpl.MessageState `protogen:"opaque.v1"`
@@ -231,6 +287,7 @@ type TenantConfig struct {
 	xxx_hidden_OrganizationClaimValue *string                `protobuf:"bytes,4,opt,name=organization_claim_value,json=organizationClaimValue"`
 	xxx_hidden_Name                   *string                `protobuf:"bytes,5,opt,name=name"`
 	xxx_hidden_Description            *string                `protobuf:"bytes,6,opt,name=description"`
+	xxx_hidden_RetentionClass         RetentionClass         `protobuf:"varint,7,opt,name=retention_class,json=retentionClass,enum=flowseer.model.identity.v1.RetentionClass"`
 	XXX_raceDetectHookData            protoimpl.RaceDetectHookData
 	XXX_presence                      [1]uint32
 	unknownFields                     protoimpl.UnknownFields
@@ -319,33 +376,47 @@ func (x *TenantConfig) GetDescription() string {
 	return ""
 }
 
+func (x *TenantConfig) GetRetentionClass() RetentionClass {
+	if x != nil {
+		if protoimpl.X.Present(&(x.XXX_presence[0]), 6) {
+			return x.xxx_hidden_RetentionClass
+		}
+	}
+	return RetentionClass_RETENTION_CLASS_UNSPECIFIED
+}
+
 func (x *TenantConfig) SetRef(v *TenantGlobalRef) {
 	x.xxx_hidden_Ref = v
 }
 
 func (x *TenantConfig) SetIssuer(v string) {
 	x.xxx_hidden_Issuer = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 6)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 7)
 }
 
 func (x *TenantConfig) SetOrganizationClaimName(v string) {
 	x.xxx_hidden_OrganizationClaimName = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 6)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 7)
 }
 
 func (x *TenantConfig) SetOrganizationClaimValue(v string) {
 	x.xxx_hidden_OrganizationClaimValue = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 6)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 7)
 }
 
 func (x *TenantConfig) SetName(v string) {
 	x.xxx_hidden_Name = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 6)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 7)
 }
 
 func (x *TenantConfig) SetDescription(v string) {
 	x.xxx_hidden_Description = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 5, 6)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 5, 7)
+}
+
+func (x *TenantConfig) SetRetentionClass(v RetentionClass) {
+	x.xxx_hidden_RetentionClass = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 6, 7)
 }
 
 func (x *TenantConfig) HasRef() bool {
@@ -390,6 +461,13 @@ func (x *TenantConfig) HasDescription() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 5)
 }
 
+func (x *TenantConfig) HasRetentionClass() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 6)
+}
+
 func (x *TenantConfig) ClearRef() {
 	x.xxx_hidden_Ref = nil
 }
@@ -419,6 +497,11 @@ func (x *TenantConfig) ClearDescription() {
 	x.xxx_hidden_Description = nil
 }
 
+func (x *TenantConfig) ClearRetentionClass() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 6)
+	x.xxx_hidden_RetentionClass = RetentionClass_RETENTION_CLASS_UNSPECIFIED
+}
+
 type TenantConfig_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
@@ -434,6 +517,9 @@ type TenantConfig_builder struct {
 	Name *string
 	// Free-text description of the tenant. Unset means none was provided.
 	Description *string
+	// How long this tenant's history is kept. Unset means
+	// RETENTION_CLASS_STANDARD. The zero value is rejected.
+	RetentionClass *RetentionClass
 }
 
 func (b0 TenantConfig_builder) Build() *TenantConfig {
@@ -442,24 +528,28 @@ func (b0 TenantConfig_builder) Build() *TenantConfig {
 	_, _ = b, x
 	x.xxx_hidden_Ref = b.Ref
 	if b.Issuer != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 6)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 7)
 		x.xxx_hidden_Issuer = b.Issuer
 	}
 	if b.OrganizationClaimName != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 6)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 7)
 		x.xxx_hidden_OrganizationClaimName = b.OrganizationClaimName
 	}
 	if b.OrganizationClaimValue != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 6)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 7)
 		x.xxx_hidden_OrganizationClaimValue = b.OrganizationClaimValue
 	}
 	if b.Name != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 6)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 7)
 		x.xxx_hidden_Name = b.Name
 	}
 	if b.Description != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 5, 6)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 5, 7)
 		x.xxx_hidden_Description = b.Description
+	}
+	if b.RetentionClass != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 6, 7)
+		x.xxx_hidden_RetentionClass = *b.RetentionClass
 	}
 	return m0
 }
@@ -840,7 +930,7 @@ const file_flowseer_model_identity_v1_tenant_proto_rawDesc = "" +
 	"\x0eTenantLocalRef\x12\x1b\n" +
 	"\x02id\x18\x01 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\x02id\"]\n" +
 	"\x0fTenantGlobalRef\x12J\n" +
-	"\x06tenant\x18\x01 \x01(\v2*.flowseer.model.identity.v1.TenantLocalRefB\x06\xbaH\x03\xc8\x01\x01R\x06tenant\"\xdd\x02\n" +
+	"\x06tenant\x18\x01 \x01(\v2*.flowseer.model.identity.v1.TenantLocalRefB\x06\xbaH\x03\xc8\x01\x01R\x06tenant\"\xbe\x03\n" +
 	"\fTenantConfig\x12E\n" +
 	"\x03ref\x18\x01 \x01(\v2+.flowseer.model.identity.v1.TenantGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x03ref\x12(\n" +
 	"\x06issuer\x18\x02 \x01(\tB\x10\xbaH\r\xc8\x01\x01r\b\x10\x01\x18\x80\x10\x88\x01\x01R\x06issuer\x12E\n" +
@@ -851,7 +941,9 @@ const file_flowseer_model_identity_v1_tenant_proto_rawDesc = "" +
 	"\x04name\x18\x05 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\x80\x01R\x04name\x12,\n" +
 	"\vdescription\x18\x06 \x01(\tB\n" +
-	"\xbaH\ar\x05\x10\x01\x18\x80\x10R\vdescription\"\xf1\x01\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80\x10R\vdescription\x12_\n" +
+	"\x0fretention_class\x18\a \x01(\x0e2*.flowseer.model.identity.v1.RetentionClassB\n" +
+	"\xbaH\a\x82\x01\x04\x10\x01 \x00R\x0eretentionClass\"\xf1\x01\n" +
 	"\vTenantState\x12E\n" +
 	"\x03ref\x18\x01 \x01(\v2+.flowseer.model.identity.v1.TenantGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x03ref\x12X\n" +
 	"\tlifecycle\x18\x02 \x01(\x0e2+.flowseer.model.identity.v1.TenantLifecycleB\r\xbaH\n" +
@@ -871,37 +963,44 @@ const file_flowseer_model_identity_v1_tenant_proto_rawDesc = "" +
 	"\x0fTenantLifecycle\x12 \n" +
 	"\x1cTENANT_LIFECYCLE_UNSPECIFIED\x10\x00\x12\x1b\n" +
 	"\x17TENANT_LIFECYCLE_ACTIVE\x10\x01\x12\x1e\n" +
-	"\x1aTENANT_LIFECYCLE_SUSPENDED\x10\x02B\x88\x02\n" +
+	"\x1aTENANT_LIFECYCLE_SUSPENDED\x10\x02*\x84\x01\n" +
+	"\x0eRetentionClass\x12\x1f\n" +
+	"\x1bRETENTION_CLASS_UNSPECIFIED\x10\x00\x12\x19\n" +
+	"\x15RETENTION_CLASS_SHORT\x10\x01\x12\x1c\n" +
+	"\x18RETENTION_CLASS_STANDARD\x10\x02\x12\x18\n" +
+	"\x14RETENTION_CLASS_LONG\x10\x03B\x88\x02\n" +
 	"\x1ecom.flowseer.model.identity.v1B\vTenantProtoZPgo.aledante.io/FlowSeer/generated/go/proto/flowseer/model/identity/v1;identityv1\xa2\x02\x03FMI\xaa\x02\x1aFlowseer.Model.Identity.V1\xca\x02\x1aFlowseer\\Model\\Identity\\V1\xe2\x02&Flowseer\\Model\\Identity\\V1\\GPBMetadata\xea\x02\x1dFlowseer::Model::Identity::V1b\beditionsp\xe9\a"
 
-var file_flowseer_model_identity_v1_tenant_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_flowseer_model_identity_v1_tenant_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
 var file_flowseer_model_identity_v1_tenant_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_flowseer_model_identity_v1_tenant_proto_goTypes = []any{
 	(TenantLifecycle)(0),          // 0: flowseer.model.identity.v1.TenantLifecycle
-	(*TenantLocalRef)(nil),        // 1: flowseer.model.identity.v1.TenantLocalRef
-	(*TenantGlobalRef)(nil),       // 2: flowseer.model.identity.v1.TenantGlobalRef
-	(*TenantConfig)(nil),          // 3: flowseer.model.identity.v1.TenantConfig
-	(*TenantState)(nil),           // 4: flowseer.model.identity.v1.TenantState
-	(*TenantEvent)(nil),           // 5: flowseer.model.identity.v1.TenantEvent
-	(*TenantRecord)(nil),          // 6: flowseer.model.identity.v1.TenantRecord
-	(*timestamppb.Timestamp)(nil), // 7: google.protobuf.Timestamp
+	(RetentionClass)(0),           // 1: flowseer.model.identity.v1.RetentionClass
+	(*TenantLocalRef)(nil),        // 2: flowseer.model.identity.v1.TenantLocalRef
+	(*TenantGlobalRef)(nil),       // 3: flowseer.model.identity.v1.TenantGlobalRef
+	(*TenantConfig)(nil),          // 4: flowseer.model.identity.v1.TenantConfig
+	(*TenantState)(nil),           // 5: flowseer.model.identity.v1.TenantState
+	(*TenantEvent)(nil),           // 6: flowseer.model.identity.v1.TenantEvent
+	(*TenantRecord)(nil),          // 7: flowseer.model.identity.v1.TenantRecord
+	(*timestamppb.Timestamp)(nil), // 8: google.protobuf.Timestamp
 }
 var file_flowseer_model_identity_v1_tenant_proto_depIdxs = []int32{
-	1,  // 0: flowseer.model.identity.v1.TenantGlobalRef.tenant:type_name -> flowseer.model.identity.v1.TenantLocalRef
-	2,  // 1: flowseer.model.identity.v1.TenantConfig.ref:type_name -> flowseer.model.identity.v1.TenantGlobalRef
-	2,  // 2: flowseer.model.identity.v1.TenantState.ref:type_name -> flowseer.model.identity.v1.TenantGlobalRef
-	0,  // 3: flowseer.model.identity.v1.TenantState.lifecycle:type_name -> flowseer.model.identity.v1.TenantLifecycle
-	7,  // 4: flowseer.model.identity.v1.TenantState.created_at:type_name -> google.protobuf.Timestamp
-	2,  // 5: flowseer.model.identity.v1.TenantEvent.ref:type_name -> flowseer.model.identity.v1.TenantGlobalRef
-	0,  // 6: flowseer.model.identity.v1.TenantEvent.from:type_name -> flowseer.model.identity.v1.TenantLifecycle
-	0,  // 7: flowseer.model.identity.v1.TenantEvent.to:type_name -> flowseer.model.identity.v1.TenantLifecycle
-	3,  // 8: flowseer.model.identity.v1.TenantRecord.config:type_name -> flowseer.model.identity.v1.TenantConfig
-	4,  // 9: flowseer.model.identity.v1.TenantRecord.state:type_name -> flowseer.model.identity.v1.TenantState
-	10, // [10:10] is the sub-list for method output_type
-	10, // [10:10] is the sub-list for method input_type
-	10, // [10:10] is the sub-list for extension type_name
-	10, // [10:10] is the sub-list for extension extendee
-	0,  // [0:10] is the sub-list for field type_name
+	2,  // 0: flowseer.model.identity.v1.TenantGlobalRef.tenant:type_name -> flowseer.model.identity.v1.TenantLocalRef
+	3,  // 1: flowseer.model.identity.v1.TenantConfig.ref:type_name -> flowseer.model.identity.v1.TenantGlobalRef
+	1,  // 2: flowseer.model.identity.v1.TenantConfig.retention_class:type_name -> flowseer.model.identity.v1.RetentionClass
+	3,  // 3: flowseer.model.identity.v1.TenantState.ref:type_name -> flowseer.model.identity.v1.TenantGlobalRef
+	0,  // 4: flowseer.model.identity.v1.TenantState.lifecycle:type_name -> flowseer.model.identity.v1.TenantLifecycle
+	8,  // 5: flowseer.model.identity.v1.TenantState.created_at:type_name -> google.protobuf.Timestamp
+	3,  // 6: flowseer.model.identity.v1.TenantEvent.ref:type_name -> flowseer.model.identity.v1.TenantGlobalRef
+	0,  // 7: flowseer.model.identity.v1.TenantEvent.from:type_name -> flowseer.model.identity.v1.TenantLifecycle
+	0,  // 8: flowseer.model.identity.v1.TenantEvent.to:type_name -> flowseer.model.identity.v1.TenantLifecycle
+	4,  // 9: flowseer.model.identity.v1.TenantRecord.config:type_name -> flowseer.model.identity.v1.TenantConfig
+	5,  // 10: flowseer.model.identity.v1.TenantRecord.state:type_name -> flowseer.model.identity.v1.TenantState
+	11, // [11:11] is the sub-list for method output_type
+	11, // [11:11] is the sub-list for method input_type
+	11, // [11:11] is the sub-list for extension type_name
+	11, // [11:11] is the sub-list for extension extendee
+	0,  // [0:11] is the sub-list for field type_name
 }
 
 func init() { file_flowseer_model_identity_v1_tenant_proto_init() }
@@ -914,7 +1013,7 @@ func file_flowseer_model_identity_v1_tenant_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_flowseer_model_identity_v1_tenant_proto_rawDesc), len(file_flowseer_model_identity_v1_tenant_proto_rawDesc)),
-			NumEnums:      1,
+			NumEnums:      2,
 			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   0,

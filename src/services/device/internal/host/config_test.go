@@ -49,6 +49,30 @@ authorization {
 }
 `
 
+// historyBlock is a complete history store section.
+const historyBlock = `
+history {
+  endpoints: "clickhouse.example.test:9440"
+  database: "flowseer"
+  admin {
+    name: "flowseer_admin"
+    password_file: "/etc/flowseer/ch-admin.password"
+  }
+  writer {
+    name: "flowseer_writer"
+    password_file: "/etc/flowseer/ch-writer.password"
+  }
+  reader {
+    name: "flowseer_reader"
+    password_file: "/etc/flowseer/ch-reader.password"
+  }
+  analyst {
+    name: "flowseer_analyst"
+    password_file: "/etc/flowseer/ch-analyst.password"
+  }
+}
+`
+
 func writeConfig(t *testing.T, body string) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "central.textproto")
@@ -195,6 +219,25 @@ func TestLoadConfigRefusals(t *testing.T) {
 		},
 		"relationship reconcile below one second": {
 			body: validConfig + "intervals {\n  relationship_reconcile { nanos: 500000000 }\n}\n",
+			code: host.ErrCodeConfigInvalid,
+		},
+		"history password path is relative": {
+			body: validConfig + strings.Replace(historyBlock, `password_file: "/etc/flowseer/ch-writer.password"`, `password_file: "ch-writer.password"`, 1),
+			code: host.ErrCodeConfigInvalid,
+		},
+		"history endpoint without a port": {
+			body: validConfig + strings.Replace(historyBlock, `endpoints: "clickhouse.example.test:9440"`, `endpoints: "clickhouse.example.test"`, 1),
+			code: host.ErrCodeConfigInvalid,
+		},
+		"history without its writer": {
+			body: validConfig + strings.Replace(historyBlock, "  writer {\n    name: \"flowseer_writer\"\n    password_file: \"/etc/flowseer/ch-writer.password\"\n  }\n", "", 1),
+			code: host.ErrCodeConfigInvalid,
+		},
+		// The sum includes streams the file does not configure, so the host
+		// computes it with the hub's arithmetic: 1 GiB for the ingest stream
+		// plus the defaults of the rest is more than a 1 GiB account.
+		"central budget below the streams' sum": {
+			body: validConfig + "ingest_streams {\n  max_bytes_per_type: 1073741824\n  central_budget_bytes: 1073741824\n}\n",
 			code: host.ErrCodeConfigInvalid,
 		},
 		"no authentication": {
@@ -558,5 +601,43 @@ authorization {
 				t.Errorf("no violation of %q on %q: %v", tc.rule, tc.field, validation.Violations)
 			}
 		})
+	}
+}
+
+func TestAConfigWithoutHistoryRunsWithoutOne(t *testing.T) {
+	cfg, err := host.LoadConfig(writeConfig(t, validConfig))
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	if cfg.History() != nil {
+		t.Fatalf("History = %v, want nil", cfg.History())
+	}
+	if got := cfg.IngestStreams(); got != (host.IngestStreams{}) {
+		t.Fatalf("IngestStreams = %+v, want every bound unset", got)
+	}
+}
+
+func TestHistoryAndIngestBoundsAreRead(t *testing.T) {
+	body := validConfig + historyBlock + `
+ingest_streams {
+  max_age { seconds: 259200 }
+  max_bytes_per_type: 2147483648
+  central_budget_bytes: 4294967296
+}
+`
+	cfg, err := host.LoadConfig(writeConfig(t, body))
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	history := cfg.History()
+	if history.GetCluster() != "" || history.GetDatabase() != "flowseer" || len(history.GetEndpoints()) != 1 {
+		t.Fatalf("History = %v", history)
+	}
+	if got := history.GetWriter().GetPasswordFile(); got != "/etc/flowseer/ch-writer.password" {
+		t.Fatalf("writer password file = %q", got)
+	}
+	want := host.IngestStreams{MaxAge: 72 * time.Hour, MaxBytesPerType: 2 << 30, CentralBudgetBytes: 4 << 30}
+	if got := cfg.IngestStreams(); got != want {
+		t.Fatalf("IngestStreams = %+v, want %+v", got, want)
 	}
 }
