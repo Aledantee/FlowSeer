@@ -60,6 +60,7 @@ covering port tables and VLAN membership.
 | [Deployment](2026-10-03-deployment-direction.md) | Proposed direction | Adding or changing anything under `deploy/`, a container image, what a cluster exposes, a third-party store's installation, or how the edge agent is packaged. |
 | [Repository Scripting](2026-10-05-repository-scripting-direction.md) | Proposed direction | Adding or moving a hook, a verifier check, a skill script, or any script run on the host, or choosing the language or location of one. |
 | [History Store](2026-10-08-history-store-direction.md) | Proposed direction | Adding a ClickHouse table, rollup, record type that lands in history, history query, row policy, or retention rule, or deciding how a domain's history is shaped. |
+| [netpen Check Model](2026-10-12-netpen-check-model-direction.md) | Proposed direction | Adding or changing a netpen behavior, its catalog entry, the impact or restore fields, the verdict record, the impact ceiling, or what a behavior reads as its target. |
 
 Current source and tests show which parts of a direction have landed. When the
 tree and an accepted record disagree, do not silently choose one. Update or
