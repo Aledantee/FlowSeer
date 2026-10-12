@@ -2,6 +2,7 @@ package testtest_test
 
 import (
 	"context"
+	"net"
 	"testing"
 	"time"
 
@@ -23,6 +24,27 @@ func TestReceiveAfterQueueDrains(t *testing.T) {
 		}
 	case <-time.After(time.Second):
 		t.Fatal("receiver did not wake for a newly queued frame")
+	}
+}
+
+// TestSetAddr pins that a leg reports nothing until given addresses and
+// then exactly what it was given, since a behavior reads its source fields
+// from here.
+func TestSetAddr(t *testing.T) {
+	leg := testtest.New()
+	t.Cleanup(func() { _ = leg.Close() })
+	if got := leg.Addr(); got.MAC != nil || got.IPv4 != nil || got.IPv6 != nil {
+		t.Errorf("Addr() before SetAddr = %+v, want empty", got)
+	}
+	want := link.Addr{
+		MAC:  net.HardwareAddr{0x00, 0x11, 0x22, 0x33, 0x44, 0x55},
+		IPv4: net.IPv4(10, 0, 0, 99).To4(),
+		IPv6: net.ParseIP("fe80::211:22ff:fe33:4455"),
+	}
+	leg.SetAddr(want)
+	got := leg.Addr()
+	if got.MAC.String() != want.MAC.String() || !got.IPv4.Equal(want.IPv4) || !got.IPv6.Equal(want.IPv6) {
+		t.Errorf("Addr() = %+v, want %+v", got, want)
 	}
 }
 

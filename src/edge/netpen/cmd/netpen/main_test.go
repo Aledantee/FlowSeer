@@ -254,6 +254,8 @@ func (n *noopLeg) Receive(ctx context.Context) <-chan link.Frame {
 }
 func (n *noopLeg) Close() error { return nil }
 
+func (n *noopLeg) Addr() link.Addr { return link.Addr{} }
+
 // TestLegOpenErrorSeam verifies the legOpenError seam works.
 func TestLegOpenErrorSeam(t *testing.T) {
 	original := legOpen

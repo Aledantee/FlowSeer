@@ -148,6 +148,8 @@ func (l *scriptableLeg) Receive(ctx context.Context) <-chan link.Frame {
 	return out
 }
 
+func (l *scriptableLeg) Addr() link.Addr { return link.Addr{} }
+
 func (l *scriptableLeg) Close() error {
 	l.mu.Lock()
 	if l.closed {

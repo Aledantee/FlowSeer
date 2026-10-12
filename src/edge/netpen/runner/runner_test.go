@@ -59,6 +59,8 @@ func (m *mockLeg) Receive(ctx context.Context) <-chan link.Frame {
 	return out
 }
 
+func (m *mockLeg) Addr() link.Addr { return link.Addr{} }
+
 func (m *mockLeg) Close() error {
 	m.closed.Store(true)
 	close(m.frames)

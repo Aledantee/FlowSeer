@@ -54,6 +54,8 @@ func (l *sendCountingLeg) Close() error {
 	return nil
 }
 
+func (l *sendCountingLeg) Addr() link.Addr { return link.Addr{} }
+
 func (l *sendCountingLeg) sendCount() int64 { return l.sends.Load() }
 
 // TestPermanentRefusalZeroFrames proves a permanent-destructive

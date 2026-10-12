@@ -31,9 +31,28 @@ type Leg struct {
 	txMu  sync.Mutex // guards sends, txErr, and Send against Close
 	sends [][]byte   // recorded Send payloads, in order
 	txErr error      // if non-nil, Send returns this instead of recording
+
+	addrMu sync.Mutex // guards addr
+	addr   link.Addr
 }
 
 var _ link.Leg = (*Leg)(nil)
+
+// Addr returns the addresses set by [Leg.SetAddr], or an empty [link.Addr]
+// for a leg that was never given one.
+func (l *Leg) Addr() link.Addr {
+	l.addrMu.Lock()
+	defer l.addrMu.Unlock()
+	return l.addr
+}
+
+// SetAddr sets the addresses the leg reports as its own, so a behavior test
+// pins the source fields of its frames to the fixture's values.
+func (l *Leg) SetAddr(a link.Addr) {
+	l.addrMu.Lock()
+	l.addr = a
+	l.addrMu.Unlock()
+}
 
 // New returns a fresh in-memory leg with no queued RX frames.
 func New() *Leg {
