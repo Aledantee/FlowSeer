@@ -214,10 +214,13 @@ address resolves to a device when exactly one listed device claims it, whether
 or not the lane onboarded that device: a UDP source address is spoofable
 either way, and a gate on onboarding would drop syslog from a listed device
 whose management session is down. A device id listed at two addresses resolves
-from both, each with its own row's binding. Each successful sync replaces the
-index's claims with the listing before onboarding starts, so a device the
-listing omits or moves stops resolving at the old address, and a failed
-listing leaves the index as it was. When two or more listed devices claim an
+from both, each with its own row's binding and integration. The sync validates
+the whole listing first: a malformed row, one device claimed at one address
+with two bindings or integrations, or one binding paired with two integrations
+refuses the listing, onboards nothing, and leaves the index as it was. Each
+accepted sync replaces the index's claims with the listing before onboarding
+starts, so a device the listing omits or moves stops resolving at the old
+address, and a failed listing leaves the index as it was. When two or more listed devices claim an
 address, datagrams from it resolve to no device and are dropped with reason
 `ambiguous_source`. Senders from addresses no listed device claims are dropped
 and counted on `flowseer.edge.syslog.dropped` with reason `unknown_source`. A

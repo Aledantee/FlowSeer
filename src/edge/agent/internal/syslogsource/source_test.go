@@ -36,6 +36,9 @@ import (
 	"go.aledante.io/FlowSeer/src/protocol/syslog"
 )
 
+// testIntegrationID is the integration every listed fixture device belongs to.
+const testIntegrationID = "0192e6a0-0000-7000-8000-0000000000c1"
+
 func startHub(t *testing.T, dir string) *edgebus.Hub {
 	t.Helper()
 	hub, err := edgebus.StartHub(context.Background(), edgebus.HubConfig{
@@ -85,9 +88,10 @@ func listedAt(t *testing.T, address, deviceID string) *attachv1.ListedDevice {
 	t.Helper()
 	octets := netip.MustParseAddr(address).As4()
 	return attachv1.ListedDevice_builder{
-		DeviceId:  proto.String(deviceID),
-		BindingId: proto.String(testBindingID),
-		Ip:        addrv1.IpAddress_builder{V4: addrv1.Ipv4Address_builder{Octets: octets[:]}.Build()}.Build(),
+		DeviceId:      proto.String(deviceID),
+		BindingId:     proto.String(testBindingID),
+		IntegrationId: proto.String(testIntegrationID),
+		Ip:            addrv1.IpAddress_builder{V4: addrv1.Ipv4Address_builder{Octets: octets[:]}.Build()}.Build(),
 		AccessPolicy: policyv1.AccessPolicyHandle_builder{
 			Key: proto.String("icx7150-lab"), Version: proto.Uint64(3),
 		}.Build(),
@@ -103,7 +107,9 @@ func seedListing(t *testing.T, index *lanehost.DeviceIndex, rows ...*attachv1.Li
 			t.Fatalf("listed device %s: %v", row.GetDeviceId(), err)
 		}
 	}
-	index.ApplyListing(rows)
+	if err := index.ApplyListing(rows); err != nil {
+		t.Fatalf("apply listing: %v", err)
+	}
 }
 
 func waitFor(t *testing.T, what string, timeout time.Duration, cond func() bool) {

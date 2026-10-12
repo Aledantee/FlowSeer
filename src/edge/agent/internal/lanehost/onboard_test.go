@@ -21,16 +21,18 @@ import (
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	policyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/policy/v1"
 	addrv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/addr/v1"
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/spawn"
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/lanehost"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access"
 )
 
 const (
-	deviceOne = "0192e6a0-0000-7000-8000-0000000000d1"
-	deviceTwo = "0192e6a0-0000-7000-8000-0000000000d2"
-	bindingID = "0192e6a0-0000-7000-8000-0000000000b1"
-	edgeID    = "0192e6a0-0000-7000-8000-0000000000ed"
+	deviceOne     = "0192e6a0-0000-7000-8000-0000000000d1"
+	deviceTwo     = "0192e6a0-0000-7000-8000-0000000000d2"
+	bindingID     = "0192e6a0-0000-7000-8000-0000000000b1"
+	integrationID = "0192e6a0-0000-7000-8000-0000000000c1"
+	edgeID        = "0192e6a0-0000-7000-8000-0000000000ed"
 )
 
 // listerFake answers ListDevices with what a test queued: the last listing
@@ -199,9 +201,10 @@ func (h *recordingLogs) event(name string) (map[string]string, bool) {
 
 func listedDevice(deviceID string, horizon time.Duration) *attachv1.ListedDevice {
 	listed := attachv1.ListedDevice_builder{
-		DeviceId:  proto.String(deviceID),
-		BindingId: proto.String(bindingID),
-		Ip:        addrv1.IpAddress_builder{V4: addrv1.Ipv4Address_builder{Octets: []byte{172, 16, 0, 6}}.Build()}.Build(),
+		DeviceId:      proto.String(deviceID),
+		BindingId:     proto.String(bindingID),
+		IntegrationId: proto.String(integrationID),
+		Ip:            addrv1.IpAddress_builder{V4: addrv1.Ipv4Address_builder{Octets: []byte{172, 16, 0, 6}}.Build()}.Build(),
 		AccessPolicy: policyv1.AccessPolicyHandle_builder{
 			Key: proto.String("icx7150-lab"), Version: proto.Uint64(3),
 		}.Build(),
@@ -542,39 +545,42 @@ func TestADeviceThatNeverAnswersDoesNotHoldTheListingUp(t *testing.T) {
 	}
 }
 
-func TestOnboard_UnusableAddressIsReportedAndNotOnboarded(t *testing.T) {
+// TestSync_AMalformedRowRefusesTheWholeListing is the listing's all-or-nothing
+// rule seen from Sync: one row the wire refuses fails the sync, so no device of
+// the same listing is onboarded and none resolves in the index.
+func TestSync_AMalformedRowRefusesTheWholeListing(t *testing.T) {
 	t.Parallel()
 
-	// invalidDevice is deliberately malformed with a two-octet address to
-	// verify that addressOf rejects an address that is not 4 or 16 octets.
+	// invalidDevice is deliberately malformed with a two-octet address.
 	invalidDevice := listedDevice(deviceOne, 30*time.Second)
 	invalidDevice.SetIp(addrv1.IpAddress_builder{
 		V4: addrv1.Ipv4Address_builder{Octets: []byte{1, 2}}.Build(),
 	}.Build())
+	if protovalidate.Validate(invalidDevice) == nil {
+		t.Fatal("protovalidate accepted a listed device with a two-octet address, want a rejection")
+	}
+	healthy := listedDevice(deviceTwo, 30*time.Second)
+	healthy.SetIp(addrv1.IpAddress_builder{V4: addrv1.Ipv4Address_builder{Octets: []byte{172, 16, 0, 7}}.Build()}.Build())
+	validateDevice(t, healthy)
 
-	lister := &listerFake{listings: [][]*attachv1.ListedDevice{{invalidDevice}}}
+	lister := &listerFake{listings: [][]*attachv1.ListedDevice{{healthy, invalidDevice}}}
 	registrar := newRegistrar()
-	logs := &recordingLogs{}
 	idx := lanehost.NewDeviceIndex()
 
-	onboarder := newOnboarder(t, lister, registrar, logs, idx)
-	if err := onboarder.Sync(context.Background()); err != nil {
-		t.Fatalf("Sync: %v", err)
+	onboarder := newOnboarder(t, lister, registrar, nil, idx)
+	err := onboarder.Sync(context.Background())
+	if err == nil {
+		t.Fatal("Sync error = nil, want the malformed listing refused")
+	}
+	if code, ok := errs.CodeOf(err); !ok || code != lanehost.ErrCodeOnboard {
+		t.Errorf("Sync error code = %v, want %v", code, lanehost.ErrCodeOnboard)
 	}
 
 	if got := registrar.addedDevices(); len(got) != 0 {
-		t.Fatalf("added devices = %v, want none", got)
+		t.Errorf("added devices = %v, want none from a refused listing", got)
 	}
-
-	attrs, ok := logs.event("flowseer.edge.device.onboarding_failed")
-	if !ok {
-		t.Fatal("onboarding_failed event not emitted")
-	}
-	if attrs["flowseer.device.id"] != deviceOne {
-		t.Errorf("device id = %q, want %q", attrs["flowseer.device.id"], deviceOne)
-	}
-	if attrs["error.type"] != string(lanehost.ErrCodeOnboard) {
-		t.Errorf("error.type = %q, want %q", attrs["error.type"], lanehost.ErrCodeOnboard)
+	if _, res := idx.Lookup("172.16.0.7"); res != lanehost.LookupUnknown {
+		t.Errorf("Lookup of the healthy row = %v, want LookupUnknown", res)
 	}
 }
 
@@ -800,7 +806,7 @@ func TestSync_DeviceRelistedAtNewAddressFailingOnboardingNoLongerResolvesFromOld
 	}
 }
 
-func TestSync_DeviceRelistedWithUnusableAddressNoLongerResolvesFromOld(t *testing.T) {
+func TestSync_ListingWithUnusableAddressKeepsThePriorSnapshot(t *testing.T) {
 	t.Parallel()
 
 	devOld := validateDevice(t, listedDevice(deviceOne, 30*time.Second))
@@ -823,14 +829,11 @@ func TestSync_DeviceRelistedWithUnusableAddressNoLongerResolvesFromOld(t *testin
 		t.Fatalf("Lookup old after Sync 1 = %v, want LookupFound", res)
 	}
 
-	if err := onboarder.Sync(context.Background()); err != nil {
-		t.Fatalf("Sync 2: %v", err)
+	if err := onboarder.Sync(context.Background()); err == nil {
+		t.Fatal("Sync 2 error = nil, want the malformed listing refused")
 	}
-	if _, res := idx.Lookup("172.16.0.6"); res != lanehost.LookupUnknown {
-		t.Fatalf("Lookup old after Sync 2 = %v, want LookupUnknown", res)
-	}
-	if entry, res := idx.Lookup(""); res != lanehost.LookupUnknown {
-		t.Fatalf("Lookup(\"\") after Sync 2 = (%v, %v), want LookupUnknown", entry, res)
+	if entry, res := idx.Lookup("172.16.0.6"); res != lanehost.LookupFound || entry.DeviceID != deviceOne {
+		t.Fatalf("Lookup old after the refused Sync 2 = (%v, %v), want the prior snapshot (%s, LookupFound)", entry, res, deviceOne)
 	}
 }
 
@@ -1041,14 +1044,11 @@ func TestSync_HeldDeviceAddressUnusableThenUsableAgain(t *testing.T) {
 		t.Fatalf("Lookup after Sync 1 = %v, want LookupFound", res)
 	}
 
-	if err := onboarder.Sync(context.Background()); err != nil {
-		t.Fatalf("Sync 2: %v", err)
+	if err := onboarder.Sync(context.Background()); err == nil {
+		t.Fatal("Sync 2 error = nil, want the malformed listing refused")
 	}
-	if _, res := idx.Lookup("172.16.0.6"); res != lanehost.LookupUnknown {
-		t.Fatalf("Lookup after Sync 2 = %v, want LookupUnknown", res)
-	}
-	if entry, res := idx.Lookup(""); res != lanehost.LookupUnknown {
-		t.Fatalf("Lookup(\"\") after Sync 2 = (%v, %v), want LookupUnknown", entry, res)
+	if _, res := idx.Lookup("172.16.0.6"); res != lanehost.LookupFound {
+		t.Fatalf("Lookup after the refused Sync 2 = %v, want the prior snapshot to stand (LookupFound)", res)
 	}
 
 	if err := onboarder.Sync(context.Background()); err != nil {
@@ -1254,10 +1254,9 @@ func TestSync_IndexOutlivesALaneAttempt(t *testing.T) {
 	}
 }
 
-// TestSync_EmptyBindingIDOnboardsWithAnEmptyRef pins what both callers of the
-// binding ref builder do with an id of "": a ref carrying it, never nil. The
-// wire refuses such a listing, so the test asserts that first.
-func TestSync_EmptyBindingIDOnboardsWithAnEmptyRef(t *testing.T) {
+// TestSync_EmptyBindingIDRefusesTheListing pins that a row naming no binding
+// is not onboarded with an empty ref: the wire refuses it, so the sync does.
+func TestSync_EmptyBindingIDRefusesTheListing(t *testing.T) {
 	t.Parallel()
 
 	dev := listedDevice(deviceOne, 30*time.Second)
@@ -1269,22 +1268,79 @@ func TestSync_EmptyBindingIDOnboardsWithAnEmptyRef(t *testing.T) {
 	registrar := newRegistrar()
 	idx := lanehost.NewDeviceIndex()
 	onboarder := newOnboarder(t, &listerFake{listings: [][]*attachv1.ListedDevice{{dev}}}, registrar, nil, idx)
+	if err := onboarder.Sync(context.Background()); err == nil {
+		t.Fatal("Sync error = nil, want the listing refused")
+	}
+
+	if got := registrar.addedDevices(); len(got) != 0 {
+		t.Errorf("added devices = %v, want none", got)
+	}
+	if _, res := idx.Lookup("172.16.0.6"); res != lanehost.LookupUnknown {
+		t.Errorf("Lookup = %v, want LookupUnknown", res)
+	}
+}
+
+// TestSync_ListingWithConflictingClaimsIsRefusedBeforeOnboarding covers rows
+// that each pass the schema and contradict one another. Nothing is onboarded
+// and the previous listing's claims stand.
+func TestSync_ListingWithConflictingClaimsIsRefusedBeforeOnboarding(t *testing.T) {
+	t.Parallel()
+
+	first := validateDevice(t, listedDevice(deviceOne, 30*time.Second))
+	laterA := validateDevice(t, listedDevice(deviceTwo, 30*time.Second))
+	laterA.SetIp(addrv1.IpAddress_builder{V4: addrv1.Ipv4Address_builder{Octets: []byte{172, 16, 0, 7}}.Build()}.Build())
+	// The same binding paired with a different integration.
+	laterB := validateDevice(t, listedDevice(deviceOne, 30*time.Second))
+	laterB.SetIp(addrv1.IpAddress_builder{V4: addrv1.Ipv4Address_builder{Octets: []byte{172, 16, 0, 8}}.Build()}.Build())
+	laterB.SetIntegrationId("0192e6a0-0000-7000-8000-0000000000c2")
+
+	lister := &listerFake{listings: [][]*attachv1.ListedDevice{{first}, {laterA, laterB}}}
+	registrar := newRegistrar()
+	idx := lanehost.NewDeviceIndex()
+	onboarder := newOnboarder(t, lister, registrar, nil, idx)
+
+	if err := onboarder.Sync(context.Background()); err != nil {
+		t.Fatalf("Sync 1: %v", err)
+	}
+	if err := onboarder.Sync(context.Background()); err == nil {
+		t.Fatal("Sync 2 error = nil, want the conflicting listing refused")
+	}
+
+	if got := registrar.addedDevices(); !slices.Equal(got, []string{deviceOne}) {
+		t.Errorf("added devices = %v, want only the first listing's %s", got, deviceOne)
+	}
+	if _, res := idx.Lookup("172.16.0.7"); res != lanehost.LookupUnknown {
+		t.Errorf("Lookup of the refused listing's row = %v, want LookupUnknown", res)
+	}
+	if _, res := idx.Lookup("172.16.0.6"); res != lanehost.LookupFound {
+		t.Errorf("Lookup of the prior snapshot = %v, want LookupFound", res)
+	}
+}
+
+// TestSync_OfflineDeviceStillResolvesWithItsIntegration pins that a listed
+// device the lane could not onboard keeps its place in the index, with the
+// integration of its row, so a raw window can still match its records.
+func TestSync_OfflineDeviceStillResolvesWithItsIntegration(t *testing.T) {
+	t.Parallel()
+
+	dev := validateDevice(t, listedDevice(deviceOne, 30*time.Second))
+	registrar := newRegistrar()
+	registrar.failing[deviceOne] = true
+	idx := lanehost.NewDeviceIndex()
+	onboarder := newOnboarder(t, &listerFake{listings: [][]*attachv1.ListedDevice{{dev}}}, registrar, nil, idx)
+
 	if err := onboarder.Sync(context.Background()); err != nil {
 		t.Fatalf("Sync: %v", err)
 	}
 
-	session, ok := registrar.session(deviceOne)
-	if !ok {
-		t.Fatalf("no session registered for %s", deviceOne)
-	}
-	if session.Prov.Binding == nil {
-		t.Error("session provenance Binding = nil, want a ref carrying the empty id")
+	if got := registrar.addedDevices(); len(got) != 0 {
+		t.Fatalf("added devices = %v, want none for an offline device", got)
 	}
 	entry, res := idx.Lookup("172.16.0.6")
-	if res != lanehost.LookupFound {
-		t.Fatalf("Lookup = %v, want LookupFound", res)
+	if res != lanehost.LookupFound || entry.DeviceID != deviceOne {
+		t.Fatalf("Lookup = (%v, %v), want (%s, LookupFound) although onboarding failed", entry, res, deviceOne)
 	}
-	if entry.Binding == nil {
-		t.Error("index Binding = nil, want a ref carrying the empty id")
+	if got := entry.Integration.GetIntegration().GetId(); got != integrationID {
+		t.Errorf("integration = %q, want %s", got, integrationID)
 	}
 }

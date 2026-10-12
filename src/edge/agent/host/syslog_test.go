@@ -28,9 +28,10 @@ import (
 )
 
 const (
-	syslogTestEdgeID    = "0192e6a0-0000-7000-8000-0000000000e1"
-	syslogTestDeviceID  = "0192e6a0-0000-7000-8000-0000000000d1"
-	syslogTestBindingID = "0192e6a0-0000-7000-8000-0000000000b1"
+	syslogTestEdgeID        = "0192e6a0-0000-7000-8000-0000000000e1"
+	syslogTestDeviceID      = "0192e6a0-0000-7000-8000-0000000000d1"
+	syslogTestBindingID     = "0192e6a0-0000-7000-8000-0000000000b1"
+	syslogTestIntegrationID = "0192e6a0-0000-7000-8000-0000000000c1"
 )
 
 // seedListing applies every row of one listing to the index in one call, as
@@ -42,7 +43,9 @@ func seedListing(t *testing.T, index *lanehost.DeviceIndex, rows ...*attachv1.Li
 			t.Fatalf("listed device %s: %v", row.GetDeviceId(), err)
 		}
 	}
-	index.ApplyListing(rows)
+	if err := index.ApplyListing(rows); err != nil {
+		t.Fatalf("apply listing: %v", err)
+	}
 }
 
 // syslogHostConfig is an agent configuration naming the given listeners and
@@ -253,9 +256,10 @@ func TestSyslogAssembly_SetupPublishesAnIngestRecordNamingThisEdge(t *testing.T)
 	index := lanehost.NewDeviceIndex()
 	loopback := netip.MustParseAddr("127.0.0.1").As4()
 	seedListing(t, index, attachv1.ListedDevice_builder{
-		DeviceId:  proto.String(syslogTestDeviceID),
-		BindingId: proto.String(syslogTestBindingID),
-		Ip:        addrv1.IpAddress_builder{V4: addrv1.Ipv4Address_builder{Octets: loopback[:]}.Build()}.Build(),
+		DeviceId:      proto.String(syslogTestDeviceID),
+		BindingId:     proto.String(syslogTestBindingID),
+		IntegrationId: proto.String(syslogTestIntegrationID),
+		Ip:            addrv1.IpAddress_builder{V4: addrv1.Ipv4Address_builder{Octets: loopback[:]}.Build()}.Build(),
 		AccessPolicy: policyv1.AccessPolicyHandle_builder{
 			Key: proto.String("icx7150-lab"), Version: proto.Uint64(3),
 		}.Build(),
