@@ -25,3 +25,17 @@ Suggested change: <smallest edit to the skill, agent, or hook>.
 ```
 
 ## Entries
+
+## 2026-10-12 implement: the per-unit verifier run checks whitespace against the unit's own commit
+Skill or agent: `.claude/skills/implement/SKILL.md`, step 2.5, and
+`references/workers.md` (the wave's verifier run after the merge).
+What happened: the step was followed as written. Each unit committed, then
+ran `verify-change.sh -- <paths>`, whose base defaults to `HEAD`
+(`verify-change.sh:44`), so its `git diff --check "$base"` gate saw an
+empty diff. Three committed patch files with "space before tab in indent"
+and a trailing blank line passed every per-unit and per-wave run, and only
+the Finish run with `--base main` failed, two rounds before it passed.
+Suggested change: have step 2.5 and the wave run pass `--base <the unit's
+ledger base>` (the `base` the ledger records at `in_progress`), or have the
+verifier's whitespace gate diff from the merge base with `main` when no
+base is given.
