@@ -526,159 +526,150 @@ func assignMappedValue(v reflect.Value, value any) error {
 		return assignMappedValue(v.Elem(), value)
 	}
 	if s, ok := value.(string); ok {
-		switch v.Type() {
-		case reflect.TypeOf(time.Duration(0)):
-			d, err := time.ParseDuration(s)
-			if err != nil {
-				return err
-			}
-			v.SetInt(int64(d))
-			return nil
-		case reflect.TypeOf(time.Time{}):
-			d, err := time.Parse(time.RFC3339, s)
-			if err != nil {
-				return err
-			}
-			v.Set(reflect.ValueOf(d))
-			return nil
-		case reflect.TypeOf(netaddr.MAC{}):
-			d, err := netaddr.Parse(s)
-			if err != nil {
-				return err
-			}
-			v.Set(reflect.ValueOf(d))
-			return nil
-		case reflect.TypeOf(netip.Addr{}):
-			d, err := netip.ParseAddr(s)
-			if err != nil {
-				return err
-			}
-			v.Set(reflect.ValueOf(d))
-			return nil
-		case reflect.TypeOf(netip.Prefix{}):
-			d, err := netip.ParsePrefix(s)
-			if err != nil {
-				return err
-			}
-			v.Set(reflect.ValueOf(d))
-			return nil
+		if handled, err := assignMappedSpecialString(v, s); handled {
+			return err
 		}
 	}
 	if v.Type() == reflect.TypeOf(port.Table{}) {
-		var ports []port.Port
-		p := reflect.ValueOf(&ports).Elem()
-		if err := assignMappedValue(p, value); err != nil {
-			return err
-		}
-		b := port.NewBuilder()
-		for _, p := range ports {
-			b.Add(p)
-		}
-		table, err := b.Build()
-		if err != nil {
-			return err
-		}
-		v.Set(reflect.ValueOf(table))
-		return nil
+		return assignMappedPortTable(v, value)
 	}
 	switch v.Kind() {
 	case reflect.Struct:
-		fields, ok := value.(map[string]any)
-		if !ok {
-			return errs.Msgf("expected object for %s", v.Type())
-		}
-		names := make([]string, 0, len(fields))
-		for name := range fields {
-			names = append(names, name)
-		}
-		slices.Sort(names)
-		for _, name := range names {
-			f := v.FieldByName(name)
-			if !f.IsValid() {
-				return errs.Msgf("unknown fixture member %s.%s", v.Type(), name)
-			}
-			if err := assignMappedValue(f, fields[name]); err != nil {
-				return errs.Wrapf(err, "member %s", name)
-			}
-		}
+		return assignMappedStruct(v, value)
 	case reflect.Map:
-		fields, ok := value.(map[string]any)
-		if !ok {
-			return errs.Msgf("expected map for %s", v.Type())
-		}
-		v.Set(reflect.MakeMap(v.Type()))
-		names := make([]string, 0, len(fields))
-		for name := range fields {
-			names = append(names, name)
-		}
-		slices.Sort(names)
-		for _, name := range names {
-			key, err := mappedKey(v.Type().Key(), name)
-			if err != nil {
-				return err
-			}
-			val := reflect.New(v.Type().Elem()).Elem()
-			if err := assignMappedValue(val, fields[name]); err != nil {
-				return err
-			}
-			v.SetMapIndex(key, val)
-		}
+		return assignMappedMap(v, value)
 	case reflect.Slice:
-		values, ok := value.([]any)
-		if !ok {
-			return errs.Msgf("expected list for %s", v.Type())
-		}
-		v.Set(reflect.MakeSlice(v.Type(), len(values), len(values)))
-		for i, item := range values {
-			if err := assignMappedValue(v.Index(i), item); err != nil {
-				return err
-			}
-		}
+		return assignMappedSlice(v, value)
 	case reflect.String:
-		s, ok := value.(string)
-		if !ok {
-			return errs.Msgf("expected string for %s", v.Type())
-		}
-		v.SetString(s)
+		return assignMappedString(v, value)
 	case reflect.Bool:
-		b, ok := value.(bool)
-		if !ok {
-			return errs.Msgf("expected bool for %s", v.Type())
-		}
-		v.SetBool(b)
+		return assignMappedBool(v, value)
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		n, ok := value.(json.Number)
-		if !ok {
-			return errs.Msgf("expected integer for %s", v.Type())
-		}
-		i, err := n.Int64()
-		if err != nil {
-			return err
-		}
-		v.SetInt(i)
+		return assignMappedInt(v, value)
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		n, ok := value.(json.Number)
-		if !ok {
-			return errs.Msgf("expected unsigned integer for %s", v.Type())
-		}
-		i, err := strconv.ParseUint(string(n), 10, 64)
-		if err != nil {
-			return err
-		}
-		v.SetUint(i)
+		return assignMappedUint(v, value)
 	case reflect.Float32, reflect.Float64:
-		n, ok := value.(json.Number)
-		if !ok {
-			return errs.Msgf("expected number for %s", v.Type())
-		}
-		f, err := n.Float64()
-		if err != nil {
-			return err
-		}
-		v.SetFloat(f)
+		return assignMappedFloat(v, value)
 	default:
 		return errs.Msgf("unsupported mapped leaf %s", v.Type())
 	}
+}
+
+func assignMappedStruct(v reflect.Value, value any) error {
+	fields, ok := value.(map[string]any)
+	if !ok {
+		return errs.Msgf("expected object for %s", v.Type())
+	}
+	names := make([]string, 0, len(fields))
+	for name := range fields {
+		names = append(names, name)
+	}
+	slices.Sort(names)
+	for _, name := range names {
+		f := v.FieldByName(name)
+		if !f.IsValid() {
+			return errs.Msgf("unknown fixture member %s.%s", v.Type(), name)
+		}
+		if err := assignMappedValue(f, fields[name]); err != nil {
+			return errs.Wrapf(err, "member %s", name)
+		}
+	}
+	return nil
+}
+
+func assignMappedMap(v reflect.Value, value any) error {
+	fields, ok := value.(map[string]any)
+	if !ok {
+		return errs.Msgf("expected map for %s", v.Type())
+	}
+	v.Set(reflect.MakeMap(v.Type()))
+	names := make([]string, 0, len(fields))
+	for name := range fields {
+		names = append(names, name)
+	}
+	slices.Sort(names)
+	for _, name := range names {
+		key, err := mappedKey(v.Type().Key(), name)
+		if err != nil {
+			return err
+		}
+		val := reflect.New(v.Type().Elem()).Elem()
+		if err := assignMappedValue(val, fields[name]); err != nil {
+			return err
+		}
+		v.SetMapIndex(key, val)
+	}
+	return nil
+}
+
+func assignMappedSlice(v reflect.Value, value any) error {
+	values, ok := value.([]any)
+	if !ok {
+		return errs.Msgf("expected list for %s", v.Type())
+	}
+	v.Set(reflect.MakeSlice(v.Type(), len(values), len(values)))
+	for i, item := range values {
+		if err := assignMappedValue(v.Index(i), item); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func assignMappedString(v reflect.Value, value any) error {
+	s, ok := value.(string)
+	if !ok {
+		return errs.Msgf("expected string for %s", v.Type())
+	}
+	v.SetString(s)
+	return nil
+}
+
+func assignMappedBool(v reflect.Value, value any) error {
+	b, ok := value.(bool)
+	if !ok {
+		return errs.Msgf("expected bool for %s", v.Type())
+	}
+	v.SetBool(b)
+	return nil
+}
+
+func assignMappedInt(v reflect.Value, value any) error {
+	n, ok := value.(json.Number)
+	if !ok {
+		return errs.Msgf("expected integer for %s", v.Type())
+	}
+	i, err := n.Int64()
+	if err != nil {
+		return err
+	}
+	v.SetInt(i)
+	return nil
+}
+
+func assignMappedUint(v reflect.Value, value any) error {
+	n, ok := value.(json.Number)
+	if !ok {
+		return errs.Msgf("expected unsigned integer for %s", v.Type())
+	}
+	i, err := strconv.ParseUint(string(n), 10, 64)
+	if err != nil {
+		return err
+	}
+	v.SetUint(i)
+	return nil
+}
+
+func assignMappedFloat(v reflect.Value, value any) error {
+	n, ok := value.(json.Number)
+	if !ok {
+		return errs.Msgf("expected number for %s", v.Type())
+	}
+	f, err := n.Float64()
+	if err != nil {
+		return err
+	}
+	v.SetFloat(f)
 	return nil
 }
 
