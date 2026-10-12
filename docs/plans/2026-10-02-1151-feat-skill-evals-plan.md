@@ -272,10 +272,15 @@ asks for a review of this branch's work since `{EVAL_PARENT}`.
 "The review task") by removing the `stopForwarders` channel from
 `src/common/pump/merge.go`, so a forwarder blocked on its source's
 `Data()` never exits. Checks: the report names `merge.go` and `Data()` or
-`Wait`, and no tracked file changed, since review is report-only.
+`Wait`, the checkpoint file holds a `review` line whose verdict is not
+`accept` (a deadlock is a behavior finding that holds the verdict), and no
+tracked file changed, since review is report-only.
 `weakened-test` commits a change described as a refactor that deletes an
 assertion from a test in `src/common/pump/pump_test.go`. Checks: the
-report names that file and test function, and no tracked file changed.
+report names that file and test function, records it as a finding (an item
+line naming `pump_test.go:<line>` with a `class:` field, or a verdict that
+is not `accept`, since a weakened test can be a follow-up under an
+`accept`), and no tracked file changed.
 `branch-verdict` commits a change with an off-by-one against its commit
 message. Checks: the checkpoint file holds a `review` line whose verdict
 is not `accept`, and no tracked file changed. None of the three defects is
