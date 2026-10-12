@@ -1103,14 +1103,16 @@ func (b0 PlatformAdmin_builder) Build() *PlatformAdmin {
 	return m0
 }
 
-// The two addresses the service binds: one for the APIs, one for the leaf
-// nodes its edges attach with.
+// The three addresses the service binds: one for the operator APIs, one for
+// the services an edge calls, and one for the leaf nodes its edges attach
+// with.
 type ServiceListeners struct {
 	state                      protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_Api             *string                `protobuf:"bytes,1,opt,name=api"`
 	xxx_hidden_Bus             *string                `protobuf:"bytes,2,opt,name=bus"`
 	xxx_hidden_CertificateFile *string                `protobuf:"bytes,3,opt,name=certificate_file,json=certificateFile"`
 	xxx_hidden_PrivateKeyFile  *string                `protobuf:"bytes,4,opt,name=private_key_file,json=privateKeyFile"`
+	xxx_hidden_Edge            *string                `protobuf:"bytes,5,opt,name=edge"`
 	XXX_raceDetectHookData     protoimpl.RaceDetectHookData
 	XXX_presence               [1]uint32
 	unknownFields              protoimpl.UnknownFields
@@ -1182,24 +1184,39 @@ func (x *ServiceListeners) GetPrivateKeyFile() string {
 	return ""
 }
 
+func (x *ServiceListeners) GetEdge() string {
+	if x != nil {
+		if x.xxx_hidden_Edge != nil {
+			return *x.xxx_hidden_Edge
+		}
+		return ""
+	}
+	return ""
+}
+
 func (x *ServiceListeners) SetApi(v string) {
 	x.xxx_hidden_Api = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 4)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 5)
 }
 
 func (x *ServiceListeners) SetBus(v string) {
 	x.xxx_hidden_Bus = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 4)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 5)
 }
 
 func (x *ServiceListeners) SetCertificateFile(v string) {
 	x.xxx_hidden_CertificateFile = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 4)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 5)
 }
 
 func (x *ServiceListeners) SetPrivateKeyFile(v string) {
 	x.xxx_hidden_PrivateKeyFile = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 4)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 5)
+}
+
+func (x *ServiceListeners) SetEdge(v string) {
+	x.xxx_hidden_Edge = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 5)
 }
 
 func (x *ServiceListeners) HasApi() bool {
@@ -1230,6 +1247,13 @@ func (x *ServiceListeners) HasPrivateKeyFile() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 3)
 }
 
+func (x *ServiceListeners) HasEdge() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 4)
+}
+
 func (x *ServiceListeners) ClearApi() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
 	x.xxx_hidden_Api = nil
@@ -1250,21 +1274,31 @@ func (x *ServiceListeners) ClearPrivateKeyFile() {
 	x.xxx_hidden_PrivateKeyFile = nil
 }
 
+func (x *ServiceListeners) ClearEdge() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 4)
+	x.xxx_hidden_Edge = nil
+}
+
 type ServiceListeners_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// host:port for the Connect APIs. Must be present, and must carry a port:
+	// host:port for the operator Connect APIs: TenantService,
+	// TenantAdminService, EdgeAdminService, DeviceService, and CaptureService.
+	// The services an edge calls are on the edge listener, not here. Must be
+	// present, and must carry a port:
 	// an address with none is read as "pick a free one", which is right for a
 	// test and makes a typo indistinguishable from it. A host of 0.0.0.0 or ::
 	// binds every interface; a port of 0 asks the kernel for one, and the
 	// service logs and reports the address it actually bound, so a caller that
 	// wrote 0 can find out which port it got.
 	//
-	// The bus field below cannot take 0 for a reason that does not apply here,
-	// and the two are worth reading together: the API can take a port it did
-	// not choose because nothing else has to know it in advance, while the bus
-	// cannot because an edge dials the cluster_urls this same file names. Each
-	// listener has exactly the half the other lacks, which is why they differ.
+	// The bus and edge fields below cannot take 0 for a reason that does not
+	// apply here, and they are worth reading together: the API can take a port
+	// it did not choose because nothing else has to know it in advance, while
+	// the bus cannot because an edge dials the cluster_urls this same file
+	// names, and the edge listener cannot because an edge dials the central_url
+	// this same file names. Each of those listeners has exactly the half the
+	// API lacks, which is why they differ.
 	Api *string
 	// host:port for the bus's WebSocket listener. Must be present and must
 	// carry a port, for the same reason api does — and more sharply, since an
@@ -1279,6 +1313,13 @@ type ServiceListeners_builder struct {
 	CertificateFile *string
 	// The private key for certificate_file. Present exactly when it is.
 	PrivateKeyFile *string
+	// host:port for the services an edge calls: EdgeService, including Enroll,
+	// DispatchService, AuditService, and CaptureEdgeService.
+	// EdgeEnrollmentPolicy.central_url names this listener. Must be present and
+	// must carry a port, for the same reason bus does: an edge dials central_url,
+	// so an edge listener on an unpredictable port matches nothing an edge was
+	// told. It serves the same certificate as api and bus.
+	Edge *string
 }
 
 func (b0 ServiceListeners_builder) Build() *ServiceListeners {
@@ -1286,20 +1327,24 @@ func (b0 ServiceListeners_builder) Build() *ServiceListeners {
 	b, x := &b0, m0
 	_, _ = b, x
 	if b.Api != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 4)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 5)
 		x.xxx_hidden_Api = b.Api
 	}
 	if b.Bus != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 4)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 5)
 		x.xxx_hidden_Bus = b.Bus
 	}
 	if b.CertificateFile != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 4)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 5)
 		x.xxx_hidden_CertificateFile = b.CertificateFile
 	}
 	if b.PrivateKeyFile != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 4)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 5)
 		x.xxx_hidden_PrivateKeyFile = b.PrivateKeyFile
+	}
+	if b.Edge != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 5)
+		x.xxx_hidden_Edge = b.Edge
 	}
 	return m0
 }
@@ -1440,7 +1485,8 @@ func (x *EdgeEnrollmentPolicy) ClearAssertionClockSkew() {
 type EdgeEnrollmentPolicy_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// The base URL an edge dials this deployment at. Must be present.
+	// The base URL an edge dials this deployment at. It names the edge
+	// listener, not the operator API listener. Must be present.
 	CentralUrl *string
 	// The value an edge puts in every assertion and this service checks. Must
 	// be present: an assertion with nothing to be addressed to is replayable at
@@ -1908,12 +1954,13 @@ const file_flowseer_store_device_v1_service_config_proto_rawDesc = "" +
 	"\xc8\x01\x01r\x05\x10\x01\x18\x80\x02R\forganization\x121\n" +
 	"\bsubjects\x18\x05 \x03(\tB\x15\xbaH\x12\x92\x01\x0f\b\x01\x10\x10\x18\x01\"\ar\x05\x10\x01\x18\x80\x02R\bsubjects\x12E\n" +
 	"\x17organization_claim_name\x18\x04 \x01(\tB\r\xbaH\n" +
-	"\xc8\x01\x01r\x05\x10\x01\x18\x80\x01R\x15organizationClaimName\"\x88\x03\n" +
+	"\xc8\x01\x01r\x05\x10\x01\x18\x80\x01R\x15organizationClaimName\"\xbc\x03\n" +
 	"\x10ServiceListeners\x120\n" +
 	"\x03api\x18\x01 \x01(\tB\x1e\xbaH\x1b\xc8\x01\x01r\x16\x10\x03\x18\x80\x022\x0f^.+:[0-9]{1,5}$R\x03api\x120\n" +
 	"\x03bus\x18\x02 \x01(\tB\x1e\xbaH\x1b\xc8\x01\x01r\x16\x10\x03\x18\x80\x022\x0f^.+:[0-9]{1,5}$R\x03bus\x123\n" +
 	"\x10certificate_file\x18\x03 \x01(\tB\b\xbaH\x05r\x03\x18\x80 R\x0fcertificateFile\x122\n" +
-	"\x10private_key_file\x18\x04 \x01(\tB\b\xbaH\x05r\x03\x18\x80 R\x0eprivateKeyFile:\xa6\x01\xbaH\xa2\x01\x1a\x9f\x01\n" +
+	"\x10private_key_file\x18\x04 \x01(\tB\b\xbaH\x05r\x03\x18\x80 R\x0eprivateKeyFile\x122\n" +
+	"\x04edge\x18\x05 \x01(\tB\x1e\xbaH\x1b\xc8\x01\x01r\x16\x10\x03\x18\x80\x022\x0f^.+:[0-9]{1,5}$R\x04edge:\xa6\x01\xbaH\xa2\x01\x1a\x9f\x01\n" +
 	"-service_listeners.key_accompanies_certificate\x124a certificate and its private key are named together\x1a8has(this.certificate_file) == has(this.private_key_file)\"\x92\x02\n" +
 	"\x14EdgeEnrollmentPolicy\x12/\n" +
 	"\vcentral_url\x18\x01 \x01(\tB\x0e\xbaH\v\xc8\x01\x01r\x06\x18\x80\x10\x88\x01\x01R\n" +
