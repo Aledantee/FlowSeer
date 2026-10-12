@@ -2,9 +2,12 @@
 
 A lane is a linked worktree of the runner checkout's HEAD. The variant (the
 skill as edited, at a ref, or absent) is applied on disk and then hidden from
-git with skip-worktree entries, so a lane that commits with `git add -A` never
-stages it. The hiding writes only the lane's own index, never a shared git
-config or exclude file.
+git, so a lane that commits with `git add -A` never stages it and a diff from the
+scenario's base commit never lists it. A modified or deleted file gets a
+skip-worktree entry in the lane's own index. A file new to HEAD is committed
+on its own before the scenario's setup runs, because skip-worktree would still
+leave it in `git diff <commit>`. Nothing is written to a shared git config or
+exclude file.
 """
 
 import argparse
@@ -91,22 +94,31 @@ def conceal_variant(lane: Path) -> None:
     """Hide every on-disk difference under the skills tree from git status and `git add -A`."""
     for evals in (lane / SKILLS).glob("*/evals"):
         shutil.rmtree(evals)
-    changed = set(git_paths(["--modified", "--deleted", "--", SKILLS], lane))
+    changed = git_paths(["--modified", "--deleted", "--", SKILLS], lane)
     fresh = git_paths(["--others", "--exclude-standard", "--", SKILLS], lane)
     if fresh:
-        # Skip-worktree needs an index entry, and an intent-to-add entry gives an
-        # untracked file one without staging its content.
+        # Skip-worktree hides a path from status and `git add -A`, but a file new
+        # to HEAD would still show in `git diff <commit>`, so those files are
+        # committed instead. The scenario's base commit then sits above them.
         git(
-            ["add", "--intent-to-add", "--pathspec-from-file=-", "--pathspec-file-nul"],
+            ["add", "--pathspec-from-file=-", "--pathspec-file-nul"],
             lane,
             stdin="".join(f"{path}\0" for path in fresh),
         )
-    hidden = sorted(changed | set(fresh))
-    if hidden:
+        git(
+            [
+                "-c", "user.name=skill-eval",
+                "-c", "user.email=skill-eval@localhost",
+                "-c", "commit.gpgsign=false",
+                "commit", "--no-verify", "-q", "-m", "chore: add skill files",
+            ],
+            lane,
+        )
+    if changed:
         git(
             ["update-index", "--skip-worktree", "-z", "--stdin"],
             lane,
-            stdin="".join(f"{path}\0" for path in hidden),
+            stdin="".join(f"{path}\0" for path in changed),
         )
     dirty = git(["status", "--porcelain"], lane).strip()
     if dirty:
@@ -219,15 +231,22 @@ def run_bench(cfg: Config, name: str, path: Path, query: str, budget, workdir: P
         raise RunnerError(f"bench wrote no result for {name} (exit {done.returncode}): {error}; {tail}") from error
 
 
-def lane_status(data: dict, skill: str, variant: str, path: Path) -> str:
-    listed = data.get("skills_listed") or []
-    if variant == "none" and (skill in listed or (path / SKILLS / skill).exists()):
-        return "invalid"
+def lane_status(data: dict, skill: str, variant: str, path: Path) -> tuple[str, str | None]:
+    """Grade a bench result as ok, refused, downgraded, or invalid, with why it is invalid."""
+    if not isinstance(data.get("result_text"), str):
+        detail = ", ".join(f"{key} {data[key]}" for key in ("exit", "error") if data.get(key) is not None)
+        return "invalid", "bench reported no result" + (f" ({detail})" if detail else "")
+    if variant == "none":
+        listed = data.get("skills_listed")
+        if not isinstance(listed, list):
+            return "invalid", "bench reported no skills_listed, so a none lane cannot show the skill was absent"
+        if skill in listed or (path / SKILLS / skill).exists():
+            return "invalid", f"skill {skill} was visible to a none lane"
     if data.get("refused"):
-        return "refused"
+        return "refused", None
     if data.get("downgraded"):
-        return "downgraded"
-    return "ok"
+        return "downgraded", None
+    return "ok", None
 
 
 def blank_row(scenario: Scenario, variant: str, run: int, status: str) -> dict:
@@ -259,7 +278,9 @@ def evaluate_lane(cfg: Config, scenario: Scenario, spec: dict, variant: str, run
         query = spec["query"].replace("{EVAL_PARENT}", parent)
         budget = spec.get("budget_usd", DEFAULT_BUDGET_USD)
         data = run_bench(cfg, name, path, query, budget, Path(workdir))
-        row["status"] = lane_status(data, scenario.skill, variant, path)
+        row["status"], note = lane_status(data, scenario.skill, variant, path)
+        if note:
+            row["note"] = note
         invoked = data.get("skills_invoked")
         row.update(
             invoked=None if invoked is None else scenario.skill in invoked,
@@ -275,7 +296,7 @@ def evaluate_lane(cfg: Config, scenario: Scenario, spec: dict, variant: str, run
             usage=data.get("usage"),
         )
         if row["status"] != "invalid":
-            row["checks"] = run_check(scenario, path, base, data.get("result_text") or "")
+            row["checks"] = run_check(scenario, path, base, data["result_text"])
             row["pass"] = f"{sum(c['pass'] for c in row['checks'])}/{len(row['checks'])}"
     return row
 
