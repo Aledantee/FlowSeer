@@ -338,3 +338,18 @@ The live runs (unsandboxed, twelve lanes) go in U5's commit body.
   `AskUserQuestion`, whether review lanes dispatch subagents within the
   budget, and whether a review lane on a branch with an open plan writes
   its verdict there instead of the checkpoint file.
+
+## Review gaps
+
+These follow-ups do not hold the review verdict.
+
+- tools/scripts/skills/steer/skill_eval.py:302: `spent >= args.max_total_usd` mutated to `>` survives the suite; fails: reported cost exactly equal to `--max-total-usd` launches one more lane; class: gap
+- tools/scripts/skills/steer/skill_eval.py:174: `run_check` ignores the exit code and never compares the check count with `expected_behavior`; fails: a `check.sh` that prints two `PASS` lines and exits early reads `2/2`; class: hardening
+- tools/scripts/skills/steer/skill_eval.py:403: the empty-scenario guard skips `--lint`; fails: `--lint --skill pln` prints `checked 0 scenarios` and exits 0; class: convention
+- tools/scripts/skills/steer/skill_eval.py:150: a `RunnerError` from `git worktree add`, `git archive`, or a missing bench result stops the whole run; fails: a rerun after `--keep` or a killed run aborts before any lane, with no table; class: hardening
+- .agents/skills/plan/evals/conflicts-direction/check.sh:23: both checks read only a plan file; fails: a lane that names the record in its result and stops at the question scores 0/2; class: hardening
+- .agents/skills/plan/evals/conflicts-direction/check.sh:36: `[a-z0-9]_bps\b` matches any token; fails: a plan keeping `float link_speed_mbps` that quotes `speed_bps` passes; class: hardening
+- .agents/skills/steer/references/skill-evals.md:41: no step for an edit the measurement rejects; fails: a rejected edit stays in the tree and is committed with the others; class: convention
+- .agents/skills/steer/references/skill-evals.md:82: a lane kept with `--keep` is never removed and no command grades it; fails: the next lint stops on the existing `skill-eval/<name>` branch; class: hardening
+- docs/agent-steering.md:843: "applies an edit ... only when the edited skill loses no check" omits the three-run rerun, and the evaluation claim credited to Anthropic is missing from the Research basis entry; class: convention
+- docs/plans/2026-10-02-1151-feat-skill-evals-plan.md:227: names `git sparse-checkout`, which the runner does not use; class: convention
