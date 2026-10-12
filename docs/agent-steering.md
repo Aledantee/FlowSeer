@@ -841,8 +841,8 @@ mechanical checks, never a judge model, since a judge shares the beliefs
 of the model it grades. It also records whether the skill fired, because a
 skill that never loads measures nothing. `steer` applies an edit that adds
 lines to a skill with scenarios unless the edited skill passes a check in
-fewer of three reruns than the previous one, and proposes cuts when the baseline without the
-skill does as well. A
+fewer of three reruns than the previous one, and proposes cuts when the
+baseline without the skill does as well. A
 skill without scenarios is still edited and reported unmeasured, since
 requiring a scenario set first would stall the queue.
 `steer/references/skill-evals.md` holds the procedure and the cost limits.
@@ -1285,8 +1285,9 @@ Sources checked on 2026-09-05 for the project skills:
 
 - [Anthropic, “Skill authoring best practices”](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices):
   500-line body ceiling, description as the selection signal, context as a
-  shared budget, and evaluations built first: three scenarios, a baseline
-  measured without the skill, and a comparison against it.
+  shared budget. Checked again on 2026-10-12 for evaluations built first:
+  three scenarios, a baseline measured without the skill, and a comparison
+  against it.
 - [Anthropic, “Extend Claude with skills”](https://code.claude.com/docs/en/skills)
   and [“Create plugins”](https://code.claude.com/docs/en/plugins): the 1%
   listing budget, `/skill-doctor`, and `.claude/` for project-specific work
