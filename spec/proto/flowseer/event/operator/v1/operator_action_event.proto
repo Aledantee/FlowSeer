@@ -11,6 +11,7 @@ import "flowseer/model/edge/v1/edge.proto";
 import "flowseer/model/identity/v1/access.proto";
 import "flowseer/model/identity/v1/operator.proto";
 import "flowseer/model/identity/v1/tenant.proto";
+import "flowseer/model/rawwindow/v1/raw_window.proto";
 import "google/protobuf/timestamp.proto";
 import option "buf/validate/validate.proto";
 
@@ -37,6 +38,8 @@ enum OperatorAction {
   OPERATOR_ACTION_PARTNER_DISCONNECT = 18;
   OPERATOR_ACTION_FULL_PAYLOAD_GRANT = 19;
   OPERATOR_ACTION_FULL_PAYLOAD_REVOKE = 20;
+  OPERATOR_ACTION_RAW_WINDOW_OPEN = 21;
+  OPERATOR_ACTION_RAW_WINDOW_CLOSE = 22;
 }
 
 // The outcome of an attempted operator action.
@@ -125,6 +128,17 @@ message OperatorActionFullPayloadGrant {
   google.protobuf.Timestamp expires_at = 2 [(buf.validate.field).required = true];
 }
 
+// A raw window included in an operator action object. It never carries
+// captured bytes.
+message OperatorActionRawWindow {
+  // The window. Must be present.
+  flowseer.model.rawwindow.v1.RawWindowGlobalRef ref = 1 [(buf.validate.field).required = true];
+  // The immutable configuration: selector, expiry, byte budget, and reason.
+  // Unset when the action's outcome did not load it, such as a close of an
+  // unknown window.
+  flowseer.model.rawwindow.v1.RawWindowConfig config = 2;
+}
+
 // One durable audit record for an operator action. An attempted event is
 // delivered before the handler runs. A completed event is delivered after the
 // handler returns.
@@ -169,6 +183,7 @@ message OperatorActionEvent {
     OperatorActionRoleAssignment role_assignment = 15;
     OperatorActionPartner partner = 16;
     OperatorActionFullPayloadGrant full_payload_grant = 17;
+    OperatorActionRawWindow raw_window = 18;
   }
 
   // Exactly one detail kind.

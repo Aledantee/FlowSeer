@@ -1,0 +1,214 @@
+edition = "2024";
+
+// The raw window family: a bounded period in which one edge's adapter keeps
+// the original bytes of the records a selector matches. The ref pair, what
+// was asked for, and where the window stands. Every window belongs to one
+// edge, and the edge enforces its expiry and byte budget at the point it
+// selects bytes.
+package flowseer.model.rawwindow.v1;
+
+import "flowseer/model/edge/v1/edge.proto";
+import "flowseer/model/identity/v1/operator.proto";
+import "flowseer/model/inventory/v1/device.proto";
+import "flowseer/model/inventory/v1/integration.proto";
+import "google/protobuf/timestamp.proto";
+import option "buf/validate/validate.proto";
+
+// The local reference to a raw window.
+message RawWindowLocalRef {
+  // FlowSeer-assigned raw window identifier. Must be present.
+  string id = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.uuid = true
+  ];
+}
+
+// The global reference to a raw window.
+message RawWindowGlobalRef {
+  // The owning edge's key. Must be present.
+  flowseer.model.edge.v1.EdgeGlobalRef edge = 1 [(buf.validate.field).required = true];
+  // The window's own key. Must be present.
+  RawWindowLocalRef raw_window = 2 [(buf.validate.field).required = true];
+}
+
+// An edge-local ingestion adapter, named by the token its records travel
+// under (ingest.<source>). One source covers every listener of its adapter.
+message RawWindowSource {
+  // The source key. Must be present: a lowercase token of at most 32
+  // characters that holds no dot, so it is also a single subject token.
+  string key = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.max_len = 32,
+    (buf.validate.field).string.pattern = "^[a-z][a-z0-9_-]*$"
+  ];
+}
+
+// Which records a window keeps bytes for. The arm is the scope: one device,
+// every device of one integration, or every record of one source.
+message RawWindowSelector {
+  oneof scope {
+    option (buf.validate.oneof).required = true;
+
+    // Records from one device. An integration or source never widens it.
+    flowseer.model.inventory.v1.DeviceGlobalRef device = 1;
+    // Records from every device whose resolved binding belongs to this
+    // integration. The integration's kind plays no part in the match.
+    flowseer.model.inventory.v1.IntegrationGlobalRef integration = 2;
+    // Records from every device the source resolves.
+    RawWindowSource source = 3;
+  }
+}
+
+// Who asked for a raw window, and why.
+message RawWindowAuthorization {
+  // The operator who requested this window. Set centrally from the
+  // authenticated caller and replaces any value a request carries. Unset
+  // in a request means the caller sent none.
+  flowseer.model.identity.v1.OperatorRef requested_by = 1;
+  // Free-text explanation of why the window was requested. Must be present.
+  string reason = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 2048
+  ];
+}
+
+// Where a raw window stands. Pending means central has recorded the window
+// and the edge has not confirmed it. Terminal windows never leave that
+// state.
+enum RawWindowLifecycle {
+  // No lifecycle named. State and events reject the zero value.
+  RAW_WINDOW_LIFECYCLE_UNSPECIFIED = 0;
+  // Recorded centrally. The edge has not reported it started.
+  RAW_WINDOW_LIFECYCLE_PENDING = 1;
+  // The edge confirmed the window and is retaining bytes while it permits.
+  RAW_WINDOW_LIFECYCLE_ACTIVE = 2;
+  // The window ended and retains nothing further.
+  RAW_WINDOW_LIFECYCLE_TERMINAL = 3;
+}
+
+// Why a raw window reached its terminal lifecycle.
+enum RawWindowStopReason {
+  // No reason named. A terminal window's state rejects the zero value.
+  RAW_WINDOW_STOP_REASON_UNSPECIFIED = 0;
+  // The window's expiry passed.
+  RAW_WINDOW_STOP_REASON_EXPIRED = 1;
+  // A record did not fit the remaining byte budget.
+  RAW_WINDOW_STOP_REASON_BYTE_BUDGET = 2;
+  // An operator closed the window.
+  RAW_WINDOW_STOP_REASON_OPERATOR = 3;
+  // The edge process that held the window restarted, and its counters
+  // with it.
+  RAW_WINDOW_STOP_REASON_EDGE_RESTART = 4;
+}
+
+// Cumulative original payload an edge process selected for one window.
+message RawWindowUsage {
+  // Original payload octets selected into an envelope. Unset means none.
+  uint64 selected_bytes = 1;
+  // Records selected. Unset means none.
+  uint64 selected_records = 2;
+}
+
+// The intended definition of one raw window: what was asked for. Immutable
+// once admitted.
+message RawWindowConfig {
+  option (buf.validate.message).cel = {
+    id: "raw_window_config.named_operator"
+    message: "a stored raw window names the operator who requested it"
+    expression: "has(this.authorization) && has(this.authorization.requested_by)"
+  };
+
+  // The ref to this window. Must be present.
+  RawWindowGlobalRef ref = 1 [(buf.validate.field).required = true];
+  // The records the window keeps bytes for. Must be present.
+  RawWindowSelector selector = 2 [(buf.validate.field).required = true];
+  // When collection ends, whatever the edge was told afterwards. Must be
+  // present.
+  google.protobuf.Timestamp expires_at = 3 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).timestamp.gt = {seconds: 0}
+  ];
+  // Original payload octets the window may select across every device it
+  // matches. Must be present and positive.
+  uint64 max_bytes = 4 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).uint64.gt = 0
+  ];
+  // Who asked for the window and why. Must be present.
+  RawWindowAuthorization authorization = 5 [(buf.validate.field).required = true];
+}
+
+// The observed side of one raw window.
+message RawWindowState {
+  option (buf.validate.message).cel = {
+    id: "raw_window_state.terminal_has_reason"
+    message: "a terminal raw window names its stop reason, and a live one names none"
+    expression: "(this.lifecycle == 3) == (this.stop_reason != 0)"
+  };
+  option (buf.validate.message).cel = {
+    id: "raw_window_state.terminal_has_end"
+    message: "a terminal raw window carries its end time, and a live one carries none"
+    expression: "(this.lifecycle == 3) == has(this.ended_at)"
+  };
+  option (buf.validate.message).cel = {
+    id: "raw_window_state.pending_not_activated"
+    message: "a pending raw window has not been activated"
+    expression: "this.lifecycle != 1 || !has(this.activated_at)"
+  };
+
+  // The ref to this window. Must be present.
+  RawWindowGlobalRef ref = 1 [(buf.validate.field).required = true];
+  // The window's lifecycle. Must be present; the zero value is rejected.
+  RawWindowLifecycle lifecycle = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).enum = {
+      defined_only: true
+      not_in: [0]
+    }
+  ];
+  // Why the window ended. Unset until the lifecycle is terminal.
+  RawWindowStopReason stop_reason = 3 [(buf.validate.field).enum = {defined_only: true}];
+  // When the edge started retaining bytes. Unset means it has not.
+  google.protobuf.Timestamp activated_at = 4;
+  // When the window ended. Unset until the lifecycle is terminal.
+  google.protobuf.Timestamp ended_at = 5;
+  // What the edge process selected so far. Unset means nothing was reported.
+  RawWindowUsage usage = 6;
+}
+
+// One transition of a raw window's lifecycle.
+message RawWindowEvent {
+  option (buf.validate.message).cel = {
+    id: "raw_window_event.lifecycle_changes"
+    message: "a raw window event must change the lifecycle"
+    expression: "!has(this.from) || this.from != this.to"
+  };
+
+  // The ref to the window that changed. Must be present.
+  RawWindowGlobalRef ref = 1 [(buf.validate.field).required = true];
+  // The lifecycle before the transition. Unset means the window was
+  // recorded. The zero value is rejected.
+  RawWindowLifecycle from = 2 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  // The lifecycle after the transition. Must be present; the zero value is
+  // rejected.
+  RawWindowLifecycle to = 3 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).enum = {
+      defined_only: true
+      not_in: [0]
+    }
+  ];
+}
+
+// One raw window as the operator API returns it: intent and observation
+// together.
+message RawWindowRecord {
+  // Must be present.
+  RawWindowConfig config = 1 [(buf.validate.field).required = true];
+  // Must be present.
+  RawWindowState state = 2 [(buf.validate.field).required = true];
+}

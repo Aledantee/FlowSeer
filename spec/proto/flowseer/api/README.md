@@ -16,7 +16,7 @@ calls on its own behalf. An operator never calls it.
 
 ## Boundaries
 
-Imports: authz, model/access, model/capture, model/edge, model/identity, model/inventory, net/capture, net/key
+Imports: authz, model/access, model/capture, model/edge, model/identity, model/inventory, model/rawwindow, net/capture, net/key
 
 Imported by: nothing
 
@@ -30,3 +30,4 @@ so no schema in the tree may import one. Every RPC declares an authorization rul
 - `device/v1/`: Operator-facing `DeviceService` for immediate device observation and mutation.
 - `edge/v1/`: Operator-facing `EdgeAdminService` to create, provision, and retire edges.
 - `identity/v1/`: Operator-facing `TenantService` and `TenantAdminService` for tenant and tenant-access administration.
+- `ingest/v1/`: Operator-facing `RawWindowService` to open, read, and close a raw window.
