@@ -4,7 +4,7 @@ type: feat
 date: 2026-10-12
 artifact_contract: flowseer-plan/v2
 execution: code
-amends: docs/architecture/2026-09-23-netpen-lab-vendor-validation-direction.md
+amends: docs/architecture/2026-09-23-netpen-lab-vendor-validation-direction.md, docs/plans/2026-10-12-1259-feat-netpen-check-model-plan.md
 ---
 
 # netpen Check Model Phase 1, Contracts - Plan
@@ -27,12 +27,24 @@ addresses as the target, because a behavior derives a frame field from
 something other than the target or the leg address. The migration unit then
 needs a per-behavior fixture seam the parent did not decide.
 
+**Re-plan of 2026-10-13.** The first run landed the contract, the schema,
+the leg addresses, and the cutover (`0ff28cc7..09b173f9`), and the review
+sent it back as `rework` on three mechanisms: a target value that is
+present but of the wrong family or out of range passes `Need` and sends a
+wrong frame or stops the process, every observing check stops on a frame
+count or a fixed timer instead of the window, and the `raguard` probe
+costs more than its catalog row says. The Units below hold only that open
+work. Phase 1 is done when every check validates the form of its target
+before any frame, every observer returns at the window or on its match,
+and the `raguard` probe changes no host state.
+
 ## Decisions
 
 The parent plan's Decisions apply. Local to this phase:
 
 - A new leaf package `src/edge/netpen/check` owns the contract types and
-  imports only `findings` and `link`: `Entry` (name, mode, protocols, legs,
+  imports `findings`, `link`, and `errs` and nothing under `netpen` beyond
+  the first two: `Entry` (name, mode, protocols, legs,
   impact, restore, affects, help, orchestration flag), `Impact`,
   `Restore`, `Affects`, `Target`, `Verdict`, `Deps`, an `Emitter`
   interface (`Emit`, `Finding`, `Progress`), a `Teardown` interface
@@ -59,7 +71,9 @@ The parent plan's Decisions apply. Local to this phase:
   empty text today (`src/edge/netpen/runner/durability.go:129-131`).
 - The bounds with a source are the lifetimes the probe itself announces,
   read from the frame the behavior sends: `roguera` and `roguedhcp` 1800 s,
-  `roguedhcp6` 300 s, `stproot` 6 s (the max age its BPDU carries), `wpad`
+  `roguedhcp6` 600 s (the valid lifetime its advertise carries, corrected
+  by the re-plan from the 300 s preferred lifetime), `stproot` 6 s (the
+  max age its BPDU carries), `wpad`
   and `llmnr` 30 s (the TTL in the answer). Every other `decay` entry
   carries a zero bound.
 - `Verdict` is a struct with a `Kind`, a `Detail` string, and an `Observed`
@@ -157,6 +171,126 @@ The parent plan's Decisions apply. Local to this phase:
   passes an in-memory listener. Why: the suite fails wherever port binding
   is denied.
 
+Decisions of the re-plan:
+
+- `Target.Need` checks the form of each named field, not only its
+  presence: `Victim`, `Gateway`, `VirtualIP`, `RouterID`, `OfferIP`,
+  `Route4`, and `SweepNet` are IPv4 (`To4() != nil`, a 4-byte mask for the
+  networks, at least one host address in `SweepNet`), `Victim6`,
+  `Server6`, and `Prefix6` are IPv6 and not v4-mapped (`To4() == nil`), a
+  MAC has six octets, a VLAN is 1 to 4094
+  (`spec/yang/cisco/iosxe/2611/Cisco-IOS-XE-vlan.yang:951-957`), `VRID`
+  keeps zero as absent and its `uint8` type holds the upper bound
+  (`spec/proto/flowseer/net/protocol/vrrp/v1/vrrp_group.proto:61-64`
+  gives 1 to 255), and `VTPDomain` is at most 32 bytes (`src/edge/netpen/layers/vtp.go:214-216`
+  cuts it there). A field that fails returns the same coded error family
+  as a missing one, with a second code `ErrCodeTargetInvalid`
+  (`netpen/target-invalid`, exit 2) and a message naming the flag and the
+  form it wants. The runner maps both codes to a `skipped` verdict through
+  one `check.IsTargetError`. Why: the review found `ospf.go:61` and
+  `eigrp.go:303` stop the process on an IPv6 value, `portsteal.go:93`
+  sends a zero-length ARP, and four IPv6 behaviors frame a v4-mapped
+  address, all on an honest operator mistake, and one rule table in
+  `check` covers an embedder that builds `Target` directly as well as the
+  flags.
+- `Target.Group` is a `*uint16`, and the rule "a zero number is absent"
+  in the `Target` doc comment (`src/edge/netpen/check/target.go:25-26`)
+  no longer covers it. The error text of `Need` and `Within`, the one the
+  runner copies into the verdict detail, reads the flag renderings, so
+  every detail assertion in the family tests changes with it. Why: HSRP group 0 is valid
+  (`spec/yang/cisco/iosxe/2611/Cisco-IOS-XE-hsrp.yang:227-231` gives
+  `0..4095`, `spec/yang/cisco/iosxe/2611/MIBS/CISCO-HSRP-MIB.yang:213-215`
+  gives `0..255`), so presence needs its own marker. `VRID` and the VLAN
+  ids keep zero as absent, since zero is outside their ranges.
+- A behavior whose frame field is narrower than the target field bounds
+  it itself with `Target.Within(field, max)`, which returns the invalid
+  code: `hsrp` bounds `Group` at 255, since the HSRPv1 group field is one
+  octet (`src/edge/netpen/layers/hsrp.go:55`, RFC 2281 section 5.1 gives
+  0 to 255), and `voicevlan` bounds `VoiceVLAN` at 127, since its network
+  policy field packs the id into bits the fixture layout gives seven of
+  (`attacks/l2/voicevlan.go:95`). Why: a value the frame cannot carry is
+  the operator's mistake to hear about, not a different group to attack.
+  Correcting the policy field's layout changes pinned bytes and is phase
+  2's.
+- A `Field` renders as the flag that supplies it: `--victim <ip>,<mac>`
+  for `victim` and `victim-mac` alike, `--group <n>` for `group`. The
+  `Need` message lists those renderings and the hint names them. Why:
+  the review found the error names `victim-mac`, which is no flag.
+- The command's flag values are typed by family: an IPv4 host, an IPv6
+  host, an IPv4 address, an IPv4 network, an IPv6 network. The value
+  stored is the 4-byte form for IPv4. `--group` accepts 0. Why: the flag
+  is where the operator reads the error, and the same rule in `check`
+  then only has to catch an embedder.
+- `check` gains one observation helper over a `link.Leg` and the window:
+  `check.First(ctx, leg, window, match)` returns the first frame `match`
+  accepts, or no frame when the window ends, and `check.Collect(ctx, leg,
+  window, match)` returns every accepted frame at the window's end. Both
+  count the frames they skipped and follow four rules: a frame carrying
+  `Err` returns that error at once, cancellation wins over a closed
+  channel and returns `ctx.Err()`, a closed channel otherwise ends the
+  window early, and a window of zero or less is an error, since the
+  runner always supplies one. Each helper runs `Receive` under a child
+  context it cancels and drains before returning, as the `Leg` contract
+  asks (`src/edge/netpen/link/link.go:127-128`). Every observer uses
+  one of them: `ghost` and `raguard` take `First` with an attribution
+  predicate, `vlanenum` takes `Collect` over tagged frames, `ospf` takes
+  `First` for the hello and `eigrp` for the goodbye, `daddos` for the
+  defending advertisement, and `roguedhcp6` for a Solicit from the
+  victim's MAC. Why: seven hand-written loops each stopped on a frame
+  count or a fixed timer, and parent requirement 10 names the window as
+  the bound.
+- `raguard` sends its own probe advertisement, not `roguera`'s: Router
+  Lifetime 0, Cur Hop Limit 0, Reachable Time 0, Retrans Timer 0, no
+  Source Link-Layer Address option, no MTU option, and one Prefix
+  Information option carrying the target prefix with the L and A flags
+  clear and both lifetimes 0. Why: RFC 4861 section 6.3.4 has a host
+  ignore each of those fields when zero or absent ("the parameter should
+  be ignored and the host should continue using whatever value it is
+  already using"), time out a default-router entry on a zero lifetime
+  rather than create one, and take "no information concerning on-link
+  determination" from an option with L clear, and RFC 4862 section 5.5.3
+  rule (a) has it "silently ignore the Prefix Information option" when A
+  is clear. RFC 6105 section 3 has stateless RA-Guard decide on the
+  sender's link-layer address, the ingress port, the IP source, and the
+  prefix list, so the probe still exercises the guard. One effect
+  remains: section 6.3.4 also says that when no Source Link-Layer Address
+  option is present "but a corresponding Neighbor Cache entry exists",
+  its IsRouter flag "MUST be set to TRUE", so a host that already holds a
+  neighbor entry for the probe's link-local source marks it a router,
+  which changes no default route, prefix, address, or link parameter
+  while no default-router entry exists. `Impact: none` stays with that
+  effect named in the matrix row. The fixture bytes under
+  `attacks/testdata/ip6/raguard.pcap` change, which amends the parent's
+  byte-pin Decision for this one fixture, and the harvest header lists
+  `raguard` as spec-authored. (decided by the user, 2026-10-13)
+- `raguard` attributes a crossing only to an ICMPv6 Router Advertisement
+  (type 134) whose Ethernet source is the attack leg's MAC and whose
+  prefix option carries `Target.Prefix6`. Why: the review found a source
+  MAC match alone, which any broadcast from the attack interface
+  satisfies.
+- `Interrupt` sends a `pending` verdict with detail `interrupted` for the
+  attack in flight itself, before it cancels the stop context, the way it
+  already sends the partial-failure record
+  (`src/edge/netpen/runner/runner.go:575`), and `Run` then returns
+  `context.Canceled` on every such run, decided by a flag the interrupt
+  path sets rather than by reading the run context after the fact. A
+  caller-context cancellation emits no verdict, since the pump is
+  canceled with the context (`runner.go:197`). Why: parent requirement 4
+  asks for one verdict per pair, and the review found the return value
+  depends on goroutine scheduling and a send after the stop context
+  cancels is dropped by the pump.
+- `roguedhcp6`'s decay bound is 600 s, the valid lifetime its advertise
+  carries (`attacks/ip6/roguedhcp6.go:146`). Why: the bound is the
+  lifetime the probe announces, and 300 s is the preferred lifetime.
+- The Linux leg opens with `afpacket.OptAddVLANHeader(true)`. Why:
+  `~/go/pkg/mod/github.com/gopacket/gopacket@v1.7.3/afpacket/options.go:102-109`
+  says AF_PACKET strips the 802.1Q header by default, so `vlanenum` can
+  see no tag without it. The option re-inserts the header only for a
+  non-zero TCI (`afpacket/header.go:147-149`, the v3 path passing the
+  whole TCI at `:244-245`), so a VID-0 frame with PCP and DEI 0 stays
+  untagged while a priority-tagged frame comes back tagged with VID 0,
+  which the matrix row says.
+
 ## Requirements
 
 Parent requirements 1 to 7, 9 to 11, 13, 14, and 15 are claimed here.
@@ -194,163 +328,258 @@ Local examples that pin the shape:
    observable: coup acceptance needs a hello listener"}`, and
    `VALIDATION_MATRIX.md` carries that text in a new `Observable` column.
 
+Requirements 1 to 7 landed in the first run. The re-plan adds:
+
+8. A target value of the wrong family or out of range never reaches a
+   frame. Example: `netpen ospf --router-id 2001:db8::1`, `netpen eigrp
+   --route4 2001:db8::/64`, and `netpen portsteal --victim 2001:db8::1`
+   exit 2 at flag parsing with the flag's own error (`invalid value
+   "2001:db8::1" for flag -router-id: want an IPv4 address`) and emit no
+   record. A `Target` built by an embedder with those values, and the two
+   values the flags cannot judge, `netpen arpsweep --sweep-net
+   10.0.0.5/32` and `netpen hsrp --group 300 --vip 10.0.0.1`, reach the
+   runner and produce a `skipped` verdict whose detail names the flag and
+   the form (`--group at most 255`), zero sends, and exit 2. `netpen hsrp
+   --group 0 --vip 10.0.0.1` runs and frames group 0.
+9. The usage error names flags. Example: `netpen arpspoof --victim
+   172.16.0.10 --gateway 172.16.0.1` prints `the check needs: --victim
+   <ip>,<mac>, --gateway <ip>,<mac>` and exits 2.
+10. An observer returns at its match or at the window, never on a frame
+    count or an idle timer. Examples, each inside a `testing/synctest`
+    bubble so the window is the fake clock's: `ghost` with three
+    unrelated frames pushed before the two ghost frames returns
+    `confirmed` within the window. `raguard` with a 2 s window and a
+    watch leg carrying only an advertisement from another MAC returns
+    `resisted` at 2 s. `vlanenum` with a 1 s window on a leg that
+    delivers a tagged frame every 100 ms for 5 s returns `confirmed` at
+    1 s with the ids seen. `roguedhcp6` on a quiet leg returns `pending`
+    with detail `no solicit in 3s` at the window. `ospf` with an ARP
+    frame before the hello still reads the hello.
+11. The `raguard` probe installs no default router, prefix, address, or
+    link parameter on a host, and a crossing is attributed by content.
+    Example: the regenerated fixture decodes as an RA whose router
+    lifetime, hop limit, reachable time, retrans timer, and flags byte
+    are all 0, whose options are exactly one Prefix Information option
+    with flags 0x00, both lifetimes 0, and the target prefix, and which
+    carries no Source Link-Layer Address and no MTU option. On the watch
+    leg a broadcast ARP from the attack leg's MAC, an RA from the leg's
+    MAC with another prefix, and a truncated RA each leave the verdict
+    `resisted`, and the probe RA itself makes it `confirmed`.
+12. An interrupted attack gets a verdict and a deterministic return.
+    Example: `Interrupt` during a stub behavior yields a `verdict` record
+    with kind `pending` and detail `interrupted` on the stream, and
+    twenty runs of that case all return `context.Canceled`.
+13. The catalog and the matrix agree with the frames. Example: the oracle
+    row for `roguedhcp6` reads `decay` with a 600 s bound, the matrix row
+    reads `decay 10m0s`, the decay note in the finding reads `600s`, and
+    `go generate ./catalog/...` leaves no diff.
+
 ## Out of scope
 
 - Real observables for the existing behaviors (phase 2) and `full`'s use of
   recon to fill the target (phase 3). `full` passes the flag target in
   this phase, and a burst behavior whose fields are missing is a `skipped`
   verdict the summary counts.
-- Changing any frame byte the fixtures pin. The VRRP checksum and the
-  sweep request's source are phase 2 and phase 3.
+- Changing any frame byte the fixtures pin, except the `raguard` probe the
+  Decisions name. The VRRP checksum, the sweep request's source, and the
+  voice VLAN policy field's layout are phase 2 and phase 3.
+- Frames buffered in the capture ring before `Receive` is called. A watch
+  leg shared across `full`'s phases may read earlier attacks' frames first.
+  Phase 3 owns the shared leg and decides a drain or a timestamp cut-off.
+  The kernel's ring-fill behavior while nothing polls is unverified.
+- The no-op restore steps of `vlanhop`, `voicevlan`, and `etherchannel`
+  and their cost rows, which phase 2 makes real.
+- The command's second signal subscription (`cmd/netpen/main.go:203`
+  beside `signals.go`), `full` exiting 0 after a teardown failure, and the
+  single-attack summary's record count, all of which predate the first run
+  and are recorded under Review gaps for a plan of their own.
+- Input and trust: the flags and the catalog are written by the lab
+  operator or a contributor and are trusted, so the form checks catch
+  honest mistakes, not crafted values. Frames read from a leg come from a
+  network peer and are untrusted. The observation helper decodes nothing
+  itself and hands each frame to the behavior's predicate, which returns
+  false on a frame it cannot decode.
 
 ## Units
 
-### U1. The check package and the catalog value, additive
+### U5. Target form rules and the observation helper in check
 
-Files: src/edge/netpen/check/check.go, src/edge/netpen/check/target.go, src/edge/netpen/check/check_test.go, src/edge/netpen/catalog/catalog.go, src/edge/netpen/catalog/codes.go, src/edge/netpen/catalog/catalog_test.go
+Files: src/edge/netpen/check/target.go, src/edge/netpen/check/check.go, src/edge/netpen/check/observe.go, src/edge/netpen/check/check_test.go, src/edge/netpen/check/observe_test.go, src/edge/netpen/attacks/fh/hsrp.go, src/edge/netpen/attacks/fh/glbp.go, src/edge/netpen/attacks/fh/fh_test.go, src/edge/netpen/cmd/netpen/target.go
 After: none
-Change: `check` holds the types the Decisions name. `catalog` adds
-`Behavior` (embedding `check.Entry`, plus `Run` and `Modes`), a `Mode`
-with its flag, help, and the three cost fields, `Catalog`, `New`, and the
-validation of the new fields. Today's `Register`, `MustRegister`, `Entry`,
-`Durability`, the latch, `registrations.go`, and the generated file are
-untouched, so `runner`, `full`, `cmd`, and the attack packages build as
-before. The new validation applies only to `New`. `codes.go` adds
-`ErrCodeCeilingRefused`. `ErrCodeTargetMissing` lives in `check` beside
-`Target.Need`, which returns it, since `check` cannot import `catalog`.
-Ruled: the registration table's own `Behavior` and `Mode` types, used
-only inside `catalog`, become the unexported `registration` and
-`registrationMode` so the new types take the names the Decisions give
-them, and `catalog.Legs` becomes an alias of `check.Legs` so the table and
-the value share one type. The cutover deletes both renamed types.
-Tests: `catalog_test.go` gains cases that reject a `decay` restore with a
-negative bound, an unknown impact, an unknown affects, a nil `Run` on an
-entry not flagged `Orchestration`, and a duplicate (name, mode) pair, and
-accept a two-entry catalog whose `Entries()` come back sorted. The
-existing oracle and CLI reconciliation tests keep passing.
-`check_test.go` covers `Target.Need` naming every missing field in one
-error with exit code 2.
-Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/edge/netpen/catalog src/edge/netpen/check`
+Change: `Target.Group` is a `*uint16`, and the four sites that read or
+set it as a number (`hsrp.go:44`, `glbp.go:45`, `cmd/netpen/target.go:30`,
+`fh_test.go:40`) dereference or take the address so the module keeps
+building, and U7 and U8 then change what those sites do. The `Target` doc
+comment names `Group` as the one number whose zero is a value. `Need`
+applies the form rules the Decisions list and returns
+`ErrCodeTargetMissing` for an absent field and `ErrCodeTargetInvalid` for
+a present one of the wrong form, with one text for `Error()` and the user
+message that lists the flags through `Field.Flag()` and, for an invalid
+field, the form it wants. `Target.Within(field, max)` returns the invalid
+code when a numeric field exceeds `max`. `IsTargetError(err)` reports
+either code. `observe.go` holds `First` and `Collect` over a `link.Leg`
+and a window under the four rules of the Decision, each running `Receive`
+under a child context it cancels and drains before returning, and
+returning an `Observation` with the count of skipped frames and the
+elapsed time. The package doc no longer claims to import only `findings`
+and `link`, and the `[Skipped]` link in `target.go` names
+`findings.VerdictSkipped`.
+Tests: `check_test.go` gains a table with one case per field: the full
+target with that one field cleared names exactly that field, and the full
+target with that one field set to a wrong-form value (an IPv6 victim, a
+v4-mapped `Victim6`, a 20-octet MAC, VLAN 4095, a 33-byte domain, a `/32`
+sweep net, a `/64` `Route4`) returns the invalid code naming the flag and
+the form. A case pins `Group` 0 as present and `Within(FieldGroup, 255)`
+refusing 256. A case pins the rendered text for a missing `victim` plus
+`victim-mac` as `--victim <ip>,<mac>`. `observe_test.go` runs inside a
+`testing/synctest` bubble and drives `First` and `Collect` on the test
+leg: three skipped frames then a match returns the match before the
+window ends, a window with only skipped frames returns no frame at the
+window, a frame carrying `Err` returns that error at once, a closed
+channel ends early with no error, a context canceled while the channel
+is closed returns `ctx.Err()`, a zero window returns an error, and the
+leg's receiver has exited when the helper returns.
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/edge/netpen/check src/edge/netpen/attacks/fh src/edge/netpen/cmd`, then `go build ./... && go vet ./...` from `src/edge/netpen`.
 
-### U2. Findings schema version 2 and every consumer of the rollup kinds
+### U6. The runner's target mapping and interrupt verdict, and the leg's VLAN header
 
-Files: src/edge/netpen/findings/findings.go, src/edge/netpen/findings/findings_test.go, src/edge/netpen/output/json.go, src/edge/netpen/output/json_test.go, src/edge/netpen/output/tui.go, src/edge/netpen/output/tui_test.go, src/edge/netpen/output/feed_test.go, src/edge/netpen/cmd/netpen/stream.go, src/edge/netpen/cmd/netpen/stream_test.go, src/edge/netpen/full/full.go, src/edge/netpen/full/full_test.go, src/edge/netpen/test/integration/findings_class_test.go
-After: none
-Change: `SchemaVersion` is 2. `KindVerdict` replaces `KindResisted`,
-`KindSkipped`, `KindPending`, and `Rollup`. `Record.Verdict` holds the
-kind, detail, and observed milliseconds. `Summary` counts `Confirmed`,
-`Resisted`, `Pending`, `Skipped`, `Findings`, `Errors`. The JSON and TUI
-modes render a verdict line per attack. `full.computeVerdicts` builds
-verdict records with the new kind and `summaryRecord` counts them.
-`cmd/netpen/stream.go` counts the verdict kind where it counts the rollup
-kinds. `findings_class_test.go` expects version 2. Ruled: `findings`
-owns `VerdictKind` and its four constants, since it is the wire and
-`check` imports it, so `check.Verdict.Kind` is a `findings.VerdictKind`
-and `check` declares no kind of its own. `Summary.Count` tallies one
-verdict so the three consumers share one switch.
-Tests: `findings_test.go` marshals each kind and the verdict example of
-requirement 2. `json_test.go` and `tui_test.go` golden outputs carry the
-verdict line. `feed_test.go` counts verdicts into the summary.
-`full_test.go`'s verdict cases read the new kind.
-Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/edge/netpen/findings src/edge/netpen/output src/edge/netpen/cmd src/edge/netpen/full src/edge/netpen/test/integration`
+Files: src/edge/netpen/runner/runner.go, src/edge/netpen/runner/runner_test.go, src/edge/netpen/runner/durability_test.go, src/edge/netpen/link/link_linux.go, src/edge/netpen/link/link.go, src/edge/netpen/link/link_linux_test.go
+After: U5
+Change: the runner's skipped mapping reads `check.IsTargetError`.
+`Interrupt` sends the `pending` verdict with detail `interrupted` for the
+attack in flight before it cancels the stop context, the dispatch loop
+skips its own verdict send for that attack, and `Run` returns
+`context.Canceled` when the interrupt path engaged, read from a flag that
+path sets. The Linux leg's `open` takes its options from a function
+`socketOptions(iface)` that includes `afpacket.OptAddVLANHeader(true)`,
+and the `Receive` doc says frames in the ring before the call are
+delivered first. `runner_test.go:467` reads the flag rendering in the
+detail.
+Tests: `runner_test.go` gains a case where a stub returns the invalid code
+and the verdict is `skipped` with exit 2, and a case that calls
+`Interrupt` during a stub twenty times in a loop, asserting the
+`interrupted` verdict on the stream and `context.Canceled` on every
+iteration. `link_linux_test.go` asserts `socketOptions` contains the VLAN
+header option.
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/edge/netpen/runner src/edge/netpen/link`, then `GOOS=linux go vet ./link/...` from `src/edge/netpen`.
 
-### U3. Leg addresses and a write path that does not wait on the poll
+### U7. Typed target flags, the usage text, and the README
 
-Files: src/edge/netpen/link/link.go, src/edge/netpen/link/link_linux.go, src/edge/netpen/link/link_other.go, src/edge/netpen/link/link_test.go, src/edge/netpen/link/link_linux_test.go, src/edge/netpen/attacks/testtest/leg.go, src/edge/netpen/attacks/testtest/leg_test.go, src/edge/netpen/runner/runner_test.go, src/edge/netpen/runner/durability_test.go, src/edge/netpen/full/full_test.go, src/edge/netpen/full/recon_scan_test.go, src/edge/netpen/cmd/netpen/main_test.go
-After: none
-Change: `Leg.Addr()` returns the interface's MAC and addresses, read at
-open through a seam over `net.InterfaceByName` the test replaces. The
-locking follows the Decision. The test leg gains `SetAddr`, so
-`testtest.New()` keeps its signature and the call sites in the attack
-tests stay untouched until the cutover. Every mock leg in the listed test
-files gains the method.
-Tests: `link_linux_test.go` adds a case where a `Send` completes while a
-poll blocks for the full timeout, asserted under 20 ms, and a case where
-`Close` during a poll returns after the poll and a later `Send` fails
-with `ErrCodeLegOpen`. Both compile only on Linux. `link_test.go` covers
-`Addr` on the stub. `leg_test.go` covers `SetAddr`.
-Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/edge/netpen/link src/edge/netpen/attacks/testtest src/edge/netpen/runner src/edge/netpen/full src/edge/netpen/cmd`, then `GOOS=linux go vet ./link/...` from `src/edge/netpen`, and `go test -race ./link/...` on a Linux host.
+Files: src/edge/netpen/cmd/netpen/target.go, src/edge/netpen/cmd/netpen/main.go, src/edge/netpen/cmd/netpen/main_test.go, src/edge/netpen/README.md
+After: U5
+Change: `target.go` has one flag value per family, each storing the
+4-byte form for IPv4, refusing the other family, capping VLAN ids at 4094,
+requiring six-octet MACs, and accepting `--group 0` into the pointer. The
+usage block in `main.go` says which flags take IPv4 and which IPv6. The
+README's arpspoof example lists the records the command emits (meta,
+finding, verdict, summary), names the four fields a missing target
+reports as flags, and says a host flag needs the MAC form for the checks
+that frame to a host.
+Tests: `main_test.go` extends `TestTargetFlagsParse` with `--router-id
+2001:db8::1`, `--victim6 10.0.0.5`, `--prefix6 10.0.0.0/8`, `--route4
+2001:db8::/64`, `--outer-vlan 4095`, and `--victim 10.0.0.1,0102.0304.0506.0708`
+exiting 2, and `--group 0` reaching the runner as a set group through a
+stub catalog. `TestMissingTargetExitsTwo` asserts the flag renderings in
+stderr. A case runs `arpspoof` with `--observe 750ms` through a stub that
+returns the window as its detail.
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/edge/netpen/cmd src/edge/netpen/README.md`
 
-### U4. Cutover: runner, behaviors, orchestrator, command, matrix, lab
+### U8. First-hop family: bounds, the ghost observer, and the empty-target table
 
-Files: src/edge/netpen/runner/, src/edge/netpen/catalog/, src/edge/netpen/attacks/, src/edge/netpen/full/, src/edge/netpen/cmd/netpen/, src/edge/netpen/test/integration/VALIDATION_MATRIX.md, src/edge/netpen/test/integration/matrix_test.go, src/edge/netpen/test/integration/t1_ae6_test.go, src/edge/netpen/test/integration/t2_lab_ospf_test.go, src/edge/netpen/test/integration/lab/lab.go, src/edge/netpen/test/integration/lab/lab_test.go, src/edge/netpen/Taskfile.yml, src/edge/netpen/README.md, docs/architecture/2026-09-23-netpen-lab-vendor-validation-direction.md, test/conformance/
-After: U1 U2 U3
-Change: `runner.Options` carries `Catalog`, `MaxImpact`, `Target`,
-`Observe`, `Rate`, `Acknowledged`, `Orchestrated`, `Timeout`,
-`TeardownBudget`, and the two legs. `Behaviors`, `SuppressOutput`,
-`runner.Behavior`, and `runner.Deps` are gone. The gate follows the
-Decisions, the runner emits the verdict record, wraps the leg for the
-rate limit, maps the target error, and exports `AbandonedSteps` and
-`StopContext`. Every `Run*` under `attacks/` has the new signature, reads
-the target and the leg address, calls `Target.Need`, and returns a
-verdict: `ghost` and `raguard` observe for `deps.Observe` and return
-`resisted` on an empty window, `arpsweep` and `vlanenum` return
-`confirmed` with their inventory as detail, and every other behavior
-returns `pending` with a reason naming the missing observable. `llmnr` and
-`wpad` emit no secret fields, `wpad` takes its listener from
-`deps.Listen`, `dtp` reports its durability from `deps.Entry`, the
-permanent modes arm nothing, and `stproot` drops its own pacing. The
-`srcMAC` helpers, the fixture address variables in each `helpers.go`, and
-`craft.FixtureSrcMAC` are deleted, each family package exports its
-`Behavior` values, and `attacks.Default()` returns the shipped catalog
-with `scan` as its one `Orchestration` entry. In `catalog`,
-`registrations.go`, `Register`, `MustRegister`, `Durability`, and the
-latch are deleted, the generator imports `attacks.Default()`, and
-`go generate ./catalog/...` rewrites the generated file. `full` and
-`cmd` build `Options.Catalog` from `attacks.Default()`, `full/behaviors.go`
-and `MergedBehaviors` are deleted, and `catalog.Entries()` call sites in
-`main.go` read the catalog value. The command adds `--max-impact`,
-`--observe`, `--victim`, `--gateway`, `--vip`, `--group`, `--vrid`,
-`--outer-vlan`, `--inner-vlan`, `--voice-vlan`, `--vtp-domain`,
-`--router-id`, `--prefix6`, `--route4`, `--offer-ip`, and `--sweep-net`,
-builds `Options.Target` from them, and installs the signal handler that
-moved from `runner`. `stubNames` and the AST reconciliation test are
-replaced by a test that walks `attacks.Default()` against the dispatch
-table. `full.computeVerdicts` reads verdict records from each phase and
-`observeTraversal` is deleted. The matrix gains `Impact`, `Restore`,
-`Affects`, and `Observable` columns and every row is rewritten from the
-catalog. The T1 and T2 harness commands pass the target flags their
-behaviors need, and the lab record's "fixed fixture" sentences say the
-target comes from flags. The Taskfile's `test` task drops `CGO_ENABLED=0`.
-`README.md` describes the check model, the cost fields, the ceiling, and
-the target flags with one worked command. A conformance gate rejects
-`os.Exit` and `signal.Notify` under `src/edge/netpen/runner/`.
-Ruled: `Affects` is `device` for switch or router state (CAM, DTP, LLDP,
-MVRP, LACP, DHCP pool, snooping), `clients` for end hosts' caches,
-leases, and first-hop choice, `fabric` for domain-wide protocol state
-(STP, VTP, OSPF, EIGRP), and `none` for the no-impact entries;
-`doubletag` is `none` since the registration text said nothing persists.
-Ruled: a host flag takes `<ip>` or `<ip>,<mac>`, and `Target` names the
-MAC as its own field (`victim-mac`), so a behavior that frames to a host
-asks for both parts. Ruled: `arpsweep` keeps the 16-byte protocol
-addresses its fixture carries and requests the first three hosts of
-`--sweep-net` from the leg's own IPv4. Ruled: a ceiling refusal records
-a refusal and a skipped verdict, and a behavior whose target check fails
-runs no teardown, since it armed nothing. Ruled: `full` keeps no verdict
-list of its own, and the summary counts the verdict records each phase's
-runner emitted. Ruled: `attacks.Behaviors()` returns the shipped list so
-tests replace a `Run` before building their own catalog.
-Tests: `runner_test.go` covers the gate order, the ceiling refusal that
-continues, the verdict record per attack, the error-to-pending path, and
-the target error as `skipped` with and without `Orchestrated`.
-`ratelimit_test.go` covers parent requirement 9 with a fake clock.
-`durability_test.go` covers the ceiling against every impact. Every
-existing attack suite passes with its `fixtureTarget()`, plus one case per
-package where an empty target yields the target error and zero sends.
-`ghost_test.go` and `ip6_test.go` cover the empty-window `resisted` path
-within the window. `routing_test.go` runs `wpad` on an in-memory
-listener. `attacks_test.go` holds the oracle of all 40 pairs.
-`snapshots_test.go` pins the regenerated file. `main_test.go` covers the
-usage error and exit 2 for a missing target, the ceiling flag, the ack
-hint text, and `ackList.Set` rejecting a bare mode. `full_test.go` covers
-a burst whose stub behaviors return mixed verdicts and the summary
-counts, and the ceiling refusing `stproot` under `none` while `ghost`
-runs. `matrix_test.go` checks the four columns per row. `lab_test.go`
-asserts the command lines carry the flags. The conformance gate has a
-fixture that trips it.
-Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/edge/netpen test/conformance docs/architecture/2026-09-23-netpen-lab-vendor-validation-direction.md`
+Files: src/edge/netpen/attacks/fh/hsrp.go, src/edge/netpen/attacks/fh/glbp.go, src/edge/netpen/attacks/fh/ghost.go, src/edge/netpen/attacks/fh/arpsweep.go, src/edge/netpen/attacks/fh/vrrp.go, src/edge/netpen/attacks/fh/gratarp.go, src/edge/netpen/attacks/fh/icmpredirect.go, src/edge/netpen/attacks/fh/lldpspoof.go, src/edge/netpen/attacks/fh/llmnr.go, src/edge/netpen/attacks/fh/arpspoof.go, src/edge/netpen/attacks/fh/helpers.go, src/edge/netpen/attacks/fh/fh_test.go, src/edge/netpen/attacks/fh/ghost_test.go
+After: U5
+Change: `hsrp` calls `Within(FieldGroup, 255)` after `Need` and reads the
+pointer. `glbp` reads the pointer. `arpsweep` returns the invalid code
+when the sweep network yields no host. `ghost` observes through
+`check.First` with the ghost source address as its predicate and returns
+`confirmed` on the match or `resisted` at the window. The file headers
+describe each check in `Impact`, `Restore`, and `Affects` terms and carry
+no deleted class name, no roadmap word, and no em dash. The `vrrp`
+comment says the fixture compares bytes.
+Tests: `fh_test.go` gains a table `TestNeedFieldsPerBehavior` with one
+row per behavior that reads a target, asserting the exact missing list
+for an empty target, and a row for `hsrp` with group 300 asserting the
+invalid code and zero sends. `ghost_test.go` gains the ambient-only case
+(the `ghost_ambient.pcap` frames alone, `resisted`) and the ambient-then-
+ghost case (`confirmed` within the window). `TestARPSpoof_UnreachableTargetAfterPoison`
+asserts the partial record names both repair steps.
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/edge/netpen/attacks/fh`
 
-Waves: U1 U2 U3 | U4
+### U9. DHCP and IPv6 family: the raguard probe, the observers, and the cost row
+
+Files: src/edge/netpen/attacks/ip6/raguard.go, src/edge/netpen/attacks/ip6/roguera.go, src/edge/netpen/attacks/ip6/roguedhcp6.go, src/edge/netpen/attacks/ip6/daddos.go, src/edge/netpen/attacks/ip6/ndpspoof.go, src/edge/netpen/attacks/ip6/roguedhcp.go, src/edge/netpen/attacks/ip6/dhcpstarve.go, src/edge/netpen/attacks/ip6/mld.go, src/edge/netpen/attacks/ip6/raflood.go, src/edge/netpen/attacks/ip6/register.go, src/edge/netpen/attacks/ip6/helpers.go, src/edge/netpen/attacks/ip6/harvest_ip6.go, src/edge/netpen/attacks/ip6/ip6_test.go, src/edge/netpen/attacks/ip6/receive_test.go, src/edge/netpen/attacks/testdata/ip6/raguard.pcap, src/edge/netpen/attacks/attacks_test.go, src/edge/netpen/catalog/zz_generated_catalog.go, src/edge/netpen/test/integration/VALIDATION_MATRIX.md, docs/plans/2026-10-12-1259-feat-netpen-check-model-plan.md
+After: U5
+Change: `raguard` crafts the probe advertisement the Decisions describe
+in its own `craftProbeRA`, observes through `check.First` with a
+predicate that decodes an ICMPv6 Router Advertisement from the leg's MAC
+carrying the target prefix, and records `traversal: unobserved` with no
+watch leg. `harvest_ip6.go` writes the new fixture. `roguedhcp6` waits
+through `First` for a Solicit whose Ethernet source is `Victim6.MAC`,
+replies to that frame's source address, and returns `pending` with
+`no solicit in <window>` at the window. `daddos` waits through `First`
+for the defending advertisement. `register.go` carries the 600 s bound,
+the finding's decay note (`roguedhcp6.go:106`) reads `600s`, and the
+oracle, the generated file, and the matrix rows for `raguard` (the probe
+it sends, the neighbor-cache effect, and the vendor behavior marked
+unverified), `roguedhcp6` (`decay 10m0s`), `ghost` (resisted at the
+window), and `vlanenum` (`pending` on no tags, and a VID-0 frame's
+visibility) follow. The parent plan's bound Decision reads 600 s, and
+`harvest_ip6.go`'s header lists `raguard` as spec-authored. The file
+headers state the cost fields and carry no deleted class name, no
+history wording, no false claim about duration or randomness, and no em
+dash.
+Tests: `ip6_test.go` pins the regenerated fixture byte for byte and
+decodes it to assert the fields and the option list of Requirement 11.
+`TestRAGuard_AmbientOnlyIsResisted` feeds a broadcast ARP from the leg
+MAC, an RA from the leg MAC with another prefix, an advertisement from
+another MAC, and a truncated RA, and wants `resisted` at the window.
+`TestRAGuard_TraversalAttribution` asserts `confirmed` on the probe
+itself. `TestRogueDHCPv6_QuietLegIsPending`,
+`TestRogueDHCPv6_IgnoresOtherClients`, and `TestDADDOS_LateDefenseIsRead`
+cover the observers, inside `synctest` bubbles. `receive_test.go:51`
+keeps a terminal `Frame.Err` as the behavior's error, and its malformed
+Solicit cases (`:99-163`) now expect `pending` with the window detail and
+zero sends, since the predicate skips what it cannot decode.
+`TestCatalogCostFields` (`ip6_test.go:570-582`) and the decay note
+assertion (`:251`) read 600 s. `TestNeedFieldsPerBehavior` covers every
+behavior that reads a target, including a v4-mapped `Victim6` and an
+IPv6 `OfferIP` as invalid. `attacks_test.go` reads the 600 s bound for
+`roguedhcp6`.
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/edge/netpen/attacks/ip6 src/edge/netpen/attacks/attacks_test.go src/edge/netpen/catalog src/edge/netpen/test/integration`, then `go generate ./catalog/... && git diff --exit-code catalog/zz_generated_catalog.go` from `src/edge/netpen`.
+
+### U10. L2 and routing families: the observers and the bounds
+
+Files: src/edge/netpen/attacks/l2/vlanenum.go, src/edge/netpen/attacks/l2/voicevlan.go, src/edge/netpen/attacks/l2/vtp.go, src/edge/netpen/attacks/l2/portsteal.go, src/edge/netpen/attacks/l2/doubletag.go, src/edge/netpen/attacks/l2/vlanhop.go, src/edge/netpen/attacks/l2/camflood.go, src/edge/netpen/attacks/l2/stproot.go, src/edge/netpen/attacks/l2/mvrp.go, src/edge/netpen/attacks/l2/etherchannel.go, src/edge/netpen/attacks/l2/dtp.go, src/edge/netpen/attacks/l2/craft.go, src/edge/netpen/attacks/l2/helpers.go, src/edge/netpen/attacks/l2/l2_test.go, src/edge/netpen/attacks/l2/vlanenum_test.go, src/edge/netpen/attacks/routing/ospf.go, src/edge/netpen/attacks/routing/eigrp.go, src/edge/netpen/attacks/routing/wpad.go, src/edge/netpen/attacks/routing/helpers.go, src/edge/netpen/attacks/routing/routing_test.go, src/edge/netpen/attacks/routing/receive_test.go
+After: U5
+Change: `vlanenum` collects tagged frames through `check.Collect` for the
+window and returns `confirmed` with the ids seen, or `pending` with
+`no tagged frames in <window>`. `voicevlan` calls `Within(FieldVoiceVLAN,
+127)`. `ospf` reads the hello and `eigrp` the goodbye through `check.First`
+within the window, skipping frames their decoders reject, and proceed as
+today when the window ends without one. `vtp` reports the mode from
+`deps.Entry.Mode`. The `wpad` doc comment says the listener binds loopback
+and closes before return. The file headers state the cost fields and carry
+no deleted class name, no roadmap word, no stale fixture text, and no em
+dash.
+Tests: `l2_test.go` and `routing_test.go` gain `TestNeedFieldsPerBehavior`
+rows for every behavior that reads a target, including an IPv6 victim
+for `portsteal`, VLAN 4095 for `doubletag`, voice VLAN 200, and a 33-byte
+domain, each asserting the invalid code and zero sends.
+`vlanenum_test.go` sets a window on every case (today `:25`, `:45`, and
+`:65` pass zero) and gains the busy-leg case of Requirement 10 and the
+no-tags case, inside `synctest` bubbles. `routing_test.go` gains an ARP
+frame before the OSPF hello (the hello is still read), a non-matching
+first frame before the EIGRP goodbye (`resisted`), an IPv6 router ID and
+route as invalid with zero sends, a teardown step name assertion for
+`ospf-lsa-flush`, `ospf-goodbye`, and `eigrp-goodbye`, and
+`TestWPAD_ListenFailureIsCoded` asserting `errs.CodeOf` on the returned
+error. `receive_test.go:43-44` keeps a terminal `Frame.Err` as the
+behavior's error, and its closed-receiver case (`:86-91`) now expects the
+sequence to proceed at the window's end with the full send count, since
+a closed channel ends the window.
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/edge/netpen/attacks/l2 src/edge/netpen/attacks/routing`
+
+Waves: U5 | U6 U7 U8 U9 U10
 
 ## Verification
 
@@ -364,38 +593,26 @@ cd src/edge/netpen && go vet ./... && GOOS=linux go vet ./... && go test -race -
 - [ ] Verifier green for every changed path.
 - [ ] `src/edge/netpen/README.md` written and the matrix regenerated in
       the same change.
-- [ ] `uv run tools/scripts/run.py plan record implemented <phase> --units 4 --from <t> --to <t>`.
+- [ ] `uv run tools/scripts/run.py plan record implemented <phase> --units 6 --from <t> --to <t>`.
+- [ ] The matrix row for `raguard` and `vlanenum` says what the probe
+      sends and what the verdict rests on, with the vendor behavior marked
+      unverified until the lab tier runs it.
 - [ ] No plan labels in code.
 
 ## Open questions
 
 - The parent's open questions on the `--max-impact` and `--observe`
-  defaults. U4 and U6 take `temporary` and `3s`.
-- Whether the cutover unit, which touches every package in the module,
-  should be driven by one worker or split across two worktrees by package
-  with a merge at the end. The implementer takes one worker, since no
-  package in it builds alone.
-- Parent Requirement 6 and this phase's Decision that a zero number is an
-  absent target field: HSRP and GLBP group 0 is a valid group
-  (`spec/yang/cisco/iosxe/2611/Cisco-IOS-XE-hsrp.yang:227-231`,
-  `CISCO-HSRP-MIB.yang:213-215`), so `Target.Group` needs explicit
-  presence and the `--group` flag has to accept 0. The review found no
-  way to express it under the Decision as written.
-- Parent Requirement 2's example dispatches `raguard` under a ceiling of
-  `none`, and the catalog rates it `none / none / none`, but the check
-  sends `roguera`'s advertisement (router lifetime 1800 s, prefix with the
-  A flag, `attacks/ip6/raguard.go:46`), which makes the attacker the
-  default router where no guard drops it. Either the probe RA changes to a
-  harmless one (lifetime 0, no A flag, which changes pinned bytes the plan
-  rules out) or `raguard` takes `roguera`'s cost and leaves the example.
-- Parent Requirements 7 and 10 need a target validation mechanism and a
-  bounded observation mechanism the plan does not decide: a value that is
-  present but of the wrong family or out of range passes `Need` and sends
-  a wrong frame or crashes (`ospf.go:61`, `eigrp.go:303`, `hsrp.go:44`,
-  `voicevlan.go:95`, `portsteal.go:93`, `arpsweep.go:68`), and every
-  observing check stops on a frame count or a fixed timer instead of the
-  window (`ghost.go:75`, `raguard.go:67`, `vlanenum.go:60`, `ospf.go:107`,
-  `eigrp.go:105`, `daddos.go:64`, `roguedhcp6.go:52`).
+  defaults. The first run took `temporary` and `3s`.
+- The GLBP group range has no vendored source (`spec/yang/cisco/iosxe/2611`
+  carries no GLBP module), so `glbp` takes the full `uint16` its frame
+  field holds and the plan states no bound. Unverified.
+- Whether a given vendor's RA-Guard or host stack treats the zero-lifetime
+  probe as RFC 4861, 4862, and 6105 describe is unverified until the lab
+  tier runs it. The `raguard` matrix row carries the same note.
+- The kernel's filling of the PACKET_RX_RING while nothing polls is
+  unverified. The Out of scope entry on buffered frames rests on the
+  afpacket source alone (`afpacket.go:316-352`), which shows only that
+  the reader takes the next ring block in order.
 
 ## Review gaps
 
