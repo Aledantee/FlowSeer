@@ -70,3 +70,33 @@ services:
         required: false
     ports:
       - "127.0.0.1:8445:8445"
+
+  # The history store for the lab: one node, plain engines, native protocol on
+  # loopback. CLICKHOUSE_USER creates the admin that the migrator connects as,
+  # with the password the lab README exports as CLICKHOUSE_ADMIN_PASSWORD. The
+  # default is empty so that the plain `docker compose up`, which skips this
+  # profile, still parses the file.
+  clickhouse:
+    image: clickhouse/clickhouse-server:26.8@sha256:9b61e3c635c04ad5bb521eb4f6e61ce7585b5580814e51c25bb9e8292ce43364
+    profiles: ["history"]
+    environment:
+      CLICKHOUSE_USER: flowseer_admin
+      CLICKHOUSE_DB: flowseer
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_ADMIN_PASSWORD:-}
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+    ports:
+      - "127.0.0.1:9000:9000"
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8123/ping || exit 1"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+volumes:
+  clickhouse-data:

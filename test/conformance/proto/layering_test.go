@@ -80,6 +80,12 @@ var importOrder = map[string][]string{
 	// edge. It hands back EdgeRecord and takes EdgeGlobalRef.
 	"api/edge": {"model/edge", "authz"},
 
+	// The operator-facing service that reads stored observation history. It
+	// names a device or a location through model/inventory, the owning tenant
+	// of each entry through model/identity, and hands back the stored
+	// SyslogRecord from event/log with the severity taxonomy of net/log.
+	"api/history": {"event/log", "model/identity", "model/inventory", "net/log", "authz"},
+
 	// The operator-facing service that creates, retrieves, and lists
 	// tenants. It hands back TenantRecord and takes TenantGlobalRef.
 	"api/identity": {"model/identity", "authz"},

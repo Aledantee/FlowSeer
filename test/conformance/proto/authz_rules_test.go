@@ -61,6 +61,38 @@ func TestRuleRules(t *testing.T) {
 			wantValid: true,
 		},
 		{
+			name: "valid multi-tenant tenant rule",
+			message: authzv1.Rule_builder{
+				Mode:        authzv1.RuleMode_RULE_MODE_TENANT.Enum(),
+				Relation:    proto.String("viewer"),
+				ObjectType:  proto.String("tenant"),
+				MultiTenant: proto.Bool(true),
+			}.Build(),
+			wantValid: true,
+		},
+		{
+			name: "multi-tenant outside tenant mode",
+			message: authzv1.Rule_builder{
+				Mode:         authzv1.RuleMode_RULE_MODE_REQUEST.Enum(),
+				Relation:     proto.String("view"),
+				ObjectType:   proto.String("device"),
+				ObjectIdPath: proto.String("device.device.id"),
+				MultiTenant:  proto.Bool(true),
+			}.Build(),
+			wantValid: false,
+		},
+		{
+			name: "multi-tenant explicitly false outside tenant mode",
+			message: authzv1.Rule_builder{
+				Mode:         authzv1.RuleMode_RULE_MODE_REQUEST.Enum(),
+				Relation:     proto.String("view"),
+				ObjectType:   proto.String("device"),
+				ObjectIdPath: proto.String("device.device.id"),
+				MultiTenant:  proto.Bool(false),
+			}.Build(),
+			wantValid: false,
+		},
+		{
 			name: "path outside request mode",
 			message: authzv1.Rule_builder{
 				Mode:         authzv1.RuleMode_RULE_MODE_TENANT.Enum(),

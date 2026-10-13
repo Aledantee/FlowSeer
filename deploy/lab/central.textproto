@@ -50,3 +50,38 @@ authorization {
   model_id: "PLACEHOLDER_MODEL_ID"
   preshared_key_file: "/etc/flowseer/secrets/openfga.key"
 }
+
+# The lab's ClickHouse is the compose service on loopback. The passwords sit
+# in the files the README has you write under /etc/flowseer/clickhouse. A
+# single node names no cluster, so the migrator creates plain engines.
+history {
+  endpoints: "127.0.0.1:9000"
+  database: "flowseer"
+  admin {
+    name: "flowseer_admin"
+    password_file: "/etc/flowseer/clickhouse/admin.password"
+  }
+  writer {
+    name: "flowseer_writer"
+    password_file: "/etc/flowseer/clickhouse/writer.password"
+  }
+  reader {
+    name: "flowseer_reader"
+    password_file: "/etc/flowseer/clickhouse/reader.password"
+  }
+  analyst {
+    name: "flowseer_analyst"
+    password_file: "/etc/flowseer/clickhouse/analyst.password"
+  }
+}
+
+# Sized for 1,000 devices sending one syslog message a minute and a 72 hour
+# outage of the history store: 571 stored bytes per message
+# (src/modules/edgebus/README.md) gives about 2.3 GiB, rounded up to 2.5 GiB.
+# The account budget is that stream plus the audit, operator, and evidence
+# streams (256 + 64 + 16 + 64 MiB), rounded up to 3 GiB.
+ingest_streams {
+  max_age { seconds: 259200 }
+  max_bytes_per_type: 2684354560
+  central_budget_bytes: 3221225472
+}

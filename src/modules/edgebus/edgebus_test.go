@@ -397,18 +397,21 @@ func TestCentralIngestStreamsExistWithTheirLimits(t *testing.T) {
 		stream   string
 		subject  string
 		maxBytes int64
+		maxAge   time.Duration
 	}{
 		{
 			name:     "typed",
 			stream:   "FLOWSEER_INGEST_SYSLOG",
 			subject:  "flowseer.*.ingest.syslog.*",
 			maxBytes: 256 << 20,
+			maxAge:   72 * time.Hour,
 		},
 		{
 			name:     "evidence",
 			stream:   "FLOWSEER_INGEST_EVIDENCE",
 			subject:  "flowseer.*.evidence.>",
 			maxBytes: 64 << 20,
+			maxAge:   24 * time.Hour,
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -423,8 +426,8 @@ func TestCentralIngestStreamsExistWithTheirLimits(t *testing.T) {
 			if !reflect.DeepEqual(info.Config.Subjects, []string{test.subject}) {
 				t.Errorf("subjects = %v, want [%s]", info.Config.Subjects, test.subject)
 			}
-			if info.Config.MaxAge != 24*time.Hour {
-				t.Errorf("max age = %s, want 24h", info.Config.MaxAge)
+			if info.Config.MaxAge != test.maxAge {
+				t.Errorf("max age = %s, want %s", info.Config.MaxAge, test.maxAge)
 			}
 			if info.Config.MaxBytes != test.maxBytes {
 				t.Errorf("max bytes = %d, want %d", info.Config.MaxBytes, test.maxBytes)

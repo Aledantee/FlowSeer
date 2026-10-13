@@ -42,6 +42,11 @@ message Rule {
     message: "object_type is platform exactly when mode is RULE_MODE_PLATFORM"
     expression: "(this.object_type == 'platform') == (this.mode == 5)"
   };
+  option (buf.validate.message).cel = {
+    id: "rule.multi_tenant_needs_tenant_mode"
+    message: "multi_tenant is set only when mode is RULE_MODE_TENANT"
+    expression: "!has(this.multi_tenant) || this.mode == 2"
+  };
 
   // The authorization enforcement mode. Must be present.
   RuleMode mode = 1 [
@@ -63,4 +68,8 @@ message Rule {
   ];
   // Dot-separated path to the string object identifier within the request message. Must be present in request mode. Unset in every other mode.
   string object_id_path = 4 [(buf.validate.field).string.pattern = "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$"];
+  // True lets the method read several tenants: the X-FlowSeer-Tenant header may
+  // list up to 25, comma-separated, and the relation is checked on each one.
+  // Valid only with RULE_MODE_TENANT. Unset means exactly one tenant.
+  bool multi_tenant = 5;
 }

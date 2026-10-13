@@ -88,6 +88,7 @@ type Rule struct {
 	xxx_hidden_Relation     *string                `protobuf:"bytes,2,opt,name=relation"`
 	xxx_hidden_ObjectType   *string                `protobuf:"bytes,3,opt,name=object_type,json=objectType"`
 	xxx_hidden_ObjectIdPath *string                `protobuf:"bytes,4,opt,name=object_id_path,json=objectIdPath"`
+	xxx_hidden_MultiTenant  bool                   `protobuf:"varint,5,opt,name=multi_tenant,json=multiTenant"`
 	XXX_raceDetectHookData  protoimpl.RaceDetectHookData
 	XXX_presence            [1]uint32
 	unknownFields           protoimpl.UnknownFields
@@ -158,24 +159,36 @@ func (x *Rule) GetObjectIdPath() string {
 	return ""
 }
 
+func (x *Rule) GetMultiTenant() bool {
+	if x != nil {
+		return x.xxx_hidden_MultiTenant
+	}
+	return false
+}
+
 func (x *Rule) SetMode(v RuleMode) {
 	x.xxx_hidden_Mode = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 4)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 5)
 }
 
 func (x *Rule) SetRelation(v string) {
 	x.xxx_hidden_Relation = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 4)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 5)
 }
 
 func (x *Rule) SetObjectType(v string) {
 	x.xxx_hidden_ObjectType = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 4)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 5)
 }
 
 func (x *Rule) SetObjectIdPath(v string) {
 	x.xxx_hidden_ObjectIdPath = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 4)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 5)
+}
+
+func (x *Rule) SetMultiTenant(v bool) {
+	x.xxx_hidden_MultiTenant = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 5)
 }
 
 func (x *Rule) HasMode() bool {
@@ -206,6 +219,13 @@ func (x *Rule) HasObjectIdPath() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 3)
 }
 
+func (x *Rule) HasMultiTenant() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 4)
+}
+
 func (x *Rule) ClearMode() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
 	x.xxx_hidden_Mode = RuleMode_RULE_MODE_UNSPECIFIED
@@ -226,6 +246,11 @@ func (x *Rule) ClearObjectIdPath() {
 	x.xxx_hidden_ObjectIdPath = nil
 }
 
+func (x *Rule) ClearMultiTenant() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 4)
+	x.xxx_hidden_MultiTenant = false
+}
+
 type Rule_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
@@ -237,6 +262,10 @@ type Rule_builder struct {
 	ObjectType *string
 	// Dot-separated path to the string object identifier within the request message. Must be present in request mode. Unset in every other mode.
 	ObjectIdPath *string
+	// True lets the method read several tenants: the X-FlowSeer-Tenant header may
+	// list up to 25, comma-separated, and the relation is checked on each one.
+	// Valid only with RULE_MODE_TENANT. Unset means exactly one tenant.
+	MultiTenant *bool
 }
 
 func (b0 Rule_builder) Build() *Rule {
@@ -244,20 +273,24 @@ func (b0 Rule_builder) Build() *Rule {
 	b, x := &b0, m0
 	_, _ = b, x
 	if b.Mode != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 4)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 5)
 		x.xxx_hidden_Mode = *b.Mode
 	}
 	if b.Relation != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 4)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 5)
 		x.xxx_hidden_Relation = b.Relation
 	}
 	if b.ObjectType != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 4)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 5)
 		x.xxx_hidden_ObjectType = b.ObjectType
 	}
 	if b.ObjectIdPath != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 4)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 5)
 		x.xxx_hidden_ObjectIdPath = b.ObjectIdPath
+	}
+	if b.MultiTenant != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 5)
+		x.xxx_hidden_MultiTenant = *b.MultiTenant
 	}
 	return m0
 }
@@ -283,17 +316,19 @@ var File_flowseer_authz_v1_rule_proto protoreflect.FileDescriptor
 
 const file_flowseer_authz_v1_rule_proto_rawDesc = "" +
 	"\n" +
-	"\x1cflowseer/authz/v1/rule.proto\x12\x11flowseer.authz.v1\x1a google/protobuf/descriptor.proto\"\xdf\x05\n" +
+	"\x1cflowseer/authz/v1/rule.proto\x12\x11flowseer.authz.v1\x1a google/protobuf/descriptor.proto\"\x8d\a\n" +
 	"\x04Rule\x12>\n" +
 	"\x04mode\x18\x01 \x01(\x0e2\x1b.flowseer.authz.v1.RuleModeB\r\xbaH\n" +
 	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\x04mode\x124\n" +
 	"\brelation\x18\x02 \x01(\tB\x18\xbaH\x15\xc8\x01\x01r\x102\x0e^[a-z][a-z_]*$R\brelation\x129\n" +
 	"\vobject_type\x18\x03 \x01(\tB\x18\xbaH\x15\xc8\x01\x01r\x102\x0e^[a-z][a-z_]*$R\n" +
 	"objectType\x12R\n" +
-	"\x0eobject_id_path\x18\x04 \x01(\tB,\xbaH)r'2%^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$R\fobjectIdPath:\xd1\x03\xbaH\xcd\x03\x1a\x8e\x01\n" +
+	"\x0eobject_id_path\x18\x04 \x01(\tB,\xbaH)r'2%^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$R\fobjectIdPath\x12!\n" +
+	"\fmulti_tenant\x18\x05 \x01(\bR\vmultiTenant:\xdc\x04\xbaH\xd8\x04\x1a\x8e\x01\n" +
 	" rule.object_id_path_matches_mode\x12<object_id_path is set exactly when mode is RULE_MODE_REQUEST\x1a,has(this.object_id_path) == (this.mode == 1)\x1a\x97\x01\n" +
 	"$rule.tenant_mode_matches_object_type\x12;object_type is tenant exactly when mode is RULE_MODE_TENANT\x1a2(this.object_type == 'tenant') == (this.mode == 2)\x1a\x9f\x01\n" +
-	"&rule.platform_mode_matches_object_type\x12?object_type is platform exactly when mode is RULE_MODE_PLATFORM\x1a4(this.object_type == 'platform') == (this.mode == 5)*\x98\x01\n" +
+	"&rule.platform_mode_matches_object_type\x12?object_type is platform exactly when mode is RULE_MODE_PLATFORM\x1a4(this.object_type == 'platform') == (this.mode == 5)\x1a\x88\x01\n" +
+	"#rule.multi_tenant_needs_tenant_mode\x126multi_tenant is set only when mode is RULE_MODE_TENANT\x1a)!has(this.multi_tenant) || this.mode == 2*\x98\x01\n" +
 	"\bRuleMode\x12\x19\n" +
 	"\x15RULE_MODE_UNSPECIFIED\x10\x00\x12\x15\n" +
 	"\x11RULE_MODE_REQUEST\x10\x01\x12\x14\n" +

@@ -16,12 +16,13 @@ import option "buf/validate/validate.proto";
 // A deployment writes one of these. Every duration may be left unset, and
 // each says what the host does then, so a working file is short.
 //
-// The bus's storage bounds are deliberately not here. The JetStream store
-// ceiling, the per-account budgets that keep edge telemetry from starving the
-// journal, and the per-edge stream bounds all come from the defaults in
-// src/modules/edgebus, which no deployment has yet had reason to move off. An
-// operator who runs out of room is looking for a knob that was not forgotten:
-// it is one field away when a deployment needs it.
+// Most of the bus's storage bounds are deliberately not here. The JetStream
+// store ceiling, the per-account budgets that keep edge telemetry from
+// starving the journal, and the per-edge stream bounds come from the defaults
+// in src/modules/edgebus, which no deployment has yet had reason to move off.
+// The typed ingest streams are the exception, because their size follows the
+// fleet: ingest_streams holds the bounds a deployment sizes for its devices
+// and its outage tolerance.
 message DeviceServiceConfig {
   option (buf.validate.message).cel = {
     id: "device_service_config.platform_admin_issuer_configured"
@@ -82,6 +83,13 @@ message DeviceServiceConfig {
   // Limits on raw windows. Unset means the deployment allows none: the service
   // refuses every open instead of choosing an allowance.
   RawWindowLimits raw_windows = 13;
+  // The ClickHouse history store. Unset runs the service without one: the
+  // history sink and the history read are off, and records stay in the ingest
+  // streams until they age out.
+  HistoryStore history = 14;
+  // Bounds for the typed ingest streams. Unset takes the defaults in
+  // src/modules/edgebus.
+  IngestStreams ingest_streams = 15;
 }
 
 // What a deployment lets operators keep as raw window evidence.
@@ -94,6 +102,78 @@ message RawWindowLimits {
     (buf.validate.field).required = true,
     (buf.validate.field).uint64.gt = 0
   ];
+}
+
+// Where the ClickHouse history store is and who the service connects as.
+//
+// The service connects as three users and the migrator as a fourth. Each
+// password is read from a file at connect time, so a rotated secret needs no
+// edit of this file.
+message HistoryStore {
+  // The native-protocol endpoints as host:port, in preference order. Must hold
+  // between 1 and 8, each with a port.
+  repeated string endpoints = 1 [
+    (buf.validate.field).repeated.min_items = 1,
+    (buf.validate.field).repeated.max_items = 8,
+    (buf.validate.field).repeated.items.string.pattern = "^.+:[0-9]{1,5}$",
+    (buf.validate.field).repeated.items.string.max_len = 256
+  ];
+  // The database that holds every history table. Must be present.
+  string database = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.pattern = "^[A-Za-z_][A-Za-z0-9_]{0,63}$"
+  ];
+  // The ClickHouse cluster name from the server's remote_servers section.
+  // Unset means a single node: the migrator then creates plain engines and
+  // runs no statement ON CLUSTER. Set, it creates Replicated engines and runs
+  // every user, profile, row policy, resource, and workload ON CLUSTER.
+  string cluster = 3 [(buf.validate.field).string.pattern = "^[A-Za-z_][A-Za-z0-9_]{0,63}$"];
+  // The user that creates schema. Only the migrator mode connects as it. Must
+  // be present.
+  HistoryUser admin = 4 [(buf.validate.field).required = true];
+  // The user the sink inserts as. Must be present.
+  HistoryUser writer = 5 [(buf.validate.field).required = true];
+  // The user the history read connects as. Must be present.
+  HistoryUser reader = 6 [(buf.validate.field).required = true];
+  // The user fleet analytics connects as. Must be present.
+  HistoryUser analyst = 7 [(buf.validate.field).required = true];
+  // Certificate authority bundle used to verify the ClickHouse TLS
+  // certificate. Must be absolute. Unset connects without TLS.
+  string ca_file = 8 [
+    (buf.validate.field).string.pattern = "^/",
+    (buf.validate.field).string.max_len = 4096
+  ];
+}
+
+// One ClickHouse user and the file that holds its password.
+message HistoryUser {
+  // The ClickHouse user name. Must be present.
+  string name = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.pattern = "^[A-Za-z_][A-Za-z0-9_]{0,63}$"
+  ];
+  // Path to the file holding the password. Must be present and absolute.
+  string password_file = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.pattern = "^/",
+    (buf.validate.field).string.max_len = 4096
+  ];
+}
+
+// Bounds for the typed ingest streams in the central account. Central sizes
+// them from the fleet: stored bytes per message, times the retention, the
+// number of devices, and the messages per device per minute
+// (src/modules/edgebus/README.md).
+message IngestStreams {
+  // How long a stream keeps a record. The window a history outage may last
+  // before records are lost. Unset means 72 hours.
+  google.protobuf.Duration max_age = 1 [(buf.validate.field).duration.gte = {seconds: 1}];
+  // The byte bound of each typed ingest stream. Unset means 256 MiB.
+  int64 max_bytes_per_type = 2 [(buf.validate.field).int64.gt = 0];
+  // The disk reservation of the whole central account, which holds the ingest
+  // streams, the audit stream, the operator streams, and the evidence stream.
+  // It must cover their sum. Unset means 1 GiB.
+  int64 central_budget_bytes = 3 [(buf.validate.field).int64.gt = 0];
 }
 
 // An OpenID Connect issuer trusted to authenticate operators.

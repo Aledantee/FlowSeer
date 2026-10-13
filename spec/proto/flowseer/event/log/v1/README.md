@@ -9,7 +9,7 @@ alarm.
 
 Imports: model/inventory, net/addr, net/log
 
-Imported by: integration/ingest
+Imported by: api/history, integration/ingest
 
 Deliberately absent:
 

@@ -92,12 +92,13 @@ func (x LogLevel) Number() protoreflect.EnumNumber {
 // A deployment writes one of these. Every duration may be left unset, and
 // each says what the host does then, so a working file is short.
 //
-// The bus's storage bounds are deliberately not here. The JetStream store
-// ceiling, the per-account budgets that keep edge telemetry from starving the
-// journal, and the per-edge stream bounds all come from the defaults in
-// src/modules/edgebus, which no deployment has yet had reason to move off. An
-// operator who runs out of room is looking for a knob that was not forgotten:
-// it is one field away when a deployment needs it.
+// Most of the bus's storage bounds are deliberately not here. The JetStream
+// store ceiling, the per-account budgets that keep edge telemetry from
+// starving the journal, and the per-edge stream bounds come from the defaults
+// in src/modules/edgebus, which no deployment has yet had reason to move off.
+// The typed ingest streams are the exception, because their size follows the
+// fleet: ingest_streams holds the bounds a deployment sizes for its devices
+// and its outage tolerance.
 type DeviceServiceConfig struct {
 	state                     protoimpl.MessageState  `protogen:"opaque.v1"`
 	xxx_hidden_StateDir       *string                 `protobuf:"bytes,1,opt,name=state_dir,json=stateDir"`
@@ -112,6 +113,8 @@ type DeviceServiceConfig struct {
 	xxx_hidden_Authentication *OperatorAuthentication `protobuf:"bytes,11,opt,name=authentication"`
 	xxx_hidden_Authorization  *AuthorizationEngine    `protobuf:"bytes,12,opt,name=authorization"`
 	xxx_hidden_RawWindows     *RawWindowLimits        `protobuf:"bytes,13,opt,name=raw_windows,json=rawWindows"`
+	xxx_hidden_History        *HistoryStore           `protobuf:"bytes,14,opt,name=history"`
+	xxx_hidden_IngestStreams  *IngestStreams          `protobuf:"bytes,15,opt,name=ingest_streams,json=ingestStreams"`
 	XXX_raceDetectHookData    protoimpl.RaceDetectHookData
 	XXX_presence              [1]uint32
 	unknownFields             protoimpl.UnknownFields
@@ -238,19 +241,33 @@ func (x *DeviceServiceConfig) GetRawWindows() *RawWindowLimits {
 	return nil
 }
 
+func (x *DeviceServiceConfig) GetHistory() *HistoryStore {
+	if x != nil {
+		return x.xxx_hidden_History
+	}
+	return nil
+}
+
+func (x *DeviceServiceConfig) GetIngestStreams() *IngestStreams {
+	if x != nil {
+		return x.xxx_hidden_IngestStreams
+	}
+	return nil
+}
+
 func (x *DeviceServiceConfig) SetStateDir(v string) {
 	x.xxx_hidden_StateDir = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 12)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 14)
 }
 
 func (x *DeviceServiceConfig) SetRegistryPath(v string) {
 	x.xxx_hidden_RegistryPath = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 12)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 14)
 }
 
 func (x *DeviceServiceConfig) SetCredentialRoot(v string) {
 	x.xxx_hidden_CredentialRoot = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 12)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 14)
 }
 
 func (x *DeviceServiceConfig) SetListeners(v *ServiceListeners) {
@@ -271,7 +288,7 @@ func (x *DeviceServiceConfig) SetIntervals(v *ServiceIntervals) {
 
 func (x *DeviceServiceConfig) SetLogLevel(v LogLevel) {
 	x.xxx_hidden_LogLevel = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 7, 12)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 7, 14)
 }
 
 func (x *DeviceServiceConfig) SetPlatformAdmin(v *PlatformAdmin) {
@@ -288,6 +305,14 @@ func (x *DeviceServiceConfig) SetAuthorization(v *AuthorizationEngine) {
 
 func (x *DeviceServiceConfig) SetRawWindows(v *RawWindowLimits) {
 	x.xxx_hidden_RawWindows = v
+}
+
+func (x *DeviceServiceConfig) SetHistory(v *HistoryStore) {
+	x.xxx_hidden_History = v
+}
+
+func (x *DeviceServiceConfig) SetIngestStreams(v *IngestStreams) {
+	x.xxx_hidden_IngestStreams = v
 }
 
 func (x *DeviceServiceConfig) HasStateDir() bool {
@@ -374,6 +399,20 @@ func (x *DeviceServiceConfig) HasRawWindows() bool {
 	return x.xxx_hidden_RawWindows != nil
 }
 
+func (x *DeviceServiceConfig) HasHistory() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_History != nil
+}
+
+func (x *DeviceServiceConfig) HasIngestStreams() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_IngestStreams != nil
+}
+
 func (x *DeviceServiceConfig) ClearStateDir() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
 	x.xxx_hidden_StateDir = nil
@@ -426,6 +465,14 @@ func (x *DeviceServiceConfig) ClearRawWindows() {
 	x.xxx_hidden_RawWindows = nil
 }
 
+func (x *DeviceServiceConfig) ClearHistory() {
+	x.xxx_hidden_History = nil
+}
+
+func (x *DeviceServiceConfig) ClearIngestStreams() {
+	x.xxx_hidden_IngestStreams = nil
+}
+
 type DeviceServiceConfig_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
@@ -465,6 +512,13 @@ type DeviceServiceConfig_builder struct {
 	// Limits on raw windows. Unset means the deployment allows none: the service
 	// refuses every open instead of choosing an allowance.
 	RawWindows *RawWindowLimits
+	// The ClickHouse history store. Unset runs the service without one: the
+	// history sink and the history read are off, and records stay in the ingest
+	// streams until they age out.
+	History *HistoryStore
+	// Bounds for the typed ingest streams. Unset takes the defaults in
+	// src/modules/edgebus.
+	IngestStreams *IngestStreams
 }
 
 func (b0 DeviceServiceConfig_builder) Build() *DeviceServiceConfig {
@@ -472,15 +526,15 @@ func (b0 DeviceServiceConfig_builder) Build() *DeviceServiceConfig {
 	b, x := &b0, m0
 	_, _ = b, x
 	if b.StateDir != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 12)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 14)
 		x.xxx_hidden_StateDir = b.StateDir
 	}
 	if b.RegistryPath != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 12)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 14)
 		x.xxx_hidden_RegistryPath = b.RegistryPath
 	}
 	if b.CredentialRoot != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 12)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 14)
 		x.xxx_hidden_CredentialRoot = b.CredentialRoot
 	}
 	x.xxx_hidden_Listeners = b.Listeners
@@ -488,13 +542,15 @@ func (b0 DeviceServiceConfig_builder) Build() *DeviceServiceConfig {
 	x.xxx_hidden_Telemetry = b.Telemetry
 	x.xxx_hidden_Intervals = b.Intervals
 	if b.LogLevel != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 7, 12)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 7, 14)
 		x.xxx_hidden_LogLevel = *b.LogLevel
 	}
 	x.xxx_hidden_PlatformAdmin = b.PlatformAdmin
 	x.xxx_hidden_Authentication = b.Authentication
 	x.xxx_hidden_Authorization = b.Authorization
 	x.xxx_hidden_RawWindows = b.RawWindows
+	x.xxx_hidden_History = b.History
+	x.xxx_hidden_IngestStreams = b.IngestStreams
 	return m0
 }
 
@@ -578,6 +634,537 @@ func (b0 RawWindowLimits_builder) Build() *RawWindowLimits {
 	return m0
 }
 
+// Where the ClickHouse history store is and who the service connects as.
+//
+// The service connects as three users and the migrator as a fourth. Each
+// password is read from a file at connect time, so a rotated secret needs no
+// edit of this file.
+type HistoryStore struct {
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Endpoints   []string               `protobuf:"bytes,1,rep,name=endpoints"`
+	xxx_hidden_Database    *string                `protobuf:"bytes,2,opt,name=database"`
+	xxx_hidden_Cluster     *string                `protobuf:"bytes,3,opt,name=cluster"`
+	xxx_hidden_Admin       *HistoryUser           `protobuf:"bytes,4,opt,name=admin"`
+	xxx_hidden_Writer      *HistoryUser           `protobuf:"bytes,5,opt,name=writer"`
+	xxx_hidden_Reader      *HistoryUser           `protobuf:"bytes,6,opt,name=reader"`
+	xxx_hidden_Analyst     *HistoryUser           `protobuf:"bytes,7,opt,name=analyst"`
+	xxx_hidden_CaFile      *string                `protobuf:"bytes,8,opt,name=ca_file,json=caFile"`
+	XXX_raceDetectHookData protoimpl.RaceDetectHookData
+	XXX_presence           [1]uint32
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
+}
+
+func (x *HistoryStore) Reset() {
+	*x = HistoryStore{}
+	mi := &file_flowseer_store_device_v1_service_config_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HistoryStore) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HistoryStore) ProtoMessage() {}
+
+func (x *HistoryStore) ProtoReflect() protoreflect.Message {
+	mi := &file_flowseer_store_device_v1_service_config_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *HistoryStore) GetEndpoints() []string {
+	if x != nil {
+		return x.xxx_hidden_Endpoints
+	}
+	return nil
+}
+
+func (x *HistoryStore) GetDatabase() string {
+	if x != nil {
+		if x.xxx_hidden_Database != nil {
+			return *x.xxx_hidden_Database
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *HistoryStore) GetCluster() string {
+	if x != nil {
+		if x.xxx_hidden_Cluster != nil {
+			return *x.xxx_hidden_Cluster
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *HistoryStore) GetAdmin() *HistoryUser {
+	if x != nil {
+		return x.xxx_hidden_Admin
+	}
+	return nil
+}
+
+func (x *HistoryStore) GetWriter() *HistoryUser {
+	if x != nil {
+		return x.xxx_hidden_Writer
+	}
+	return nil
+}
+
+func (x *HistoryStore) GetReader() *HistoryUser {
+	if x != nil {
+		return x.xxx_hidden_Reader
+	}
+	return nil
+}
+
+func (x *HistoryStore) GetAnalyst() *HistoryUser {
+	if x != nil {
+		return x.xxx_hidden_Analyst
+	}
+	return nil
+}
+
+func (x *HistoryStore) GetCaFile() string {
+	if x != nil {
+		if x.xxx_hidden_CaFile != nil {
+			return *x.xxx_hidden_CaFile
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *HistoryStore) SetEndpoints(v []string) {
+	x.xxx_hidden_Endpoints = v
+}
+
+func (x *HistoryStore) SetDatabase(v string) {
+	x.xxx_hidden_Database = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 8)
+}
+
+func (x *HistoryStore) SetCluster(v string) {
+	x.xxx_hidden_Cluster = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 8)
+}
+
+func (x *HistoryStore) SetAdmin(v *HistoryUser) {
+	x.xxx_hidden_Admin = v
+}
+
+func (x *HistoryStore) SetWriter(v *HistoryUser) {
+	x.xxx_hidden_Writer = v
+}
+
+func (x *HistoryStore) SetReader(v *HistoryUser) {
+	x.xxx_hidden_Reader = v
+}
+
+func (x *HistoryStore) SetAnalyst(v *HistoryUser) {
+	x.xxx_hidden_Analyst = v
+}
+
+func (x *HistoryStore) SetCaFile(v string) {
+	x.xxx_hidden_CaFile = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 7, 8)
+}
+
+func (x *HistoryStore) HasDatabase() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *HistoryStore) HasCluster() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
+}
+
+func (x *HistoryStore) HasAdmin() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Admin != nil
+}
+
+func (x *HistoryStore) HasWriter() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Writer != nil
+}
+
+func (x *HistoryStore) HasReader() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Reader != nil
+}
+
+func (x *HistoryStore) HasAnalyst() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Analyst != nil
+}
+
+func (x *HistoryStore) HasCaFile() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 7)
+}
+
+func (x *HistoryStore) ClearDatabase() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_Database = nil
+}
+
+func (x *HistoryStore) ClearCluster() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
+	x.xxx_hidden_Cluster = nil
+}
+
+func (x *HistoryStore) ClearAdmin() {
+	x.xxx_hidden_Admin = nil
+}
+
+func (x *HistoryStore) ClearWriter() {
+	x.xxx_hidden_Writer = nil
+}
+
+func (x *HistoryStore) ClearReader() {
+	x.xxx_hidden_Reader = nil
+}
+
+func (x *HistoryStore) ClearAnalyst() {
+	x.xxx_hidden_Analyst = nil
+}
+
+func (x *HistoryStore) ClearCaFile() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 7)
+	x.xxx_hidden_CaFile = nil
+}
+
+type HistoryStore_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The native-protocol endpoints as host:port, in preference order. Must hold
+	// between 1 and 8, each with a port.
+	Endpoints []string
+	// The database that holds every history table. Must be present.
+	Database *string
+	// The ClickHouse cluster name from the server's remote_servers section.
+	// Unset means a single node: the migrator then creates plain engines and
+	// runs no statement ON CLUSTER. Set, it creates Replicated engines and runs
+	// every user, profile, row policy, resource, and workload ON CLUSTER.
+	Cluster *string
+	// The user that creates schema. Only the migrator mode connects as it. Must
+	// be present.
+	Admin *HistoryUser
+	// The user the sink inserts as. Must be present.
+	Writer *HistoryUser
+	// The user the history read connects as. Must be present.
+	Reader *HistoryUser
+	// The user fleet analytics connects as. Must be present.
+	Analyst *HistoryUser
+	// Certificate authority bundle used to verify the ClickHouse TLS
+	// certificate. Must be absolute. Unset connects without TLS.
+	CaFile *string
+}
+
+func (b0 HistoryStore_builder) Build() *HistoryStore {
+	m0 := &HistoryStore{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_Endpoints = b.Endpoints
+	if b.Database != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 8)
+		x.xxx_hidden_Database = b.Database
+	}
+	if b.Cluster != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 8)
+		x.xxx_hidden_Cluster = b.Cluster
+	}
+	x.xxx_hidden_Admin = b.Admin
+	x.xxx_hidden_Writer = b.Writer
+	x.xxx_hidden_Reader = b.Reader
+	x.xxx_hidden_Analyst = b.Analyst
+	if b.CaFile != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 7, 8)
+		x.xxx_hidden_CaFile = b.CaFile
+	}
+	return m0
+}
+
+// One ClickHouse user and the file that holds its password.
+type HistoryUser struct {
+	state                   protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Name         *string                `protobuf:"bytes,1,opt,name=name"`
+	xxx_hidden_PasswordFile *string                `protobuf:"bytes,2,opt,name=password_file,json=passwordFile"`
+	XXX_raceDetectHookData  protoimpl.RaceDetectHookData
+	XXX_presence            [1]uint32
+	unknownFields           protoimpl.UnknownFields
+	sizeCache               protoimpl.SizeCache
+}
+
+func (x *HistoryUser) Reset() {
+	*x = HistoryUser{}
+	mi := &file_flowseer_store_device_v1_service_config_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HistoryUser) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HistoryUser) ProtoMessage() {}
+
+func (x *HistoryUser) ProtoReflect() protoreflect.Message {
+	mi := &file_flowseer_store_device_v1_service_config_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *HistoryUser) GetName() string {
+	if x != nil {
+		if x.xxx_hidden_Name != nil {
+			return *x.xxx_hidden_Name
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *HistoryUser) GetPasswordFile() string {
+	if x != nil {
+		if x.xxx_hidden_PasswordFile != nil {
+			return *x.xxx_hidden_PasswordFile
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *HistoryUser) SetName(v string) {
+	x.xxx_hidden_Name = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 2)
+}
+
+func (x *HistoryUser) SetPasswordFile(v string) {
+	x.xxx_hidden_PasswordFile = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 2)
+}
+
+func (x *HistoryUser) HasName() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *HistoryUser) HasPasswordFile() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *HistoryUser) ClearName() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_Name = nil
+}
+
+func (x *HistoryUser) ClearPasswordFile() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_PasswordFile = nil
+}
+
+type HistoryUser_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The ClickHouse user name. Must be present.
+	Name *string
+	// Path to the file holding the password. Must be present and absolute.
+	PasswordFile *string
+}
+
+func (b0 HistoryUser_builder) Build() *HistoryUser {
+	m0 := &HistoryUser{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.Name != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 2)
+		x.xxx_hidden_Name = b.Name
+	}
+	if b.PasswordFile != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 2)
+		x.xxx_hidden_PasswordFile = b.PasswordFile
+	}
+	return m0
+}
+
+// Bounds for the typed ingest streams in the central account. Central sizes
+// them from the fleet: stored bytes per message, times the retention, the
+// number of devices, and the messages per device per minute
+// (src/modules/edgebus/README.md).
+type IngestStreams struct {
+	state                         protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_MaxAge             *durationpb.Duration   `protobuf:"bytes,1,opt,name=max_age,json=maxAge"`
+	xxx_hidden_MaxBytesPerType    int64                  `protobuf:"varint,2,opt,name=max_bytes_per_type,json=maxBytesPerType"`
+	xxx_hidden_CentralBudgetBytes int64                  `protobuf:"varint,3,opt,name=central_budget_bytes,json=centralBudgetBytes"`
+	XXX_raceDetectHookData        protoimpl.RaceDetectHookData
+	XXX_presence                  [1]uint32
+	unknownFields                 protoimpl.UnknownFields
+	sizeCache                     protoimpl.SizeCache
+}
+
+func (x *IngestStreams) Reset() {
+	*x = IngestStreams{}
+	mi := &file_flowseer_store_device_v1_service_config_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *IngestStreams) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*IngestStreams) ProtoMessage() {}
+
+func (x *IngestStreams) ProtoReflect() protoreflect.Message {
+	mi := &file_flowseer_store_device_v1_service_config_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *IngestStreams) GetMaxAge() *durationpb.Duration {
+	if x != nil {
+		return x.xxx_hidden_MaxAge
+	}
+	return nil
+}
+
+func (x *IngestStreams) GetMaxBytesPerType() int64 {
+	if x != nil {
+		return x.xxx_hidden_MaxBytesPerType
+	}
+	return 0
+}
+
+func (x *IngestStreams) GetCentralBudgetBytes() int64 {
+	if x != nil {
+		return x.xxx_hidden_CentralBudgetBytes
+	}
+	return 0
+}
+
+func (x *IngestStreams) SetMaxAge(v *durationpb.Duration) {
+	x.xxx_hidden_MaxAge = v
+}
+
+func (x *IngestStreams) SetMaxBytesPerType(v int64) {
+	x.xxx_hidden_MaxBytesPerType = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 3)
+}
+
+func (x *IngestStreams) SetCentralBudgetBytes(v int64) {
+	x.xxx_hidden_CentralBudgetBytes = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 3)
+}
+
+func (x *IngestStreams) HasMaxAge() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_MaxAge != nil
+}
+
+func (x *IngestStreams) HasMaxBytesPerType() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *IngestStreams) HasCentralBudgetBytes() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
+}
+
+func (x *IngestStreams) ClearMaxAge() {
+	x.xxx_hidden_MaxAge = nil
+}
+
+func (x *IngestStreams) ClearMaxBytesPerType() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_MaxBytesPerType = 0
+}
+
+func (x *IngestStreams) ClearCentralBudgetBytes() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
+	x.xxx_hidden_CentralBudgetBytes = 0
+}
+
+type IngestStreams_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// How long a stream keeps a record. The window a history outage may last
+	// before records are lost. Unset means 72 hours.
+	MaxAge *durationpb.Duration
+	// The byte bound of each typed ingest stream. Unset means 256 MiB.
+	MaxBytesPerType *int64
+	// The disk reservation of the whole central account, which holds the ingest
+	// streams, the audit stream, the operator streams, and the evidence stream.
+	// It must cover their sum. Unset means 1 GiB.
+	CentralBudgetBytes *int64
+}
+
+func (b0 IngestStreams_builder) Build() *IngestStreams {
+	m0 := &IngestStreams{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_MaxAge = b.MaxAge
+	if b.MaxBytesPerType != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 3)
+		x.xxx_hidden_MaxBytesPerType = *b.MaxBytesPerType
+	}
+	if b.CentralBudgetBytes != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 3)
+		x.xxx_hidden_CentralBudgetBytes = *b.CentralBudgetBytes
+	}
+	return m0
+}
+
 // An OpenID Connect issuer trusted to authenticate operators.
 type OidcIssuer struct {
 	state                            protoimpl.MessageState `protogen:"opaque.v1"`
@@ -592,7 +1179,7 @@ type OidcIssuer struct {
 
 func (x *OidcIssuer) Reset() {
 	*x = OidcIssuer{}
-	mi := &file_flowseer_store_device_v1_service_config_proto_msgTypes[2]
+	mi := &file_flowseer_store_device_v1_service_config_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -604,7 +1191,7 @@ func (x *OidcIssuer) String() string {
 func (*OidcIssuer) ProtoMessage() {}
 
 func (x *OidcIssuer) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_store_device_v1_service_config_proto_msgTypes[2]
+	mi := &file_flowseer_store_device_v1_service_config_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -740,7 +1327,7 @@ type OperatorAuthentication struct {
 
 func (x *OperatorAuthentication) Reset() {
 	*x = OperatorAuthentication{}
-	mi := &file_flowseer_store_device_v1_service_config_proto_msgTypes[3]
+	mi := &file_flowseer_store_device_v1_service_config_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -752,7 +1339,7 @@ func (x *OperatorAuthentication) String() string {
 func (*OperatorAuthentication) ProtoMessage() {}
 
 func (x *OperatorAuthentication) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_store_device_v1_service_config_proto_msgTypes[3]
+	mi := &file_flowseer_store_device_v1_service_config_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -842,7 +1429,7 @@ type AuthorizationEngine struct {
 
 func (x *AuthorizationEngine) Reset() {
 	*x = AuthorizationEngine{}
-	mi := &file_flowseer_store_device_v1_service_config_proto_msgTypes[4]
+	mi := &file_flowseer_store_device_v1_service_config_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -854,7 +1441,7 @@ func (x *AuthorizationEngine) String() string {
 func (*AuthorizationEngine) ProtoMessage() {}
 
 func (x *AuthorizationEngine) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_store_device_v1_service_config_proto_msgTypes[4]
+	mi := &file_flowseer_store_device_v1_service_config_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1061,7 +1648,7 @@ type PlatformAdmin struct {
 
 func (x *PlatformAdmin) Reset() {
 	*x = PlatformAdmin{}
-	mi := &file_flowseer_store_device_v1_service_config_proto_msgTypes[5]
+	mi := &file_flowseer_store_device_v1_service_config_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1073,7 +1660,7 @@ func (x *PlatformAdmin) String() string {
 func (*PlatformAdmin) ProtoMessage() {}
 
 func (x *PlatformAdmin) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_store_device_v1_service_config_proto_msgTypes[5]
+	mi := &file_flowseer_store_device_v1_service_config_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1226,7 +1813,7 @@ type ServiceListeners struct {
 
 func (x *ServiceListeners) Reset() {
 	*x = ServiceListeners{}
-	mi := &file_flowseer_store_device_v1_service_config_proto_msgTypes[6]
+	mi := &file_flowseer_store_device_v1_service_config_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1238,7 +1825,7 @@ func (x *ServiceListeners) String() string {
 func (*ServiceListeners) ProtoMessage() {}
 
 func (x *ServiceListeners) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_store_device_v1_service_config_proto_msgTypes[6]
+	mi := &file_flowseer_store_device_v1_service_config_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1434,7 +2021,7 @@ type EdgeEnrollmentPolicy struct {
 
 func (x *EdgeEnrollmentPolicy) Reset() {
 	*x = EdgeEnrollmentPolicy{}
-	mi := &file_flowseer_store_device_v1_service_config_proto_msgTypes[7]
+	mi := &file_flowseer_store_device_v1_service_config_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1446,7 +2033,7 @@ func (x *EdgeEnrollmentPolicy) String() string {
 func (*EdgeEnrollmentPolicy) ProtoMessage() {}
 
 func (x *EdgeEnrollmentPolicy) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_store_device_v1_service_config_proto_msgTypes[7]
+	mi := &file_flowseer_store_device_v1_service_config_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1592,7 +2179,7 @@ type ServiceTelemetry struct {
 
 func (x *ServiceTelemetry) Reset() {
 	*x = ServiceTelemetry{}
-	mi := &file_flowseer_store_device_v1_service_config_proto_msgTypes[8]
+	mi := &file_flowseer_store_device_v1_service_config_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1604,7 +2191,7 @@ func (x *ServiceTelemetry) String() string {
 func (*ServiceTelemetry) ProtoMessage() {}
 
 func (x *ServiceTelemetry) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_store_device_v1_service_config_proto_msgTypes[8]
+	mi := &file_flowseer_store_device_v1_service_config_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1697,7 +2284,7 @@ type ServiceIntervals struct {
 
 func (x *ServiceIntervals) Reset() {
 	*x = ServiceIntervals{}
-	mi := &file_flowseer_store_device_v1_service_config_proto_msgTypes[9]
+	mi := &file_flowseer_store_device_v1_service_config_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1709,7 +2296,7 @@ func (x *ServiceIntervals) String() string {
 func (*ServiceIntervals) ProtoMessage() {}
 
 func (x *ServiceIntervals) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_store_device_v1_service_config_proto_msgTypes[9]
+	mi := &file_flowseer_store_device_v1_service_config_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1974,7 +2561,8 @@ var File_flowseer_store_device_v1_service_config_proto protoreflect.FileDescript
 
 const file_flowseer_store_device_v1_service_config_proto_rawDesc = "" +
 	"\n" +
-	"-flowseer/store/device/v1/service_config.proto\x12\x18flowseer.store.device.v1\x1a\x1egoogle/protobuf/duration.proto\"\xb7\t\n" +
+	"-flowseer/store/device/v1/service_config.proto\x12\x18flowseer.store.device.v1\x1a\x1egoogle/protobuf/duration.proto\"\xc9\n" +
+	"\n" +
 	"\x13DeviceServiceConfig\x12,\n" +
 	"\tstate_dir\x18\x01 \x01(\tB\x0f\xbaH\f\xc8\x01\x01r\a\x18\x80 2\x02^/R\bstateDir\x122\n" +
 	"\rregistry_path\x18\x02 \x01(\tB\r\xbaH\n" +
@@ -1989,13 +2577,32 @@ const file_flowseer_store_device_v1_service_config_proto_rawDesc = "" +
 	"\x0eauthentication\x18\v \x01(\v20.flowseer.store.device.v1.OperatorAuthenticationB\x06\xbaH\x03\xc8\x01\x01R\x0eauthentication\x12[\n" +
 	"\rauthorization\x18\f \x01(\v2-.flowseer.store.device.v1.AuthorizationEngineB\x06\xbaH\x03\xc8\x01\x01R\rauthorization\x12J\n" +
 	"\vraw_windows\x18\r \x01(\v2).flowseer.store.device.v1.RawWindowLimitsR\n" +
-	"rawWindows:\xa1\x02\xbaH\x9d\x02\x1a\x9a\x02\n" +
+	"rawWindows\x12@\n" +
+	"\ahistory\x18\x0e \x01(\v2&.flowseer.store.device.v1.HistoryStoreR\ahistory\x12N\n" +
+	"\x0eingest_streams\x18\x0f \x01(\v2'.flowseer.store.device.v1.IngestStreamsR\ringestStreams:\xa1\x02\xbaH\x9d\x02\x1a\x9a\x02\n" +
 	"6device_service_config.platform_admin_issuer_configured\x12Vplatform_admin issuer must match one of the configured operator authentication issuers\x1a\x87\x01!has(this.platform_admin) || !has(this.authentication) || this.authentication.issuers.exists(i, i.issuer == this.platform_admin.issuer)J\x04\b\n" +
 	"\x10\vR\n" +
 	"dev_tenant\"O\n" +
 	"\x0fRawWindowLimits\x12<\n" +
 	"\x14edge_allowance_bytes\x18\x01 \x01(\x04B\n" +
-	"\xbaH\a\xc8\x01\x012\x02 \x00R\x12edgeAllowanceBytes\"\xad\x01\n" +
+	"\xbaH\a\xc8\x01\x012\x02 \x00R\x12edgeAllowanceBytes\"\x98\x04\n" +
+	"\fHistoryStore\x12@\n" +
+	"\tendpoints\x18\x01 \x03(\tB\"\xbaH\x1f\x92\x01\x1c\b\x01\x10\b\"\x16r\x14\x18\x80\x022\x0f^.+:[0-9]{1,5}$R\tendpoints\x12C\n" +
+	"\bdatabase\x18\x02 \x01(\tB'\xbaH$\xc8\x01\x01r\x1f2\x1d^[A-Za-z_][A-Za-z0-9_]{0,63}$R\bdatabase\x12>\n" +
+	"\acluster\x18\x03 \x01(\tB$\xbaH!r\x1f2\x1d^[A-Za-z_][A-Za-z0-9_]{0,63}$R\acluster\x12C\n" +
+	"\x05admin\x18\x04 \x01(\v2%.flowseer.store.device.v1.HistoryUserB\x06\xbaH\x03\xc8\x01\x01R\x05admin\x12E\n" +
+	"\x06writer\x18\x05 \x01(\v2%.flowseer.store.device.v1.HistoryUserB\x06\xbaH\x03\xc8\x01\x01R\x06writer\x12E\n" +
+	"\x06reader\x18\x06 \x01(\v2%.flowseer.store.device.v1.HistoryUserB\x06\xbaH\x03\xc8\x01\x01R\x06reader\x12G\n" +
+	"\aanalyst\x18\a \x01(\v2%.flowseer.store.device.v1.HistoryUserB\x06\xbaH\x03\xc8\x01\x01R\aanalyst\x12%\n" +
+	"\aca_file\x18\b \x01(\tB\f\xbaH\tr\a\x18\x80 2\x02^/R\x06caFile\"\x80\x01\n" +
+	"\vHistoryUser\x12;\n" +
+	"\x04name\x18\x01 \x01(\tB'\xbaH$\xc8\x01\x01r\x1f2\x1d^[A-Za-z_][A-Za-z0-9_]{0,63}$R\x04name\x124\n" +
+	"\rpassword_file\x18\x02 \x01(\tB\x0f\xbaH\f\xc8\x01\x01r\a\x18\x80 2\x02^/R\fpasswordFile\"\xc0\x01\n" +
+	"\rIngestStreams\x12>\n" +
+	"\amax_age\x18\x01 \x01(\v2\x19.google.protobuf.DurationB\n" +
+	"\xbaH\a\xaa\x01\x042\x02\b\x01R\x06maxAge\x124\n" +
+	"\x12max_bytes_per_type\x18\x02 \x01(\x03B\a\xbaH\x04\"\x02 \x00R\x0fmaxBytesPerType\x129\n" +
+	"\x14central_budget_bytes\x18\x03 \x01(\x03B\a\xbaH\x04\"\x02 \x00R\x12centralBudgetBytes\"\xad\x01\n" +
 	"\n" +
 	"OidcIssuer\x120\n" +
 	"\x06issuer\x18\x01 \x01(\tB\x18\xbaH\x15\xc8\x01\x01r\x10\x18\x80\x10:\bhttps://\x88\x01\x01R\x06issuer\x12)\n" +
@@ -2069,49 +2676,59 @@ const file_flowseer_store_device_v1_service_config_proto_rawDesc = "" +
 	"\x1ccom.flowseer.store.device.v1B\x12ServiceConfigProtoZLgo.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1;devicev1\xa2\x02\x03FSD\xaa\x02\x18Flowseer.Store.Device.V1\xca\x02\x18Flowseer\\Store\\Device\\V1\xe2\x02$Flowseer\\Store\\Device\\V1\\GPBMetadata\xea\x02\x1bFlowseer::Store::Device::V1b\beditionsp\xe9\a"
 
 var file_flowseer_store_device_v1_service_config_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_flowseer_store_device_v1_service_config_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
+var file_flowseer_store_device_v1_service_config_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
 var file_flowseer_store_device_v1_service_config_proto_goTypes = []any{
 	(LogLevel)(0),                  // 0: flowseer.store.device.v1.LogLevel
 	(*DeviceServiceConfig)(nil),    // 1: flowseer.store.device.v1.DeviceServiceConfig
 	(*RawWindowLimits)(nil),        // 2: flowseer.store.device.v1.RawWindowLimits
-	(*OidcIssuer)(nil),             // 3: flowseer.store.device.v1.OidcIssuer
-	(*OperatorAuthentication)(nil), // 4: flowseer.store.device.v1.OperatorAuthentication
-	(*AuthorizationEngine)(nil),    // 5: flowseer.store.device.v1.AuthorizationEngine
-	(*PlatformAdmin)(nil),          // 6: flowseer.store.device.v1.PlatformAdmin
-	(*ServiceListeners)(nil),       // 7: flowseer.store.device.v1.ServiceListeners
-	(*EdgeEnrollmentPolicy)(nil),   // 8: flowseer.store.device.v1.EdgeEnrollmentPolicy
-	(*ServiceTelemetry)(nil),       // 9: flowseer.store.device.v1.ServiceTelemetry
-	(*ServiceIntervals)(nil),       // 10: flowseer.store.device.v1.ServiceIntervals
-	nil,                            // 11: flowseer.store.device.v1.ServiceTelemetry.HeadersEntry
-	(*durationpb.Duration)(nil),    // 12: google.protobuf.Duration
+	(*HistoryStore)(nil),           // 3: flowseer.store.device.v1.HistoryStore
+	(*HistoryUser)(nil),            // 4: flowseer.store.device.v1.HistoryUser
+	(*IngestStreams)(nil),          // 5: flowseer.store.device.v1.IngestStreams
+	(*OidcIssuer)(nil),             // 6: flowseer.store.device.v1.OidcIssuer
+	(*OperatorAuthentication)(nil), // 7: flowseer.store.device.v1.OperatorAuthentication
+	(*AuthorizationEngine)(nil),    // 8: flowseer.store.device.v1.AuthorizationEngine
+	(*PlatformAdmin)(nil),          // 9: flowseer.store.device.v1.PlatformAdmin
+	(*ServiceListeners)(nil),       // 10: flowseer.store.device.v1.ServiceListeners
+	(*EdgeEnrollmentPolicy)(nil),   // 11: flowseer.store.device.v1.EdgeEnrollmentPolicy
+	(*ServiceTelemetry)(nil),       // 12: flowseer.store.device.v1.ServiceTelemetry
+	(*ServiceIntervals)(nil),       // 13: flowseer.store.device.v1.ServiceIntervals
+	nil,                            // 14: flowseer.store.device.v1.ServiceTelemetry.HeadersEntry
+	(*durationpb.Duration)(nil),    // 15: google.protobuf.Duration
 }
 var file_flowseer_store_device_v1_service_config_proto_depIdxs = []int32{
-	7,  // 0: flowseer.store.device.v1.DeviceServiceConfig.listeners:type_name -> flowseer.store.device.v1.ServiceListeners
-	8,  // 1: flowseer.store.device.v1.DeviceServiceConfig.edges:type_name -> flowseer.store.device.v1.EdgeEnrollmentPolicy
-	9,  // 2: flowseer.store.device.v1.DeviceServiceConfig.telemetry:type_name -> flowseer.store.device.v1.ServiceTelemetry
-	10, // 3: flowseer.store.device.v1.DeviceServiceConfig.intervals:type_name -> flowseer.store.device.v1.ServiceIntervals
+	10, // 0: flowseer.store.device.v1.DeviceServiceConfig.listeners:type_name -> flowseer.store.device.v1.ServiceListeners
+	11, // 1: flowseer.store.device.v1.DeviceServiceConfig.edges:type_name -> flowseer.store.device.v1.EdgeEnrollmentPolicy
+	12, // 2: flowseer.store.device.v1.DeviceServiceConfig.telemetry:type_name -> flowseer.store.device.v1.ServiceTelemetry
+	13, // 3: flowseer.store.device.v1.DeviceServiceConfig.intervals:type_name -> flowseer.store.device.v1.ServiceIntervals
 	0,  // 4: flowseer.store.device.v1.DeviceServiceConfig.log_level:type_name -> flowseer.store.device.v1.LogLevel
-	6,  // 5: flowseer.store.device.v1.DeviceServiceConfig.platform_admin:type_name -> flowseer.store.device.v1.PlatformAdmin
-	4,  // 6: flowseer.store.device.v1.DeviceServiceConfig.authentication:type_name -> flowseer.store.device.v1.OperatorAuthentication
-	5,  // 7: flowseer.store.device.v1.DeviceServiceConfig.authorization:type_name -> flowseer.store.device.v1.AuthorizationEngine
+	9,  // 5: flowseer.store.device.v1.DeviceServiceConfig.platform_admin:type_name -> flowseer.store.device.v1.PlatformAdmin
+	7,  // 6: flowseer.store.device.v1.DeviceServiceConfig.authentication:type_name -> flowseer.store.device.v1.OperatorAuthentication
+	8,  // 7: flowseer.store.device.v1.DeviceServiceConfig.authorization:type_name -> flowseer.store.device.v1.AuthorizationEngine
 	2,  // 8: flowseer.store.device.v1.DeviceServiceConfig.raw_windows:type_name -> flowseer.store.device.v1.RawWindowLimits
-	3,  // 9: flowseer.store.device.v1.OperatorAuthentication.issuers:type_name -> flowseer.store.device.v1.OidcIssuer
-	12, // 10: flowseer.store.device.v1.EdgeEnrollmentPolicy.assertion_clock_skew:type_name -> google.protobuf.Duration
-	11, // 11: flowseer.store.device.v1.ServiceTelemetry.headers:type_name -> flowseer.store.device.v1.ServiceTelemetry.HeadersEntry
-	12, // 12: flowseer.store.device.v1.ServiceIntervals.drift:type_name -> google.protobuf.Duration
-	12, // 13: flowseer.store.device.v1.ServiceIntervals.drift_read_deadline:type_name -> google.protobuf.Duration
-	12, // 14: flowseer.store.device.v1.ServiceIntervals.dispatch_resend:type_name -> google.protobuf.Duration
-	12, // 15: flowseer.store.device.v1.ServiceIntervals.read_sweep:type_name -> google.protobuf.Duration
-	12, // 16: flowseer.store.device.v1.ServiceIntervals.submission_pulse:type_name -> google.protobuf.Duration
-	12, // 17: flowseer.store.device.v1.ServiceIntervals.edge_stale_after:type_name -> google.protobuf.Duration
-	12, // 18: flowseer.store.device.v1.ServiceIntervals.edge_dormant_after:type_name -> google.protobuf.Duration
-	12, // 19: flowseer.store.device.v1.ServiceIntervals.capture_sweep:type_name -> google.protobuf.Duration
-	12, // 20: flowseer.store.device.v1.ServiceIntervals.relationship_reconcile:type_name -> google.protobuf.Duration
-	21, // [21:21] is the sub-list for method output_type
-	21, // [21:21] is the sub-list for method input_type
-	21, // [21:21] is the sub-list for extension type_name
-	21, // [21:21] is the sub-list for extension extendee
-	0,  // [0:21] is the sub-list for field type_name
+	3,  // 9: flowseer.store.device.v1.DeviceServiceConfig.history:type_name -> flowseer.store.device.v1.HistoryStore
+	5,  // 10: flowseer.store.device.v1.DeviceServiceConfig.ingest_streams:type_name -> flowseer.store.device.v1.IngestStreams
+	4,  // 11: flowseer.store.device.v1.HistoryStore.admin:type_name -> flowseer.store.device.v1.HistoryUser
+	4,  // 12: flowseer.store.device.v1.HistoryStore.writer:type_name -> flowseer.store.device.v1.HistoryUser
+	4,  // 13: flowseer.store.device.v1.HistoryStore.reader:type_name -> flowseer.store.device.v1.HistoryUser
+	4,  // 14: flowseer.store.device.v1.HistoryStore.analyst:type_name -> flowseer.store.device.v1.HistoryUser
+	15, // 15: flowseer.store.device.v1.IngestStreams.max_age:type_name -> google.protobuf.Duration
+	6,  // 16: flowseer.store.device.v1.OperatorAuthentication.issuers:type_name -> flowseer.store.device.v1.OidcIssuer
+	15, // 17: flowseer.store.device.v1.EdgeEnrollmentPolicy.assertion_clock_skew:type_name -> google.protobuf.Duration
+	14, // 18: flowseer.store.device.v1.ServiceTelemetry.headers:type_name -> flowseer.store.device.v1.ServiceTelemetry.HeadersEntry
+	15, // 19: flowseer.store.device.v1.ServiceIntervals.drift:type_name -> google.protobuf.Duration
+	15, // 20: flowseer.store.device.v1.ServiceIntervals.drift_read_deadline:type_name -> google.protobuf.Duration
+	15, // 21: flowseer.store.device.v1.ServiceIntervals.dispatch_resend:type_name -> google.protobuf.Duration
+	15, // 22: flowseer.store.device.v1.ServiceIntervals.read_sweep:type_name -> google.protobuf.Duration
+	15, // 23: flowseer.store.device.v1.ServiceIntervals.submission_pulse:type_name -> google.protobuf.Duration
+	15, // 24: flowseer.store.device.v1.ServiceIntervals.edge_stale_after:type_name -> google.protobuf.Duration
+	15, // 25: flowseer.store.device.v1.ServiceIntervals.edge_dormant_after:type_name -> google.protobuf.Duration
+	15, // 26: flowseer.store.device.v1.ServiceIntervals.capture_sweep:type_name -> google.protobuf.Duration
+	15, // 27: flowseer.store.device.v1.ServiceIntervals.relationship_reconcile:type_name -> google.protobuf.Duration
+	28, // [28:28] is the sub-list for method output_type
+	28, // [28:28] is the sub-list for method input_type
+	28, // [28:28] is the sub-list for extension type_name
+	28, // [28:28] is the sub-list for extension extendee
+	0,  // [0:28] is the sub-list for field type_name
 }
 
 func init() { file_flowseer_store_device_v1_service_config_proto_init() }
@@ -2125,7 +2742,7 @@ func file_flowseer_store_device_v1_service_config_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_flowseer_store_device_v1_service_config_proto_rawDesc), len(file_flowseer_store_device_v1_service_config_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   11,
+			NumMessages:   14,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

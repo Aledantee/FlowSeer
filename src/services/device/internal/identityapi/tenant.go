@@ -52,6 +52,9 @@ func (s *TenantService) CreateTenant(ctx context.Context, req *connect.Request[a
 	if req.Msg.HasDescription() {
 		config.SetDescription(req.Msg.GetDescription())
 	}
+	if req.Msg.HasRetentionClass() {
+		config.SetRetentionClass(req.Msg.GetRetentionClass())
+	}
 
 	record, err := s.store.LookupByOrg(ctx, config.GetIssuer(), config.GetOrganizationClaimValue())
 	if err != nil {

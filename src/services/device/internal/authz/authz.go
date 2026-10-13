@@ -22,6 +22,7 @@ var (
 	ErrCodeUnavailable         = errs.NewCode("authz/unavailable")
 	ErrCodeObligationViolation = errs.NewCode("authz/obligation-violation")
 	ErrCodeConflict            = errs.NewCode("authz/engine-conflict")
+	ErrCodeTenantList          = errs.NewCode("authz/tenant-list")
 )
 
 // Tuple represents a single relationship between an object and a user.

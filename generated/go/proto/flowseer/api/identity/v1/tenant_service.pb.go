@@ -31,6 +31,7 @@ type CreateTenantRequest struct {
 	xxx_hidden_OrganizationClaimValue *string                `protobuf:"bytes,3,opt,name=organization_claim_value,json=organizationClaimValue"`
 	xxx_hidden_Name                   *string                `protobuf:"bytes,4,opt,name=name"`
 	xxx_hidden_Description            *string                `protobuf:"bytes,5,opt,name=description"`
+	xxx_hidden_RetentionClass         v1.RetentionClass      `protobuf:"varint,6,opt,name=retention_class,json=retentionClass,enum=flowseer.model.identity.v1.RetentionClass"`
 	XXX_raceDetectHookData            protoimpl.RaceDetectHookData
 	XXX_presence                      [1]uint32
 	unknownFields                     protoimpl.UnknownFields
@@ -112,29 +113,43 @@ func (x *CreateTenantRequest) GetDescription() string {
 	return ""
 }
 
+func (x *CreateTenantRequest) GetRetentionClass() v1.RetentionClass {
+	if x != nil {
+		if protoimpl.X.Present(&(x.XXX_presence[0]), 5) {
+			return x.xxx_hidden_RetentionClass
+		}
+	}
+	return v1.RetentionClass(0)
+}
+
 func (x *CreateTenantRequest) SetIssuer(v string) {
 	x.xxx_hidden_Issuer = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 5)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 6)
 }
 
 func (x *CreateTenantRequest) SetOrganizationClaimName(v string) {
 	x.xxx_hidden_OrganizationClaimName = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 5)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 6)
 }
 
 func (x *CreateTenantRequest) SetOrganizationClaimValue(v string) {
 	x.xxx_hidden_OrganizationClaimValue = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 5)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 6)
 }
 
 func (x *CreateTenantRequest) SetName(v string) {
 	x.xxx_hidden_Name = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 5)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 6)
 }
 
 func (x *CreateTenantRequest) SetDescription(v string) {
 	x.xxx_hidden_Description = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 5)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 6)
+}
+
+func (x *CreateTenantRequest) SetRetentionClass(v v1.RetentionClass) {
+	x.xxx_hidden_RetentionClass = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 5, 6)
 }
 
 func (x *CreateTenantRequest) HasIssuer() bool {
@@ -172,6 +187,13 @@ func (x *CreateTenantRequest) HasDescription() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 4)
 }
 
+func (x *CreateTenantRequest) HasRetentionClass() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 5)
+}
+
 func (x *CreateTenantRequest) ClearIssuer() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
 	x.xxx_hidden_Issuer = nil
@@ -197,6 +219,11 @@ func (x *CreateTenantRequest) ClearDescription() {
 	x.xxx_hidden_Description = nil
 }
 
+func (x *CreateTenantRequest) ClearRetentionClass() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 5)
+	x.xxx_hidden_RetentionClass = v1.RetentionClass_RETENTION_CLASS_UNSPECIFIED
+}
+
 type CreateTenantRequest_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
@@ -210,6 +237,9 @@ type CreateTenantRequest_builder struct {
 	Name *string
 	// Free-text description of the tenant. Unset means none was provided.
 	Description *string
+	// How long this tenant's history is kept. Unset means
+	// RETENTION_CLASS_STANDARD. The zero value is rejected.
+	RetentionClass *v1.RetentionClass
 }
 
 func (b0 CreateTenantRequest_builder) Build() *CreateTenantRequest {
@@ -217,24 +247,28 @@ func (b0 CreateTenantRequest_builder) Build() *CreateTenantRequest {
 	b, x := &b0, m0
 	_, _ = b, x
 	if b.Issuer != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 5)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 6)
 		x.xxx_hidden_Issuer = b.Issuer
 	}
 	if b.OrganizationClaimName != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 5)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 6)
 		x.xxx_hidden_OrganizationClaimName = b.OrganizationClaimName
 	}
 	if b.OrganizationClaimValue != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 5)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 6)
 		x.xxx_hidden_OrganizationClaimValue = b.OrganizationClaimValue
 	}
 	if b.Name != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 5)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 6)
 		x.xxx_hidden_Name = b.Name
 	}
 	if b.Description != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 5)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 6)
 		x.xxx_hidden_Description = b.Description
+	}
+	if b.RetentionClass != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 5, 6)
+		x.xxx_hidden_RetentionClass = *b.RetentionClass
 	}
 	return m0
 }
@@ -657,7 +691,7 @@ var File_flowseer_api_identity_v1_tenant_service_proto protoreflect.FileDescript
 
 const file_flowseer_api_identity_v1_tenant_service_proto_rawDesc = "" +
 	"\n" +
-	"-flowseer/api/identity/v1/tenant_service.proto\x12\x18flowseer.api.identity.v1\x1a'flowseer/model/identity/v1/tenant.proto\"\x9d\x02\n" +
+	"-flowseer/api/identity/v1/tenant_service.proto\x12\x18flowseer.api.identity.v1\x1a'flowseer/model/identity/v1/tenant.proto\"\xfe\x02\n" +
 	"\x13CreateTenantRequest\x12(\n" +
 	"\x06issuer\x18\x01 \x01(\tB\x10\xbaH\r\xc8\x01\x01r\b\x10\x01\x18\x80\x10\x88\x01\x01R\x06issuer\x12E\n" +
 	"\x17organization_claim_name\x18\x02 \x01(\tB\r\xbaH\n" +
@@ -667,7 +701,9 @@ const file_flowseer_api_identity_v1_tenant_service_proto_rawDesc = "" +
 	"\x04name\x18\x04 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\x80\x01R\x04name\x12,\n" +
 	"\vdescription\x18\x05 \x01(\tB\n" +
-	"\xbaH\ar\x05\x10\x01\x18\x80\x10R\vdescription\"`\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80\x10R\vdescription\x12_\n" +
+	"\x0fretention_class\x18\x06 \x01(\x0e2*.flowseer.model.identity.v1.RetentionClassB\n" +
+	"\xbaH\a\x82\x01\x04\x10\x01 \x00R\x0eretentionClass\"`\n" +
 	"\x14CreateTenantResponse\x12H\n" +
 	"\x06tenant\x18\x01 \x01(\v2(.flowseer.model.identity.v1.TenantRecordB\x06\xbaH\x03\xc8\x01\x01R\x06tenant\"_\n" +
 	"\x10GetTenantRequest\x12K\n" +
@@ -698,25 +734,27 @@ var file_flowseer_api_identity_v1_tenant_service_proto_goTypes = []any{
 	(*GetTenantResponse)(nil),    // 3: flowseer.api.identity.v1.GetTenantResponse
 	(*ListTenantsRequest)(nil),   // 4: flowseer.api.identity.v1.ListTenantsRequest
 	(*ListTenantsResponse)(nil),  // 5: flowseer.api.identity.v1.ListTenantsResponse
-	(*v1.TenantRecord)(nil),      // 6: flowseer.model.identity.v1.TenantRecord
-	(*v1.TenantGlobalRef)(nil),   // 7: flowseer.model.identity.v1.TenantGlobalRef
+	(v1.RetentionClass)(0),       // 6: flowseer.model.identity.v1.RetentionClass
+	(*v1.TenantRecord)(nil),      // 7: flowseer.model.identity.v1.TenantRecord
+	(*v1.TenantGlobalRef)(nil),   // 8: flowseer.model.identity.v1.TenantGlobalRef
 }
 var file_flowseer_api_identity_v1_tenant_service_proto_depIdxs = []int32{
-	6, // 0: flowseer.api.identity.v1.CreateTenantResponse.tenant:type_name -> flowseer.model.identity.v1.TenantRecord
-	7, // 1: flowseer.api.identity.v1.GetTenantRequest.tenant:type_name -> flowseer.model.identity.v1.TenantGlobalRef
-	6, // 2: flowseer.api.identity.v1.GetTenantResponse.tenant:type_name -> flowseer.model.identity.v1.TenantRecord
-	6, // 3: flowseer.api.identity.v1.ListTenantsResponse.tenants:type_name -> flowseer.model.identity.v1.TenantRecord
-	0, // 4: flowseer.api.identity.v1.TenantService.CreateTenant:input_type -> flowseer.api.identity.v1.CreateTenantRequest
-	2, // 5: flowseer.api.identity.v1.TenantService.GetTenant:input_type -> flowseer.api.identity.v1.GetTenantRequest
-	4, // 6: flowseer.api.identity.v1.TenantService.ListTenants:input_type -> flowseer.api.identity.v1.ListTenantsRequest
-	1, // 7: flowseer.api.identity.v1.TenantService.CreateTenant:output_type -> flowseer.api.identity.v1.CreateTenantResponse
-	3, // 8: flowseer.api.identity.v1.TenantService.GetTenant:output_type -> flowseer.api.identity.v1.GetTenantResponse
-	5, // 9: flowseer.api.identity.v1.TenantService.ListTenants:output_type -> flowseer.api.identity.v1.ListTenantsResponse
-	7, // [7:10] is the sub-list for method output_type
-	4, // [4:7] is the sub-list for method input_type
-	4, // [4:4] is the sub-list for extension type_name
-	4, // [4:4] is the sub-list for extension extendee
-	0, // [0:4] is the sub-list for field type_name
+	6, // 0: flowseer.api.identity.v1.CreateTenantRequest.retention_class:type_name -> flowseer.model.identity.v1.RetentionClass
+	7, // 1: flowseer.api.identity.v1.CreateTenantResponse.tenant:type_name -> flowseer.model.identity.v1.TenantRecord
+	8, // 2: flowseer.api.identity.v1.GetTenantRequest.tenant:type_name -> flowseer.model.identity.v1.TenantGlobalRef
+	7, // 3: flowseer.api.identity.v1.GetTenantResponse.tenant:type_name -> flowseer.model.identity.v1.TenantRecord
+	7, // 4: flowseer.api.identity.v1.ListTenantsResponse.tenants:type_name -> flowseer.model.identity.v1.TenantRecord
+	0, // 5: flowseer.api.identity.v1.TenantService.CreateTenant:input_type -> flowseer.api.identity.v1.CreateTenantRequest
+	2, // 6: flowseer.api.identity.v1.TenantService.GetTenant:input_type -> flowseer.api.identity.v1.GetTenantRequest
+	4, // 7: flowseer.api.identity.v1.TenantService.ListTenants:input_type -> flowseer.api.identity.v1.ListTenantsRequest
+	1, // 8: flowseer.api.identity.v1.TenantService.CreateTenant:output_type -> flowseer.api.identity.v1.CreateTenantResponse
+	3, // 9: flowseer.api.identity.v1.TenantService.GetTenant:output_type -> flowseer.api.identity.v1.GetTenantResponse
+	5, // 10: flowseer.api.identity.v1.TenantService.ListTenants:output_type -> flowseer.api.identity.v1.ListTenantsResponse
+	8, // [8:11] is the sub-list for method output_type
+	5, // [5:8] is the sub-list for method input_type
+	5, // [5:5] is the sub-list for extension type_name
+	5, // [5:5] is the sub-list for extension extendee
+	0, // [0:5] is the sub-list for field type_name
 }
 
 func init() { file_flowseer_api_identity_v1_tenant_service_proto_init() }

@@ -16,6 +16,7 @@ import (
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/capture/v1/capturev1connect"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/device/v1/devicev1connect"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1/edgev1connect"
+	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/history/v1/historyv1connect"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/identity/v1/identityv1connect"
 	ingestapiv1connect "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/ingest/v1/ingestv1connect"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1/attachv1connect"
@@ -36,6 +37,8 @@ import (
 	"go.aledante.io/FlowSeer/src/services/device/internal/deviceapi"
 	"go.aledante.io/FlowSeer/src/services/device/internal/edge"
 	"go.aledante.io/FlowSeer/src/services/device/internal/edgeapi"
+	"go.aledante.io/FlowSeer/src/services/device/internal/historyapi"
+	"go.aledante.io/FlowSeer/src/services/device/internal/historyquery"
 	"go.aledante.io/FlowSeer/src/services/device/internal/identityapi"
 	"go.aledante.io/FlowSeer/src/services/device/internal/journal"
 	"go.aledante.io/FlowSeer/src/services/device/internal/projector"
@@ -315,6 +318,16 @@ func (h *assembly) mux(ctx context.Context, resources *busResources, log *slog.L
 	mux.Handle(rawWindowPath, rawWindowHandler)
 	rawWindowEdgePath, rawWindowEdgeHandler := ingestedgev1connect.NewRawWindowEdgeServiceHandler(rawWindowEdgeService, edgeInterceptors, recoverPanic)
 	mux.Handle(rawWindowEdgePath, middleware.Wrap(rawWindowEdgeHandler))
+
+	// Without a history section there is no store to read, so the service is
+	// not mounted and a call to it is unimplemented.
+	if h.history != nil {
+		historyPath, historyHandler := historyv1connect.NewHistoryServiceHandler(
+			historyapi.New(historyquery.NewReader(h.history.Reader(), h.cfg.History().GetDatabase())),
+			operatorInterceptors, recoverPanic,
+		)
+		mux.Handle(historyPath, historyHandler)
+	}
 
 	// Every message on the upload stream is bounded, in place of the body
 	// limit the assertion middleware applies to a unary edge call. The
