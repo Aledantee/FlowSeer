@@ -1522,6 +1522,46 @@ func TestCorpusReceiveOutcomes(t *testing.T) {
 	}
 }
 
+func TestCorpusAbsentRoutingNextHops(t *testing.T) {
+	checked := 0
+	for _, id := range []string{
+		"troubleshooting/neighbor-resolution-pending",
+		"troubleshooting/stateful-reply-allowed",
+		"planning/filter-rule-change",
+	} {
+		if t.Run(id, func(t *testing.T) {
+			c, ok := simtest.DefaultRegistry().Get(id)
+			if !ok {
+				t.Fatalf("missing case %s", id)
+			}
+			res := simtest.AssertCase(t, c)
+			steps := res.Steps
+			if id == "planning/filter-rule-change" {
+				if res.Comparison == nil {
+					t.Fatal("missing comparison")
+				}
+				steps = res.Comparison.Current.Steps
+			}
+			found := false
+			for _, step := range steps {
+				for _, fact := range step.Outputs {
+					if fact.TypeID() == "routing.lookup_decision" && strings.Contains(fact.Canonical(), `;next_hop="absent";`) {
+						found = true
+					}
+				}
+			}
+			if !found {
+				t.Error("no connected lookup with absent next hop")
+			}
+		}) {
+			checked++
+		}
+	}
+	if checked != 3 {
+		t.Errorf("cases reaching concrete expectations = %d, want 3", checked)
+	}
+}
+
 func checkAdmittedCaseIDs(readme string, expected []string) error {
 	const start = "## Admitted cases"
 	const end = "## Admission bar"

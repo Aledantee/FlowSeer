@@ -1574,6 +1574,74 @@ func stepFacts(res routing.Result) string {
 	return b.String()
 }
 
+func requireRoutingOutput(t *testing.T, res routing.Result, typeID, want string) {
+	t.Helper()
+	for _, step := range res.Steps {
+		for _, fact := range step.Outputs {
+			if fact.TypeID() == typeID && fact.Canonical() == want {
+				return
+			}
+		}
+	}
+	t.Fatalf("missing %s output %s in %s", typeID, want, stepFacts(res))
+}
+
+func TestRouteAddressFactText(t *testing.T) {
+	l := mustNewRouting(t, standardSwitchConfig())
+	src, dst := netip.MustParseAddr("10.0.10.7"), netip.MustParseAddr("10.0.20.5")
+	for _, test := range []struct {
+		name      string
+		payload   []byte
+		etherType ethernet.EtherType
+		reason    trace.Reason
+		want      string
+	}{
+		{
+			"connected", encodeIPv4Packet(t, src, dst, 64, nil), ethernet.EtherTypeIPv4, routing.ReasonNeighborPending,
+			`vrf="default";destination="10.0.20.5";matched=true;prefix="10.0.20.0/24";next_hop="absent";interface="vlan20";kind="connected";hash_src="10.0.10.7";hash_dst="10.0.20.5";hash_flow_label=0;hash=1544294637;chosen=0;candidates=[absent|vlan20|absent]`,
+		},
+		{
+			"malformed",
+			[]byte{0},
+			ethernet.EtherTypeIPv4, routing.ReasonBadHeader,
+			`interface="vlan10";ether_type=2048;src="undecoded";dst="undecoded";hop_limit=0;valid=false;reason="bad-header"`,
+		},
+		{
+			"expired", encodeIPv4Packet(t, src, dst, 1, nil), ethernet.EtherTypeIPv4, routing.ReasonTTLExpired,
+			`interface="vlan10";ether_type=2048;src="10.0.10.7";dst="10.0.20.5";hop_limit=1;valid=false;reason="ttl-expired"`,
+		},
+		{
+			"family mismatch", encodeIPv4Packet(t, src, dst, 64, nil), ethernet.EtherTypeIPv6, routing.ReasonBadHeader,
+			`interface="vlan10";ether_type=34525;src="10.0.10.7";dst="10.0.20.5";hop_limit=64;valid=false;reason="bad-header"`,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			res := l.Route(testNow, "vlan10", ethernet.Frame{EtherType: test.etherType, Payload: test.payload}, false)
+			if res.Reason != test.reason {
+				t.Fatalf("reason = %s, want %s", res.Reason, test.reason)
+			}
+			typeID := "routing.packet_decision"
+			if test.name == "connected" {
+				typeID = "routing.lookup_decision"
+				if res.Interface != "vlan20" || res.NextHop != dst {
+					t.Errorf("selected interface/next hop = %s/%s, want vlan20/%s", res.Interface, res.NextHop, dst)
+				}
+			}
+			requireRoutingOutput(t, res, typeID, test.want)
+		})
+	}
+}
+
+func TestOriginateKnownDestinationFactText(t *testing.T) {
+	l := mustNewRouting(t, standardSwitchConfig())
+	res := l.Originate(testNow, "unknown", netip.MustParseAddr("192.0.2.1"), 17, nil, false)
+	if res.Reason != routing.ReasonNoRoute {
+		t.Fatalf("reason = %s, want no-route", res.Reason)
+	}
+	requireRoutingOutput(t, res, "routing.packet_decision", `interface="";ether_type=0;src="undecoded";dst="192.0.2.1";hop_limit=0;valid=false;reason="no-route"`)
+	requireRoutingOutput(t, res, "routing.lookup_decision", `vrf="unknown";destination="192.0.2.1";matched=false`)
+}
+
 // ecmpConfig builds the three-candidate set the flow-hash tests select over: one prefix
 // reachable through all three gateways at the same preference and metric.
 func ecmpConfig(gateways ...netip.Addr) routing.Config {

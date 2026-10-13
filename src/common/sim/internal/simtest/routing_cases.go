@@ -172,9 +172,9 @@ func caseTroubleshootingNeighborResolutionPending() Case {
 	packetIn := expectedFact("routing.packet_decision",
 		`interface="in";ether_type=2048;src="10.0.10.7";dst="10.0.20.77";hop_limit=64;valid=true;reason=""`)
 	lookup := expectedFact("routing.lookup_decision",
-		`vrf="default";destination="10.0.20.77";matched=true;prefix="10.0.20.0/24";next_hop="invalid IP";`+
+		`vrf="default";destination="10.0.20.77";matched=true;prefix="10.0.20.0/24";next_hop="absent";`+
 			`interface="out";kind="connected";hash_src="10.0.10.7";hash_dst="10.0.20.77";hash_flow_label=0;`+
-			`hash=336306069;chosen=0;candidates=[invalid IP|out|invalid IP]`)
+			`hash=336306069;chosen=0;candidates=[absent|out|absent]`)
 	neighborPending := expectedFact("routing.neighbor_decision",
 		`interface="out";address="10.0.20.77";state="incomplete";mac="00:00:00:00:00:00";origin="observed"`)
 

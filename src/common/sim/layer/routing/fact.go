@@ -29,8 +29,8 @@ func (f neighborDecisionFact) Canonical() string { return string(f) }
 func packetSnapshot(iface string, f ethernet.Frame, header ip.Header, valid bool, reason trace.Reason) trace.Fact {
 	return packetDecisionFact("interface=" + strconv.Quote(iface) +
 		";ether_type=" + strconv.FormatUint(uint64(f.EtherType), 10) +
-		";src=" + strconv.Quote(header.Src.String()) +
-		";dst=" + strconv.Quote(header.Dst.String()) +
+		";src=" + strconv.Quote(addressText(header.Src, "undecoded")) +
+		";dst=" + strconv.Quote(addressText(header.Dst, "undecoded")) +
 		";hop_limit=" + strconv.FormatUint(uint64(header.HopLimit), 10) +
 		";valid=" + strconv.FormatBool(valid) +
 		";reason=" + strconv.Quote(string(reason)))
@@ -42,19 +42,19 @@ func packetSnapshot(iface string, f ethernet.Frame, header ip.Header, valid bool
 func routeSnapshot(vrf string, destination netip.Addr, sel *selection) trace.Fact {
 	if sel == nil {
 		return routeDecisionFact("vrf=" + strconv.Quote(vrf) +
-			";destination=" + strconv.Quote(destination.String()) + ";matched=false")
+			";destination=" + strconv.Quote(addressText(destination, "undecoded")) + ";matched=false")
 	}
 
 	route := sel.route()
 	var b strings.Builder
 	b.WriteString("vrf=" + strconv.Quote(vrf) +
-		";destination=" + strconv.Quote(destination.String()) +
+		";destination=" + strconv.Quote(addressText(destination, "undecoded")) +
 		";matched=true;prefix=" + strconv.Quote(route.Prefix.String()) +
-		";next_hop=" + strconv.Quote(route.NextHop.String()) +
+		";next_hop=" + strconv.Quote(addressText(route.NextHop, "absent")) +
 		";interface=" + strconv.Quote(route.Interface) +
 		";kind=" + strconv.Quote(string(route.kind)) +
-		";hash_src=" + strconv.Quote(sel.src.String()) +
-		";hash_dst=" + strconv.Quote(sel.dst.String()) +
+		";hash_src=" + strconv.Quote(addressText(sel.src, "undecoded")) +
+		";hash_dst=" + strconv.Quote(addressText(sel.dst, "undecoded")) +
 		";hash_flow_label=" + strconv.FormatUint(uint64(sel.flowLabel), 10) +
 		";hash=" + strconv.FormatUint(uint64(sel.hash), 10) +
 		";chosen=" + strconv.Itoa(sel.chosen) +
@@ -67,11 +67,18 @@ func routeSnapshot(vrf string, destination netip.Addr, sel *selection) trace.Fac
 		if c.resolvedNextHop.IsValid() {
 			forwarded = c.resolvedNextHop
 		}
-		b.WriteString(c.NextHop.String() + "|" + c.Interface + "|" + forwarded.String())
+		b.WriteString(addressText(c.NextHop, "absent") + "|" + c.Interface + "|" + addressText(forwarded, "absent"))
 	}
 	b.WriteString("]")
 
 	return routeDecisionFact(b.String())
+}
+
+func addressText(addr netip.Addr, missing string) string {
+	if !addr.IsValid() {
+		return missing
+	}
+	return addr.String()
 }
 
 // neighborSnapshot records what a neighbor lookup found: the state the entry was in (including

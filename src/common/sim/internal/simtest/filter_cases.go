@@ -263,7 +263,7 @@ func caseTroubleshootingStatefulReplyAllowed() Case {
 		`interface="vlan20";ether_type=2048;src="10.0.20.5";dst="10.0.10.7";hop_limit=64;valid=true;reason=""`)
 	routeIface := expectedFact("routing.route.interface", "vlan20")
 	lookupFact := expectedFact("routing.lookup_decision",
-		`vrf="default";destination="10.0.10.7";matched=true;prefix="10.0.10.0/24";next_hop="invalid IP";interface="vlan10";kind="connected";hash_src="10.0.20.5";hash_dst="10.0.10.7";hash_flow_label=0;hash=2387496097;chosen=0;candidates=[invalid IP|vlan10|invalid IP]`)
+		`vrf="default";destination="10.0.10.7";matched=true;prefix="10.0.10.0/24";next_hop="absent";interface="vlan10";kind="connected";hash_src="10.0.20.5";hash_dst="10.0.10.7";hash_flow_label=0;hash=2387496097;chosen=0;candidates=[absent|vlan10|absent]`)
 	neighborFact := expectedFact("routing.neighbor_decision",
 		`interface="vlan10";address="10.0.10.7";state="reachable";mac="02:00:00:00:00:01";origin="configured"`)
 	pktOut := expectedFact("routing.packet_decision",
@@ -354,7 +354,7 @@ func casePlanningFilterRuleChange() Case {
 		`interface="vlan10";ether_type=2048;src="10.0.10.7";dst="10.0.20.5";hop_limit=64;valid=true;reason=""`)
 	routeIface := expectedFact("routing.route.interface", "vlan10")
 	lookupFact := expectedFact("routing.lookup_decision",
-		`vrf="default";destination="10.0.20.5";matched=true;prefix="10.0.20.0/24";next_hop="invalid IP";interface="vlan20";kind="connected";hash_src="10.0.10.7";hash_dst="10.0.20.5";hash_flow_label=0;hash=1544294637;chosen=0;candidates=[invalid IP|vlan20|invalid IP]`)
+		`vrf="default";destination="10.0.20.5";matched=true;prefix="10.0.20.0/24";next_hop="absent";interface="vlan20";kind="connected";hash_src="10.0.10.7";hash_dst="10.0.20.5";hash_flow_label=0;hash=1544294637;chosen=0;candidates=[absent|vlan20|absent]`)
 	neighborFact := expectedFact("routing.neighbor_decision",
 		`interface="vlan20";address="10.0.20.5";state="reachable";mac="02:00:00:00:00:02";origin="configured"`)
 	pktOut := expectedFact("routing.packet_decision",

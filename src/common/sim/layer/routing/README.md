@@ -174,6 +174,13 @@ delivery and a next hop — an outcome no vendor documents.
 
 ## The candidate set
 
+Canonical routing facts use `absent` for a next hop that is not configured,
+including connected routes and their configured/forwarded candidate values.
+Packet addresses and lookup hash addresses use `undecoded` when the address
+is uninitialized. Decoded addresses keep their IP text after a TTL or family
+refusal. The admission `valid` flag does not control address rendering
+([fact.go](fact.go), `TestRouteAddressFactText` in [layer_test.go](layer_test.go)).
+
 Every route that contains the destination and ties the winner on prefix length,
 preference, and metric is a candidate, and all of them are reported in
 `candidates=[...]` of the `routing.lookup_decision` fact, so a reader can tell
