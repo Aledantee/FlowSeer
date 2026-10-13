@@ -140,9 +140,10 @@ func NewOnboarder(cfg OnboardConfig) (*Onboarder, error) {
 // device that is simply unreachable at this moment, which is not a reason to
 // leave the rest of the edge's fleet unserved.
 //
-// After a successful listing, Sync applies the listing to the configured
-// device index before onboarding, so a slow or failing AddDevice does not delay
-// resolution. A failed listing leaves the index as it was.
+// After a successful listing, Sync validates it whole and applies it to the
+// configured device index before onboarding, so a slow or failing AddDevice
+// does not delay resolution. A failed or invalid listing leaves the index as it
+// was and onboards nothing.
 func (o *Onboarder) Sync(ctx context.Context) error {
 	o.syncing.Lock()
 	defer o.syncing.Unlock()
@@ -152,9 +153,17 @@ func (o *Onboarder) Sync(ctx context.Context) error {
 		return errs.From(err).Code(ErrCodeOnboard).Msg("list the devices this edge serves")
 	}
 
+	// The whole listing is validated before the index or the lane sees any of
+	// it. A listing that contradicts itself fails the sync and leaves the
+	// index and the devices already onboarded as they were, so a later sync
+	// retries from central's next answer.
 	devices := resp.Msg.GetDevices()
+	claims, err := claimsOf(devices)
+	if err != nil {
+		return errs.From(err).Code(ErrCodeOnboard).Msg("validate the device listing")
+	}
 	if o.cfg.Index != nil {
-		o.cfg.Index.ApplyListing(devices)
+		o.cfg.Index.replace(claims)
 	}
 
 	for _, listed := range devices {

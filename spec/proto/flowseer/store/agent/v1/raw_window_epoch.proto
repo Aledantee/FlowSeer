@@ -1,0 +1,20 @@
+edition = "2024";
+
+// The agent's durable boot counter for raw window controls. Storage, not an
+// entity: no triad, no ref pair. The file never restores windows or counters.
+package flowseer.store.agent.v1;
+
+import option "buf/validate/validate.proto";
+
+// The counter an agent advances before it connects, so central can tell a
+// restarted process from a delayed message of an earlier one.
+message RawWindowEpoch {
+  // Starts at one and only grows. Must be present and positive.
+  uint64 boot_generation = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).uint64.gt = 0
+  ];
+  // The epoch of the process that advanced the counter, for an operator
+  // reading the file. Unset means none was recorded.
+  string process_epoch = 2 [(buf.validate.field).string.uuid = true];
+}

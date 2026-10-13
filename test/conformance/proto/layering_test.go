@@ -126,6 +126,22 @@ var importOrder = map[string][]string{
 	// model/capture does not already carry.
 	"edge/capture": {"model/capture", "model/edge"},
 
+	// A raw window's ref pair, selector, configuration, and state. The
+	// selector names a device or an integration through model/inventory,
+	// the owning edge comes from model/edge, and the requester is a
+	// model/identity value.
+	"model/rawwindow": {"model/edge", "model/identity", "model/inventory"},
+
+	// The Connect service an operator calls to open, read, and close a raw
+	// window. Reads the edge ref from model/edge and the window itself from
+	// model/rawwindow.
+	"api/ingest": {"model/rawwindow", "model/edge", "authz"},
+
+	// The Connect service an edge calls to receive raw window controls and
+	// report its controller's state. Imports nothing model/rawwindow does
+	// not already carry.
+	"edge/ingest": {"model/rawwindow"},
+
 	// The execution envelope between central and the edge hosting a
 	// device's lane: what central dispatches and what the edge reports
 	// back.
@@ -170,16 +186,17 @@ var importOrder = map[string][]string{
 	// The durable audit record of what an operator did, read outside any live
 	// transport context, so it names the operator, the edge, or the capture
 	// session directly.
-	"event/operator": {"model/identity", "model/edge", "model/capture"},
+	"event/operator": {"model/identity", "model/edge", "model/capture", "model/rawwindow"},
 
-	// The envelope that carries ingested observation data from adapters to central.
-	"integration/ingest": {"model/inventory", "event/log"},
+	// The envelope that carries ingested observation data from adapters to
+	// central. Raw evidence names the windows that paid for it.
+	"integration/ingest": {"model/inventory", "event/log", "model/rawwindow"},
 
 	// The device service's own files: the records it writes to its stores and
 	// the operator-written prototext it reads at start. One process owns both,
 	// so this root sits above every boundary it embeds and is imported by
 	// none.
-	"store/device": {"model/edge", "model/inventory", "model/access", "model/credential", "model/policy", "errs", "net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface", "net/protocol/lldp"},
+	"store/device": {"model/edge", "model/inventory", "model/access", "model/credential", "model/policy", "model/rawwindow", "errs", "net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface", "net/protocol/lldp"},
 
 	// The agent's own deployment file. It imports nothing FlowSeer-owned and
 	// is imported by nothing: what an edge is told about central lives in
@@ -408,6 +425,27 @@ func TestLayeringViolationRules(t *testing.T) {
 		{name: "operator edge api imports authz", importer: "api/edge", imported: "authz", want: true},
 		{name: "operator action event imports identity", importer: "event/operator", imported: "model/identity", want: true},
 		{name: "operator action event imports inventory directly", importer: "event/operator", imported: "model/inventory"},
+		{name: "raw window model imports the owning edge", importer: "model/rawwindow", imported: "model/edge", want: true},
+		{name: "raw window model imports the selector's device and integration", importer: "model/rawwindow", imported: "model/inventory", want: true},
+		{name: "raw window operator api imports the window model", importer: "api/ingest", imported: "model/rawwindow", want: true},
+		{name: "raw window edge api imports the window model", importer: "edge/ingest", imported: "model/rawwindow", want: true},
+		{name: "ingest envelope imports the window model", importer: "integration/ingest", imported: "model/rawwindow", want: true},
+		{name: "operator action event imports the window model", importer: "event/operator", imported: "model/rawwindow", want: true},
+		{name: "device storage imports the window model", importer: "store/device", imported: "model/rawwindow", want: true},
+		{name: "raw window edge api imports edge entity directly", importer: "edge/ingest", imported: "model/edge"},
+		{name: "agent storage imports the window model", importer: "store/agent", imported: "model/rawwindow"},
+		{
+			name:       "raw window model imports the operator service that carries it",
+			importer:   "model/rawwindow",
+			imported:   "api/ingest",
+			wantReason: "api/ingest declares a service and is imported by nothing",
+		},
+		{
+			name:       "ingest envelope imports the edge control service",
+			importer:   "integration/ingest",
+			imported:   "edge/ingest",
+			wantReason: "edge/ingest declares a service and is imported by nothing",
+		},
 		{
 			name:       "authz leaf imports model",
 			importer:   "authz",

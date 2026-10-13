@@ -258,10 +258,14 @@ func (s *Service) ListDevices(ctx context.Context, _ *connect.Request[attachv1.L
 			continue
 		}
 		entry := attachv1.ListedDevice_builder{
-			DeviceId:     proto.String(id),
-			BindingId:    proto.String(device.GetBinding().GetBinding().GetId()),
-			Ip:           device.GetIp(),
-			AccessPolicy: device.GetConfig().GetAccessPolicy(),
+			DeviceId:  proto.String(id),
+			BindingId: proto.String(device.GetBinding().GetBinding().GetId()),
+			// The registry's one integration owns every binding it lists, so
+			// the edge learns the integration of each device from the same
+			// snapshot that names its binding.
+			IntegrationId: proto.String(s.registry.IntegrationID()),
+			Ip:            device.GetIp(),
+			AccessPolicy:  device.GetConfig().GetAccessPolicy(),
 		}
 		if port := device.GetSnmpPort(); port != 0 {
 			entry.SnmpPort = proto.Uint32(port)

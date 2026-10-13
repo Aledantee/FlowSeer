@@ -1,0 +1,68 @@
+edition = "2024";
+
+// What the device service stores about the raw windows of one edge: the
+// subscription generation it fences on, the controls it still owes, and the
+// windows themselves. Storage, not a boundary and not an entity: one record per
+// tenant and edge, written with compare-and-swap, so no triad or ref pair.
+package flowseer.store.device.v1;
+
+import "flowseer/model/rawwindow/v1/raw_window.proto";
+import "google/protobuf/timestamp.proto";
+import option "buf/validate/validate.proto";
+
+// One window with the control state central owes the edge for it.
+message RawWindowEntry {
+  // What was admitted. Immutable. Must be present.
+  flowseer.model.rawwindow.v1.RawWindowConfig config = 1 [(buf.validate.field).required = true];
+  // What central last learned about the window, or decided on the edge's
+  // behalf. Must be present.
+  flowseer.model.rawwindow.v1.RawWindowState state = 2 [(buf.validate.field).required = true];
+  // The revision of the latest control central issued for this window,
+  // drawn from the record's control_revision. Must be present and positive.
+  uint64 revision = 3 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).uint64.gt = 0
+  ];
+  // The highest revision the edge reported for this window in the current
+  // epoch. Delivery is owed while this is below revision. Unset means the
+  // edge reported none.
+  uint64 reported_revision = 4;
+  // When an operator closed the window. Unset means collection is still
+  // desired. Once set the owed control is a close, and the entry holds its
+  // slot until the original expiry.
+  google.protobuf.Timestamp close_requested_at = 5;
+}
+
+// Every raw window of one edge, and the fence that decides whose reports
+// count.
+message RawWindowEdgeRecord {
+  // The generation of the subscription that owns the record. Must be present
+  // and positive.
+  uint64 boot_generation = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).uint64.gt = 0
+  ];
+  // The process epoch of that subscription. Must be present.
+  string process_epoch = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.uuid = true
+  ];
+  // Largest revision issued so far. Only grows. Must be present.
+  uint64 control_revision = 3 [(buf.validate.field).required = true];
+  // The sources the subscribed process advertised. Empty means none.
+  repeated flowseer.model.rawwindow.v1.RawWindowSource enabled_sources = 4 [(buf.validate.field).repeated.max_items = 16];
+  // Unexpired windows including close tombstones, then expired rows kept for
+  // history. At most 16 are unexpired and at most 64 are expired. An unexpired
+  // window can already be terminal, so up to 16 more terminal rows can be
+  // present.
+  repeated RawWindowEntry windows = 5 [(buf.validate.field).repeated.max_items = 80];
+  // The enrollment the subscribed process ran under: the id of the setup key
+  // the edge consumed to enroll. A rekey keeps it and a re-enrollment after
+  // retirement changes it, because boot_generation restarts at 1 on a box
+  // with an empty state directory and would otherwise fence the new box out.
+  // Unset means the resolver reported none.
+  string enrollment = 6 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 128
+  ];
+}

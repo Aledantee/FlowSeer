@@ -18,10 +18,13 @@ import (
 	edgev1connect "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1/edgev1connect"
 	identityapiv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/identity/v1"
 	identityapiv1connect "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/identity/v1/identityv1connect"
+	ingestapiv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/ingest/v1"
+	ingestapiv1connect "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/ingest/v1/ingestv1connect"
 	operatorv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/operator/v1"
 	modelcapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/capture/v1"
 	modeledgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	identityv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/identity/v1"
+	rawwindowv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/rawwindow/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/tenant"
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
@@ -39,6 +42,27 @@ var edgeAdminProcedureActions = map[string]operatorv1.OperatorAction{
 	edgev1connect.EdgeAdminServiceRetireEdgeProcedure:     operatorv1.OperatorAction_OPERATOR_ACTION_EDGE_RETIRE,
 	edgev1connect.EdgeAdminServiceGetEdgeProcedure:        operatorv1.OperatorAction_OPERATOR_ACTION_EDGE_GET,
 	edgev1connect.EdgeAdminServiceListEdgesProcedure:      operatorv1.OperatorAction_OPERATOR_ACTION_EDGE_LIST,
+}
+
+// rawWindowProcedureActions maps the raw window procedures that change state to
+// their recorded operator actions. A read of a window is not recorded.
+var rawWindowProcedureActions = map[string]operatorv1.OperatorAction{
+	ingestapiv1connect.RawWindowServiceOpenRawWindowProcedure:  operatorv1.OperatorAction_OPERATOR_ACTION_RAW_WINDOW_OPEN,
+	ingestapiv1connect.RawWindowServiceCloseRawWindowProcedure: operatorv1.OperatorAction_OPERATOR_ACTION_RAW_WINDOW_CLOSE,
+}
+
+// rawWindowObject names a stored window with its immutable configuration:
+// selector, expiry, byte budget, and reason. It carries no captured bytes.
+func rawWindowObject(config *rawwindowv1.RawWindowConfig) objectSetter {
+	if config.GetRef() == nil {
+		return nil
+	}
+	return func(e *operatorv1.OperatorActionEvent) {
+		window := &operatorv1.OperatorActionRawWindow{}
+		window.SetRef(config.GetRef())
+		window.SetConfig(config)
+		e.SetRawWindow(window)
+	}
 }
 
 // platformToken stands in for the tenant in the subject of a record whose call
@@ -315,7 +339,13 @@ func (i *Interceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
 			record        bool
 		)
 
-		if proc == capturev1connect.CaptureServiceCreateCaptureSessionProcedure {
+		if rwAction, ok := rawWindowProcedureActions[proc]; ok {
+			record = true
+			action = rwAction
+			if r, ok := req.Any().(*ingestapiv1.OpenRawWindowRequest); ok && r != nil {
+				attemptObject = edgeObject(r.GetEdge())
+			}
+		} else if proc == capturev1connect.CaptureServiceCreateCaptureSessionProcedure {
 			createReq, ok := req.Any().(*capturev1.CreateCaptureSessionRequest)
 			if ok && createReq != nil && createReq.GetAuthorization().GetFullPayloadRequested() {
 				record = true
@@ -436,6 +466,21 @@ func (i *Interceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
 			if resp != nil {
 				if r, ok := resp.Any().(*edgev1.CreateEdgeResponse); ok && r != nil {
 					completionObject = edgeObject(r.GetEdge().GetConfig().GetRef())
+				}
+			}
+		case ingestapiv1connect.RawWindowServiceOpenRawWindowProcedure:
+			if resp != nil {
+				if r, ok := resp.Any().(*ingestapiv1.OpenRawWindowResponse); ok && r != nil {
+					completionObject = rawWindowObject(r.GetWindow().GetConfig())
+				}
+			}
+			if completionObject == nil {
+				completionObject = attemptObject
+			}
+		case ingestapiv1connect.RawWindowServiceCloseRawWindowProcedure:
+			if resp != nil {
+				if r, ok := resp.Any().(*ingestapiv1.CloseRawWindowResponse); ok && r != nil {
+					completionObject = rawWindowObject(r.GetWindow().GetConfig())
 				}
 			}
 		case capturev1connect.CaptureServiceCreateCaptureSessionProcedure:

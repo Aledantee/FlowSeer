@@ -80,6 +80,15 @@ in-house migrator. This phase adds:
   formula in `src/modules/edgebus/README.md`. Why: the hub reserves budgets
   against 75 % of free disk (`src/modules/edgebus/hub.go:47-59`), and a
   fleet-sized default would stop every hub-starting test on a small host.
+- clickhouse-go v2.48.0 is approved as a direct dependency. U3 writes its
+  statement per `docs/conventions/dependencies.md` with verdict `keep` and
+  `approved: 2026-10-12`, then changes `go.mod`
+  (decided by the user, 2026-10-12).
+- `device_dim` is a plain table with no dictionary over it. Reads that
+  enrich rows join it at read time, and no dictionary source or credential
+  appears in any DDL. This replaces U3's dictionary and its stop on a
+  credential-free source, since no ClickHouse doc states one
+  (decided by the user, 2026-10-13).
 
 ## Requirements
 

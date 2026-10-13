@@ -28,8 +28,8 @@ reaches only subjects in the account it was provoked in.
 The hub therefore runs the system account, a CENTRAL account, and one account
 per edge:
 
-- **CENTRAL** holds the `device-lanes`, `edges`, `captures`, `tenants`, and
-  `access` key-value buckets, `FLOWSEER_DEVICE_AUDIT`,
+- **CENTRAL** holds the `device-lanes`, `edges`, `captures`, `raw-windows`,
+  `tenants`, and `access` key-value buckets, `FLOWSEER_DEVICE_AUDIT`,
   `FLOWSEER_OPERATOR_ACTIONS`, `FLOWSEER_OPERATOR_READS`, one typed ingest
   stream per record type, and `FLOWSEER_INGEST_EVIDENCE`. The streams are
   written through central's own CENTRAL-account connection. Typed ingest is
@@ -137,7 +137,7 @@ its cap holds about 4 MiB and the action stream holds about 160,000 records.
 
 The two streams reserve 80 MiB of the central account's 1 GiB beside the
 audit stream's 256 MiB, the syslog ingest stream's 256 MiB, and the evidence
-stream's 64 MiB. A key-value bucket sets no byte limit, so the five buckets
+stream's 64 MiB. A key-value bucket sets no byte limit, so the six buckets
 share the 368 MiB the streams leave once they are full.
 
 ## The credential an edge is minted
