@@ -190,7 +190,7 @@ func snapshotVRF(vrf VRF) vrfSnapshotFact {
 		b.WriteString(";metric=")
 		b.WriteString(strconv.FormatUint(uint64(route.Metric), 10))
 		b.WriteString(";next_hop=")
-		b.WriteString(strconv.Quote(route.NextHop.String()))
+		b.WriteString(strconv.Quote(addressText(route.NextHop, "absent")))
 		b.WriteString(";interface=")
 		b.WriteString(strconv.Quote(route.Interface))
 		b.WriteByte('}')
@@ -432,7 +432,7 @@ func diffRoutes(vrfName string, aVRF, bVRF VRF, changes []trace.Change) []trace.
 	for _, k := range sortedRoutes {
 		rA, rInA := aRoutes[k]
 		rB, rInB := bRoutes[k]
-		key := trace.CompositeKey(vrfName, k.prefix.String(), k.nextHop.String(), k.iface)
+		key := trace.CompositeKey(vrfName, k.prefix.String(), addressText(k.nextHop, "absent"), k.iface)
 
 		switch {
 		case rInA && !rInB:
