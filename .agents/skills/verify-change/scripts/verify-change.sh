@@ -706,8 +706,10 @@ if ((${#modules[@]})); then
   need_tool python3
   # golangci-lint is pinned in its own module, like buf, so the version
   # that lints is the one tools/golangci-lint/go.sum holds, never whatever
-  # sits on PATH. go tool builds it with the toolchain the module being
-  # linted selects, so it always reads that toolchain's export data.
+  # sits on PATH. Its golang.org/x/tools decides which export-data
+  # versions it reads, so a Go release that bumps that version needs a
+  # linter bump here. go tool builds it with the toolchain the linted
+  # module selects, which is why the tool module's go line stays at 1.27.
   lint_cmd=(go tool "-modfile=$root/tools/golangci-lint/go.mod" golangci-lint)
   if [[ $lint_module == true ]]; then
     run go -C tools/golangci-lint mod verify

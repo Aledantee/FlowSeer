@@ -588,7 +588,8 @@ non-negotiable and checkable. (See sources below for the empirical basis.)
 **Correctness**
 - Before calling a library function, confirm it exists in the module's pinned
   version. If unsure, say so in your reply rather than guessing an API.
-- Run the pinned `golangci-lint run` and `go test -race ./...` on the packages you touched
+- Run `go tool -modfile=tools/golangci-lint/go.mod golangci-lint run` and
+  `go test -race ./...` on the packages you touched
   before declaring work done.
 
 ## Sources

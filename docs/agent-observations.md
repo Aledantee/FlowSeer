@@ -58,7 +58,7 @@ What happened: the step was followed as written. A change to any `go.mod`
 leaves the `<Bash mutation; verify with --full>` marker, and `land` then
 needs a `--full` run. One such run on this machine took 40 minutes from
 start to receipt. Its race tests summed to 1054 seconds over 251
-packages, and five packages took 85 seconds or more:
+packages, and the five slowest were:
 `src/protocol/smi/differential` (166 s),
 `src/services/device/test/integration` (159 s),
 `src/common/service/test/integration` (115 s), `src/modules/edgebus`
