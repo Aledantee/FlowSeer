@@ -11,8 +11,8 @@ through that queue, so a future injection cannot charge a host ahead of the cloc
 The example builds two switches joined by a 300-meter cable with hosts `h1`
 and `h2` in VLAN 10. The trunk uses multimode fiber because 300 m of twisted
 pair is past reach. No port or host states its Ethernet facts and the host
-cables state no medium, so the configuration assumes gigabit copper for them;
-without that assumption every link would be `Unknown` and nothing would move.
+cables state no medium, so the configuration assumes gigabit copper for them.
+Without that assumption every link would be `Unknown` and nothing would move.
 A frame injected at `h1` traverses `sw1`, crosses the cable, traverses `sw2`,
 and delivers to `h2`.
 
@@ -194,7 +194,7 @@ stream frames, and actions. Every event consumes one step of the run budget.
 A past-dated queued event executes at the clock.
 
 Every attached frame belongs to a nonzero flow. The default `RetainJourney`
-keeps its journey in `Report`; choose `RetainAggregate` to fold the outcome into
+keeps its journey in `Report`. Choose `RetainAggregate` to fold the outcome into
 `Flows` and release the settled journey. The fabric owns the source cursor
 after attachment. `Fork` clones that cursor and any peeked frame, so each fork
 continues the remaining stream independently.
@@ -226,7 +226,7 @@ progression across devices and cables:
 
 Time on a cable is two terms: serialization and propagation. Wire octets are
 computed as `max(encoded, 60 + 4 per tag) + 24` (4 octets of FCS, 8 of
-preamble and start delimiter, and 12 of interpacket gap; IEEE 802.3-2022 clause
+preamble and start delimiter, and 12 of interpacket gap, IEEE 802.3-2022 clause
 4.4.2 for the gap). Serialization is `wire octets × 8 / rate` rounded up to the
 nanosecond. Propagation is `length / (velocity factor × 299,792,458 m/s)`
 rounded to the nanosecond. `Delay`, when set, replaces the propagation term and
@@ -235,7 +235,7 @@ nothing else.
 A host's decision is recorded at the arrival time, and a host's cable end is
 charged on the busy clock like any port.
 
-Each entry names the endpoint it happened at in `Device` and `Port`; a host's
+Each entry names the endpoint it happened at in `Device` and `Port`. A host's
 `Port` is empty, since a host has one unnamed port. `Cable` is the cable the
 entry rests on. An injection carries its origin's cable, and a host's arrival
 and decision carry the cable the frame came over.
@@ -323,16 +323,20 @@ With PCP 0 on `sw1:1/1/24` limited to 100 Mbit/s, an 88-wire-octet tagged frame
 opens the next PCP 0 turn 7040 ns after its start. Two untagged host frames
 injected at `t0` and `t0 + 1ns` reach `sw1` at `t0 + 672ns` and
 `t0 + 1344ns`. Their trunk copies reach `sw2` at `t0 + 2870ns` and
-`t0 + 9910ns`; each still serializes in 704 ns at the 1 Gbit/s link rate. An
+`t0 + 9910ns`. Each still serializes in 704 ns at the 1 Gbit/s link rate. An
 unlimited PCP 7 frame queued between those copies takes the free trunk before
 the second PCP 0 frame.
 
 ## Journey retention and flow statistics
 
+`flow.ID`, `flow.Stats`, and `flow.LatencyStats` belong to
+[flow](../flow/README.md). Fabric owns journey folding, held gauges, and
+add/since accounting ([flow.go](flow.go)).
+
 An injection names a `Flow` and a `Retention`. A frame stays in flight while
 it has an arrival, queued transmission, or device hold. When its last work
 leaves, the frame settles at the end of that call. A settled journey that
-names a flow folds into its `FlowStats`:
+names a flow folds into its [`flow.Stats`](../flow/README.md):
 
 - `Offered` counts the frames the caller injected directly;
 - `Delivered` counts accepted deliveries per destination host;
@@ -372,8 +376,9 @@ flowchart LR
     copy --> settle
 ```
 
-`Fabric.Flows()` returns an independent copy of every flow's statistics,
-keyed by flow.
+`Fabric.Flows()` returns an independent `map[flow.ID]flow.Stats` copy of every
+flow's statistics. Flow metadata merges journey dependencies, including those
+of copies. Unrelated whole-fabric issues are excluded ([flow.go](flow.go)).
 
 ```go
 if _, err := fab.Inject(fabric.Injection{
@@ -406,7 +411,8 @@ per-frame record rather than at retention.
 both entry points compute no fingerprints and read no journey report in the
 executor (`executor.go`, `TestRunComputesNoFingerprint`).
 
-On Apple M4 Pro, the following command reports:
+The Apple M4 Pro measurement recorded in commit `b5e092c3` uses this command
+and output ([bench_test.go](bench_test.go)). It is a historical baseline:
 
 ```sh
 go test ./src/common/sim/fabric -run '^$' -bench '^BenchmarkAggregateMillion(Scenario)?$' -benchtime=1x -benchmem
@@ -436,7 +442,7 @@ signal velocity factor and the maximum reach per link speed:
 | `Twinax`          | 0.77   | -       | -        | -      | 15 m    |
 
 Velocity factors derive from https://en.wikipedia.org/wiki/Velocity_factor
-(Cat 5e for twisted pair; 10BASE-FL and 100BASE-FX minimum for fiber) and
+(Cat 5e for twisted pair, 10BASE-FL and 100BASE-FX minimum for fiber) and
 https://en.wikipedia.org/wiki/Optical_fiber (200,000 km/s in glass). The twinax
 factor is a coaxial proxy (generic RG-8 foamed-dielectric coaxial pair) because
 direct-attach cabling data was not found. Reach rows derive from
@@ -495,13 +501,13 @@ The checks run in this order, and the first one that decides ends the run:
    §7.2). A host with an IPv6 address also takes `33:33:00:00:00:01` for
    ff02::1, and `33:33:ff` followed by the low 24 bits of each own address,
    the MAC of its solicited-node group
-   ([RFC 4291](https://www.rfc-editor.org/rfc/rfc4291.html) §2.7.1, §2.8;
+   ([RFC 4291](https://www.rfc-editor.org/rfc/rfc4291.html) §2.7.1, §2.8,
    [RFC 2464](https://www.rfc-editor.org/rfc/rfc2464.html) §7). Anything else
    is refused with `host-unicast-not-addressed` or
    `host-multicast-not-accepted`. `Accept.Promiscuous` takes any MAC and skips
    step 3.
 3. IP destination. This step runs only for a host with an IP stack and a frame
-   with an IPv4 or IPv6 EtherType; any other EtherType was taken at step 2.
+   with an IPv4 or IPv6 EtherType. Any other EtherType was taken at step 2.
    The packet is taken when it is addressed to an own address, to
    255.255.255.255 or the directed broadcast of an own IPv4 prefix, or to a
    group whose MAC step 2 takes. A /31 or /32 prefix has no directed broadcast
@@ -605,15 +611,15 @@ The checks run in this order, and the first one that decides ends the run:
    (17). Anything else is refused with `reflector-protocol-not-udp`.
 6. UDP destination port (`reflector.udp.port`). The datagram's destination
    port must be 5353 (RFC 6762 §5.2). Anything else is refused with
-   `reflector-udp-port-not-mdns`; a frame that clears every check is taken
+   `reflector-udp-port-not-mdns`. A frame that clears every check is taken
    for reflection under `reflector.accepted`.
 
 A header that does not decode leaves acceptance unknown, the same shape a
 host's IP check follows: an undecodable IP header ends `Unresolved` with
 `reflector-ip-header-undecodable` under rule `reflector.ip.undecodable`, and
-an undecodable UDP header — a well-formed IP header whose payload is too
+an undecodable UDP header (a well-formed IP header whose payload is too
 short to be a UDP datagram, such as one whose total length equals its header
-length — ends `Unresolved` with `reflector-udp-header-undecodable` under
+length) ends `Unresolved` with `reflector-udp-header-undecodable` under
 rule `reflector.udp.undecodable`. Both carry an `Incomplete` issue on the
 journey's `analysis.JourneyScope`, and neither is a `Rejection`: the
 reflector cannot tell whether the frame qualifies.
@@ -685,8 +691,8 @@ and leaves the transmission in flight:
 ## Fabric forking
 
 `[Fabric.Fork]` creates an independent executable simulation that continues the
-same run. Runtime execution state — the arrival queue, egress queues, journeys,
-counters, clock, frame-id counters, and switches (via `[vswitch.Switch.Fork]`) —
+same run. Runtime execution state (the arrival queue, egress queues, journeys,
+counters, clock, frame-id counters, and devices (via `device.Device.Fork`))
 is deep-copied, while immutable `ethernet.Frame` values in queues and journeys
 are shared rather than copied. Each `Link` and its cable are cloned (since
 `SetFault` mutates cables in place), and `byEnd` is rebuilt from the cloned
@@ -745,7 +751,7 @@ A cabled link resolves in this order:
 1. A severed cable (`FaultCut`) leaves both endpoints `Down` with `cut`.
 2. A unidirectional failure (`FaultDeadAToB` or `FaultDeadBToA`) leaves both
    ends `Down` with `dead-direction` when either end auto-negotiates. When both
-   force their setting the link resolves on; when a mode is unreported it is
+   force their setting the link resolves on. When a mode is unreported it is
    `Unknown`.
 3. When either end is administratively disabled both are `Down`: the disabled
    end reads `admin-down`, the other `peer-down`.
@@ -795,7 +801,7 @@ derived `Unknown`. The configured value is kept for the reader, but the
 derived one executes.
 
 `assembly.ConstructionSpec.Evidence` is the catalog that `Cable.Evidence` and
-`Uncabled.Evidence` references resolve in; a reference outside it is invalid.
+`Uncabled.Evidence` references resolve in. A reference outside it is invalid.
 Issues cite the references of the cable or entry they rest on. Evidence is not
 behavior, so `assembly.Diff` and `assembly.DiffSpecs` report no change for it, while `Equal`
 compares it.
@@ -803,7 +809,7 @@ compares it.
 Queue crossings add `fabric.runtime` evidence with origin `egress-queue`.
 Its context names the rule, physical endpoint, logical port or host node,
 PCP, frame ID, instant, and queue fact fields. `Fabric.Metadata().Evidence()`
-includes this runtime catalog so the queue issue's ref resolves;
+includes this runtime catalog so the queue issue's ref resolves.
 `assembly.Spec(fab).Evidence` keeps only construction evidence. Earlier metadata snapshots
 and forks retain their own catalog values.
 
@@ -814,8 +820,8 @@ when the event runs, so a fault set after `Inject` and before that time can
 change the outcome of the injection.
 A valid host injection onto a link that is not `Up` is not an error. On a `Down`
 link the journey records an `EntryDrop` with the link's reason at its injection
-time; on an `Unknown` link, an `EntryUnresolved`. Both carry the host's cable and
-transmit nothing.
+time. On an `Unknown` link it records an `EntryUnresolved`. Both carry the
+host's cable and transmit nothing.
 
 ## Journey metadata
 
@@ -864,15 +870,15 @@ Cables support deterministic defect configurations:
 | Kind              | Effect                                           |
 | ----------------- | ------------------------------------------------ |
 | `None`            | Unimpaired transmission                          |
-| `Cut`             | Physical severance; both endpoints remain Down   |
+| `Cut`             | Physical severance. Both endpoints remain Down   |
 | `DeadAToB`        | Blocks transmission from endpoint A to B         |
 | `DeadBToA`        | Blocks transmission from endpoint B to A         |
 | `LoseEveryNth`    | Drops every Nth frame crossing the cable         |
 | `LoseSequence`    | Drops frames matching 1-based crossing positions |
-| `CorruptEveryNth` | Marks every Nth crossing damaged; recipient drop |
+| `CorruptEveryNth` | Marks every Nth crossing damaged. Recipient drop |
 
 `N` is active only for the two every-Nth kinds and must be greater than zero.
-`Sequence` is active only for `LoseSequence`; it must be non-empty and every
+`Sequence` is active only for `LoseSequence`. It must be non-empty and every
 position must be at least one. Validation rejects parameters on other variants.
 Normalization clears inactive parameters and sorts and deduplicates an active
 sequence.
@@ -924,7 +930,7 @@ The package declares reasons for link failures and frame discards:
 | `reflector-protocol-not-udp` | Frame's IP protocol is not UDP |
 | `reflector-udp-header-undecodable` | Reflector cannot decode the UDP header it must check |
 | `reflector-udp-port-not-mdns` | Frame's UDP destination port is not 5353 |
-| `reflector-no-address` | Target attachment names no address of the accepted datagram's family; the entry carries no step and counts no discard at that port |
+| `reflector-no-address` | Target attachment names no address of the accepted datagram's family. The entry carries no step and counts no discard at that port |
 
 ## Run lifecycle and scenarios
 
@@ -947,7 +953,7 @@ of seven stop reasons:
   an unknown node. The result carries the error, no `scheduling-fault` issue
   is raised, the fabric is not faulted and runs again, and the actions after
   the refused one are reported in `DroppedActions`.
-- `StopNotRun`: A non-positive budget was provided; zero steps were executed.
+- `StopNotRun`: A non-positive budget was provided. Zero steps were executed.
 
 A zero window skips fingerprints. A positive window enables convergence and
 cycle detection. Pending journeys count frames with live arrivals, queued
@@ -1296,7 +1302,7 @@ alignment (`align.go`, `TestAlignOriginalIndicesAndDiagnosticVerdicts`).
 ### Internal fork lifecycle
 
 `Compare` executes internally on `[Fabric.Fork]` copies of both fabrics. Neither
-`a` nor `b` is stepped, injected into, or mutated; both fabrics remain available
+`a` nor `b` is stepped, injected into, or mutated. Both fabrics remain available
 for continued simulation or subsequent comparisons.
 
 The lifted precondition allows comparing fabrics mid-run. Injected and recorded
@@ -1353,7 +1359,9 @@ copy paths. `Report()` copies them for callers that need mutable report values.
 `BenchmarkStep` measures one prepared step per operation:
 
 ```sh
-go test ./src/common/sim/fabric -run '^$' -bench '^BenchmarkStep$' -benchtime=100x
+go test ./src/common/sim/fabric -run '^$' -bench '^BenchmarkStep$' -benchtime=100x -benchmem
 ```
 
-It records 303 allocations per retained step and 294 per aggregate step.
+The journey and aggregate sub-benchmarks report allocations for the current
+revision. [bench_test.go](bench_test.go) builds the two-switch chain and prepares
+each queued step outside the timed section.

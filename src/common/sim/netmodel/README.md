@@ -213,7 +213,7 @@ records both from the same catalog, issues, and assumptions.
   rows collapse to one fact. Conflicts lower readiness to [analysis.Unstable] and
   do not depend on input order.
 - **Deterministic ordering**: All report collections (capabilities, skips, defaults,
-  conflicts) are sorted deterministically, ensuring reproducible diffs and tests.
+  conflicts) are sorted deterministically. This makes diffs and tests reproducible.
 
 ## Construction trust boundary
 
@@ -237,7 +237,7 @@ translation rather than runtime forwarding.
 
 A forwarding result selects metadata against the dependencies it actually
 consulted. Port state uses port scopes. Routing uses exact port, port-and-VID,
-VLAN, ownership, route, local-address, and neighbor lookup scopes; neighbor
+VLAN, ownership, route, local-address, and neighbor lookup scopes. Neighbor
 scopes include the VRF, interface, and address, including for VLAN interfaces.
 Bridge forwarding uses the exact FID and destination MAC scope for an FDB
 lookup. A sibling dependency is excluded, while a node-scoped conflict affects
@@ -260,7 +260,7 @@ whose sub-interfaces claim the same parent and VID, keeps both.
 
 Any other encapsulation, an absent one included, raises
 `netmodel.routing.unsupported_encapsulation` on the parent port's lookup
-scope and leaves the interface out of the VRF; a parent that is absent from
+scope and leaves the interface out of the VRF. A parent that is absent from
 the load, is not itself a physical or LAG interface, or is itself a LAG
 member, keeps raising `netmodel.routing.unsupported_interface_kind` on that
 same scope. A directly routed interface that is itself a LAG member raises

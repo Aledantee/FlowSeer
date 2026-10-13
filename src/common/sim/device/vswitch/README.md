@@ -217,28 +217,24 @@ Protocol transmission and loop-protection gates follow the
 
 ## Capability ladder
 
+Layer engines remain public. The [host](../host/host.go) composes routing and
+traffic directly, and the [reflector](../reflector/reflector.go) uses traffic
+for egress admission.
+
 The virtual switch uses a ladder of architectural layers:
 
 - **Hub**: Configured with a `port.Table` alone. Frames received on an active
   port repeat to all other active forwarding ports. The hub does not inspect
   VLAN tags or learn MAC addresses.
-- **Bridge**: Configured with a `port.Table` and `bridge.Config` without a VLAN
-  subsystem. Learns source addresses into a single filtering database (FID 0),
-  filters frames destined to known ports, and drops IEEE bridge management
-  group addresses unless `ForwardBPDU` is set to forward them like any group address.
-  A table bound (`MaxEntries`) evicts the oldest dynamic entry when full, and
-  `Counters` tracks learned, expired, evicted, and moved entries. A bridge can
-  designate `ProtectedPorts` that never forward traffic to one another. All tags
-  are treated as payload.
-- **Switch**: Configured with a `port.Table` and `bridge.Config` containing a
-  `bridge.VLAN`. Performs 802.1Q ingress classification, admission checks,
-  ingress VLAN filtering, per-VLAN learning, and egress tag rewrites.
-  Configuring `FloodVLANs` disables learning and floods every frame in those
-  VLANs. An untagged egress port can emit priority tags under a `PriorityTags`
-  policy (`Never`, `IfNonzero`, `Always`). A port configured with a `Tunnel`
-  pushes an outer service tag on ingress and pops it on egress. For example, a
-  customer-tagged frame arriving on a tunnel port egresses a trunk port carrying
-  an outer S-tag with TPID 0x88A8 plus the customer C-tag.
+- **Bridge**: Configured with a `port.Table` and `bridge.Config` without
+  `bridge.VLAN`. The [relay](../../layer/bridge/README.md#configuration-and-sources)
+  owns FID 0 learning, tag-as-payload handling, reserved-address policy,
+  capacity, and protected-port behavior.
+- **Switch**: Adds `bridge.VLAN` to the relay configuration. The
+  [relay pipeline](../../layer/bridge/README.md#pipeline) owns classification,
+  admission, learning, and egress tag forms, including tunnel and priority-tag
+  policies. The switch supplies gates, aggregation selection, and multicast
+  resolution around that pipeline.
 - **Link aggregation**: Configured with LAG ports and optional `lag.Config`. Member processing and
   egress selection use the [aggregation layer](../../layer/lag/README.md).
 - **Spanning tree**: Configured with `bridge.Config` and `stp.Config`. The
@@ -329,25 +325,11 @@ Loader defaults are documented in [netmodel](../../netmodel/README.md#loader-def
 
 ## Standards and rules
 
-Forwarding and allocation behavior follows standard specifications:
+The [relay configuration and sources](../../layer/bridge/README.md#configuration-and-sources)
+state bridge defaults, VLAN admission, reserved destinations, and tunnel policy.
+Its [limits](../../layer/bridge/README.md#limits) distinguish the implemented
+relay from later unread editions. The switch owns these composition rules:
 
-- **Switchport admission default**: Ports default to `admitAll` frame types per
-  `spec/mib/ietf/Q-BRIDGE-MIB:1413` (`dot1qPortAcceptableFrameTypes`).
-- **Ingress filtering default**: Ingress filtering defaults to false per
-  `spec/mib/ietf/Q-BRIDGE-MIB:1437` (`dot1qPortIngressFiltering`).
-- **Aging time default**: Bridge aging time defaults to 300 seconds per the
-  802.1D recommendation in `spec/mib/ietf/BRIDGE-MIB:778` (`dot1dTpAgingTime`).
-- **Priority-tagged classification**: Frames with C-TAG (0x8100) and VID 0
-  classify to the port PVID per `spec/mib/ietf/Q-BRIDGE-MIB:1379`.
-- **Reserved group addresses**: Destination MAC addresses in the range
-  `01-80-C2-00-00-00` through `01-80-C2-00-00-0F` are reserved for bridge
-  management protocols. The bridge drops them without learning their sources,
-  unless `ForwardBPDU` is set, when the bridge forwards them like any group address
-  (see the IEEE Registration Authority at
-  https://standards.ieee.org/products-programs/regauth/grpmac/public/).
-- **Service tag TPID**: A tunnel port pushes an S-tag with TPID 0x88A8
-  (IEEE 802.1ad. The loader's `qinq_ethtype` default follows Open vSwitch's
-  `qinq-ethtype` option).
 - **Base MAC assignment**: A switch has one base MAC (`Config.MAC`). When omitted,
   `New` assigns the first unused locally administered unicast address
   (`02:00:00:xx:xx:xx` per IEEE Std 802-2014 clause 8.2.2) not used by any
@@ -459,7 +441,9 @@ Exported constructors validate and normalize configurations:
   forwarding database seeds and construction trust metadata alongside normalized
   configuration. [Switch.Spec] extracts an independent deep copy of this
   specification containing configuration, seeds, node identity, and trust
-  metadata. Its ports remain as constructed. Runtime state is copied by `Fork`.
+  metadata. Its ports remain as constructed. Traffic-learned entries and timer
+  state are absent from `Spec`, so reconstructing it reproduces construction
+  inputs. Runtime continuation is copied by `Fork` ([spec.go](spec.go)).
 - [Derive] takes the target [ConstructionSpec]. Static forwarding entries, node
   identity, and trust metadata come only from that target. They are not copied
   from the current switch. A target dynamic seed yields to the current switch's
@@ -679,6 +663,13 @@ an omitted LAG pointer can still represent a present capability
 MAC uses the device subject under `port`. Port-table records precede sorted
 capability presence records, followed by each delegated owner's sequence.
 Delegation preserves the owner's subject key, member field, and typed facts.
+Member fields use Go-quoted bracket coordinates such as
+`attachments["edge.1"].vlan` in assembly wrappers and normalized positions such
+as `match.src_ports[0].start` in filter records. Positional ranges report Start
+before End. Sort-only multisets report each unmatched occurrence, so removing
+two equal routing prefixes produces two equal removal records. Expectations
+compare every ordered record, including normalized no-ops and both lifecycle
+records when an identity changes.
 The exact coverage gate checks 190 primary submissions. Its correspondence
 matrices cover 14 filter range, seven MST VLAN occurrence, and seven routing
 prefix occurrence submissions, each on raw and normalized inputs
