@@ -24,7 +24,7 @@ func TestConfigRejectsWhatCannotNameADeployment(t *testing.T) {
 		{"database that would escape its quotes", func(c *Config) { c.Database = "a`; DROP DATABASE x; --" }},
 		{"cluster that is not an identifier", func(c *Config) { c.Cluster = "my cluster" }},
 		{"user that is not an identifier", func(c *Config) { c.Writer.Name = "w r" }},
-		{"user without a password file", func(c *Config) { c.Analyst.PasswordFile = "" }},
+		{"user without a password file", func(c *Config) { c.Analyst.AuthFile = "" }},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -118,7 +118,7 @@ func TestDialStrategyReadsThePasswordFileAtEveryDial(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	strategy := dialStrategy(User{Name: "w", PasswordFile: path})
+	strategy := dialStrategy(User{Name: "w", AuthFile: path})
 	opt := &clickhouse.Options{Addr: []string{"a:9000"}, Auth: clickhouse.Auth{Password: "stale"}}
 	f := &fakeDial{}
 
@@ -144,7 +144,7 @@ func TestDialStrategyTriesEndpointsInOrderAndTakesTheFirstThatAnswers(t *testing
 	if err := os.WriteFile(path, []byte("secret"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	strategy := dialStrategy(User{Name: "w", PasswordFile: path})
+	strategy := dialStrategy(User{Name: "w", AuthFile: path})
 	opt := &clickhouse.Options{Addr: []string{"a:9000", "b:9000", "c:9000"}}
 	f := &fakeDial{failing: map[string]bool{"a:9000": true}}
 
@@ -167,7 +167,7 @@ func TestDialStrategyFailsWithoutDialingWhenThePasswordCannotBeRead(t *testing.T
 		t.Run(name, func(t *testing.T) {
 			f := &fakeDial{}
 
-			_, err := dialStrategy(User{Name: "w", PasswordFile: file})(context.Background(), 1, &clickhouse.Options{Addr: []string{"a:9000"}}, f.dial)
+			_, err := dialStrategy(User{Name: "w", AuthFile: file})(context.Background(), 1, &clickhouse.Options{Addr: []string{"a:9000"}}, f.dial)
 
 			if code, _ := errs.CodeOf(err); code != ErrCodePassword {
 				t.Errorf("code = %v (err %v), want %v", code, err, ErrCodePassword)

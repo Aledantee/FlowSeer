@@ -69,10 +69,10 @@ func TestHistoryConfigMapsEveryUserToItsOwnRole(t *testing.T) {
 		Endpoints: []string{"ch1:9440", "ch2:9440"},
 		Database:  "history",
 		Cluster:   "fleet",
-		Admin:     history.User{Name: "admin_user", PasswordFile: "/secrets/admin"},
-		Writer:    history.User{Name: "writer_user", PasswordFile: "/secrets/writer"},
-		Reader:    history.User{Name: "reader_user", PasswordFile: "/secrets/reader"},
-		Analyst:   history.User{Name: "analyst_user", PasswordFile: "/secrets/analyst"},
+		Admin:     history.User{Name: "admin_user", AuthFile: "/secrets/admin"},
+		Writer:    history.User{Name: "writer_user", AuthFile: "/secrets/writer"},
+		Reader:    history.User{Name: "reader_user", AuthFile: "/secrets/reader"},
+		Analyst:   history.User{Name: "analyst_user", AuthFile: "/secrets/analyst"},
 		CAFile:    "/etc/ca.pem",
 	}
 	if !reflect.DeepEqual(got, want) {

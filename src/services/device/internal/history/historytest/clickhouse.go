@@ -185,7 +185,7 @@ func (s *Server) User(t *testing.T, name, password string) history.User {
 	if err := os.WriteFile(path, []byte(password+"\n"), 0o600); err != nil {
 		t.Fatalf("write password file: %v", err)
 	}
-	return history.User{Name: name, PasswordFile: path}
+	return history.User{Name: name, AuthFile: path}
 }
 
 // Open builds a Store for the server's Config and closes it when the test ends.

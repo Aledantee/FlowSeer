@@ -71,9 +71,9 @@ type Query struct {
 	// PageSize is the most entries returned. Zero means 100 and the value is
 	// capped at 1000.
 	PageSize int
-	// PageToken is the NextToken of the previous page, with the rest of the
+	// Cursor is the NextCursor of the previous page, with the rest of the
 	// query unchanged. Empty means the first page.
-	PageToken string
+	Cursor string
 }
 
 // Entry is one stored syslog record with the tenant that owns it.
@@ -113,8 +113,8 @@ const (
 type Result struct {
 	// Entries are newest first by receive time, then by record id.
 	Entries []Entry
-	// NextToken is empty on the last page.
-	NextToken string
+	// NextCursor is empty on the last page.
+	NextCursor string
 }
 
 // Reader runs history reads through the service's reader pool. It is safe for
@@ -152,8 +152,8 @@ func (r *Reader) ListSyslog(ctx context.Context, q Query) (Result, error) {
 	size = min(size, maxPageSize)
 
 	var after *cursor
-	if q.PageToken != "" {
-		position, err := decodeToken(q.PageToken)
+	if q.Cursor != "" {
+		position, err := decodeToken(q.Cursor)
 		if err != nil {
 			return Result{}, err
 		}
@@ -189,7 +189,7 @@ func (r *Reader) ListSyslog(ctx context.Context, q Query) (Result, error) {
 	if len(entries) > size {
 		result.Entries = entries[:size]
 		last := result.Entries[size-1]
-		result.NextToken = encodeToken(cursor{ts: last.ReceivedAt, recordID: last.RecordID})
+		result.NextCursor = encodeToken(cursor{ts: last.ReceivedAt, recordID: last.RecordID})
 	}
 	return result, nil
 }

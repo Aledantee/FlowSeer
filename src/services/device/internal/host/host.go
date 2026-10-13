@@ -841,7 +841,7 @@ func (h *assembly) mirrorDevices(ctx context.Context, resources *busResources, s
 // historyConfig translates the configured history section.
 func historyConfig(msg *storev1.HistoryStore) history.Config {
 	user := func(u *storev1.HistoryUser) history.User {
-		return history.User{Name: u.GetName(), PasswordFile: u.GetPasswordFile()}
+		return history.User{Name: u.GetName(), AuthFile: u.GetPasswordFile()}
 	}
 	return history.Config{
 		Endpoints: msg.GetEndpoints(),

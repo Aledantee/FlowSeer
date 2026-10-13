@@ -9,10 +9,10 @@ mirror of registry devices. The design is the
 store, err := history.Open(history.Config{
 	Endpoints: []string{"127.0.0.1:9000"},
 	Database:  "flowseer",
-	Admin:     history.User{Name: "flowseer_admin", PasswordFile: "/etc/flowseer/clickhouse/admin.password"},
-	Writer:    history.User{Name: "flowseer_writer", PasswordFile: "/etc/flowseer/clickhouse/writer.password"},
-	Reader:    history.User{Name: "flowseer_reader", PasswordFile: "/etc/flowseer/clickhouse/reader.password"},
-	Analyst:   history.User{Name: "flowseer_analyst", PasswordFile: "/etc/flowseer/clickhouse/analyst.password"},
+	Admin:     history.User{Name: "flowseer_admin", AuthFile: "/etc/flowseer/clickhouse/admin.password"},
+	Writer:    history.User{Name: "flowseer_writer", AuthFile: "/etc/flowseer/clickhouse/writer.password"},
+	Reader:    history.User{Name: "flowseer_reader", AuthFile: "/etc/flowseer/clickhouse/reader.password"},
+	Analyst:   history.User{Name: "flowseer_analyst", AuthFile: "/etc/flowseer/clickhouse/analyst.password"},
 })
 ```
 

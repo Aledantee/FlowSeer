@@ -186,7 +186,7 @@ func writePassword(t *testing.T, dir, name, password string) User {
 	if err := os.WriteFile(path, []byte(password+"\n"), 0o600); err != nil {
 		t.Fatalf("write password file: %v", err)
 	}
-	return User{Name: name, PasswordFile: path}
+	return User{Name: name, AuthFile: path}
 }
 
 func testConfig(t *testing.T, cluster string) Config {

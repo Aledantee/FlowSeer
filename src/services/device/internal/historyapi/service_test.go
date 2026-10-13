@@ -224,8 +224,8 @@ func TestRequestFieldsReachTheQuery(t *testing.T) {
 	if query.MinSeverity == nil || *query.MinSeverity != 0 {
 		t.Errorf("min severity = %v, want a pointer to 0 (EMERGENCY is a real severity)", query.MinSeverity)
 	}
-	if query.PageSize != 25 || query.PageToken != "token-from-before" {
-		t.Errorf("page = %d %q, want 25 and the token", query.PageSize, query.PageToken)
+	if query.PageSize != 25 || query.Cursor != "token-from-before" {
+		t.Errorf("page = %d %q, want 25 and the token", query.PageSize, query.Cursor)
 	}
 }
 
@@ -267,7 +267,7 @@ func fullEntry() historyquery.Entry {
 
 func TestAStoredRowBecomesAValidRecordWithItsEntryFields(t *testing.T) {
 	h := newHarness(t)
-	h.reader.result = historyquery.Result{Entries: []historyquery.Entry{fullEntry()}, NextToken: "next"}
+	h.reader.result = historyquery.Result{Entries: []historyquery.Entry{fullEntry()}, NextCursor: "next"}
 
 	resp, err := h.client.ListSyslogRecords(context.Background(), deviceRequest(tenantA))
 	if err != nil {

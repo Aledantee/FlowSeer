@@ -137,7 +137,7 @@ func dialStrategy(user User) func(ctx context.Context, connID int, opt *clickhou
 
 // readPassword returns the file's contents without one trailing line break.
 func readPassword(user User) (string, error) {
-	data, err := os.ReadFile(user.PasswordFile)
+	data, err := os.ReadFile(user.AuthFile)
 	if err != nil {
 		return "", errs.From(err).Code(ErrCodePassword).Attr("user", user.Name).Msg("read password file")
 	}

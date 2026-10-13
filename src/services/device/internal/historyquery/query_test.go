@@ -236,10 +236,10 @@ func TestAPageHoldsPageSizeEntriesAndATokenWhenMoreRemain(t *testing.T) {
 	if got := namedValue(t, conn.args, "limit"); got != uint32(4) {
 		t.Errorf("limit = %v, want 4: one more than the page to find out whether another follows", got)
 	}
-	if len(result.Entries) != 3 || result.NextToken == "" {
-		t.Fatalf("page = %d entries and token %q, want 3 and a token", len(result.Entries), result.NextToken)
+	if len(result.Entries) != 3 || result.NextCursor == "" {
+		t.Fatalf("page = %d entries and token %q, want 3 and a token", len(result.Entries), result.NextCursor)
 	}
-	position, err := decodeToken(result.NextToken)
+	position, err := decodeToken(result.NextCursor)
 	if err != nil {
 		t.Fatalf("decode the token: %v", err)
 	}
@@ -259,8 +259,8 @@ func TestTheLastPageHasNoToken(t *testing.T) {
 		t.Fatalf("ListSyslog: %v", err)
 	}
 
-	if len(result.Entries) != 3 || result.NextToken != "" {
-		t.Errorf("page = %d entries and token %q, want 3 and no token", len(result.Entries), result.NextToken)
+	if len(result.Entries) != 3 || result.NextCursor != "" {
+		t.Errorf("page = %d entries and token %q, want 3 and no token", len(result.Entries), result.NextCursor)
 	}
 }
 

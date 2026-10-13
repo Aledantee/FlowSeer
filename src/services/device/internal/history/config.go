@@ -47,8 +47,8 @@ type Config struct {
 // User is one ClickHouse user and the file that holds its password. The file
 // is read each time a connection opens, so a rotated secret needs no restart.
 type User struct {
-	Name         string
-	PasswordFile string
+	Name     string
+	AuthFile string
 }
 
 func (c Config) validate() error {
@@ -74,7 +74,7 @@ func (c Config) validate() error {
 		if !identifier.MatchString(r.user.Name) {
 			return errs.New().Code(ErrCodeConfig).Attr("role", r.role).Attr("user", r.user.Name).Msg("invalid user name")
 		}
-		if r.user.PasswordFile == "" {
+		if r.user.AuthFile == "" {
 			return errs.New().Code(ErrCodeConfig).Attr("role", r.role).Msg("no password file")
 		}
 	}

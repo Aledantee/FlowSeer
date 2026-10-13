@@ -64,18 +64,18 @@ func (s *Service) ListSyslogRecords(
 		entries = append(entries, entryOf(e))
 	}
 	response := historyv1.ListSyslogRecordsResponse_builder{Entries: entries}.Build()
-	if result.NextToken != "" {
-		response.SetNextPageToken(result.NextToken)
+	if result.NextCursor != "" {
+		response.SetNextPageToken(result.NextCursor)
 	}
 	return connect.NewResponse(response), nil
 }
 
 func queryOf(req *historyv1.ListSyslogRecordsRequest) (historyquery.Query, error) {
 	q := historyquery.Query{
-		From:      req.GetFrom().AsTime(),
-		To:        req.GetTo().AsTime(),
-		PageSize:  int(req.GetPageSize()),
-		PageToken: req.GetPageToken(),
+		From:     req.GetFrom().AsTime(),
+		To:       req.GetTo().AsTime(),
+		PageSize: int(req.GetPageSize()),
+		Cursor:   req.GetPageToken(),
 	}
 	switch req.WhichScope() {
 	case historyv1.ListSyslogRecordsRequest_Device_case:

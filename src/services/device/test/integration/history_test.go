@@ -50,7 +50,7 @@ type historyDeployment struct {
 // the server.
 func historySection(cfg history.Config) string {
 	user := func(role string, u history.User) string {
-		return fmt.Sprintf("  %s {\n    name: %q\n    password_file: %q\n  }\n", role, u.Name, u.PasswordFile)
+		return fmt.Sprintf("  %s {\n    name: %q\n    password_file: %q\n  }\n", role, u.Name, u.AuthFile)
 	}
 	return fmt.Sprintf("history {\n  endpoints: %q\n  database: %q\n", cfg.Endpoints[0], cfg.Database) +
 		user("admin", cfg.Admin) + user("writer", cfg.Writer) + user("reader", cfg.Reader) + user("analyst", cfg.Analyst) + "}\n"
