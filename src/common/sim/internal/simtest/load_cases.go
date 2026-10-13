@@ -30,6 +30,14 @@ var (
 	loadH2 = netaddr.MAC{0x02, 0, 0, 0, 0x13, 2}
 )
 
+// RegisterLoadCases populates registry with the stated-buffer, unstated-buffer,
+// and policer cases.
+func RegisterLoadCases(registry *Registry) {
+	registry.MustRegister(casePlanningOversubscribedTrunkStatedBuffer())
+	registry.MustRegister(casePlanningOversubscribedTrunkUnstatedBuffer())
+	registry.MustRegister(casePlanningPolicedStream())
+}
+
 func loadCaseSpec(buffer *uint64, policed bool) (assembly.ConstructionSpec, error) {
 	ports, err := port.NewBuilder().Range("1/1/%d", 1, 2,
 		port.Port{Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).Build()
@@ -111,11 +119,12 @@ func executeLoadCase(buffer *uint64, policed bool, decisive trace.RuleID) (Execu
 	}); err != nil {
 		return ExecutionResult{}, err
 	}
-	if run := fab.Run(fabric.RunOptions{Budget: 10_000, Window: 0}); run.Err != nil || run.Pending.Journeys != 0 {
-		return ExecutionResult{}, errs.Msgf("load run did not settle: %+v", run)
-	}
+	run := fab.Run(fabric.RunOptions{Budget: 10_000, Window: 0})
 	if err := validateReceiveReport(fab.Report()); err != nil {
 		return ExecutionResult{}, err
+	}
+	if run.Err != nil || run.Pending.Journeys != 0 {
+		return ExecutionResult{}, errs.Msgf("load run did not settle: %+v", run)
 	}
 	stats, ok := fab.Flows()[flow]
 	if !ok || stats.Offered != 32 {

@@ -370,6 +370,9 @@ func executeTroubleshootingNeighborResolutionPending(routerMAC, hostMAC, learned
 		return ExecutionResult{}, err
 	}
 	run := fab.Run(fabric.RunOptions{Budget: 1000, Window: 0})
+	if err := validateReceiveReport(fab.Report()); err != nil {
+		return ExecutionResult{}, err
+	}
 	journey, err := reportJourney(fab, fid)
 	if err != nil {
 		return ExecutionResult{}, err

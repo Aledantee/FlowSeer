@@ -490,14 +490,14 @@ func caseComparisonFabricEquivalentComplete() ComparisonCase {
 			} else {
 				cmp = fabric.Compare(fabA, fabB, fabScenario, fabric.RunOptions{Budget: 50, Window: 0})
 			}
-			if cmp.Err != nil {
-				return ComparisonResult{}, cmp.Err
-			}
 			if err := validateReceiveReport(cmp.Current); err != nil {
 				return ComparisonResult{}, err
 			}
 			if err := validateReceiveReport(cmp.Expected); err != nil {
 				return ComparisonResult{}, err
+			}
+			if cmp.Err != nil {
+				return ComparisonResult{}, cmp.Err
 			}
 			return ComparisonResult{
 				Disposition: cmp.Disposition,
@@ -575,14 +575,14 @@ func caseComparisonFabricCableCutDifferent() ComparisonCase {
 			} else {
 				cmp = fabric.Compare(fabA, fabB, fabScenario, fabric.RunOptions{Budget: 50, Window: 0})
 			}
-			if cmp.Err != nil {
-				return ComparisonResult{}, cmp.Err
-			}
 			if err := validateReceiveReport(cmp.Current); err != nil {
 				return ComparisonResult{}, err
 			}
 			if err := validateReceiveReport(cmp.Expected); err != nil {
 				return ComparisonResult{}, err
+			}
+			if cmp.Err != nil {
+				return ComparisonResult{}, cmp.Err
 			}
 			return ComparisonResult{
 				Disposition: cmp.Disposition,
@@ -660,14 +660,14 @@ func caseComparisonFabricMediumPathDifferent() ComparisonCase {
 			} else {
 				cmp = fabric.Compare(fabA, fabB, fabScenario, fabric.RunOptions{Budget: 50, Window: 0})
 			}
-			if cmp.Err != nil {
-				return ComparisonResult{}, cmp.Err
-			}
 			if err := validateReceiveReport(cmp.Current); err != nil {
 				return ComparisonResult{}, err
 			}
 			if err := validateReceiveReport(cmp.Expected); err != nil {
 				return ComparisonResult{}, err
+			}
+			if cmp.Err != nil {
+				return ComparisonResult{}, cmp.Err
 			}
 			return ComparisonResult{
 				Disposition: cmp.Disposition,
@@ -735,14 +735,14 @@ func caseComparisonFabricBudgetExhausted() ComparisonCase {
 			} else {
 				cmp = fabric.Compare(fabA, fabB, fabScenario, fabric.RunOptions{Budget: 1, Window: 0})
 			}
-			if cmp.Err != nil {
-				return ComparisonResult{}, cmp.Err
-			}
 			if err := validateReceiveReport(cmp.Current); err != nil {
 				return ComparisonResult{}, err
 			}
 			if err := validateReceiveReport(cmp.Expected); err != nil {
 				return ComparisonResult{}, err
+			}
+			if cmp.Err != nil {
+				return ComparisonResult{}, cmp.Err
 			}
 			return ComparisonResult{
 				Disposition: cmp.Disposition,

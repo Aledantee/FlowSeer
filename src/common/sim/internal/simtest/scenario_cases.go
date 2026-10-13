@@ -196,6 +196,9 @@ func executeScenarioLinkFlap() (ExecutionResult, error) {
 	}
 
 	runRes, err := fab.RunScenario(sc, fabric.RunOptions{Budget: 20, Window: 0})
+	if validationErr := validateReceiveReport(fab.Report()); validationErr != nil {
+		return ExecutionResult{}, validationErr
+	}
 	if err != nil {
 		return ExecutionResult{}, err
 	}
@@ -215,7 +218,11 @@ func executeScenarioLinkFlap() (ExecutionResult, error) {
 	j1 := report[0]
 
 	fab2 := runRes.Replay.Checkpoint()
-	if _, err := fab2.RunScenario(runRes.Replay.Scenario, runRes.Replay.Options); err != nil {
+	_, err = fab2.RunScenario(runRes.Replay.Scenario, runRes.Replay.Options)
+	if validationErr := validateReceiveReport(fab2.Report()); validationErr != nil {
+		return ExecutionResult{}, validationErr
+	}
+	if err != nil {
 		return ExecutionResult{}, err
 	}
 	report2 := fab2.Report()
@@ -307,6 +314,9 @@ func executePeriodicExhaustion(cat analysis.EvidenceCatalog, ref trace.EvidenceR
 		return ExecutionResult{}, err
 	}
 	runRes := fab.Run(fabric.RunOptions{Budget: 2, Window: 0})
+	if err := validateReceiveReport(fab.Report()); err != nil {
+		return ExecutionResult{}, err
+	}
 	if runRes.Stop != fabric.StopBudget {
 		return ExecutionResult{}, errs.Msgf("run stop reason = %v, want StopBudget", runRes.Stop)
 	}

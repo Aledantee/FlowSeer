@@ -1,6 +1,7 @@
 package simtest
 
 import (
+	"reflect"
 	"testing"
 
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
@@ -8,6 +9,23 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer/traffic"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
+
+func TestRegisterLoadCases(t *testing.T) {
+	registry := NewRegistry()
+	RegisterLoadCases(registry)
+	var ids []string
+	for _, c := range registry.All() {
+		ids = append(ids, c.ID)
+	}
+	want := []string{
+		"planning/oversubscribed-trunk-stated-buffer",
+		"planning/oversubscribed-trunk-unstated-buffer",
+		"planning/policed-stream",
+	}
+	if !reflect.DeepEqual(ids, want) {
+		t.Fatalf("load IDs = %v, want %v", ids, want)
+	}
+}
 
 func TestLoadCases(t *testing.T) {
 	for _, tc := range []struct {

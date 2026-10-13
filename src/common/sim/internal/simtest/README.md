@@ -57,12 +57,10 @@ established across the library:
 - `topology-shadowing/unresolved-transceiver`: A [fabric.Fabric] journey crosses
   a cable with no stated medium. Both ends still agree on an observed speed, so
   the frame is delivered, but the journey is Incomplete with
-  `propagation-unknown`: its timing rests on an unidentified transceiver. One
-  [Case] asserts one journey, so the sibling delivery the acceptance example
-  describes is a second, registered case,
-  `topology-shadowing/unresolved-transceiver-known-delivery`, sharing the same
-  fixture. It sends between two fully resolved hosts on the same switch and
-  stays Complete.
+  `propagation-unknown`: its timing rests on an unidentified transceiver.
+- `topology-shadowing/unresolved-transceiver-known-delivery`: The same fixture
+  sends between two fully resolved hosts on one switch. This journey stays
+  Complete because it never crosses the unresolved cable.
 - `topology-shadowing/uncabled-port-definite-drop`: A switch port named in
   `Config.Uncabled` drops a known-unicast frame Complete with `port-down`.
   `Fabric.Metadata` also carries `adjacency-unresolved` for a sibling port
@@ -83,11 +81,16 @@ established across the library:
   the region matches, has no effect here: MSTI 1 takes the CIST's own
   blocking decision on the boundary and drops on l2, disproving the false
   answer that an MSTI computes an independent role there that could
-  disagree with the CIST's. One [Case] asserts one journey, so VLAN 20's
-  unaffected delivery is a second, registered case,
-  `topology-shadowing/mst-region-boundary-vlan20-crosses-l1`, sharing the
-  same fixture. It crosses l1, the link the CIST forwards on, unaffected by
-  VLAN 10's block.
+  disagree with the CIST's.
+- `topology-shadowing/mst-region-boundary-vlan20-crosses-l1`: The same fixture
+  sends VLAN 20 over l1, the link the CIST forwards on, unaffected by VLAN
+  10's block.
+- `topology-shadowing/mstp-model-complete-region`: Model intake retains the
+  reported MSTI priorities and path costs. A frame on a known-down port
+  drops Complete with `port-down`.
+- `topology-shadowing/mstp-model-incomplete-region`: A missing region digest
+  omits STP and reports evidenced dependent issues. The known-down port's
+  forwarding result stays Complete while the model is Incomplete.
 - `troubleshooting/host-rejects-foreign-unicast`: A fully resolved, Complete
   network path carries a known-unicast frame onto a host's port for a MAC
   that is not the host's own address. The host refuses it under
@@ -107,18 +110,18 @@ established across the library:
   instance between two switches, with sw2's per-instance path cost inflated
   on l1. MSTI 1 roots through l2, so the VLAN 10 frame crosses it, disproving
   the false answer that spanning tree computes one shape for the bridge and
-  sends every VLAN over whatever link that single tree elects. One [Case]
-  asserts one journey, so VLAN 20's opposite-link delivery is a second,
-  registered case, `planning/mstp-vlan-instances-diverge-vlan20-crosses-l1`,
-  sharing the same fixture: with its own per-instance path cost inflated on
-  l2, MSTI 2 roots through l1 instead, and the VLAN 20 frame crosses that
-  opposite link. A third case sharing the fixture,
-  `planning/mstp-vlan-instances-diverge-instance-blocks-alternate`, proves
-  MSTI 1 does not merely leave l1 unused: a frame seeded behind l1 for VLAN
-  10 is dropped `port-blocked` there, carrying a gate fact for
+  sends every VLAN over whatever link that single tree elects.
+- `planning/mstp-vlan-instances-diverge-vlan20-crosses-l1`: The same fixture
+  inflates VLAN 20's per-instance path cost on l2. MSTI 2 roots through l1,
+  and the VLAN 20 frame crosses that link.
+- `planning/mstp-vlan-instances-diverge-instance-blocks-alternate`: A frame
+  seeded behind l1 for VLAN 10 is dropped `port-blocked` there, carrying a gate fact for
   `tree_kind="MSTI";tree_id=1` in state Alternate and Discarding,
   disproving the false answer that MSTI 1 elected l2 without ever putting
   l1 into a blocking state.
+- `planning/pvst-per-vlan-root`: VLAN 10 runs its own rapid spanning tree.
+  Inflating its path cost on l1 makes its frame cross l2 and reach h2v10,
+  proving that the VLAN's own tree chooses the forwarding path.
 - `troubleshooting/active-backup-no-failback`: An active-backup bond with no
   configured `Primary` moves from member `a` to member `b` when `a` goes
   down, and stays on `b` with cause `last-active` once `a` recovers,
@@ -225,8 +228,8 @@ established across the library:
   accepted by a stateful counterpart set, emitting a `filter.state` step referencing
   the counterpart rule.
 
-The sixteen `fabric`-based cases execute a [fabric.Fabric] and populate
-[ExecutionResult.Journey], seven of them alongside
+The twenty-one `fabric`-based cases execute a [fabric.Fabric] and populate
+[ExecutionResult.Journey], eleven of them alongside
 [ExecutionResult.FabricMetadata]. Journey is the recorded traversal; its own
 `Metadata` is what the case's `ExpectedMetadata` asserts. FabricMetadata is
 [fabric.Fabric.Metadata], scoped over the whole topology, so it can carry an

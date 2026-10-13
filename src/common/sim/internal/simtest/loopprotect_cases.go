@@ -126,6 +126,9 @@ func loopProtectCaseIngressBlocked(fab *fabric.Fabric, portName string) (bool, e
 		return false, err
 	}
 	fab.Run(fabric.RunOptions{Budget: 50, Window: 0})
+	if err := validateReceiveReport(fab.Report()); err != nil {
+		return false, err
+	}
 
 	for _, j := range fab.Report() {
 		if j.FrameID != fid {
@@ -205,6 +208,9 @@ func caseTroubleshootingLoopProtectContainsAccessLoop() Case {
 			// Let one probe interval pass so loop protection sends its
 			// probes, sees them return through the other switch, and acts.
 			fab.Run(fabric.RunOptions{Budget: 200, Window: 0})
+			if err := validateReceiveReport(fab.Report()); err != nil {
+				return ExecutionResult{}, err
+			}
 
 			blocked, err := loopProtectCaseIngressBlocked(fab, "1/1/1")
 			if err != nil {
@@ -231,6 +237,9 @@ func caseTroubleshootingLoopProtectContainsAccessLoop() Case {
 				return ExecutionResult{}, err
 			}
 			fab.Run(fabric.RunOptions{Budget: 200, Window: 0})
+			if err := validateReceiveReport(fab.Report()); err != nil {
+				return ExecutionResult{}, err
+			}
 
 			deliveries := 0
 			for _, j := range fab.Report() {
@@ -258,6 +267,9 @@ func caseTroubleshootingLoopProtectContainsAccessLoop() Case {
 				return ExecutionResult{}, err
 			}
 			fab.Run(fabric.RunOptions{Budget: 50, Window: 0})
+			if err := validateReceiveReport(fab.Report()); err != nil {
+				return ExecutionResult{}, err
+			}
 
 			journey, err := reportJourney(fab, fid)
 			if err != nil {

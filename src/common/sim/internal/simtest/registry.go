@@ -52,8 +52,6 @@ func DefaultRegistry() *Registry {
 	RegisterMDNSCases(r)
 	RegisterReflectorCases(r)
 	RegisterFilterCases(r)
-	r.MustRegister(casePlanningOversubscribedTrunkStatedBuffer())
-	r.MustRegister(casePlanningOversubscribedTrunkUnstatedBuffer())
-	r.MustRegister(casePlanningPolicedStream())
+	RegisterLoadCases(r)
 	return r
 }
