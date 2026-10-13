@@ -190,7 +190,7 @@ func (r Route) TypeID() string { return "routing.route" }
 // Canonical returns the canonical string representation of the Route fact.
 func (r Route) Canonical() string {
 	return fmt.Sprintf("prefix=%q,preference=%d,metric=%d,next_hop=%q,interface=%q",
-		r.Prefix.String(), r.Preference, r.Metric, r.NextHop.String(), r.Interface)
+		r.Prefix.String(), r.Preference, r.Metric, addressText(r.NextHop, "absent"), r.Interface)
 }
 
 // TypeID returns the fact type identifier for Neighbor.
