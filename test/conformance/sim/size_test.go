@@ -46,31 +46,56 @@ func sizeFindings(name string, source []byte) ([]string, error) {
 			findings = append(findings, fmt.Sprintf("%s:%d: %s has %d lines, limit %d without a stated reason to keep one unit", name, positions.Position(node.Pos()).Line, label, length, maxFuncLines))
 		}
 	}
-	docs := make(map[ast.Node]*ast.CommentGroup)
-	for _, decl := range file.Decls {
-		if decl, ok := decl.(*ast.GenDecl); ok {
-			for _, spec := range decl.Specs {
-				if value, ok := spec.(*ast.ValueSpec); ok {
-					for _, expr := range value.Values {
-						if literal, ok := expr.(*ast.FuncLit); ok {
-							docs[literal] = decl.Doc
-						}
-					}
+	// A declaration head belongs to a literal only when it initializes that
+	// literal alone. Group heads cannot document siblings.
+	heads := make(map[*ast.FuncLit]token.Pos)
+	ast.Inspect(file, func(node ast.Node) bool {
+		var values []ast.Expr
+		switch node := node.(type) {
+		case *ast.GenDecl:
+			if node.Lparen.IsValid() || len(node.Specs) != 1 {
+				return true
+			}
+			if value, ok := node.Specs[0].(*ast.ValueSpec); ok {
+				values = value.Values
+			}
+		case *ast.ValueSpec:
+			values = node.Values
+		case *ast.AssignStmt:
+			values = node.Rhs
+		default:
+			return true
+		}
+		if len(values) == 1 {
+			if literal, ok := values[0].(*ast.FuncLit); ok {
+				if _, exists := heads[literal]; !exists {
+					heads[literal] = node.Pos()
 				}
 			}
 		}
-	}
+		return true
+	})
 	ast.Inspect(file, func(node ast.Node) bool {
 		switch node := node.(type) {
 		case *ast.FuncDecl:
 			check(node.Name.Name, node, node.Doc)
 		case *ast.FuncLit:
-			doc := docs[node]
-			if doc == nil {
-				for _, comment := range file.Comments {
-					if comment.End() < node.Pos() && positions.Position(comment.End()).Line == positions.Position(node.Pos()).Line-1 {
-						doc = comment
-					}
+			var doc *ast.CommentGroup
+			for _, comment := range file.Comments {
+				head := node.Pos()
+				if declaration := heads[node]; declaration.IsValid() && positions.Position(comment.End()).Line == positions.Position(declaration).Line-1 {
+					head = declaration
+				}
+				if comment.End() >= head || positions.Position(comment.End()).Line != positions.Position(head).Line-1 {
+					continue
+				}
+				start := positions.Position(comment.Pos()).Offset
+				lineStart := strings.LastIndexByte(string(source[:start]), '\n') + 1
+				end := positions.Position(comment.End()).Offset
+				// Lead comments occupy their own lines with no intervening
+				// tokens. A trailing reason belongs to the preceding code.
+				if strings.TrimSpace(string(source[lineStart:start])) == "" && strings.TrimSpace(string(source[end:positions.Position(head).Offset])) == "" {
+					doc = comment
 				}
 			}
 			check("function literal", node, doc)
@@ -200,6 +225,47 @@ func TestSizeGateFiresOnFixtureSources(t *testing.T) {
 	}
 	if checked != 19 {
 		t.Fatalf("concrete expectations reached %d, want 19", checked)
+	}
+}
+
+func TestSizeGateLiteralHeadReasons(t *testing.T) {
+	body := strings.Repeat("_ = 0\n", 149)
+	literal := "func() {\n" + body + "}"
+	reason := "// one unit because its cases share one decoder state.\n"
+	for _, tc := range []struct {
+		name, source string
+		wantLine     int
+	}{
+		{"group reason does not cover beta", reason + "var (\nalpha = func() {}\nbeta = " + literal + "\n)\n", 5},
+		{"alpha reason does not cover beta", "var (\n" + reason + "alpha = " + literal + "\nbeta = " + literal + "\n)\n", 155},
+		{"trailing declaration comment", "var alpha = 0 " + reason + "var beta = " + literal + "\n", 3},
+		{"trailing block comment", "var alpha = 0 /* one unit because its cases share one decoder state. */\nvar beta = " + literal + "\n", 3},
+		{"trailing nested comment", "var callbacks = []func(){func() {}, " + reason + literal + "}\n", 3},
+		{"shared declaration reason", reason + "var alpha, beta = func() {}, " + literal + "\n", 3},
+		{"intervening sibling on head line", "var callbacks = []func(){\n" + reason + "func() {}, " + literal + "}\n", 4},
+		{"grouped beta with its own reason", "var (\nalpha = func() {}\n" + reason + "beta = " + literal + "\n)\n", 0},
+		{"each grouped literal has its own reason", "var (\n" + reason + "alpha = " + literal + "\n" + reason + "beta = " + literal + "\n)\n", 0},
+		{"local literal with its own reason", reason + "func outer() {\n" + reason + "beta := " + literal + "\n}\n", 0},
+		{"multiline declaration with its own reason", reason + "var beta =\n" + literal + "\n", 0},
+		{"multiline initializer with its own reason", "var beta =\n" + reason + literal + "\n", 0},
+		{"standalone block head comment", "var callbacks = []func(){\n/* one unit because its cases share one decoder state. */\n" + literal + "}\n", 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			findings, err := sizeFindings("fixture.go", []byte("package p\n"+tc.source))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if tc.wantLine == 0 {
+				if len(findings) != 0 {
+					t.Fatalf("findings = %q, want none for justified heads", findings)
+				}
+				return
+			}
+			want := fmt.Sprintf("fixture.go:%d: function literal has 151 lines, limit 150 without a stated reason to keep one unit", tc.wantLine)
+			if len(findings) != 1 || findings[0] != want {
+				t.Fatalf("findings = %q, want [%q]", findings, want)
+			}
+		})
 	}
 }
 
