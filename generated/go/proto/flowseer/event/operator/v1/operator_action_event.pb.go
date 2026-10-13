@@ -12,9 +12,10 @@
 package operatorv1
 
 import (
-	v12 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/capture/v1"
-	v11 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
+	v13 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/capture/v1"
+	v12 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	v1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/identity/v1"
+	v11 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/rawwindow/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
@@ -54,6 +55,8 @@ const (
 	OperatorAction_OPERATOR_ACTION_PARTNER_DISCONNECT          OperatorAction = 18
 	OperatorAction_OPERATOR_ACTION_FULL_PAYLOAD_GRANT          OperatorAction = 19
 	OperatorAction_OPERATOR_ACTION_FULL_PAYLOAD_REVOKE         OperatorAction = 20
+	OperatorAction_OPERATOR_ACTION_RAW_WINDOW_OPEN             OperatorAction = 21
+	OperatorAction_OPERATOR_ACTION_RAW_WINDOW_CLOSE            OperatorAction = 22
 )
 
 // Enum value maps for OperatorAction.
@@ -80,6 +83,8 @@ var (
 		18: "OPERATOR_ACTION_PARTNER_DISCONNECT",
 		19: "OPERATOR_ACTION_FULL_PAYLOAD_GRANT",
 		20: "OPERATOR_ACTION_FULL_PAYLOAD_REVOKE",
+		21: "OPERATOR_ACTION_RAW_WINDOW_OPEN",
+		22: "OPERATOR_ACTION_RAW_WINDOW_CLOSE",
 	}
 	OperatorAction_value = map[string]int32{
 		"OPERATOR_ACTION_UNSPECIFIED":                 0,
@@ -103,6 +108,8 @@ var (
 		"OPERATOR_ACTION_PARTNER_DISCONNECT":          18,
 		"OPERATOR_ACTION_FULL_PAYLOAD_GRANT":          19,
 		"OPERATOR_ACTION_FULL_PAYLOAD_REVOKE":         20,
+		"OPERATOR_ACTION_RAW_WINDOW_OPEN":             21,
+		"OPERATOR_ACTION_RAW_WINDOW_CLOSE":            22,
 	}
 )
 
@@ -698,6 +705,104 @@ func (b0 OperatorActionFullPayloadGrant_builder) Build() *OperatorActionFullPayl
 	return m0
 }
 
+// A raw window included in an operator action object. It never carries
+// captured bytes.
+type OperatorActionRawWindow struct {
+	state             protoimpl.MessageState  `protogen:"opaque.v1"`
+	xxx_hidden_Ref    *v11.RawWindowGlobalRef `protobuf:"bytes,1,opt,name=ref"`
+	xxx_hidden_Config *v11.RawWindowConfig    `protobuf:"bytes,2,opt,name=config"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *OperatorActionRawWindow) Reset() {
+	*x = OperatorActionRawWindow{}
+	mi := &file_flowseer_event_operator_v1_operator_action_event_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *OperatorActionRawWindow) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*OperatorActionRawWindow) ProtoMessage() {}
+
+func (x *OperatorActionRawWindow) ProtoReflect() protoreflect.Message {
+	mi := &file_flowseer_event_operator_v1_operator_action_event_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *OperatorActionRawWindow) GetRef() *v11.RawWindowGlobalRef {
+	if x != nil {
+		return x.xxx_hidden_Ref
+	}
+	return nil
+}
+
+func (x *OperatorActionRawWindow) GetConfig() *v11.RawWindowConfig {
+	if x != nil {
+		return x.xxx_hidden_Config
+	}
+	return nil
+}
+
+func (x *OperatorActionRawWindow) SetRef(v *v11.RawWindowGlobalRef) {
+	x.xxx_hidden_Ref = v
+}
+
+func (x *OperatorActionRawWindow) SetConfig(v *v11.RawWindowConfig) {
+	x.xxx_hidden_Config = v
+}
+
+func (x *OperatorActionRawWindow) HasRef() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Ref != nil
+}
+
+func (x *OperatorActionRawWindow) HasConfig() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Config != nil
+}
+
+func (x *OperatorActionRawWindow) ClearRef() {
+	x.xxx_hidden_Ref = nil
+}
+
+func (x *OperatorActionRawWindow) ClearConfig() {
+	x.xxx_hidden_Config = nil
+}
+
+type OperatorActionRawWindow_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The window. Must be present.
+	Ref *v11.RawWindowGlobalRef
+	// The immutable configuration: selector, expiry, byte budget, and reason.
+	// Present only when the action's outcome loaded the window.
+	Config *v11.RawWindowConfig
+}
+
+func (b0 OperatorActionRawWindow_builder) Build() *OperatorActionRawWindow {
+	m0 := &OperatorActionRawWindow{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_Ref = b.Ref
+	x.xxx_hidden_Config = b.Config
+	return m0
+}
+
 // One durable audit record for an operator action. An attempted event is
 // delivered before the handler runs. A completed event is delivered after the
 // handler returns.
@@ -718,7 +823,7 @@ type OperatorActionEvent struct {
 
 func (x *OperatorActionEvent) Reset() {
 	*x = OperatorActionEvent{}
-	mi := &file_flowseer_event_operator_v1_operator_action_event_proto_msgTypes[6]
+	mi := &file_flowseer_event_operator_v1_operator_action_event_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -730,7 +835,7 @@ func (x *OperatorActionEvent) String() string {
 func (*OperatorActionEvent) ProtoMessage() {}
 
 func (x *OperatorActionEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_event_operator_v1_operator_action_event_proto_msgTypes[6]
+	mi := &file_flowseer_event_operator_v1_operator_action_event_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -784,7 +889,7 @@ func (x *OperatorActionEvent) GetAction() OperatorAction {
 	return OperatorAction_OPERATOR_ACTION_UNSPECIFIED
 }
 
-func (x *OperatorActionEvent) GetEdge() *v11.EdgeGlobalRef {
+func (x *OperatorActionEvent) GetEdge() *v12.EdgeGlobalRef {
 	if x != nil {
 		if x, ok := x.xxx_hidden_Object.(*operatorActionEvent_Edge); ok {
 			return x.Edge
@@ -793,7 +898,7 @@ func (x *OperatorActionEvent) GetEdge() *v11.EdgeGlobalRef {
 	return nil
 }
 
-func (x *OperatorActionEvent) GetCaptureSession() *v12.CaptureSessionGlobalRef {
+func (x *OperatorActionEvent) GetCaptureSession() *v13.CaptureSessionGlobalRef {
 	if x != nil {
 		if x, ok := x.xxx_hidden_Object.(*operatorActionEvent_CaptureSession); ok {
 			return x.CaptureSession
@@ -856,6 +961,15 @@ func (x *OperatorActionEvent) GetFullPayloadGrant() *OperatorActionFullPayloadGr
 	return nil
 }
 
+func (x *OperatorActionEvent) GetRawWindow() *OperatorActionRawWindow {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Object.(*operatorActionEvent_RawWindow); ok {
+			return x.RawWindow
+		}
+	}
+	return nil
+}
+
 func (x *OperatorActionEvent) GetAttempted() *OperatorActionAttempted {
 	if x != nil {
 		if x, ok := x.xxx_hidden_Detail.(*operatorActionEvent_Attempted); ok {
@@ -897,7 +1011,7 @@ func (x *OperatorActionEvent) SetAction(v OperatorAction) {
 	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 7)
 }
 
-func (x *OperatorActionEvent) SetEdge(v *v11.EdgeGlobalRef) {
+func (x *OperatorActionEvent) SetEdge(v *v12.EdgeGlobalRef) {
 	if v == nil {
 		x.xxx_hidden_Object = nil
 		return
@@ -905,7 +1019,7 @@ func (x *OperatorActionEvent) SetEdge(v *v11.EdgeGlobalRef) {
 	x.xxx_hidden_Object = &operatorActionEvent_Edge{v}
 }
 
-func (x *OperatorActionEvent) SetCaptureSession(v *v12.CaptureSessionGlobalRef) {
+func (x *OperatorActionEvent) SetCaptureSession(v *v13.CaptureSessionGlobalRef) {
 	if v == nil {
 		x.xxx_hidden_Object = nil
 		return
@@ -959,6 +1073,14 @@ func (x *OperatorActionEvent) SetFullPayloadGrant(v *OperatorActionFullPayloadGr
 		return
 	}
 	x.xxx_hidden_Object = &operatorActionEvent_FullPayloadGrant{v}
+}
+
+func (x *OperatorActionEvent) SetRawWindow(v *OperatorActionRawWindow) {
+	if v == nil {
+		x.xxx_hidden_Object = nil
+		return
+	}
+	x.xxx_hidden_Object = &operatorActionEvent_RawWindow{v}
 }
 
 func (x *OperatorActionEvent) SetAttempted(v *OperatorActionAttempted) {
@@ -1083,6 +1205,14 @@ func (x *OperatorActionEvent) HasFullPayloadGrant() bool {
 	return ok
 }
 
+func (x *OperatorActionEvent) HasRawWindow() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Object.(*operatorActionEvent_RawWindow)
+	return ok
+}
+
 func (x *OperatorActionEvent) HasDetail() bool {
 	if x == nil {
 		return false
@@ -1181,6 +1311,12 @@ func (x *OperatorActionEvent) ClearFullPayloadGrant() {
 	}
 }
 
+func (x *OperatorActionEvent) ClearRawWindow() {
+	if _, ok := x.xxx_hidden_Object.(*operatorActionEvent_RawWindow); ok {
+		x.xxx_hidden_Object = nil
+	}
+}
+
 func (x *OperatorActionEvent) ClearDetail() {
 	x.xxx_hidden_Detail = nil
 }
@@ -1206,6 +1342,7 @@ const OperatorActionEvent_Role_case case_OperatorActionEvent_Object = 14
 const OperatorActionEvent_RoleAssignment_case case_OperatorActionEvent_Object = 15
 const OperatorActionEvent_Partner_case case_OperatorActionEvent_Object = 16
 const OperatorActionEvent_FullPayloadGrant_case case_OperatorActionEvent_Object = 17
+const OperatorActionEvent_RawWindow_case case_OperatorActionEvent_Object = 18
 
 func (x *OperatorActionEvent) WhichObject() case_OperatorActionEvent_Object {
 	if x == nil {
@@ -1228,6 +1365,8 @@ func (x *OperatorActionEvent) WhichObject() case_OperatorActionEvent_Object {
 		return OperatorActionEvent_Partner_case
 	case *operatorActionEvent_FullPayloadGrant:
 		return OperatorActionEvent_FullPayloadGrant_case
+	case *operatorActionEvent_RawWindow:
+		return OperatorActionEvent_RawWindow_case
 	default:
 		return OperatorActionEvent_Object_not_set_case
 	}
@@ -1268,14 +1407,15 @@ type OperatorActionEvent_builder struct {
 	// or when a target created by the action is not known yet.
 
 	// Fields of oneof xxx_hidden_Object:
-	Edge             *v11.EdgeGlobalRef
-	CaptureSession   *v12.CaptureSessionGlobalRef
+	Edge             *v12.EdgeGlobalRef
+	CaptureSession   *v13.CaptureSessionGlobalRef
 	Tenant           *v1.TenantGlobalRef
 	Member           *v1.OperatorRef
 	Role             *OperatorActionRole
 	RoleAssignment   *OperatorActionRoleAssignment
 	Partner          *OperatorActionPartner
 	FullPayloadGrant *OperatorActionFullPayloadGrant
+	RawWindow        *OperatorActionRawWindow
 	// -- end of xxx_hidden_Object
 	// Exactly one detail kind.
 
@@ -1327,6 +1467,9 @@ func (b0 OperatorActionEvent_builder) Build() *OperatorActionEvent {
 	if b.FullPayloadGrant != nil {
 		x.xxx_hidden_Object = &operatorActionEvent_FullPayloadGrant{b.FullPayloadGrant}
 	}
+	if b.RawWindow != nil {
+		x.xxx_hidden_Object = &operatorActionEvent_RawWindow{b.RawWindow}
+	}
 	if b.Attempted != nil {
 		x.xxx_hidden_Detail = &operatorActionEvent_Attempted{b.Attempted}
 	}
@@ -1339,7 +1482,7 @@ func (b0 OperatorActionEvent_builder) Build() *OperatorActionEvent {
 type case_OperatorActionEvent_Object protoreflect.FieldNumber
 
 func (x case_OperatorActionEvent_Object) String() string {
-	md := file_flowseer_event_operator_v1_operator_action_event_proto_msgTypes[6].Descriptor()
+	md := file_flowseer_event_operator_v1_operator_action_event_proto_msgTypes[7].Descriptor()
 	if x == 0 {
 		return "not set"
 	}
@@ -1349,7 +1492,7 @@ func (x case_OperatorActionEvent_Object) String() string {
 type case_OperatorActionEvent_Detail protoreflect.FieldNumber
 
 func (x case_OperatorActionEvent_Detail) String() string {
-	md := file_flowseer_event_operator_v1_operator_action_event_proto_msgTypes[6].Descriptor()
+	md := file_flowseer_event_operator_v1_operator_action_event_proto_msgTypes[7].Descriptor()
 	if x == 0 {
 		return "not set"
 	}
@@ -1361,11 +1504,11 @@ type isOperatorActionEvent_Object interface {
 }
 
 type operatorActionEvent_Edge struct {
-	Edge *v11.EdgeGlobalRef `protobuf:"bytes,10,opt,name=edge,oneof"`
+	Edge *v12.EdgeGlobalRef `protobuf:"bytes,10,opt,name=edge,oneof"`
 }
 
 type operatorActionEvent_CaptureSession struct {
-	CaptureSession *v12.CaptureSessionGlobalRef `protobuf:"bytes,11,opt,name=capture_session,json=captureSession,oneof"`
+	CaptureSession *v13.CaptureSessionGlobalRef `protobuf:"bytes,11,opt,name=capture_session,json=captureSession,oneof"`
 }
 
 type operatorActionEvent_Tenant struct {
@@ -1392,6 +1535,10 @@ type operatorActionEvent_FullPayloadGrant struct {
 	FullPayloadGrant *OperatorActionFullPayloadGrant `protobuf:"bytes,17,opt,name=full_payload_grant,json=fullPayloadGrant,oneof"`
 }
 
+type operatorActionEvent_RawWindow struct {
+	RawWindow *OperatorActionRawWindow `protobuf:"bytes,18,opt,name=raw_window,json=rawWindow,oneof"`
+}
+
 func (*operatorActionEvent_Edge) isOperatorActionEvent_Object() {}
 
 func (*operatorActionEvent_CaptureSession) isOperatorActionEvent_Object() {}
@@ -1407,6 +1554,8 @@ func (*operatorActionEvent_RoleAssignment) isOperatorActionEvent_Object() {}
 func (*operatorActionEvent_Partner) isOperatorActionEvent_Object() {}
 
 func (*operatorActionEvent_FullPayloadGrant) isOperatorActionEvent_Object() {}
+
+func (*operatorActionEvent_RawWindow) isOperatorActionEvent_Object() {}
 
 type isOperatorActionEvent_Detail interface {
 	isOperatorActionEvent_Detail()
@@ -1428,7 +1577,7 @@ var File_flowseer_event_operator_v1_operator_action_event_proto protoreflect.Fil
 
 const file_flowseer_event_operator_v1_operator_action_event_proto_rawDesc = "" +
 	"\n" +
-	"6flowseer/event/operator/v1/operator_action_event.proto\x12\x1aflowseer.event.operator.v1\x1a/flowseer/model/capture/v1/capture_session.proto\x1a!flowseer/model/edge/v1/edge.proto\x1a'flowseer/model/identity/v1/access.proto\x1a)flowseer/model/identity/v1/operator.proto\x1a'flowseer/model/identity/v1/tenant.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x19\n" +
+	"6flowseer/event/operator/v1/operator_action_event.proto\x12\x1aflowseer.event.operator.v1\x1a/flowseer/model/capture/v1/capture_session.proto\x1a!flowseer/model/edge/v1/edge.proto\x1a'flowseer/model/identity/v1/access.proto\x1a)flowseer/model/identity/v1/operator.proto\x1a'flowseer/model/identity/v1/tenant.proto\x1a,flowseer/model/rawwindow/v1/raw_window.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x19\n" +
 	"\x17OperatorActionAttempted\"\xc8\x02\n" +
 	"\x17OperatorActionCompleted\x12Z\n" +
 	"\aoutcome\x18\x01 \x01(\x0e21.flowseer.event.operator.v1.OperatorActionOutcomeB\r\xbaH\n" +
@@ -1450,8 +1599,10 @@ const file_flowseer_event_operator_v1_operator_action_event_proto_rawDesc = "" +
 	"\x1eOperatorActionFullPayloadGrant\x12G\n" +
 	"\x06member\x18\x01 \x01(\v2'.flowseer.model.identity.v1.OperatorRefB\x06\xbaH\x03\xc8\x01\x01R\x06member\x12A\n" +
 	"\n" +
-	"expires_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampB\x06\xbaH\x03\xc8\x01\x01R\texpiresAt\"\xe1\n" +
-	"\n" +
+	"expires_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampB\x06\xbaH\x03\xc8\x01\x01R\texpiresAt\"\xaa\x01\n" +
+	"\x17OperatorActionRawWindow\x12I\n" +
+	"\x03ref\x18\x01 \x01(\v2/.flowseer.model.rawwindow.v1.RawWindowGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x03ref\x12D\n" +
+	"\x06config\x18\x02 \x01(\v2,.flowseer.model.rawwindow.v1.RawWindowConfigR\x06config\"\xb7\v\n" +
 	"\x13OperatorActionEvent\x12&\n" +
 	"\bevent_id\x18\x01 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\aeventId\x12$\n" +
 	"\acall_id\x18\x02 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\x06callId\x12C\n" +
@@ -1468,12 +1619,14 @@ const file_flowseer_event_operator_v1_operator_action_event_proto_rawDesc = "" +
 	"\x04role\x18\x0e \x01(\v2..flowseer.event.operator.v1.OperatorActionRoleH\x00R\x04role\x12c\n" +
 	"\x0frole_assignment\x18\x0f \x01(\v28.flowseer.event.operator.v1.OperatorActionRoleAssignmentH\x00R\x0eroleAssignment\x12M\n" +
 	"\apartner\x18\x10 \x01(\v21.flowseer.event.operator.v1.OperatorActionPartnerH\x00R\apartner\x12j\n" +
-	"\x12full_payload_grant\x18\x11 \x01(\v2:.flowseer.event.operator.v1.OperatorActionFullPayloadGrantH\x00R\x10fullPayloadGrant\x12S\n" +
+	"\x12full_payload_grant\x18\x11 \x01(\v2:.flowseer.event.operator.v1.OperatorActionFullPayloadGrantH\x00R\x10fullPayloadGrant\x12T\n" +
+	"\n" +
+	"raw_window\x18\x12 \x01(\v23.flowseer.event.operator.v1.OperatorActionRawWindowH\x00R\trawWindow\x12S\n" +
 	"\tattempted\x18\x14 \x01(\v23.flowseer.event.operator.v1.OperatorActionAttemptedH\x01R\tattempted\x12S\n" +
 	"\tcompleted\x18\x15 \x01(\v23.flowseer.event.operator.v1.OperatorActionCompletedH\x01R\tcompleted:\xc5\x01\xbaH\xc1\x01\x1a\xbe\x01\n" +
 	"1operator_action_event.role_relations_match_action\x12=role relations are empty if and only if action is role delete\x1aJ!has(this.role) || (this.action == 14) == (size(this.role.relations) == 0)B\b\n" +
 	"\x06objectB\x0f\n" +
-	"\x06detail\x12\x05\xbaH\x02\b\x01*\x81\x06\n" +
+	"\x06detail\x12\x05\xbaH\x02\b\x01*\xcc\x06\n" +
 	"\x0eOperatorAction\x12\x1f\n" +
 	"\x1bOPERATOR_ACTION_UNSPECIFIED\x10\x00\x12\x1f\n" +
 	"\x1bOPERATOR_ACTION_EDGE_CREATE\x10\x01\x12#\n" +
@@ -1496,7 +1649,9 @@ const file_flowseer_event_operator_v1_operator_action_event_proto_rawDesc = "" +
 	"\x1fOPERATOR_ACTION_PARTNER_CONNECT\x10\x11\x12&\n" +
 	"\"OPERATOR_ACTION_PARTNER_DISCONNECT\x10\x12\x12&\n" +
 	"\"OPERATOR_ACTION_FULL_PAYLOAD_GRANT\x10\x13\x12'\n" +
-	"#OPERATOR_ACTION_FULL_PAYLOAD_REVOKE\x10\x14*\xaf\x01\n" +
+	"#OPERATOR_ACTION_FULL_PAYLOAD_REVOKE\x10\x14\x12#\n" +
+	"\x1fOPERATOR_ACTION_RAW_WINDOW_OPEN\x10\x15\x12$\n" +
+	" OPERATOR_ACTION_RAW_WINDOW_CLOSE\x10\x16*\xaf\x01\n" +
 	"\x15OperatorActionOutcome\x12'\n" +
 	"#OPERATOR_ACTION_OUTCOME_UNSPECIFIED\x10\x00\x12%\n" +
 	"!OPERATOR_ACTION_OUTCOME_SUCCEEDED\x10\x01\x12\"\n" +
@@ -1505,7 +1660,7 @@ const file_flowseer_event_operator_v1_operator_action_event_proto_rawDesc = "" +
 	"\x1ecom.flowseer.event.operator.v1B\x18OperatorActionEventProtoZPgo.aledante.io/FlowSeer/generated/go/proto/flowseer/event/operator/v1;operatorv1\xa2\x02\x03FEO\xaa\x02\x1aFlowseer.Event.Operator.V1\xca\x02\x1aFlowseer\\Event\\Operator\\V1\xe2\x02&Flowseer\\Event\\Operator\\V1\\GPBMetadata\xea\x02\x1dFlowseer::Event::Operator::V1b\beditionsp\xe9\a"
 
 var file_flowseer_event_operator_v1_operator_action_event_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_flowseer_event_operator_v1_operator_action_event_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
+var file_flowseer_event_operator_v1_operator_action_event_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_flowseer_event_operator_v1_operator_action_event_proto_goTypes = []any{
 	(OperatorAction)(0),                    // 0: flowseer.event.operator.v1.OperatorAction
 	(OperatorActionOutcome)(0),             // 1: flowseer.event.operator.v1.OperatorActionOutcome
@@ -1515,43 +1670,49 @@ var file_flowseer_event_operator_v1_operator_action_event_proto_goTypes = []any{
 	(*OperatorActionRoleAssignment)(nil),   // 5: flowseer.event.operator.v1.OperatorActionRoleAssignment
 	(*OperatorActionPartner)(nil),          // 6: flowseer.event.operator.v1.OperatorActionPartner
 	(*OperatorActionFullPayloadGrant)(nil), // 7: flowseer.event.operator.v1.OperatorActionFullPayloadGrant
-	(*OperatorActionEvent)(nil),            // 8: flowseer.event.operator.v1.OperatorActionEvent
-	(*v1.RoleGlobalRef)(nil),               // 9: flowseer.model.identity.v1.RoleGlobalRef
-	(v1.TenantRelation)(0),                 // 10: flowseer.model.identity.v1.TenantRelation
-	(*v1.OperatorRef)(nil),                 // 11: flowseer.model.identity.v1.OperatorRef
-	(*v1.TenantGlobalRef)(nil),             // 12: flowseer.model.identity.v1.TenantGlobalRef
-	(*timestamppb.Timestamp)(nil),          // 13: google.protobuf.Timestamp
-	(*v11.EdgeGlobalRef)(nil),              // 14: flowseer.model.edge.v1.EdgeGlobalRef
-	(*v12.CaptureSessionGlobalRef)(nil),    // 15: flowseer.model.capture.v1.CaptureSessionGlobalRef
+	(*OperatorActionRawWindow)(nil),        // 8: flowseer.event.operator.v1.OperatorActionRawWindow
+	(*OperatorActionEvent)(nil),            // 9: flowseer.event.operator.v1.OperatorActionEvent
+	(*v1.RoleGlobalRef)(nil),               // 10: flowseer.model.identity.v1.RoleGlobalRef
+	(v1.TenantRelation)(0),                 // 11: flowseer.model.identity.v1.TenantRelation
+	(*v1.OperatorRef)(nil),                 // 12: flowseer.model.identity.v1.OperatorRef
+	(*v1.TenantGlobalRef)(nil),             // 13: flowseer.model.identity.v1.TenantGlobalRef
+	(*timestamppb.Timestamp)(nil),          // 14: google.protobuf.Timestamp
+	(*v11.RawWindowGlobalRef)(nil),         // 15: flowseer.model.rawwindow.v1.RawWindowGlobalRef
+	(*v11.RawWindowConfig)(nil),            // 16: flowseer.model.rawwindow.v1.RawWindowConfig
+	(*v12.EdgeGlobalRef)(nil),              // 17: flowseer.model.edge.v1.EdgeGlobalRef
+	(*v13.CaptureSessionGlobalRef)(nil),    // 18: flowseer.model.capture.v1.CaptureSessionGlobalRef
 }
 var file_flowseer_event_operator_v1_operator_action_event_proto_depIdxs = []int32{
 	1,  // 0: flowseer.event.operator.v1.OperatorActionCompleted.outcome:type_name -> flowseer.event.operator.v1.OperatorActionOutcome
-	9,  // 1: flowseer.event.operator.v1.OperatorActionRole.role:type_name -> flowseer.model.identity.v1.RoleGlobalRef
-	10, // 2: flowseer.event.operator.v1.OperatorActionRole.relations:type_name -> flowseer.model.identity.v1.TenantRelation
-	9,  // 3: flowseer.event.operator.v1.OperatorActionRoleAssignment.role:type_name -> flowseer.model.identity.v1.RoleGlobalRef
-	11, // 4: flowseer.event.operator.v1.OperatorActionRoleAssignment.member:type_name -> flowseer.model.identity.v1.OperatorRef
-	12, // 5: flowseer.event.operator.v1.OperatorActionPartner.tenant:type_name -> flowseer.model.identity.v1.TenantGlobalRef
-	10, // 6: flowseer.event.operator.v1.OperatorActionPartner.relations:type_name -> flowseer.model.identity.v1.TenantRelation
-	11, // 7: flowseer.event.operator.v1.OperatorActionFullPayloadGrant.member:type_name -> flowseer.model.identity.v1.OperatorRef
-	13, // 8: flowseer.event.operator.v1.OperatorActionFullPayloadGrant.expires_at:type_name -> google.protobuf.Timestamp
-	13, // 9: flowseer.event.operator.v1.OperatorActionEvent.occurred_at:type_name -> google.protobuf.Timestamp
-	11, // 10: flowseer.event.operator.v1.OperatorActionEvent.operator:type_name -> flowseer.model.identity.v1.OperatorRef
-	0,  // 11: flowseer.event.operator.v1.OperatorActionEvent.action:type_name -> flowseer.event.operator.v1.OperatorAction
-	14, // 12: flowseer.event.operator.v1.OperatorActionEvent.edge:type_name -> flowseer.model.edge.v1.EdgeGlobalRef
-	15, // 13: flowseer.event.operator.v1.OperatorActionEvent.capture_session:type_name -> flowseer.model.capture.v1.CaptureSessionGlobalRef
-	12, // 14: flowseer.event.operator.v1.OperatorActionEvent.tenant:type_name -> flowseer.model.identity.v1.TenantGlobalRef
-	11, // 15: flowseer.event.operator.v1.OperatorActionEvent.member:type_name -> flowseer.model.identity.v1.OperatorRef
-	4,  // 16: flowseer.event.operator.v1.OperatorActionEvent.role:type_name -> flowseer.event.operator.v1.OperatorActionRole
-	5,  // 17: flowseer.event.operator.v1.OperatorActionEvent.role_assignment:type_name -> flowseer.event.operator.v1.OperatorActionRoleAssignment
-	6,  // 18: flowseer.event.operator.v1.OperatorActionEvent.partner:type_name -> flowseer.event.operator.v1.OperatorActionPartner
-	7,  // 19: flowseer.event.operator.v1.OperatorActionEvent.full_payload_grant:type_name -> flowseer.event.operator.v1.OperatorActionFullPayloadGrant
-	2,  // 20: flowseer.event.operator.v1.OperatorActionEvent.attempted:type_name -> flowseer.event.operator.v1.OperatorActionAttempted
-	3,  // 21: flowseer.event.operator.v1.OperatorActionEvent.completed:type_name -> flowseer.event.operator.v1.OperatorActionCompleted
-	22, // [22:22] is the sub-list for method output_type
-	22, // [22:22] is the sub-list for method input_type
-	22, // [22:22] is the sub-list for extension type_name
-	22, // [22:22] is the sub-list for extension extendee
-	0,  // [0:22] is the sub-list for field type_name
+	10, // 1: flowseer.event.operator.v1.OperatorActionRole.role:type_name -> flowseer.model.identity.v1.RoleGlobalRef
+	11, // 2: flowseer.event.operator.v1.OperatorActionRole.relations:type_name -> flowseer.model.identity.v1.TenantRelation
+	10, // 3: flowseer.event.operator.v1.OperatorActionRoleAssignment.role:type_name -> flowseer.model.identity.v1.RoleGlobalRef
+	12, // 4: flowseer.event.operator.v1.OperatorActionRoleAssignment.member:type_name -> flowseer.model.identity.v1.OperatorRef
+	13, // 5: flowseer.event.operator.v1.OperatorActionPartner.tenant:type_name -> flowseer.model.identity.v1.TenantGlobalRef
+	11, // 6: flowseer.event.operator.v1.OperatorActionPartner.relations:type_name -> flowseer.model.identity.v1.TenantRelation
+	12, // 7: flowseer.event.operator.v1.OperatorActionFullPayloadGrant.member:type_name -> flowseer.model.identity.v1.OperatorRef
+	14, // 8: flowseer.event.operator.v1.OperatorActionFullPayloadGrant.expires_at:type_name -> google.protobuf.Timestamp
+	15, // 9: flowseer.event.operator.v1.OperatorActionRawWindow.ref:type_name -> flowseer.model.rawwindow.v1.RawWindowGlobalRef
+	16, // 10: flowseer.event.operator.v1.OperatorActionRawWindow.config:type_name -> flowseer.model.rawwindow.v1.RawWindowConfig
+	14, // 11: flowseer.event.operator.v1.OperatorActionEvent.occurred_at:type_name -> google.protobuf.Timestamp
+	12, // 12: flowseer.event.operator.v1.OperatorActionEvent.operator:type_name -> flowseer.model.identity.v1.OperatorRef
+	0,  // 13: flowseer.event.operator.v1.OperatorActionEvent.action:type_name -> flowseer.event.operator.v1.OperatorAction
+	17, // 14: flowseer.event.operator.v1.OperatorActionEvent.edge:type_name -> flowseer.model.edge.v1.EdgeGlobalRef
+	18, // 15: flowseer.event.operator.v1.OperatorActionEvent.capture_session:type_name -> flowseer.model.capture.v1.CaptureSessionGlobalRef
+	13, // 16: flowseer.event.operator.v1.OperatorActionEvent.tenant:type_name -> flowseer.model.identity.v1.TenantGlobalRef
+	12, // 17: flowseer.event.operator.v1.OperatorActionEvent.member:type_name -> flowseer.model.identity.v1.OperatorRef
+	4,  // 18: flowseer.event.operator.v1.OperatorActionEvent.role:type_name -> flowseer.event.operator.v1.OperatorActionRole
+	5,  // 19: flowseer.event.operator.v1.OperatorActionEvent.role_assignment:type_name -> flowseer.event.operator.v1.OperatorActionRoleAssignment
+	6,  // 20: flowseer.event.operator.v1.OperatorActionEvent.partner:type_name -> flowseer.event.operator.v1.OperatorActionPartner
+	7,  // 21: flowseer.event.operator.v1.OperatorActionEvent.full_payload_grant:type_name -> flowseer.event.operator.v1.OperatorActionFullPayloadGrant
+	8,  // 22: flowseer.event.operator.v1.OperatorActionEvent.raw_window:type_name -> flowseer.event.operator.v1.OperatorActionRawWindow
+	2,  // 23: flowseer.event.operator.v1.OperatorActionEvent.attempted:type_name -> flowseer.event.operator.v1.OperatorActionAttempted
+	3,  // 24: flowseer.event.operator.v1.OperatorActionEvent.completed:type_name -> flowseer.event.operator.v1.OperatorActionCompleted
+	25, // [25:25] is the sub-list for method output_type
+	25, // [25:25] is the sub-list for method input_type
+	25, // [25:25] is the sub-list for extension type_name
+	25, // [25:25] is the sub-list for extension extendee
+	0,  // [0:25] is the sub-list for field type_name
 }
 
 func init() { file_flowseer_event_operator_v1_operator_action_event_proto_init() }
@@ -1559,7 +1720,7 @@ func file_flowseer_event_operator_v1_operator_action_event_proto_init() {
 	if File_flowseer_event_operator_v1_operator_action_event_proto != nil {
 		return
 	}
-	file_flowseer_event_operator_v1_operator_action_event_proto_msgTypes[6].OneofWrappers = []any{
+	file_flowseer_event_operator_v1_operator_action_event_proto_msgTypes[7].OneofWrappers = []any{
 		(*operatorActionEvent_Edge)(nil),
 		(*operatorActionEvent_CaptureSession)(nil),
 		(*operatorActionEvent_Tenant)(nil),
@@ -1568,6 +1729,7 @@ func file_flowseer_event_operator_v1_operator_action_event_proto_init() {
 		(*operatorActionEvent_RoleAssignment)(nil),
 		(*operatorActionEvent_Partner)(nil),
 		(*operatorActionEvent_FullPayloadGrant)(nil),
+		(*operatorActionEvent_RawWindow)(nil),
 		(*operatorActionEvent_Attempted)(nil),
 		(*operatorActionEvent_Completed)(nil),
 	}
@@ -1577,7 +1739,7 @@ func file_flowseer_event_operator_v1_operator_action_event_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_flowseer_event_operator_v1_operator_action_event_proto_rawDesc), len(file_flowseer_event_operator_v1_operator_action_event_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   7,
+			NumMessages:   8,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

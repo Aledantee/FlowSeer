@@ -46,6 +46,10 @@ const (
 	testBindingID = "0192e6a0-0000-7000-8000-0000000000b1"
 	testPolicyKey = "icx7150-lab"
 	testHostKey   = "SHA256:47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU"
+
+	// testIntegrationID is the integration the test registry's bindings
+	// belong to.
+	testIntegrationID = "0192e6a0-0000-7000-8000-0000000000c1"
 )
 
 // fakeCredentials answers the credential lookup a policy resolves to.
@@ -90,7 +94,7 @@ func testRegistry(t *testing.T, edgeID string, device func(*storev1.RegistryDevi
 	accessHandle := policyv1.AccessPolicyHandle_builder{Key: proto.String(testPolicyKey), Version: proto.Uint64(3)}.Build()
 	reg := storev1.DeviceRegistry_builder{
 		Integration: storev1.RegistryIntegration_builder{
-			Ref:  inventoryv1.IntegrationGlobalRef_builder{Integration: inventoryv1.IntegrationLocalRef_builder{Id: proto.String("0192e6a0-0000-7000-8000-0000000000c1")}.Build()}.Build(),
+			Ref:  inventoryv1.IntegrationGlobalRef_builder{Integration: inventoryv1.IntegrationLocalRef_builder{Id: proto.String(testIntegrationID)}.Build()}.Build(),
 			Edge: edgev1.EdgeGlobalRef_builder{Edge: edgev1.EdgeLocalRef_builder{Id: proto.String(edgeID)}.Build()}.Build(),
 		}.Build(),
 		Devices: []*storev1.RegistryDevice{storev1.RegistryDevice_builder{

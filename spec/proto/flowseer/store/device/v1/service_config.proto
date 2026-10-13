@@ -79,6 +79,21 @@ message DeviceServiceConfig {
   OperatorAuthentication authentication = 11 [(buf.validate.field).required = true];
   // Authorization service configuration. Must be present.
   AuthorizationEngine authorization = 12 [(buf.validate.field).required = true];
+  // Limits on raw windows. Unset means the deployment allows none: the service
+  // refuses every open instead of choosing an allowance.
+  RawWindowLimits raw_windows = 13;
+}
+
+// What a deployment lets operators keep as raw window evidence.
+message RawWindowLimits {
+  // The most original payload octets the unexpired, unfinished raw windows of
+  // one edge may reserve together. Each window reserves its full byte budget,
+  // so reported consumption never frees room for another. Must be present and
+  // positive.
+  uint64 edge_allowance_bytes = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).uint64.gt = 0
+  ];
 }
 
 // An OpenID Connect issuer trusted to authenticate operators.

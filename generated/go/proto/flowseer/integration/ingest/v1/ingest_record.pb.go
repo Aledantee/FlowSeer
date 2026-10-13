@@ -9,6 +9,7 @@ package ingestv1
 import (
 	v11 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/log/v1"
 	v1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
+	v12 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/rawwindow/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -292,10 +293,11 @@ func (*ingestRecord_Syslog) isIngestRecord_Payload() {}
 
 // Raw payload bytes and suppression metrics attached to an ingest record.
 type RawEvidence struct {
-	state                          protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Data                []byte                 `protobuf:"bytes,1,opt,name=data"`
-	xxx_hidden_Reason              RawReason              `protobuf:"varint,2,opt,name=reason,enum=flowseer.integration.ingest.v1.RawReason"`
-	xxx_hidden_SuppressedSinceLast uint64                 `protobuf:"varint,3,opt,name=suppressed_since_last,json=suppressedSinceLast"`
+	state                          protoimpl.MessageState    `protogen:"opaque.v1"`
+	xxx_hidden_Data                []byte                    `protobuf:"bytes,1,opt,name=data"`
+	xxx_hidden_Reason              RawReason                 `protobuf:"varint,2,opt,name=reason,enum=flowseer.integration.ingest.v1.RawReason"`
+	xxx_hidden_SuppressedSinceLast uint64                    `protobuf:"varint,3,opt,name=suppressed_since_last,json=suppressedSinceLast"`
+	xxx_hidden_Windows             *[]*v12.RawWindowLocalRef `protobuf:"bytes,4,rep,name=windows"`
 	XXX_raceDetectHookData         protoimpl.RaceDetectHookData
 	XXX_presence                   [1]uint32
 	unknownFields                  protoimpl.UnknownFields
@@ -350,22 +352,35 @@ func (x *RawEvidence) GetSuppressedSinceLast() uint64 {
 	return 0
 }
 
+func (x *RawEvidence) GetWindows() []*v12.RawWindowLocalRef {
+	if x != nil {
+		if x.xxx_hidden_Windows != nil {
+			return *x.xxx_hidden_Windows
+		}
+	}
+	return nil
+}
+
 func (x *RawEvidence) SetData(v []byte) {
 	if v == nil {
 		v = []byte{}
 	}
 	x.xxx_hidden_Data = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 3)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 4)
 }
 
 func (x *RawEvidence) SetReason(v RawReason) {
 	x.xxx_hidden_Reason = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 3)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 4)
 }
 
 func (x *RawEvidence) SetSuppressedSinceLast(v uint64) {
 	x.xxx_hidden_SuppressedSinceLast = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 3)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 4)
+}
+
+func (x *RawEvidence) SetWindows(v []*v12.RawWindowLocalRef) {
+	x.xxx_hidden_Windows = &v
 }
 
 func (x *RawEvidence) HasData() bool {
@@ -413,8 +428,13 @@ type RawEvidence_builder struct {
 	// The reason raw evidence was attached. Must be present; unspecified is invalid.
 	Reason *RawReason
 	// Number of raw-bearing failures from the same device suppressed since the
-	// last kept failure for that device. Unset means none were suppressed.
+	// last kept failure for that device. Unset means none were suppressed. Never
+	// set for a window reason.
 	SuppressedSinceLast *uint64
+	// The windows that paid for this copy of the payload, sorted by id and
+	// distinct. Set exactly when the reason is window, and then holds one to
+	// sixteen refs.
+	Windows []*v12.RawWindowLocalRef
 }
 
 func (b0 RawEvidence_builder) Build() *RawEvidence {
@@ -422,17 +442,18 @@ func (b0 RawEvidence_builder) Build() *RawEvidence {
 	b, x := &b0, m0
 	_, _ = b, x
 	if b.Data != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 3)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 4)
 		x.xxx_hidden_Data = b.Data
 	}
 	if b.Reason != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 3)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 4)
 		x.xxx_hidden_Reason = *b.Reason
 	}
 	if b.SuppressedSinceLast != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 3)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 4)
 		x.xxx_hidden_SuppressedSinceLast = *b.SuppressedSinceLast
 	}
+	x.xxx_hidden_Windows = &b.Windows
 	return m0
 }
 
@@ -440,7 +461,7 @@ var File_flowseer_integration_ingest_v1_ingest_record_proto protoreflect.FileDes
 
 const file_flowseer_integration_ingest_v1_ingest_record_proto_rawDesc = "" +
 	"\n" +
-	"2flowseer/integration/ingest/v1/ingest_record.proto\x12\x1eflowseer.integration.ingest.v1\x1a)flowseer/event/log/v1/syslog_record.proto\x1a,flowseer/model/inventory/v1/provenance.proto\"\x99\x02\n" +
+	"2flowseer/integration/ingest/v1/ingest_record.proto\x12\x1eflowseer.integration.ingest.v1\x1a)flowseer/event/log/v1/syslog_record.proto\x1a,flowseer/model/inventory/v1/provenance.proto\x1a,flowseer/model/rawwindow/v1/raw_window.proto\"\x99\x02\n" +
 	"\fIngestRecord\x12(\n" +
 	"\trecord_id\x18\x01 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\brecordId\x12O\n" +
 	"\n" +
@@ -449,12 +470,15 @@ const file_flowseer_integration_ingest_v1_ingest_record_proto_rawDesc = "" +
 	"\x03raw\x18\x03 \x01(\v2+.flowseer.integration.ingest.v1.RawEvidenceR\x03raw\x12=\n" +
 	"\x06syslog\x18\n" +
 	" \x01(\v2#.flowseer.event.log.v1.SyslogRecordH\x00R\x06syslogB\x10\n" +
-	"\apayload\x12\x05\xbaH\x02\b\x01\"\xb2\x01\n" +
+	"\apayload\x12\x05\xbaH\x02\b\x01\"\xb8\x04\n" +
 	"\vRawEvidence\x12\x1d\n" +
 	"\x04data\x18\x01 \x01(\fB\t\xbaH\x06z\x04\x18\xff\xff\x03R\x04data\x12P\n" +
 	"\x06reason\x18\x02 \x01(\x0e2).flowseer.integration.ingest.v1.RawReasonB\r\xbaH\n" +
 	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\x06reason\x122\n" +
-	"\x15suppressed_since_last\x18\x03 \x01(\x04R\x13suppressedSinceLast*\\\n" +
+	"\x15suppressed_since_last\x18\x03 \x01(\x04R\x13suppressedSinceLast\x12R\n" +
+	"\awindows\x18\x04 \x03(\v2..flowseer.model.rawwindow.v1.RawWindowLocalRefB\b\xbaH\x05\x92\x01\x02\x10\x10R\awindows:\xaf\x02\xbaH\xab\x02\x1a\x95\x01\n" +
+	"!raw_evidence.windows_match_reason\x12@raw evidence names its windows exactly when its reason is window\x1a.(this.reason == 2) == (size(this.windows) > 0)\x1a\x90\x01\n" +
+	"&raw_evidence.window_has_no_suppression\x120window raw evidence carries no suppression count\x1a4this.reason != 2 || !has(this.suppressed_since_last)*\\\n" +
 	"\tRawReason\x12\x1a\n" +
 	"\x16RAW_REASON_UNSPECIFIED\x10\x00\x12\x1c\n" +
 	"\x18RAW_REASON_PARSE_FAILURE\x10\x01\x12\x15\n" +
@@ -464,22 +488,24 @@ const file_flowseer_integration_ingest_v1_ingest_record_proto_rawDesc = "" +
 var file_flowseer_integration_ingest_v1_ingest_record_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_integration_ingest_v1_ingest_record_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_flowseer_integration_ingest_v1_ingest_record_proto_goTypes = []any{
-	(RawReason)(0),           // 0: flowseer.integration.ingest.v1.RawReason
-	(*IngestRecord)(nil),     // 1: flowseer.integration.ingest.v1.IngestRecord
-	(*RawEvidence)(nil),      // 2: flowseer.integration.ingest.v1.RawEvidence
-	(*v1.Provenance)(nil),    // 3: flowseer.model.inventory.v1.Provenance
-	(*v11.SyslogRecord)(nil), // 4: flowseer.event.log.v1.SyslogRecord
+	(RawReason)(0),                // 0: flowseer.integration.ingest.v1.RawReason
+	(*IngestRecord)(nil),          // 1: flowseer.integration.ingest.v1.IngestRecord
+	(*RawEvidence)(nil),           // 2: flowseer.integration.ingest.v1.RawEvidence
+	(*v1.Provenance)(nil),         // 3: flowseer.model.inventory.v1.Provenance
+	(*v11.SyslogRecord)(nil),      // 4: flowseer.event.log.v1.SyslogRecord
+	(*v12.RawWindowLocalRef)(nil), // 5: flowseer.model.rawwindow.v1.RawWindowLocalRef
 }
 var file_flowseer_integration_ingest_v1_ingest_record_proto_depIdxs = []int32{
 	3, // 0: flowseer.integration.ingest.v1.IngestRecord.provenance:type_name -> flowseer.model.inventory.v1.Provenance
 	2, // 1: flowseer.integration.ingest.v1.IngestRecord.raw:type_name -> flowseer.integration.ingest.v1.RawEvidence
 	4, // 2: flowseer.integration.ingest.v1.IngestRecord.syslog:type_name -> flowseer.event.log.v1.SyslogRecord
 	0, // 3: flowseer.integration.ingest.v1.RawEvidence.reason:type_name -> flowseer.integration.ingest.v1.RawReason
-	4, // [4:4] is the sub-list for method output_type
-	4, // [4:4] is the sub-list for method input_type
-	4, // [4:4] is the sub-list for extension type_name
-	4, // [4:4] is the sub-list for extension extendee
-	0, // [0:4] is the sub-list for field type_name
+	5, // 4: flowseer.integration.ingest.v1.RawEvidence.windows:type_name -> flowseer.model.rawwindow.v1.RawWindowLocalRef
+	5, // [5:5] is the sub-list for method output_type
+	5, // [5:5] is the sub-list for method input_type
+	5, // [5:5] is the sub-list for extension type_name
+	5, // [5:5] is the sub-list for extension extendee
+	0, // [0:5] is the sub-list for field type_name
 }
 
 func init() { file_flowseer_integration_ingest_v1_ingest_record_proto_init() }

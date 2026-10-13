@@ -2,6 +2,7 @@ package conformance
 
 import (
 	"bytes"
+	"fmt"
 	"testing"
 
 	"google.golang.org/protobuf/proto"
@@ -10,6 +11,7 @@ import (
 	eventlogv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/log/v1"
 	ingestv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/ingest/v1"
 	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
+	rawwindowv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/rawwindow/v1"
 )
 
 func testProvenance() *inventoryv1.Provenance {
@@ -159,7 +161,53 @@ func TestIngestRecordRules(t *testing.T) {
 			wantText:  "must be one of the defined enum values",
 		},
 		{
-			name: "raw evidence with RAW_REASON_WINDOW passes",
+			name: "raw evidence with RAW_REASON_WINDOW and one window passes",
+			message: func() *ingestv1.IngestRecord {
+				b := baseIngestRecord()
+				b.Raw = ingestv1.RawEvidence_builder{
+					Data:    []byte("test"),
+					Reason:  ingestv1.RawReason_RAW_REASON_WINDOW.Enum(),
+					Windows: []*rawwindowv1.RawWindowLocalRef{rawWindowLocalRef(rawWindowID)},
+				}.Build()
+				return b.Build()
+			}(),
+		},
+		{
+			name: "raw evidence with RAW_REASON_WINDOW and sixteen windows passes",
+			message: func() *ingestv1.IngestRecord {
+				b := baseIngestRecord()
+				windows := make([]*rawwindowv1.RawWindowLocalRef, 16)
+				for i := range windows {
+					windows[i] = rawWindowLocalRef(fmt.Sprintf("0192e6a0-0000-7000-8000-0000000001%02x", i))
+				}
+				b.Raw = ingestv1.RawEvidence_builder{
+					Data:    []byte("test"),
+					Reason:  ingestv1.RawReason_RAW_REASON_WINDOW.Enum(),
+					Windows: windows,
+				}.Build()
+				return b.Build()
+			}(),
+		},
+		{
+			name: "raw evidence with RAW_REASON_WINDOW and seventeen windows fails",
+			message: func() *ingestv1.IngestRecord {
+				b := baseIngestRecord()
+				windows := make([]*rawwindowv1.RawWindowLocalRef, 17)
+				for i := range windows {
+					windows[i] = rawWindowLocalRef(fmt.Sprintf("0192e6a0-0000-7000-8000-0000000001%02x", i))
+				}
+				b.Raw = ingestv1.RawEvidence_builder{
+					Data:    []byte("test"),
+					Reason:  ingestv1.RawReason_RAW_REASON_WINDOW.Enum(),
+					Windows: windows,
+				}.Build()
+				return b.Build()
+			}(),
+			wantField: "raw.windows",
+			wantText:  "no more than 16",
+		},
+		{
+			name: "raw evidence with RAW_REASON_WINDOW and no window ref fails",
 			message: func() *ingestv1.IngestRecord {
 				b := baseIngestRecord()
 				b.Raw = ingestv1.RawEvidence_builder{
@@ -168,6 +216,48 @@ func TestIngestRecordRules(t *testing.T) {
 				}.Build()
 				return b.Build()
 			}(),
+			wantRule: "raw_evidence.windows_match_reason",
+		},
+		{
+			name: "raw evidence with RAW_REASON_WINDOW and a suppression count fails",
+			message: func() *ingestv1.IngestRecord {
+				b := baseIngestRecord()
+				b.Raw = ingestv1.RawEvidence_builder{
+					Data:                []byte("test"),
+					Reason:              ingestv1.RawReason_RAW_REASON_WINDOW.Enum(),
+					Windows:             []*rawwindowv1.RawWindowLocalRef{rawWindowLocalRef(rawWindowID)},
+					SuppressedSinceLast: proto.Uint64(0),
+				}.Build()
+				return b.Build()
+			}(),
+			wantRule: "raw_evidence.window_has_no_suppression",
+		},
+		{
+			name: "raw evidence with RAW_REASON_PARSE_FAILURE and a window ref fails",
+			message: func() *ingestv1.IngestRecord {
+				b := baseIngestRecord()
+				b.Raw = ingestv1.RawEvidence_builder{
+					Data:    []byte("test"),
+					Reason:  ingestv1.RawReason_RAW_REASON_PARSE_FAILURE.Enum(),
+					Windows: []*rawwindowv1.RawWindowLocalRef{rawWindowLocalRef(rawWindowID)},
+				}.Build()
+				return b.Build()
+			}(),
+			wantRule: "raw_evidence.windows_match_reason",
+		},
+		{
+			name: "raw evidence with a malformed window ref fails",
+			message: func() *ingestv1.IngestRecord {
+				b := baseIngestRecord()
+				b.Raw = ingestv1.RawEvidence_builder{
+					Data:    []byte("test"),
+					Reason:  ingestv1.RawReason_RAW_REASON_WINDOW.Enum(),
+					Windows: []*rawwindowv1.RawWindowLocalRef{rawWindowLocalRef("x")},
+				}.Build()
+				return b.Build()
+			}(),
+			wantField: "raw.windows[0].id",
+			wantText:  "must be a valid UUID",
 		},
 		{
 			name:    "syslog record holding no id with only device and received_at passes",

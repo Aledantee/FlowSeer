@@ -12,7 +12,7 @@ table can say they import boundary packages and are imported by none.
 
 ## Boundaries
 
-Imports: errs, model/access, model/edge, model/inventory, model/policy, net/addr
+Imports: errs, model/access, model/edge, model/inventory, model/policy, model/rawwindow, net/addr
 
 Imported by: nothing
 

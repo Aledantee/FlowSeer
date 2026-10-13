@@ -270,6 +270,48 @@ leaving the session record and its counters. That is the capture direction
 record's retention rule, which departs from retire-is-not-purge deliberately:
 the record is what an audit needs, the payload is what an audit is about.
 
+## Raw windows
+
+A raw window makes an edge's adapter keep the original bytes of the records a
+selector matches, for a bounded time and byte budget. The selector is a device,
+an integration, or an edge-local source key such as `syslog`. Central never
+reads an integration's kind: it matches the integration id the edge listing
+carries.
+
+An operator calls `RawWindowService`. Opening needs capture access on the edge,
+`tenant#full_payload`, and an active member grant read fresh from the access
+store. A window needs an expiry within one hour of admission and a positive
+`max_bytes`. The deployment file must set `raw_windows.edge_allowance_bytes`:
+the budgets of an edge's live windows may not sum past it, and without it every
+open is refused. Opening and closing enter the operator action trail with the
+selector, expiry, budget and reason, and no payload.
+
+```text
+OpenRawWindow   -> PENDING   recorded centrally, edge not yet confirmed
+(edge reports)  -> ACTIVE    the edge is retaining bytes
+CloseRawWindow  -> still ACTIVE until the edge reports the end
+(edge reports)  -> TERMINAL  with EXPIRED, BYTE_BUDGET, OPERATOR or EDGE_RESTART
+```
+
+Get and close name only the window id. The edge comes from the stored window,
+so a caller cannot change which edge's `capture` relation is checked.
+
+One record per tenant and edge sits in the `raw-windows` bucket under
+`<tenant>.<edge-id>` and changes by compare-and-swap, which is what keeps
+concurrent opens within the allowance. It holds the subscribed process's boot
+generation and epoch, a control revision, and up to 16 unexpired windows
+including close tombstones. `RawWindowEdgeService.Subscribe` sends a ready frame
+and then every control the edge has not reported, again every five seconds. A
+subscription with a lower generation, or the same generation and another
+epoch, is refused within one enrollment, and an open stream a newer one
+supersedes ends. The record also stores the enrollment, the setup key id the
+edge consumed, so a replacement box that enrolls as the same edge and counts
+its boots from 1 is accepted as a new process. When a
+process restarts, central ends the previous epoch's windows with
+`EDGE_RESTART` and does not reissue them. Collection resumes only through a new
+authorized open. Edge enforcement and the intake path are described in the
+[agent README](../../edge/agent/README.md#raw-windows).
+
 ## Layout
 
 | Package | What it owns |
@@ -285,6 +327,7 @@ the record is what an audit needs, the payload is what an audit is about.
 | `internal/auditapi` | `AuditService`: the edge's audit deliveries onto the stream |
 | `internal/deviceapi` | `DeviceService`: the operator's calls |
 | `internal/captureapi` | `CaptureService`, `CaptureEdgeService`, pcapng artifact store, and live tail broadcaster |
+| `internal/rawwindowapi` | `RawWindowService`, `RawWindowEdgeService`, and the per-edge raw window record |
 | `internal/centralaudit` | the audit records central writes on its own behalf |
 | `internal/drift` | the poll that compares a managed interface against its expectation |
 | `internal/connecterr` | the errs-to-Connect mapping every handler answers through |
