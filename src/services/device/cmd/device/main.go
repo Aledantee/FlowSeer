@@ -8,6 +8,11 @@
 // or a termination signal is a clean stop and exits 0: the runtime drains its
 // modules, and a service that reported failure every time it was asked to
 // stop would make a restart loop look like a crash loop.
+//
+// With -migrate-history the command applies the ClickHouse history schema from
+// the configuration's history section, prints each step it applied, and exits
+// without starting the service. The service itself never creates schema, so a
+// deployment runs this once before it starts, from one process at a time.
 package main
 
 import (
@@ -37,6 +42,7 @@ const exitConfig = 2
 
 func main() {
 	configPath := flag.String("config", defaultConfigPath, "path to the prototext service configuration")
+	migrateHistory := flag.Bool("migrate-history", false, "apply the ClickHouse history schema the configuration names, then exit without starting the service")
 	flag.Parse()
 
 	cfg, err := host.LoadConfig(*configPath)
@@ -47,6 +53,18 @@ func main() {
 		// own and the failure is about their file.
 		fmt.Fprintf(os.Stderr, "device: %v\n", err)
 		os.Exit(exitConfig)
+	}
+
+	if *migrateHistory {
+		if cfg.History() == nil {
+			fmt.Fprintln(os.Stderr, "device: -migrate-history needs a history section in the configuration")
+			os.Exit(exitConfig)
+		}
+		if err := host.MigrateHistory(context.Background(), cfg, os.Stdout); err != nil {
+			fmt.Fprintf(os.Stderr, "device: %v\n", err)
+			os.Exit(errs.ExitCode(err))
+		}
+		return
 	}
 
 	if err := host.Run(context.Background(), cfg, version, host.Options{}); err != nil {

@@ -84,7 +84,7 @@ type HubConfig struct {
 	// inside the window is stored once. Zero means ten minutes.
 	AuditDuplicateWindow time.Duration
 	// IngestMaxBytes and IngestMaxAge bound each typed ingest stream. Zero
-	// means 256 MiB and 24 hours.
+	// means 256 MiB and 72 hours.
 	IngestMaxBytes int64
 	IngestMaxAge   time.Duration
 	// EvidenceMaxBytes and EvidenceMaxAge bound the raw evidence stream. Zero
@@ -156,7 +156,7 @@ const (
 	defaultOperatorReadStreamBytes   = 16 << 20
 	defaultOperatorReadMaxPerSubj    = 1000
 	defaultIngestStreamBytes         = 256 << 20
-	defaultIngestStreamMaxAge        = 24 * time.Hour
+	defaultIngestStreamMaxAge        = 72 * time.Hour
 	defaultEvidenceBytes             = 64 << 20
 	defaultEvidenceMaxAge            = 24 * time.Hour
 	// defaultCentralBudget reserves the central account's disk for the
@@ -167,6 +167,31 @@ const (
 	defaultCentralBudget = 1 << 30
 	defaultEdgeBudget    = 128 << 20
 )
+
+// CentralStreamBytes is the sum of the byte bounds the hub reserves in the
+// CENTRAL account for its streams, defaults applied: the audit stream, both
+// operator streams, one typed ingest stream per record type, and the evidence
+// stream. The key-value buckets set no byte limit and are not in it. A central
+// budget below this sum makes the server refuse the stream that no longer fits.
+func (c HubConfig) CentralStreamBytes() int64 {
+	return orDefault(c.AuditMaxBytes, defaultAuditStreamBytes) +
+		orDefault(c.OperatorActionMaxBytes, defaultOperatorActionStreamBytes) +
+		orDefault(c.OperatorReadMaxBytes, defaultOperatorReadStreamBytes) +
+		orDefault(c.IngestMaxBytes, defaultIngestStreamBytes)*int64(len(IngestRecordTypes())) +
+		orDefault(c.EvidenceMaxBytes, defaultEvidenceBytes)
+}
+
+// CentralBudget is the CENTRAL account's disk reservation, default applied.
+func (c HubConfig) CentralBudget() int64 {
+	return orDefault(c.CentralBudgetBytes, defaultCentralBudget)
+}
+
+func orDefault(value, fallback int64) int64 {
+	if value <= 0 {
+		return fallback
+	}
+	return value
+}
 
 // StartHub starts the hub and creates the stores central owns. The returned
 // Hub must be closed.

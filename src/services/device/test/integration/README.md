@@ -39,6 +39,39 @@ and checks that `ListObjects` returns 10 objects and that the response message
 descriptor holds only the `objects` field. Nothing in the response marks the
 result partial.
 
+## Running the history tier
+
+The `history_integration` tag exercises `history_test.go`, which runs the whole
+path from an agent to ClickHouse: the pinned ClickHouse image, central with a
+`history` section, the device binary's migrate mode, an edge agent with a syslog
+listener, and the operator's `ListSyslogRecords` call. It needs a Docker daemon
+and the `docker` command, and it fails, not skips, when the image cannot start
+(see [`docs/solutions/conventions/a-tag-gated-container-tier-lacking-the-binary-is-silently-inert.md`](../../../../../docs/solutions/conventions/a-tag-gated-container-tier-lacking-the-binary-is-silently-inert.md)):
+
+```bash
+TESTCONTAINERS_RYUK_DISABLED=true \
+go test -race -tags=history_integration -run TestSyslogFromAnAgent ./src/services/device/test/integration/
+```
+
+`TestSyslogFromAnAgentIsReadBackAndAnOutageLosesNothing` takes about 90 seconds
+and has three steps:
+
+1. A message sent to the agent from the registry device's address is listed once
+   within 10 seconds, with its hostname, severity, facility, and the tenant that
+   owns it, and its row holds `retention_class` 2 for a tenant with no class.
+2. Two tenants, one created with `RETENTION_CLASS_SHORT` and one without, each
+   receive a typed record, and their rows hold `retention_class` 1 and 2.
+3. `docker pause` freezes the ClickHouse container for 60 seconds, so the mapped
+   port stays open and an insert hangs instead of being refused. The test sends
+   1,000 records during the pause, checks that the sink's consumer acknowledged
+   none of them and that `ReadInterface` still answers, then unpauses and waits
+   for 1,000 distinct record ids in `syslog`.
+
+UDP drops what the receiving agent cannot keep up with, so the test sends in
+batches of 25 and waits for each batch to reach central's ingest stream. A
+datagram sent before the agent binds its listener is lost, so the deployment
+first sends warm-up messages until one reaches the stream.
+
 ## Running the OpenFGA benchmark
 
 ```bash

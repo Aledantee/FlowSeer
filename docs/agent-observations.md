@@ -50,3 +50,34 @@ coordinator re-sent the stage. The steps were followed as written.
 Suggested change: have `drive` give the review stage a budget of two
 workers when Orca is unreachable (one reviewer, one fixer), or say in
 `review` step 6 that a fixer is not counted against a reviewer-only budget.
+
+## 2026-10-13 land: phase lands passed a diff-aware verifier while a repo-wide guard test was red on main
+Skill or agent: `.claude/skills/land/SKILL.md`, the verification step (line
+203), and `.claude/skills/verify-change/SKILL.md`, the `--full` guidance
+(line 27).
+What happened: `TestNoRawSecretFields` (`src/common/internal/secretguard/scan_test.go`)
+scans every package under `src/` but lives in `src/common`. A diff-aware
+run over a change elsewhere does not select that package, so phase lands
+passed while main failed the test from 2026-10-04 until 4b0c4d1a moved the
+test keys behind accessors. Only a `--full` run caught it. The steps were
+followed as written, and the second case applies: the result was still
+wrong, so it wants enforcement, not louder prose.
+Suggested change: have the verifier select the repo-wide scan tests
+(secretguard, `test/conformance/`) whenever a diff adds or changes a Go
+source file under `src/`, or have `land` run `--full` once on the merged
+tree before it leaves main one fast-forward away.
+
+## 2026-10-13 drive: a worker's `isolation: worktree` checkout is outside the sandbox write allowlist
+Skill or agent: `.claude/skills/drive/SKILL.md`, the worker briefs for
+`implement`, `review`, and `compound`.
+What happened: under auto mode the sandbox writes only to the drive's own
+worktree, so a worker in a fresh `isolation: worktree` checkout needs
+`dangerouslyDisableSandbox` for every git, test, and verifier command. The
+auto-mode classifier allowed the bypass for some workers and refused it
+for one ("Safety Bypass Flag"). The briefs told the workers to bypass, as
+the skill says, and the stage then stopped on the refusal. The steps were
+followed as written.
+Suggested change: have `drive` start each worker in a worktree the
+sandbox already allows, or state in the brief which commands the bypass
+covers and name the refusal as a stop condition the coordinator resolves
+before dispatch rather than a worker blocker.

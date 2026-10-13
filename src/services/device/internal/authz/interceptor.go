@@ -2,6 +2,7 @@ package authz
 
 import (
 	"context"
+	"slices"
 	"strings"
 	"sync"
 
@@ -27,6 +28,99 @@ type Interceptor struct {
 // NewInterceptor constructs an authorization interceptor backed by checker.
 func NewInterceptor(checker Checker) *Interceptor {
 	return &Interceptor{checker: checker}
+}
+
+const (
+	tenantHeader = "X-FlowSeer-Tenant"
+	// maxTenantSet is the most tenants one call may name. Each tenant costs two
+	// checks, membership and the rule's relation, and [maxChecksPerBatch] is 50,
+	// so 25 tenants are admitted by one BatchCheck.
+	maxTenantSet = maxChecksPerBatch / 2
+)
+
+// singleTenantHeader returns the tenant a call names. A header sent on more
+// than one line is refused, since the interceptor would otherwise admit the
+// first line and ignore the others.
+func singleTenantHeader(values []string) (string, error) {
+	switch len(values) {
+	case 0:
+		return "", nil
+	case 1:
+		return values[0], nil
+	}
+	return "", invalidTenant(errs.New().Code(ErrCodeTenantList).Attr("lines", len(values)).
+		Msg("tenant header sent on more than one line"))
+}
+
+// tenantList splits the header lines of a method that reads several tenants.
+// It refuses an empty list, an empty item, a duplicate, an invalid tenant, and
+// more than [maxTenantSet] tenants. Spaces around an item are ignored.
+func tenantList(values []string) ([]string, error) {
+	var tenants []string
+	seen := map[string]bool{}
+	for _, line := range values {
+		for item := range strings.SplitSeq(line, ",") {
+			item = strings.TrimSpace(item)
+			if item == "" {
+				return nil, invalidTenant(errs.New().Code(ErrCodeTenantList).Msg("tenant list holds an empty item"))
+			}
+			if err := tenant.Validate(item); err != nil {
+				return nil, invalidTenant(errs.New().Code(ErrCodeNoTenant).Cause(err).Msg("no tenant named"))
+			}
+			if seen[item] {
+				return nil, invalidTenant(errs.New().Code(ErrCodeTenantList).Attr("tenant", item).Msg("tenant list repeats a tenant"))
+			}
+			seen[item] = true
+			tenants = append(tenants, item)
+		}
+	}
+	if len(tenants) == 0 {
+		return nil, invalidTenant(errs.New().Code(ErrCodeNoTenant).Msg("no tenant named"))
+	}
+	if len(tenants) > maxTenantSet {
+		return nil, invalidTenant(errs.New().Code(ErrCodeTenantList).Attr("tenants", len(tenants)).
+			Msg("tenant list is longer than one authorization batch"))
+	}
+	return tenants, nil
+}
+
+// admitSet is [Interceptor.Admit] for a method whose rule sets multi_tenant. It
+// admits every tenant the header lists in one BatchCheck, membership and the
+// rule's relation for each, and fails the call when any check is denied. The
+// returned context carries the tenants as a set ([tenant.SetFrom]) and no single
+// tenant.
+func (i *Interceptor) admitSet(ctx context.Context, values []string, relation string) (context.Context, error) {
+	principal, ok := authn.FromContext(ctx)
+	if !ok || principal.ID == "" {
+		return nil, connecterr.WrapAs(connect.CodeUnauthenticated, "authentication required", errs.New().Code(ErrCodeUnauthenticated).
+			Msg("authentication required"))
+	}
+	tenants, err := tenantList(values)
+	if err != nil {
+		return nil, err
+	}
+
+	tuples := contextualTuples(principal)
+	queries := make([]Query, 0, 2*len(tenants))
+	for _, id := range tenants {
+		queries = append(queries,
+			Query{Object: "tenant:" + id, Relation: "member", User: "user:" + principal.ID, ContextualTuples: tuples},
+			Query{Object: "tenant:" + id, Relation: relation, User: "user:" + principal.ID, ContextualTuples: tuples},
+		)
+	}
+	answers, err := i.checker.BatchCheck(ctx, queries)
+	if err != nil {
+		return nil, checkerError(ctx, err, "authorization is unavailable")
+	}
+	if len(answers) != len(queries) {
+		return nil, checkerError(ctx, nil, "checker returned unexpected answer count")
+	}
+	if slices.Contains(answers, false) {
+		return nil, permissionDenied(errs.New().Code(ErrCodeDenied).Msg("permission denied"))
+	}
+
+	ctx = tenant.WithSet(ctx, tenants)
+	return withTracker(ctx, newObligationTracker(i.checker, principal, "")), nil
 }
 
 // Admit verifies caller authentication, validates the tenant identifier, confirms
@@ -104,8 +198,11 @@ func (i *Interceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc) co
 				Msg("streaming calls are supported only under a request rule on a server stream"))
 		}
 
-		tenantHeader := conn.RequestHeader().Get("X-FlowSeer-Tenant")
-		admittedCtx, err := i.Admit(ctx, tenantHeader)
+		tenantID, err := singleTenantHeader(conn.RequestHeader().Values(tenantHeader))
+		if err != nil {
+			return err
+		}
+		admittedCtx, err := i.Admit(ctx, tenantID)
 		if err != nil {
 			return err
 		}
@@ -119,7 +216,7 @@ func (i *Interceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc) co
 			interceptor:          i,
 			rule:                 rule,
 			principal:            principal,
-			admittedTenant:       tenantHeader,
+			admittedTenant:       tenantID,
 		}
 
 		err = next(admittedCtx, wrapped)
@@ -270,9 +367,18 @@ func (i *Interceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
 					Msg("permission denied"))
 			}
 		} else {
-			tenantHeader := req.Header().Get("X-FlowSeer-Tenant")
+			tenantValues := req.Header().Values(tenantHeader)
+			multiTenant := mode == authzv1.RuleMode_RULE_MODE_TENANT && rule.GetMultiTenant()
+			var tenantID string
 			var err error
-			ctx, err = i.Admit(ctx, tenantHeader)
+			if multiTenant {
+				ctx, err = i.admitSet(ctx, tenantValues, rule.GetRelation())
+			} else {
+				if tenantID, err = singleTenantHeader(tenantValues); err != nil {
+					return nil, err
+				}
+				ctx, err = i.Admit(ctx, tenantID)
+			}
 			if err != nil {
 				return nil, err
 			}
@@ -291,7 +397,7 @@ func (i *Interceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
 						Msg("request rule yielded no id"))
 				}
 
-				allowed, err := checkObjects(ctx, i.checker, principal, tenantHeader, rule.GetObjectType(), rule.GetRelation(), []string{objectID})
+				allowed, err := checkObjects(ctx, i.checker, principal, tenantID, rule.GetObjectType(), rule.GetRelation(), []string{objectID})
 				if err != nil {
 					return nil, err
 				}
@@ -301,7 +407,10 @@ func (i *Interceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
 				}
 
 			case authzv1.RuleMode_RULE_MODE_TENANT:
-				allowed, err := checkObjects(ctx, i.checker, principal, tenantHeader, "tenant", rule.GetRelation(), []string{tenantHeader})
+				if multiTenant {
+					break
+				}
+				allowed, err := checkObjects(ctx, i.checker, principal, tenantID, "tenant", rule.GetRelation(), []string{tenantID})
 				if err != nil {
 					return nil, err
 				}

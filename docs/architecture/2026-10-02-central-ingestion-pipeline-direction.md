@@ -108,7 +108,7 @@ CENTRAL account and passes the same validation.
 
 | Data | Store | Reason |
 | --- | --- | --- |
-| Append-only records and numeric time-series | ClickHouse | One Apache-2.0 store for both. It acknowledges an asynchronous insert only after the flush when `wait_for_async_insert=1`, so the sink acknowledges the stream after the store holds the row. |
+| Append-only records and numeric time-series | ClickHouse | One Apache-2.0 store for both, in the five patterns of the [history store record](2026-10-08-history-store-direction.md). The sink inserts synchronously and acknowledges the stream after one replica holds the rows (2026-10-08 amendment). |
 | Current state that gates a decision or that a stream processor reads | JetStream KV | Compare-and-set writes, a watch for live copies, and no second connection for a consumer already on the bus. |
 | Lists, filters, sorts, and joins for the API | Postgres | A read model a projector derives from the KV buckets. |
 
@@ -183,12 +183,13 @@ its own service later changes the host and not the module.
 
 ## Open questions
 
-- Tenant isolation inside ClickHouse and Postgres: a tenant column with row
-  policies, or a database per tenant. Unverified which ClickHouse mechanism
-  holds against a query the API builds.
-- Which ClickHouse settings bound an API query so it cannot stall inserts.
-  Unverified.
-- Retention per record type.
+- Tenant isolation inside Postgres. For ClickHouse the
+  [history store record](2026-10-08-history-store-direction.md) decides it
+  (2026-10-08 amendment).
+- Which ClickHouse settings bound an API query so it cannot stall inserts:
+  the history store record names them.
+- Retention per record type: the history store record names three classes
+  per tenant.
 - Whether the device service record's per-tenant NATS account is still the
   target. The code isolates per edge account and names the tenant account as
   absent (`src/modules/edgebus/README.md`).
@@ -304,3 +305,27 @@ validates a whole listing before it replaces its index. Intake is unchanged: it
 already stores raw evidence on the evidence stream and republishes the typed
 record without it, so the typed record never carries window refs. No history
 store or evidence retrieval API is added.
+
+### 2026-10-08: the history store record decides what this record left open
+
+The [history store record](2026-10-08-history-store-direction.md) takes over
+ClickHouse. This amendment changes four statements above.
+
+- The Stores row for append-only records and time-series points to the five
+  table patterns of the history record. It no longer relies on
+  `wait_for_async_insert=1`. The sink inserts synchronously
+  (`async_insert = 0`) and acknowledges the stream after one replica holds the
+  rows (history record, "Writes: synchronous, acknowledged after one
+  replica").
+- The 2026-10-04 sentence that each sink deduplicates on tenant and
+  `record_id` gives way to the history record's three layers: shapes a repeat
+  does not change, a merge key, and read-time deduplication with
+  `LIMIT 1 BY record_id` or `FINAL`.
+- Three open questions are answered there: tenant isolation ("Tenants are
+  flat, and a lookup names a set of them"), query limits ("Queries cannot
+  stall ingestion"), and retention per record type ("Retention: three classes
+  per tenant").
+- The typed ingest streams keep records for 72 hours, up from the 24 hours
+  `src/modules/edgebus/hub.go` sets today, so a ClickHouse outage over a
+  weekend loses nothing at the planning rate. The evidence stream keeps its
+  24 hours.

@@ -32,6 +32,22 @@ enum TenantLifecycle {
   TENANT_LIFECYCLE_SUSPENDED = 2;
 }
 
+// How long a tenant's observation history is kept. Each class names a
+// retention period per kind of data in the history store record
+// (docs/architecture/2026-10-08-history-store-direction.md); the numbers are
+// the stamped value on every stored row, so they never change.
+enum RetentionClass {
+  // No class named. A tenant config without one is treated as
+  // RETENTION_CLASS_STANDARD; the zero value is not a legal input.
+  RETENTION_CLASS_UNSPECIFIED = 0;
+  // The shortest retention.
+  RETENTION_CLASS_SHORT = 1;
+  // The default retention.
+  RETENTION_CLASS_STANDARD = 2;
+  // The longest retention.
+  RETENTION_CLASS_LONG = 3;
+}
+
 // The intended definition of one tenant: how its operators authenticate.
 message TenantConfig {
   // The ref to this tenant. Must be present.
@@ -65,6 +81,12 @@ message TenantConfig {
     (buf.validate.field).string.min_len = 1,
     (buf.validate.field).string.max_len = 2048
   ];
+  // How long this tenant's history is kept. Unset means
+  // RETENTION_CLASS_STANDARD. The zero value is rejected.
+  RetentionClass retention_class = 7 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
 }
 
 // The observed side of one tenant: when it was created and where it stands.

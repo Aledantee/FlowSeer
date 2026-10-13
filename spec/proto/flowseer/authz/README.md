@@ -16,7 +16,7 @@ entity-specific permission or policy model belongs with that entity in `model/`.
 
 Imports: nothing FlowSeer-owned
 
-Imported by: api/capture, api/device, api/edge, api/identity, api/ingest
+Imported by: api/capture, api/device, api/edge, api/history, api/identity, api/ingest
 
 The `authz/` root is a leaf: it imports nothing FlowSeer-owned. Packages under
 `api/` may import `authz/`.

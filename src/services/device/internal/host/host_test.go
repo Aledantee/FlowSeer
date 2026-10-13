@@ -24,6 +24,7 @@ import (
 
 	"buf.build/go/protovalidate"
 	connect "connectrpc.com/connect"
+	"github.com/nats-io/nats.go/jetstream"
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -35,6 +36,8 @@ import (
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/device/v1/devicev1connect"
 	apiedgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1/edgev1connect"
+	historyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/history/v1"
+	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/history/v1/historyv1connect"
 	identityv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/identity/v1"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/identity/v1/identityv1connect"
 	attachv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1"
@@ -181,6 +184,18 @@ func startTestService(
 	modifyOpts func(opts *host.Options),
 ) *testService {
 	t.Helper()
+	return startTestServiceWithConfig(t, "", modifyOpts)
+}
+
+// startTestServiceWithConfig starts the service with extra prototext appended
+// to the file the helper writes, for a test that sets a field the default
+// deployment leaves out.
+func startTestServiceWithConfig(
+	t *testing.T,
+	extraConfig string,
+	modifyOpts func(opts *host.Options),
+) *testService {
+	t.Helper()
 	dir := t.TempDir()
 	stateDir := filepath.Join(dir, "state")
 	credentialRoot := filepath.Join(dir, "credentials")
@@ -243,7 +258,7 @@ authorization {
   model_id: "01JK1234567890ABCDEFGHJKMM"
   preshared_key_file: %q
 }
-`, stateDir, writeRegistry(t, dir), credentialRoot, busPort, busPort, iss.URL(), caPath, keyPath)
+`, stateDir, writeRegistry(t, dir), credentialRoot, busPort, busPort, iss.URL(), caPath, keyPath) + extraConfig
 
 	cfg, err := host.LoadConfig(writeConfig(t, body))
 	if err != nil {
@@ -1788,6 +1803,35 @@ func TestCreateEdgeSucceedsAndLogsWhenEngineWriteFails(t *testing.T) {
 	}
 }
 
+func TestConfiguredIngestBoundsReachTheHub(t *testing.T) {
+	hub := startTestServiceWithConfig(t, `
+ingest_streams {
+  max_age { seconds: 172800 }
+  max_bytes_per_type: 300000000
+  central_budget_bytes: 1073741824
+}
+`, nil).Hub
+	stream, err := hub.JetStream().Stream(context.Background(), edgebus.IngestStream(edgebus.IngestRecordTypeSyslog))
+	if err != nil {
+		t.Fatalf("load central ingest stream: %v", err)
+	}
+	config := stream.CachedInfo().Config
+	if config.MaxAge != 48*time.Hour || config.MaxBytes != 300000000 {
+		t.Fatalf("ingest stream limits = %v and %d bytes, want 48h and 300000000", config.MaxAge, config.MaxBytes)
+	}
+}
+
+func TestUnsetIngestBoundsTakeTheHubDefaults(t *testing.T) {
+	hub := startTestService(t, nil).Hub
+	stream, err := hub.JetStream().Stream(context.Background(), edgebus.IngestStream(edgebus.IngestRecordTypeSyslog))
+	if err != nil {
+		t.Fatalf("load central ingest stream: %v", err)
+	}
+	if got := stream.CachedInfo().Config.MaxAge; got != 72*time.Hour {
+		t.Fatalf("ingest stream MaxAge = %v, want 72h", got)
+	}
+}
+
 func TestIntakeRepublishesAnEdgeRecord(t *testing.T) {
 	hub := startTestService(t, nil).Hub
 	if err := hub.AttachEdge(context.Background(), edgebus.DefaultTenant, testEdgeID); err != nil {
@@ -1889,4 +1933,139 @@ func waitForHost(t *testing.T, what string, condition func() bool) {
 		time.Sleep(10 * time.Millisecond)
 	}
 	t.Fatalf("timed out waiting for %s", what)
+}
+
+// historyConfigText is a history section whose ClickHouse is at endpoint, with
+// the four password files it names written under a temporary directory.
+func historyConfigText(t *testing.T, endpoint string) string {
+	t.Helper()
+	dir := t.TempDir()
+	user := func(role, name string) string {
+		path := filepath.Join(dir, role+".password")
+		if err := os.WriteFile(path, []byte(role+"-secret\n"), 0o600); err != nil {
+			t.Fatalf("write %s password: %v", role, err)
+		}
+		return fmt.Sprintf("  %s {\n    name: %q\n    password_file: %q\n  }\n", role, name, path)
+	}
+	return fmt.Sprintf("history {\n  endpoints: %q\n  database: \"flowseer\"\n", endpoint) +
+		user("admin", "flowseer_admin") + user("writer", "flowseer_writer") +
+		user("reader", "flowseer_reader") + user("analyst", "flowseer_analyst") + "}\n"
+}
+
+func historySinkConsumerInfo(hub *edgebus.Hub) (*jetstream.ConsumerInfo, error) {
+	consumer, err := hub.JetStream().Consumer(context.Background(), edgebus.IngestStream(edgebus.IngestRecordTypeSyslog), "history_sink")
+	if err != nil {
+		return nil, err
+	}
+	return consumer.Info(context.Background())
+}
+
+func unlistedDeviceStatusRequest() *devicev1.GetDeviceAccessStatusRequest {
+	local := &inventoryv1.DeviceLocalRef{}
+	local.SetId(testUnlistedDeviceID)
+	device := &inventoryv1.DeviceGlobalRef{}
+	device.SetDevice(local)
+	msg := &devicev1.GetDeviceAccessStatusRequest{}
+	msg.SetDevice(device)
+	return msg
+}
+
+func TestWithClickHouseUnreachableTheSinkWaitsAndTheOtherModulesStayUp(t *testing.T) {
+	svc := startTestServiceWithConfig(t, historyConfigText(t, "127.0.0.1:1"), nil)
+	waitForHost(t, "the history sink consumer", func() bool {
+		_, err := historySinkConsumerInfo(svc.Hub)
+		return err == nil
+	})
+	data, err := proto.Marshal(validIngestRecord(t))
+	if err != nil {
+		t.Fatalf("marshal ingest record: %v", err)
+	}
+	subject := edgebus.CentralIngestSubject(edgebus.DefaultTenant, edgebus.IngestRecordTypeSyslog, testDeviceID)
+	if _, err := svc.Hub.JetStream().Publish(context.Background(), subject, data); err != nil {
+		t.Fatalf("publish a central ingest record: %v", err)
+	}
+
+	waitForHost(t, "the sink to take the record", func() bool {
+		info, err := historySinkConsumerInfo(svc.Hub)
+		return err == nil && info.Delivered.Stream >= 1
+	})
+	info, err := historySinkConsumerInfo(svc.Hub)
+	if err != nil {
+		t.Fatalf("consumer info: %v", err)
+	}
+	if info.AckFloor.Stream != 0 {
+		t.Errorf("ack floor = %d, want 0: the record must stay unacknowledged while ClickHouse is unreachable", info.AckFloor.Stream)
+	}
+
+	client := devicev1connect.NewDeviceServiceClient(serviceClient(), svc.Base)
+	if _, err := callWhenServing(t, client, unlistedDeviceStatusRequest()); connect.CodeOf(err) != connect.CodePermissionDenied {
+		t.Errorf("with the sink waiting, the api answered %v, want the authorization refusal it gives an unlisted device", err)
+	}
+}
+
+func historyReadRequest() *connect.Request[historyv1.ListSyslogRecordsRequest] {
+	from := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
+	device := inventoryv1.DeviceGlobalRef_builder{Device: inventoryv1.DeviceLocalRef_builder{Id: proto.String(testDeviceID)}.Build()}.Build()
+	return connect.NewRequest(historyv1.ListSyslogRecordsRequest_builder{
+		Device: device,
+		From:   timestamppb.New(from),
+		To:     timestamppb.New(from.Add(24 * time.Hour)),
+	}.Build())
+}
+
+func TestTheHistoryReadIsMountedBehindTheOperatorChainWhenHistoryIsConfigured(t *testing.T) {
+	svc := startTestServiceWithConfig(t, historyConfigText(t, "127.0.0.1:1"), nil)
+	if _, err := callWhenServing(t, devicev1connect.NewDeviceServiceClient(serviceClient(), svc.Base), unlistedDeviceStatusRequest()); connect.CodeOf(err) != connect.CodePermissionDenied {
+		t.Fatalf("the service is not answering: %v", err)
+	}
+	client := historyv1connect.NewHistoryServiceClient(serviceClient(), svc.Base)
+
+	_, denied := client.ListSyslogRecords(context.Background(), historyReadRequest())
+	if connect.CodeOf(denied) != connect.CodePermissionDenied {
+		t.Errorf("without the viewer relation the call gave %v (err %v), want PermissionDenied from the operator chain", connect.CodeOf(denied), denied)
+	}
+
+	svc.Engine.Grant("user:"+svc.PrincipalID, "viewer", "tenant")
+	_, err := client.ListSyslogRecords(context.Background(), historyReadRequest())
+	if connect.CodeOf(err) != connect.CodeUnavailable {
+		t.Errorf("with the viewer relation and ClickHouse unreachable the call gave %v (err %v), want Unavailable from the read", connect.CodeOf(err), err)
+	}
+}
+
+func TestWithoutAHistorySectionTheHistoryServiceIsNotMounted(t *testing.T) {
+	svc := startTestService(t, nil)
+	if _, err := callWhenServing(t, devicev1connect.NewDeviceServiceClient(serviceClient(), svc.Base), unlistedDeviceStatusRequest()); connect.CodeOf(err) != connect.CodePermissionDenied {
+		t.Fatalf("the service is not answering: %v", err)
+	}
+
+	_, err := historyv1connect.NewHistoryServiceClient(serviceClient(), svc.Base).ListSyslogRecords(context.Background(), historyReadRequest())
+
+	if connect.CodeOf(err) != connect.CodeUnimplemented {
+		t.Errorf("the call gave %v (err %v), want Unimplemented for a service that is not mounted", connect.CodeOf(err), err)
+	}
+}
+
+func TestMigrateHistoryNeedsAHistorySectionAndStopsWhenTheServerIsUnreachable(t *testing.T) {
+	bare, err := host.LoadConfig(writeConfig(t, validConfig))
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	var out bytes.Buffer
+	err = host.MigrateHistory(context.Background(), bare, &out)
+	if code, _ := errs.CodeOf(err); code != host.ErrCodeStart {
+		t.Errorf("a configuration without a history section gave %v, want the %v code", err, host.ErrCodeStart)
+	}
+
+	withHistory, err := host.LoadConfig(writeConfig(t, validConfig+historyConfigText(t, "127.0.0.1:1")))
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	out.Reset()
+	err = host.MigrateHistory(context.Background(), withHistory, &out)
+	if code, _ := errs.CodeOf(err); code.String() != "history/migrate" {
+		t.Errorf("an unreachable server gave %v, want the history/migrate code", err)
+	}
+	if out.Len() != 0 {
+		t.Errorf("output %q, want nothing when no step applied", out.String())
+	}
 }

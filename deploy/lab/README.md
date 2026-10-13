@@ -8,7 +8,7 @@ The files one lab run needs: the device service, its registry and edge agent, an
 | `registry.textproto` | `DeviceRegistry`: the switch central serves and the policy it resolves |
 | `agent.textproto` | `AgentConfig`: where edge agent state lives and which provisioning file it reads |
 | `provisioning.textproto` | `EdgeProvisioning`: the credentials central issues to an edge |
-| `compose.yaml` | Container definitions for Postgres, OpenFGA, and Dex |
+| `compose.yaml` | Container definitions for Postgres, OpenFGA, Dex, and ClickHouse |
 | `dex/config.yaml` | Dex identity provider configuration |
 | `write-lab-secrets.py` | Generates TLS certificates, keys, and user credentials under `secrets/` |
 | `write-openfga-store.py` | Creates the OpenFGA store, writes the authorization model, and prints the `authorization` block |
@@ -73,6 +73,29 @@ Confirm that the token's `sub` matches `platform_admin.subjects`:
 ```bash
 echo "${ADMIN_TOKEN}" | jq -R 'split(".")[1] | gsub("-";"+") | gsub("_";"/") | @base64d | fromjson | {iss, sub, aud, groups}'
 ```
+
+The history store is the compose `clickhouse` service. Write one password file per ClickHouse user where `central.textproto` names them, and give the admin password to the container through the environment:
+
+```bash
+sudo install -d -m 0700 -o "$USER" /etc/flowseer/clickhouse
+for user in admin writer reader analyst; do
+  openssl rand -hex 16 > "/etc/flowseer/clickhouse/${user}.password"
+done
+export CLICKHOUSE_ADMIN_PASSWORD="$(cat /etc/flowseer/clickhouse/admin.password)"
+docker compose --profile history up -d --wait clickhouse
+```
+
+The service sits in the `history` profile, so the plain `docker compose up` of step 2 leaves it out until its password exists.
+
+Central never creates schema. The lab has no device container image, so the migration is a one-shot run of the device binary on the host, with the same configuration file, before central starts. It applies the schema as `flowseer_admin`, creates the three service users with the other passwords, and exits:
+
+```bash
+go run ../../src/services/device/cmd/device --config central.textproto -migrate-history
+```
+
+The command prints one line per step it applied, and `history schema is current` on a second run. The compose service has no `cluster` in `central.textproto`, so the migrator creates plain engines on the one node. A deployment with a cluster names it in the `history` block.
+
+With the `history` block present, central starts the `history_sink` module, which follows the syslog ingest stream and inserts into ClickHouse. A ClickHouse that is down does not stop central: the records stay in the stream and the sink inserts them when the server returns.
 
 5. Provision the tenant record and alice's admin role. Start central first.
 

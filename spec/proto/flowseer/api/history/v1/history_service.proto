@@ -1,0 +1,84 @@
+edition = "2024";
+
+// The service an operator calls to read stored observation history. Authorized
+// as the operator on every tenant the call names.
+package flowseer.api.history.v1;
+
+import "flowseer/event/log/v1/syslog_record.proto";
+import "flowseer/model/identity/v1/tenant.proto";
+import "flowseer/model/inventory/v1/device.proto";
+import "flowseer/model/inventory/v1/location.proto";
+import "flowseer/net/log/v1/syslog_severity.proto";
+import "google/protobuf/timestamp.proto";
+import option "buf/validate/validate.proto";
+import option "flowseer/authz/v1/rule.proto";
+
+service HistoryService {
+  // Lists the syslog records of one device or one location, newest first, for
+  // every tenant the X-FlowSeer-Tenant header names. A tenant the caller may
+  // not view fails the whole call and returns no rows.
+  rpc ListSyslogRecords(ListSyslogRecordsRequest) returns (ListSyslogRecordsResponse) {
+    option (flowseer.authz.v1.rule) = {
+      mode: RULE_MODE_TENANT
+      object_type: "tenant"
+      relation: "viewer"
+      multi_tenant: true
+    };
+  }
+}
+
+message ListSyslogRecordsRequest {
+  option (buf.validate.message).cel = {
+    id: "list_syslog_records.window_ordered"
+    message: "to must be after from and at most 366 days after it"
+    expression: "!has(this.from) || !has(this.to) || (this.to > this.from && this.to - this.from <= duration('8784h'))"
+  };
+
+  // What the records are about. Exactly one arm is present.
+  oneof scope {
+    option (buf.validate.oneof).required = true;
+
+    // A device in any listed tenant.
+    flowseer.model.inventory.v1.DeviceGlobalRef device = 1;
+    // A location in any listed tenant. Devices that were stamped with the
+    // location when their record was stored match.
+    flowseer.model.inventory.v1.LocationGlobalRef location = 2;
+  }
+  // The start of the window, inclusive, against the time central received the
+  // record. Must be present.
+  google.protobuf.Timestamp from = 3 [(buf.validate.field).required = true];
+  // The end of the window, exclusive. Must be present.
+  google.protobuf.Timestamp to = 4 [(buf.validate.field).required = true];
+  // Keeps records at this severity or more severe. Unset keeps every record,
+  // including those whose message carried no priority.
+  flowseer.net.log.v1.SyslogSeverity min_severity = 5 [(buf.validate.field).enum.defined_only = true];
+  // The most entries to return. Unset means 100.
+  int32 page_size = 6 [
+    (buf.validate.field).int32.gte = 1,
+    (buf.validate.field).int32.lte = 1000
+  ];
+  // The next_page_token of the previous response, with every other field
+  // unchanged. Unset means the first page.
+  string page_token = 7 [(buf.validate.field).string.max_len = 256];
+}
+
+message ListSyslogRecordsResponse {
+  // The records, newest first by receive time and then by record id.
+  repeated SyslogHistoryEntry entries = 1;
+  // Pass as page_token for the next page. Unset means this is the last page.
+  string next_page_token = 2;
+}
+
+// One stored syslog record and the tenant that owns it.
+message SyslogHistoryEntry {
+  // The record's identifier. Must be present.
+  string record_id = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.uuid = true
+  ];
+  // The tenant that owns the record. A call may list several, so each entry
+  // names its own. Must be present.
+  flowseer.model.identity.v1.TenantLocalRef tenant = 2 [(buf.validate.field).required = true];
+  // The record as the sink stored it. Must be present.
+  flowseer.event.log.v1.SyslogRecord record = 3 [(buf.validate.field).required = true];
+}
