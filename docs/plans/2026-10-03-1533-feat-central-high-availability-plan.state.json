@@ -12,9 +12,17 @@
   "after": [],
   "landed": null,
   "phases": [
-    "docs/plans/2026-10-03-1533-feat-central-high-availability-phase1-plan.md",
     "docs/plans/2026-10-03-1533-feat-central-high-availability-phase2-plan.md",
     "docs/plans/2026-10-03-1533-feat-central-high-availability-phase3-plan.md"
   ],
-  "retired": []
+  "retired": [
+    {
+      "plan": "docs/plans/2026-10-03-1533-feat-central-high-availability-phase1-plan.md",
+      "status": "implemented",
+      "landed": {
+        "first": "6890cdee",
+        "last": "288cb9dc"
+      }
+    }
+  ]
 }

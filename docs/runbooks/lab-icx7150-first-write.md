@@ -68,6 +68,7 @@ Set these once, in the shell you will use throughout:
 ```sh
 export FLOWSEER_REPO=/path/to/this/repository
 export CENTRAL=https://127.0.0.1:8443
+export EDGE_URL=https://127.0.0.1:8446
 export CACERT=/var/lib/flowseer/device/tls.crt
 export DEVICE_ID=0192e6a0-0000-7000-8000-0000000000d1
 export INTERFACE="ethernet 1/1/1"
@@ -91,8 +92,11 @@ export REGISTRY=/etc/flowseer/registry.textproto
 export PROVISIONING=/etc/flowseer/provisioning.textproto
 ```
 
-`CACERT` is the certificate central generated into its state directory on
-first start. `DEVICE_ID` and `INTERFACE` are the device and port this run
+`CENTRAL` is the operator address, where every `buf curl` call below goes.
+`EDGE_URL` is the edge address, the `central_url` in the lab configuration. It
+is the value the agent's provisioning carries, so it is the one that step passes
+to `write-provisioning.py`. `CACERT` is the certificate central generated into
+its state directory on first start. `DEVICE_ID` and `INTERFACE` are the device and port this run
 targets, and must match the registry. `TOKEN` is an OIDC bearer token issued
 by Dex or another configured identity provider, and `TENANT` is the deployment's
 tenant UUID (see [deploy/lab/README.md](../../deploy/lab/README.md) for token and tenant administration steps).
@@ -220,7 +224,7 @@ Write the provisioning the agent reads, from what `CreateEdge` returned, and
 start the agent:
 
 ```sh
-uv run "$FLOWSEER_REPO"/deploy/lab/write-provisioning.py "$RUN/created.json" "$CENTRAL" > "$PROVISIONING"
+uv run "$FLOWSEER_REPO"/deploy/lab/write-provisioning.py "$RUN/created.json" "$EDGE_URL" > "$PROVISIONING"
 "$RUN/agent" --config "$AGENT_CONFIG" > "$RUN/agent.log" 2>&1 &
 echo $! > "$RUN/agent.pid"
 until grep -q '"flowseer.edge.id"' "$RUN/agent.log"; do sleep 0.2; done

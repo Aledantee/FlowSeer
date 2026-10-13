@@ -257,6 +257,7 @@ proto_files=()
 proto_deleted=false
 proto=false
 buf_module=false
+lint_module=false
 hook_tooling=false
 mib=false
 service_otel_integration=false
@@ -290,6 +291,8 @@ if [[ $full == true ]]; then
   while IFS= read -r modfile; do
     if [[ $modfile == ./tools/buf/go.mod ]]; then
       buf_module=true
+    elif [[ $modfile == ./tools/golangci-lint/go.mod ]]; then
+      lint_module=true
     else
       add_module "$(dirname "$modfile")"
     fi
@@ -339,6 +342,11 @@ else
         # independent tools/buf/* case below routes these files to the
         # protobuf gates and sets both flags.
         :
+        ;;
+      tools/golangci-lint/go.mod|tools/golangci-lint/go.sum)
+        # The lint tool module holds no packages to build or test. A new
+        # linter applies to every module, so the check below asks for --full.
+        lint_module=true
         ;;
       go.mod|go.sum|*/go.mod|*/go.sum)
         module=$(module_for_file "$path")
@@ -529,6 +537,10 @@ if [[ $full == false ]] && contains_path .golangci.yml; then
   echo ".golangci.yml changed; run with --full to lint every Go module under the new configuration." >&2
   exit 2
 fi
+if [[ $full == false && $lint_module == true ]]; then
+  echo "tools/golangci-lint changed; run with --full to lint every Go module with the new linter." >&2
+  exit 2
+fi
 
 # Whether anything at all will run. A run that selects no gate is not a
 # passing run: it is an invocation that could not place its arguments, and
@@ -563,7 +575,7 @@ if ((${#go_files[@]})); then
   required_tools+=(gofumpt goimports)
 fi
 if ((${#modules[@]})); then
-  required_tools+=(go golangci-lint python3)
+  required_tools+=(go python3)
 fi
 if [[ $proto == true || $mib == true ]]; then
   required_tools+=(go)
@@ -591,7 +603,7 @@ done
 if ((${#missing_tools[@]})); then
   echo "required tools are not on PATH: ${missing_tools[*]}" >&2
   case " ${missing_tools[*]} " in
-    *" gofumpt "*|*" goimports "*|*" golangci-lint "*)
+    *" gofumpt "*|*" goimports "*)
       echo "Go tools install to \$(go env GOPATH)/bin; put that directory on PATH or install the missing ones there." >&2
       ;;
   esac
@@ -691,8 +703,17 @@ vet_tagged() {
 
 if ((${#modules[@]})); then
   need_tool go
-  need_tool golangci-lint
   need_tool python3
+  # golangci-lint is pinned in its own module, like buf, so the version
+  # that lints is the one tools/golangci-lint/go.sum holds, never whatever
+  # sits on PATH. Its golang.org/x/tools decides which export-data
+  # versions it reads, so a Go release that bumps that version needs a
+  # linter bump here. go tool builds it with the toolchain the linted
+  # module selects, which is why the tool module's go line stays at 1.27.
+  lint_cmd=(go tool "-modfile=$root/tools/golangci-lint/go.mod" golangci-lint)
+  if [[ $lint_module == true ]]; then
+    run go -C tools/golangci-lint mod verify
+  fi
   for module in "${modules[@]}"; do
     echo "== Go module: $module =="
     (
@@ -706,7 +727,7 @@ if ((${#modules[@]})); then
           [[ -n $sample && -d $sample ]] && lint_pkgs+=("./$sample")
         done < <(generated_lint_samples "$module")
         if ((${#lint_pkgs[@]})); then
-          run golangci-lint run --allow-serial-runners --config "$root/.golangci.yml" "${lint_pkgs[@]}"
+          run "${lint_cmd[@]}" run --allow-serial-runners --config "$root/.golangci.yml" "${lint_pkgs[@]}"
         fi
         exit 0
       fi
@@ -803,7 +824,7 @@ PY
         # with `parallel golangci-lint is running` when another instance
         # holds it, which reads as a red gate. Serial runners wait for the
         # lock instead.
-        run golangci-lint run --allow-serial-runners --config "$root/.golangci.yml" "${lint_pkgs[@]}"
+        run "${lint_cmd[@]}" run --allow-serial-runners --config "$root/.golangci.yml" "${lint_pkgs[@]}"
       fi
     )
   done

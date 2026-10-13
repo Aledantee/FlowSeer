@@ -15,8 +15,8 @@ tasks:
   lint:
     desc: 'Run golangci-lint (repo-root .golangci.yml applies by ancestry); GOOS=linux pass covers linux-only files the darwin pass skips'
     cmds:
-      - golangci-lint run
-      - GOOS=linux golangci-lint run
+      - go tool -modfile=../../../tools/golangci-lint/go.mod golangci-lint run
+      - GOOS=linux go tool -modfile=../../../tools/golangci-lint/go.mod golangci-lint run
 
   build:
     desc: 'Build the netpen binary (darwin dev host, CGO_ENABLED=0)'

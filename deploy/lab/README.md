@@ -307,7 +307,7 @@ Expected answer:
     }
   },
   "provisioning": {
-    "centralUrl": "https://127.0.0.1:8443",
+    "centralUrl": "https://127.0.0.1:8446",
     "setupKey": "fse1_234567abcdefghijklmnopqrst_abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz",
     "trustAnchors": [
       "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="

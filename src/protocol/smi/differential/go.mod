@@ -6,7 +6,7 @@
 // `go build ./...` / `go mod tidy` do not descend here.
 module go.aledante.io/FlowSeer/src/protocol/smi/differential
 
-go 1.27
+go 1.27.2
 
 replace go.aledante.io/FlowSeer => ../../../..
 

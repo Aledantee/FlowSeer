@@ -87,7 +87,7 @@ func TestRemotePacketCapture_EndToEnd(t *testing.T) {
 		Signature: ed25519.Sign(privKey, payloadWire),
 	}.Build()
 
-	edgeAttachClient := attachv1connect.NewEdgeServiceClient(c.client, c.baseURL())
+	edgeAttachClient := attachv1connect.NewEdgeServiceClient(c.client, c.edgeURL())
 	if _, err := edgeAttachClient.Enroll(ctx, connect.NewRequest(attachv1.EnrollRequest_builder{
 		SetupKey: proto.String(setupKey),
 		Proof:    proof,
@@ -786,7 +786,7 @@ func TestRemotePacketCapture_EndToEndWithAgent(t *testing.T) {
 		source.pushFrame([]byte(fmt.Sprintf("synthetic-agent-frame-%d", i)))
 	}
 
-	a := startAgentWithOptions(t, dir, provisioning, c.baseURL(), agentOptions{
+	a := startAgentWithOptions(t, dir, provisioning, c.edgeURL(), agentOptions{
 		openCaptureSource: func(_ context.Context, _ capture.Config) (capture.Source, bool, error) {
 			return source, false, nil
 		},
@@ -895,7 +895,7 @@ func TestRemotePacketCapture_OperatorCancellation(t *testing.T) {
 		source.pushFrame([]byte(fmt.Sprintf("cancel-frame-%d", i)))
 	}
 
-	a := startAgentWithOptions(t, dir, provisioning, c.baseURL(), agentOptions{
+	a := startAgentWithOptions(t, dir, provisioning, c.edgeURL(), agentOptions{
 		openCaptureSource: func(_ context.Context, _ capture.Config) (capture.Source, bool, error) {
 			return source, false, nil
 		},
@@ -1025,7 +1025,7 @@ func TestRemotePacketCapture_InactivityTimeout(t *testing.T) {
 	// Empty source: no frames ever pushed
 	source := newIntegrationCaptureSource(10)
 
-	a := startAgentWithOptions(t, dir, provisioning, c.baseURL(), agentOptions{
+	a := startAgentWithOptions(t, dir, provisioning, c.edgeURL(), agentOptions{
 		openCaptureSource: func(_ context.Context, _ capture.Config) (capture.Source, bool, error) {
 			return source, false, nil
 		},
@@ -1114,7 +1114,7 @@ func TestRemotePacketCapture_TelemetryPrivacy(t *testing.T) {
 	logSink := &testLogRecorder{}
 	logger := slog.New(slog.NewJSONHandler(logSink, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
-	a := startAgentWithOptions(t, dir, provisioning, c.baseURL(), agentOptions{
+	a := startAgentWithOptions(t, dir, provisioning, c.edgeURL(), agentOptions{
 		openCaptureSource: func(_ context.Context, _ capture.Config) (capture.Source, bool, error) {
 			return source, false, nil
 		},

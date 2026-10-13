@@ -9,11 +9,11 @@ the first stable release.
 
 ## Set up
 
-You need Go 1.27. Everything else depends on what you touch:
+You need Go 1.27.2. Everything else depends on what you touch:
 
 | If you change | You also need |
 | --- | --- |
-| Go code | `golangci-lint` v2 (lint and formatting gate) |
+| Go code | the pinned golangci-lint in `tools/golangci-lint/go.mod` (lint and formatting gate) |
 | `spec/proto/` | the pinned Buf CLI in `tools/buf/go.mod` |
 | `frontend/web/` | Node 22.12 or newer, pnpm 11.25.0 |
 | integration suites that start real targets | Docker |
@@ -105,7 +105,7 @@ that selected no gates.
 The verifier is fast feedback. The merge gate is the authority, and all four
 must pass:
 
-1. `golangci-lint run`
+1. `go tool -modfile=tools/golangci-lint/go.mod golangci-lint run`
 2. `go build ./...`
 3. `go vet ./...`
 4. `go test -race ./...`

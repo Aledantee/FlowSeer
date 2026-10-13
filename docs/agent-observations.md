@@ -40,6 +40,23 @@ ledger base>` (the `base` the ledger records at `in_progress`), or have the
 verifier's whitespace gate diff from the merge base with `main` when no
 base is given.
 
+## 2026-10-12 next: a phase that waits on another parent's phase reads as ready to re-plan
+Skill or agent: `.claude/skills/next/SKILL.md`, step 1, and `plan record
+after` (`tools/scripts/lib/plans.py:217`).
+What happened: the step was followed and still produced the wrong result.
+`next plan-queue` put Deployment, Phase 1 in `replan` because its state
+holds `after: []`. Its parent plan says no phase is written ready until the
+central high availability plan lands, and central still embeds NATS and
+keeps its certificate under `state_dir`, so the phase cannot be planned yet.
+Recording the dependency with `plan record after` failed: "after names
+docs/plans/2026-10-03-1533-feat-central-high-availability-phase3-plan.md,
+which is neither in the phases nor in the retired list of
+docs/plans/2026-10-03-1533-feat-deployment-plan.md". Deployment, Phase 3
+(waits on edge high availability) has the same shape.
+Suggested change: let `after` name a phase or plan of another parent, and
+have `next plan-queue` read an unfinished one as `waiting`. Failing that, a
+state field such as `blocked_by: <plan>` that `next` reads the same way.
+
 ## 2026-10-13 review: a drive without Orca spends the review stage's one worker on the reviewer
 Skill or agent: `.claude/skills/review/SKILL.md`, step 6, and
 `.claude/skills/drive/SKILL.md` (the review stage brief).
@@ -58,8 +75,8 @@ Skill or agent: `.claude/skills/land/SKILL.md`, the verification step (line
 What happened: `TestNoRawSecretFields` (`src/common/internal/secretguard/scan_test.go`)
 scans every package under `src/` but lives in `src/common`. A diff-aware
 run over a change elsewhere does not select that package, so phase lands
-passed while main failed the test from 2026-10-04 until 4b0c4d1a moved the
-test keys behind accessors. Only a `--full` run caught it. The steps were
+passed while main failed the test from 2026-10-04 until c53403f2 moved the
+test keys and token out of exported fields. Only a `--full` run caught it. The steps were
 followed as written, and the second case applies: the result was still
 wrong, so it wants enforcement, not louder prose.
 Suggested change: have the verifier select the repo-wide scan tests
@@ -81,3 +98,28 @@ Suggested change: have `drive` start each worker in a worktree the
 sandbox already allows, or state in the brief which commands the bypass
 covers and name the refusal as a stop condition the coordinator resolves
 before dispatch rather than a worker blocker.
+
+## 2026-10-13 verify-change: a full run takes about 40 minutes and blocks every land that touches go.mod
+Skill or agent: `.claude/skills/verify-change/scripts/verify-change.sh`
+(`--full`), and `.claude/skills/land/SKILL.md`, step 5.
+What happened: the step was followed as written. A change to any `go.mod`
+leaves the `<Bash mutation; verify with --full>` marker, and `land` then
+needs a `--full` run. One such run on this machine took 40 minutes from
+start to receipt. Its race tests summed to 1054 seconds over 251
+packages, and the five slowest were:
+`src/protocol/smi/differential` (166 s),
+`src/services/device/test/integration` (159 s),
+`src/common/service/test/integration` (115 s), `src/modules/edgebus`
+(85 s), and `src/services/device/internal/captureapi` (76 s). When two
+verifier runs overlap on one machine, the NATS-backed suites
+(`edgebus`, `intake`, `host`, `syslogsource`) time out at 10 to 30
+seconds and pass when run alone with `-p 1`, so a red run then costs a
+second full run.
+Suggested change: profile where the 40 minutes go (gates run one after
+another, and the web gates run before the Go gates), then pick the
+cheapest of: run independent gates in parallel, move the slowest
+integration and differential suites behind a tag that only `--full` on
+the merge gate sets, and let a `go.mod` change whose module graph does not
+change outside `tools/` skip the full race run. Separately, raise the
+NATS suites' wait deadlines or hold a machine-wide lock for the race run
+so that two runs never overlap.

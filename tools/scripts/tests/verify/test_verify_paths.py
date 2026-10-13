@@ -143,14 +143,22 @@ class VerdictTest(unittest.TestCase):
         self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
         self.assertIn("run with --full", result.stderr)
 
+    def test_lint_tool_module_asks_for_full(self):
+        # A new linter applies to every module, as a new configuration does.
+        tool = self.root / "tools" / "golangci-lint"
+        tool.mkdir(parents=True)
+        (tool / "go.mod").write_text("module example.invalid/lint\n\ngo 1.27\n")
+        result = self.verify("--", "tools/golangci-lint/go.mod")
+        self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+        self.assertIn("run with --full", result.stderr)
+
     def stub_go_tools(self):
-        """Stand-ins for go, gofumpt, goimports, and golangci-lint: go builds
-        an empty checker, gofumpt reports a diff. The format gate runs before
-        any module gate, so golangci-lint only has to exist. Returns an
-        environment with the stubs first on PATH."""
+        """Stand-ins for go, gofumpt, and goimports: go builds an empty
+        checker, gofumpt reports a diff. golangci-lint runs through go tool,
+        so the go stub covers it. Returns an environment with the stubs
+        first on PATH."""
         tools = Path(self.directory.name) / "bin"
         tools.mkdir()
-        (tools / "golangci-lint").write_text("#!/bin/sh\nexit 0\n")
         (tools / "go").write_text(
             "#!/bin/sh\n"
             "[ \"$1\" = build ] || exit 0\n"
