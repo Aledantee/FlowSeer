@@ -19,6 +19,7 @@ type fakeExecutor struct {
 	recorded      []int
 	recordedSteps []int
 	failOn        string
+	failRecord    bool
 }
 
 func (f *fakeExecutor) exec(_ context.Context, statement string) error {
@@ -32,6 +33,9 @@ func (f *fakeExecutor) exec(_ context.Context, statement string) error {
 func (f *fakeExecutor) applied(context.Context) ([]int, error) { return f.recordedSteps, nil }
 
 func (f *fakeExecutor) record(_ context.Context, number int, _ string) error {
+	if f.failRecord {
+		return errors.New("server refused the record")
+	}
 	f.recorded = append(f.recorded, number)
 	return nil
 }
@@ -113,6 +117,24 @@ func TestMigrateStopsAtAFailedStepAndLeavesItUnrecorded(t *testing.T) {
 	for _, stmt := range ex.statements {
 		if strings.Contains(stmt, "three") {
 			t.Errorf("step 3 ran after step 2 failed: %q", ex.statements)
+		}
+	}
+}
+
+func TestMigrateStopsWhenARecordFailsAndDoesNotReportTheStepApplied(t *testing.T) {
+	ex := &fakeExecutor{failRecord: true}
+
+	done, err := migrate(context.Background(), ex, testData(), nil, nil, testSteps)
+
+	if code, _ := errs.CodeOf(err); code != ErrCodeMigrate {
+		t.Fatalf("code = %v (err %v), want %v", code, err, ErrCodeMigrate)
+	}
+	if len(done) != 0 {
+		t.Errorf("applied = %v, want none: step 1 was not recorded", done)
+	}
+	for _, stmt := range ex.statements {
+		if strings.Contains(stmt, "two") {
+			t.Errorf("step 2 ran after step 1 failed to record: %q", ex.statements)
 		}
 	}
 }

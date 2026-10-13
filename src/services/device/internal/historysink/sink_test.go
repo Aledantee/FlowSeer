@@ -302,6 +302,37 @@ func TestAPermanentlyRejectedRecordIsTerminatedAndItsNeighboursAreStored(t *test
 	}
 }
 
+func TestATransientFailureOfTheFirstHalfNaksTheSecondHalfWithTheRetryDelay(t *testing.T) {
+	hub := startHub(t)
+	inserter := &fakeInserter{fn: func(_ []Row, call int) error {
+		switch call {
+		case 1:
+			return errs.New().Code(ErrCodeRejected).Msg("send insert")
+		case 2:
+			return errs.From(errUnavailable).Retryable().Msg("send insert")
+		}
+		return nil
+	}}
+	for n := 1; n <= 4; n++ {
+		publish(t, hub, recordID(n), testTenant)
+	}
+	r := startSink(t, hub, Config{Inserter: inserter, FlushInterval: 300 * time.Millisecond})
+
+	// The consumer's AckWait is minutes, and waitFor gives up after 20 seconds,
+	// so a half left unacknowledged instead of naked never completes here.
+	waitFor(t, "every record acknowledged", func() bool {
+		i := consumerInfo(t, r)
+		return i.NumAckPending == 0 && i.AckFloor.Stream == 4
+	})
+
+	if got := counter(t, r, "flowseer.history.records.retried", "", ""); got != 4 {
+		t.Errorf("retried = %d, want 4: both halves wait out the retry delay", got)
+	}
+	if got := counter(t, r, "flowseer.history.records.inserted", "", ""); got != 4 {
+		t.Errorf("inserted = %d, want 4", got)
+	}
+}
+
 func TestARedeliveredRecordIsInsertedAndAcknowledgedAgain(t *testing.T) {
 	hub := startHub(t)
 	inserter := &fakeInserter{}
