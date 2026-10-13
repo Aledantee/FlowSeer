@@ -19,7 +19,7 @@ services. Services live in service roots (`api/`, `edge/`).
 
 Imports: net/addr, net/capture, net/endpoint, net/interface, net/key, net/measure, net/phy, net/switching, net/system, net/wlan
 
-Imported by: api/capture, api/device, api/edge, api/identity, edge/attach, edge/capture, edge/dispatch, event/access, event/log, event/operator, integration/ingest, store/device
+Imported by: api/capture, api/device, api/edge, api/identity, api/ingest, edge/attach, edge/capture, edge/dispatch, edge/ingest, event/access, event/log, event/operator, integration/ingest, store/device
 
 Packages in `model/` may import `net/` primitives and sibling `model/` leaves.
 `model/` packages never import service packages (`api/`), event packages
@@ -37,4 +37,5 @@ Packages in `model/` may import `net/` primitives and sibling `model/` leaves.
   partner links, and full-payload grants.
 - `inventory/v1/`: Hardware, component, integration, and topology entities and ref pairs.
 - `policy/v1/`: Access policy, credential, and host-trust handles.
+- `rawwindow/v1/`: RawWindow entity, selector, byte budget, lifecycle, and state.
 - `wireless/v1/`: Wireless LAN entity, SSID configuration, broadcast state, and radio associations.

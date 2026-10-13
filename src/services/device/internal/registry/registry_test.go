@@ -120,6 +120,33 @@ func TestLoadResolvesDevicesPoliciesAndBinding(t *testing.T) {
 	}
 }
 
+// TestIntegrationIDIsTheRegistrysOwnIntegration pins where the listing's
+// integration comes from. The registry names one integration for every binding
+// it lists, so a different integration in the file must change the answer.
+func TestIntegrationIDIsTheRegistrysOwnIntegration(t *testing.T) {
+	const other = "0192e6a0-0000-7000-8000-0000000000c9"
+
+	r, err := load(t, validRegistry(validDevice(nil)))
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	if got := r.IntegrationID(); got != "0192e6a0-0000-7000-8000-0000000000c1" {
+		t.Errorf("IntegrationID = %q, want the registry's integration", got)
+	}
+
+	reg := validRegistry(validDevice(nil))
+	reg.GetIntegration().SetRef(inventoryv1.IntegrationGlobalRef_builder{
+		Integration: inventoryv1.IntegrationLocalRef_builder{Id: proto.String(other)}.Build(),
+	}.Build())
+	r, err = load(t, reg)
+	if err != nil {
+		t.Fatalf("load with another integration: %v", err)
+	}
+	if got := r.IntegrationID(); got != other {
+		t.Errorf("IntegrationID = %q, want %q", got, other)
+	}
+}
+
 func TestLoadRefusesADevicePolicyNotListed(t *testing.T) {
 	// The device's access policy names a version no listed policy provides.
 	// The schema's device_policies_listed CEL rule refuses it at load — the

@@ -1,0 +1,143 @@
+edition = "2024";
+
+// The service an edge calls to receive raw window controls and report what its
+// controller did with them. Both calls are authorized as the edge the
+// call's assertion names. Central never calls an edge. The calls are
+// separate from any device lane, so a window can start while a listed device
+// has no running lane.
+package flowseer.edge.ingest.v1;
+
+import "flowseer/model/rawwindow/v1/raw_window.proto";
+import "google/protobuf/timestamp.proto";
+import option "buf/validate/validate.proto";
+
+service RawWindowEdgeService {
+  // Streams owed raw window controls to the calling edge. The first frame is
+  // ready, sent even when no window is owed. Central resends controls the
+  // edge has not reported and ends the stream when a newer subscription
+  // from the same edge supersedes it.
+  rpc Subscribe(SubscribeRequest) returns (stream SubscribeResponse);
+
+  // Reports the edge controller's cumulative state for windows it holds.
+  rpc Report(ReportRequest) returns (ReportResponse);
+}
+
+message SubscribeRequest {
+  // The edge's boot generation, durably advanced before each process start.
+  // Central accepts only an increasing generation, or the current one with
+  // the same epoch. Must be present and positive.
+  uint64 boot_generation = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).uint64.gt = 0
+  ];
+  // The edge process's epoch, created after the generation advanced. Must be
+  // present.
+  string process_epoch = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.uuid = true
+  ];
+  // Ingestion sources this process runs. Central refuses a window naming
+  // another source. Empty means the process runs none.
+  repeated flowseer.model.rawwindow.v1.RawWindowSource enabled_sources = 3 [(buf.validate.field).repeated.max_items = 16];
+}
+
+// The subscription is established. Central has fenced older generations and
+// epochs, and every owed control follows.
+message RawWindowReady {}
+
+// A request to stop retaining bytes for one window. A window that ended or
+// expired needs no further instruction, and the tombstone this leaves holds
+// until the original expiry.
+message RawWindowClose {
+  // The window's original expiry. The tombstone lasts until then, so a late
+  // start cannot reopen the window. Must be present.
+  google.protobuf.Timestamp expires_at = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).timestamp.gt = {seconds: 0}
+  ];
+}
+
+// One instruction for one window.
+message RawWindowControl {
+  option (buf.validate.message).cel = {
+    id: "raw_window_control.open_matches_ref"
+    message: "an open control carries the configuration of the window it names"
+    expression: "!has(this.open) || this.open.ref == this.ref"
+  };
+
+  // The generation of the subscription this control belongs to. Must be
+  // present.
+  uint64 boot_generation = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).uint64.gt = 0
+  ];
+  // The process epoch of that subscription. Must be present.
+  string process_epoch = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.uuid = true
+  ];
+  // The window the control addresses. Must be present.
+  flowseer.model.rawwindow.v1.RawWindowGlobalRef ref = 3 [(buf.validate.field).required = true];
+  // The window's control revision. A greater revision supersedes older
+  // controls for the same window. Must be present and positive.
+  uint64 revision = 4 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).uint64.gt = 0
+  ];
+
+  // Exactly one instruction.
+  oneof intent {
+    option (buf.validate.oneof).required = true;
+
+    // Start the window with this immutable configuration. A repeat of a
+    // start reports the current state and renews neither counters nor
+    // deadlines.
+    flowseer.model.rawwindow.v1.RawWindowConfig open = 10;
+    // Stop the window.
+    RawWindowClose close = 11;
+  }
+}
+
+message SubscribeResponse {
+  oneof body {
+    option (buf.validate.oneof).required = true;
+
+    RawWindowReady ready = 1;
+    RawWindowControl control = 2;
+  }
+}
+
+// What the edge controller holds for one window at one control revision.
+message RawWindowReport {
+  // The revision of the control this state follows. Must be present and
+  // positive.
+  uint64 revision = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).uint64.gt = 0
+  ];
+  // The window's state with its cumulative usage. Usage never decreases
+  // within one epoch. Must be present.
+  flowseer.model.rawwindow.v1.RawWindowState state = 2 [(buf.validate.field).required = true];
+}
+
+message ReportRequest {
+  // The generation of the reporting process. Central rejects a report from
+  // any other generation or epoch than its subscription's. Must be present
+  // and positive.
+  uint64 boot_generation = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).uint64.gt = 0
+  ];
+  // The reporting process's epoch. Must be present.
+  string process_epoch = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.uuid = true
+  ];
+  // One to sixteen window reports.
+  repeated RawWindowReport reports = 3 [(buf.validate.field).repeated = {
+    min_items: 1
+    max_items: 16
+  }];
+}
+
+message ReportResponse {}

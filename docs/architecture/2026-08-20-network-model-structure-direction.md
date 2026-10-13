@@ -1058,3 +1058,17 @@ specifies. It imports `event/log` and `model/inventory` and nothing imports it.
 The 2026-09-18 amendment's "leaving `integration/` holding only a README"
 described the tree at that date. The announcement, kind descriptor, and event
 subject contracts stay reserved.
+
+### 2026-10-12: raw window packages
+
+Three schema packages join the tree for the
+[Raw Window Control direction](2026-10-08-raw-window-control-direction.md).
+`model/rawwindow/v1` holds the window's ref pair, selector, configuration,
+state, and event. It imports `model/edge`, `model/identity`, and
+`model/inventory`. `api/ingest/v1` holds the operator `RawWindowService` and
+`edge/ingest/v1` holds the edge-opened `RawWindowEdgeService`. Both are service
+packages and so sinks. `integration/ingest` and `event/operator` import the
+model package, `RawEvidence` for the window refs and the audit event for its
+target. `store/device/v1` gains the per-edge window record and `store/agent/v1`
+the boot counter file. The import-order table in
+`test/conformance/proto/layering_test.go` carries a row for each.

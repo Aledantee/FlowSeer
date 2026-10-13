@@ -13,6 +13,7 @@ import (
 	"go.aledante.io/FlowSeer/src/services/device/internal/edgestore"
 	"go.aledante.io/FlowSeer/src/services/device/internal/journal"
 	"go.aledante.io/FlowSeer/src/services/device/internal/projector"
+	"go.aledante.io/FlowSeer/src/services/device/internal/rawwindowapi"
 	"go.aledante.io/FlowSeer/src/services/device/internal/tenantstore"
 )
 
@@ -32,6 +33,7 @@ type busResources struct {
 	dispatch    *dispatchapi.Service
 	captures    *captureapi.Store
 	broadcaster *captureapi.Broadcaster
+	rawWindows  *rawwindowapi.Store
 	tenants     *tenantstore.Store
 	projector   *projector.Projector
 }

@@ -278,3 +278,29 @@ has no tenant for, a validator failure that is not a rule violation, and a
 failed central publish are retried, since a terminated record is gone and a
 retry is bounded by the edge stream's own age and byte limits
 (`src/services/device/internal/intake/README.md`).
+
+### 2026-10-12: operator raw windows control raw evidence
+
+Landed 2026-10-12: `src/services/device/internal/rawwindowapi`,
+`src/edge/agent/internal/rawwindow`, and the window path in
+`src/edge/agent/internal/syslogsource`. The contract is the
+[Raw Window Control direction](2026-10-08-raw-window-control-direction.md).
+
+The second case in "Raw bytes stay at the edge unless asked for or unparsed",
+the operator window, is now built. An operator opens a window for a device, an
+integration, or an ingestion source on one edge. Central keeps the window and
+the edge enforces its expiry and byte budget at the point it selects bytes. The
+control is a separate edge-opened stream, `RawWindowEdgeService.Subscribe`
+with a unary `Report`, not the device dispatch lane, because a listed device
+may have no running lane.
+
+`RawEvidence` gains `windows`, the sorted distinct ids of the windows that paid
+for the copy, set exactly when the reason is `RAW_REASON_WINDOW`. Window
+evidence carries no suppression count, since the parse-failure policy is
+consulted only when no window kept the payload. `ListedDevice` gains a
+required `integration_id`, so an integration selector matches the integration
+of the binding the edge resolved without central reading a kind. The edge
+validates a whole listing before it replaces its index. Intake is unchanged: it
+already stores raw evidence on the evidence stream and republishes the typed
+record without it, so the typed record never carries window refs. No history
+store or evidence retrieval API is added.

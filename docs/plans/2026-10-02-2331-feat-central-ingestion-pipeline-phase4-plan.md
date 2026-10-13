@@ -291,3 +291,8 @@ Waves: U1 | U2 | U3 U4 | U5 | U6
 - [ ] Package documentation and accepted direction amendments land with code.
 - [ ] Record the six-unit implementation through `plan record implemented`.
 - [ ] Unit and requirement labels appear only in this plan.
+
+## Review gaps
+
+- src/services/device/internal/rawwindowapi/store.go:221: `fit` runs only on Open, so Report, Close, Subscribe, and expiry writes can exceed the 256 KiB bound by a few KiB; fails: an Open near the bound followed by reports on 16 live rows; class: hardening
+- spec/proto/flowseer/store/agent/v1/raw_window_epoch.proto:19: `process_epoch` has no writer; fails: an operator reading the file never sees an epoch; class: convention

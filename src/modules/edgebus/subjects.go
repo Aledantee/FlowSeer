@@ -47,6 +47,9 @@ const (
 	// CapturesBucket is the key-value bucket the device service's capture
 	// session records live in, one key per session.
 	CapturesBucket = "captures"
+	// RawWindowsBucket is the key-value bucket the device service's raw window
+	// records live in, one key per tenant and edge: <tenant>.<edge-id>.
+	RawWindowsBucket = "raw-windows"
 	// TenantBucket is the key-value bucket central keeps tenant records in.
 	TenantBucket = "tenants"
 	// AccessBucket is the key-value bucket central keeps member, role, and

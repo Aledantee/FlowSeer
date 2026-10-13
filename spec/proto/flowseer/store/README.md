@@ -15,7 +15,7 @@ entity models fail admission and belong in `model/`.
 
 ## Boundaries
 
-Imports: errs, model/access, model/edge, model/inventory, model/policy, net/addr
+Imports: errs, model/access, model/edge, model/inventory, model/policy, model/rawwindow, net/addr
 
 Imported by: nothing
 
