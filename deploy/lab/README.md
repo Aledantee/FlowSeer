@@ -77,11 +77,11 @@ echo "${ADMIN_TOKEN}" | jq -R 'split(".")[1] | gsub("-";"+") | gsub("_";"/") | @
 The history store is the compose `clickhouse` service. Write one password file per ClickHouse user where `central.textproto` names them, and give the admin password to the container through the environment:
 
 ```bash
-sudo install -d -m 0700 /etc/flowseer/clickhouse
+sudo install -d -m 0700 -o "$USER" /etc/flowseer/clickhouse
 for user in admin writer reader analyst; do
-  openssl rand -hex 16 | sudo tee "/etc/flowseer/clickhouse/${user}.password" > /dev/null
+  openssl rand -hex 16 > "/etc/flowseer/clickhouse/${user}.password"
 done
-export CLICKHOUSE_ADMIN_PASSWORD="$(sudo cat /etc/flowseer/clickhouse/admin.password)"
+export CLICKHOUSE_ADMIN_PASSWORD="$(cat /etc/flowseer/clickhouse/admin.password)"
 docker compose --profile history up -d --wait clickhouse
 ```
 

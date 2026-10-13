@@ -93,7 +93,8 @@ leads every partition key so a part expires whole. Raw syslog rows live 90 days,
 
 A redelivered record is stored again past the insert deduplication window. The
 `ReplacingMergeTree` key collapses it at merge, so a read that lists or counts
-rows uses `LIMIT 1 BY record_id` or `FINAL`. `syslog_daily` counts a
+rows uses `LIMIT 1 BY tenant_id, record_id` or `FINAL`. The pair keeps one
+tenant's repeat from hiding another tenant's record that shares a `record_id`. `syslog_daily` counts a
 redelivery twice.
 
 Both views run as the user that migrated (`DEFINER = CURRENT_USER`), so the
