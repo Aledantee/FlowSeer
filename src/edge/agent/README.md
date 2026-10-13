@@ -265,7 +265,9 @@ The source asks the controller for every resolved record, before the
 parse-failure policy. A window that paid keeps the payload as `RAW_REASON_WINDOW`
 naming the sorted distinct window ids and carrying no suppression count. Every
 matching window with room is charged the record's original length, once, so
-overlapping windows keep one copy and account independently. A window whose
+overlapping windows keep one copy and account independently. A record names at
+most 16 windows, the schema's limit, so a window past the first 16 in id order
+is neither charged nor ended for that record. A window whose
 remainder cannot hold the whole record ends without truncating it. The envelope
 is built once per record, so a publish retry reuses its debit.
 

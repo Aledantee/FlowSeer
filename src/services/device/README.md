@@ -303,7 +303,10 @@ generation and epoch, a control revision, and up to 16 unexpired windows
 including close tombstones. `RawWindowEdgeService.Subscribe` sends a ready frame
 and then every control the edge has not reported, again every five seconds. A
 subscription with a lower generation, or the same generation and another
-epoch, is refused, and an open stream a newer one supersedes ends. When a
+epoch, is refused within one enrollment, and an open stream a newer one
+supersedes ends. The record also stores the enrollment, the setup key id the
+edge consumed, so a replacement box that enrolls as the same edge and counts
+its boots from 1 is accepted as a new process. When a
 process restarts, central ends the previous epoch's windows with
 `EDGE_RESTART` and does not reissue them. Collection resumes only through a new
 authorized open. Edge enforcement and the intake path are described in the

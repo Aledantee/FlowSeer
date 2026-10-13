@@ -38,6 +38,11 @@ var (
 // says, so a wrong wall clock cannot extend collection past an hour.
 const maxElapsed = time.Hour
 
+// MaxWindowsPerRecord is the most windows one record can name. It is the
+// max_items of RawEvidence.windows in ingest_record.proto, so a record that
+// paid more windows would fail envelope validation and stop the source.
+const MaxWindowsPerRecord = 16
+
 // Config configures a [Controller].
 //
 // Wall and Elapsed are independent clocks. Wall is the calendar time a window's
@@ -297,7 +302,10 @@ func (c *Controller) expire(now time.Time, elapsed time.Duration) {
 // Select decides which windows keep the original bytes of one record and
 // charges each of them the record's length, once, before the adapter publishes
 // it. It returns the ids of the windows that paid, sorted and distinct, or nil
-// when no window retains the record.
+// when no window retains the record. It returns at most [MaxWindowsPerRecord]
+// ids: a window beyond them in id order is neither charged nor ended for this
+// record, because an edge whose clock runs behind central's can hold more
+// matching windows than the schema allows one record to name.
 //
 // A matching window whose remaining budget cannot hold the whole record ends
 // without being charged, and without truncating the record for another window.
@@ -314,6 +322,9 @@ func (c *Controller) Select(obs Observation) []string {
 		w := c.windows[id]
 		if w.terminal || !w.matches(obs) {
 			continue
+		}
+		if len(paid) == MaxWindowsPerRecord {
+			break
 		}
 		if obs.Bytes > w.maxBytes-w.usedBytes {
 			c.end(w, rawwindowv1.RawWindowStopReason_RAW_WINDOW_STOP_REASON_BYTE_BUDGET, now)

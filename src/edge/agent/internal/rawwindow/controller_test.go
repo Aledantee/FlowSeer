@@ -2,6 +2,7 @@ package rawwindow_test
 
 import (
 	"context"
+	"fmt"
 	"slices"
 	"strconv"
 	"sync"
@@ -470,6 +471,26 @@ func TestOverlappingWindowsKeepOneCopyAndIndependentAccounts(t *testing.T) {
 		if used := reportOf(t, ctrl, id).GetState().GetUsage().GetSelectedBytes(); used != 4 {
 			t.Errorf("window %s debited %d bytes, want 4", id, used)
 		}
+	}
+}
+
+func TestARecordPaysAtMostSixteenWindows(t *testing.T) {
+	c := newClocks()
+	ctrl := newController(t, c)
+	expires := c.Wall().Add(time.Hour)
+	ids := make([]string, 17)
+	for i := range ids {
+		ids[i] = fmt.Sprintf("0192e6a0-0000-7000-8000-0000000000%02d", i)
+		apply(t, ctrl, open(t, ids[i], uint64(i+1), deviceSelector(deviceA), expires, 4))
+	}
+
+	got := ctrl.Select(obs(deviceA, 4))
+
+	if !slices.Equal(got, ids[:rawwindow.MaxWindowsPerRecord]) {
+		t.Fatalf("a record paid %v, want the first sixteen ids %v", got, ids[:rawwindow.MaxWindowsPerRecord])
+	}
+	if used := reportOf(t, ctrl, ids[16]).GetState().GetUsage().GetSelectedBytes(); used != 0 {
+		t.Errorf("the seventeenth window was charged %d bytes, want 0", used)
 	}
 }
 

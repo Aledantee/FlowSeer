@@ -1245,6 +1245,30 @@ func TestSource_AWindowKeepsThePayloadOfAListedDeviceThatWasNeverOnboarded(t *te
 	}
 }
 
+// TestSource_ARecordMatchingMoreWindowsThanTheSchemaAllowsIsStillPublished
+// holds seventeen windows on one device, which an edge with a slow clock can,
+// and proves the record is published naming sixteen of them. Seventeen refs
+// fail envelope validation and would end Run.
+func TestSource_ARecordMatchingMoreWindowsThanTheSchemaAllowsIsStillPublished(t *testing.T) {
+	t.Parallel()
+
+	index := lanehost.NewDeviceIndex()
+	seedListing(t, index, listedAt(t, "127.0.0.1", testDeviceID))
+	ctrl := newWindowController(t)
+	for i := range rawwindow.MaxWindowsPerRecord + 1 {
+		openWindow(t, ctrl, fmt.Sprintf("0192e6a0-0000-7000-8000-0000000001%02d", i), uint64(i+1), windowSelectorForTestDevice(), 4096)
+	}
+	pub := &capturingPublisherStub{}
+	src := startWindowSource(t, index, pub, ctrl, nil)
+
+	src.send(t, []byte(completeSyslogPayload))
+
+	waitFor(t, "the published record", 5*time.Second, func() bool { return pub.count() == 1 })
+	if got := len(windowIDs(pub.recordAt(0).GetRaw())); got != rawwindow.MaxWindowsPerRecord {
+		t.Errorf("record names %d windows, want %d", got, rawwindow.MaxWindowsPerRecord)
+	}
+}
+
 // TestSource_AWindowRecordWinsOverTheParseFailurePolicyAndSparesItsAllowance
 // sends three parse failures. The first is kept by a window that ends with it,
 // so the policy must still keep the second, which is its whole per-minute
