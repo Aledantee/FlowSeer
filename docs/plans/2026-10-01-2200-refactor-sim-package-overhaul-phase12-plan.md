@@ -872,7 +872,3 @@ remain qualified follow-ups with their acceptance gaps in U22. No unread
 standard is asserted as verified. Fixed negative-latency and stale-neighbor
 Decisions are unchanged. Independent review and the final verifier are
 coordinator checkpoints after this plan commit.
-
-## Review gaps
-
-- `src/common/sim/internal/simtest/receive_validation_test.go:370`: replacing a checked validation error with `_ = validateReceiveReport(fab.Report())` passes the source audit. Fails: an invalid receive report can be ignored by an executor. Class: false test, other.
