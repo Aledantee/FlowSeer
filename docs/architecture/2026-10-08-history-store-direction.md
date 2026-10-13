@@ -325,3 +325,23 @@ samples, ten times the rows and about nine times the devices
 - Insert deduplication and asynchronous inserts:
   <https://clickhouse.com/docs/reference/settings/session-settings/async-insert>.
 - Row policies: <https://clickhouse.com/docs/sql-reference/statements/create/row-policy>.
+
+## Amendments
+
+### 2026-10-13: device dimensions start as a plain table
+
+Landed 2026-10-13: `src/services/device/internal/history/sql/steps/0004_dimensions.sql`
+and `MirrorDevices` in `src/services/device/internal/history/devices.go`.
+
+The first domain, syslog, keeps its device dimensions in `device_dim`, a
+`ReplacingMergeTree(ver)` table keyed `(tenant_id, device_id)` that a read
+joins when it needs a dimension. No dictionary sits over it, so "the rest by
+dictionary" under Dimensions does not hold yet. A ClickHouse-sourced
+dictionary names a `user` and `password` in its DDL, the source page states
+no credential-free form, and ClickHouse Cloud requires both
+(<https://clickhouse.com/docs/sql-reference/statements/create/dictionary/sources/clickhouse>,
+fetched 2026-10-12). A plain table puts no credential in any DDL.
+(decided by the user, 2026-10-13)
+
+A dictionary may replace the join when a domain's reads measure the join as
+the cost, and that change names its credential handling.
