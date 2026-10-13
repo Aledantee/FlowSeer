@@ -92,6 +92,8 @@ type fixture struct {
 	clock *testClock
 	store *rawwindowapi.Store
 	edge  string
+	// enrollment is what subscribe passes as the edge's enrollment.
+	enrollment string
 }
 
 func newFixture(t *testing.T) *fixture {
@@ -119,7 +121,7 @@ func sources(keys ...string) []*rawwindowv1.RawWindowSource {
 
 func (f *fixture) subscribe(generation uint64, epoch string, keys ...string) (int, error) {
 	f.t.Helper()
-	return f.store.Subscribe(f.t.Context(), tenantA, f.edge, generation, epoch, sources(keys...))
+	return f.store.Subscribe(f.t.Context(), tenantA, f.edge, f.enrollment, generation, epoch, sources(keys...))
 }
 
 func (f *fixture) mustSubscribe(generation uint64, epoch string, keys ...string) int {
@@ -351,6 +353,35 @@ func TestSubscribeFencesOlderProcesses(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestReenrolledEdgeIsAcceptedAsANewProcess(t *testing.T) {
+	f := newFixture(t)
+	f.enrollment = "enrollment-one"
+	f.mustSubscribe(5, epochTwo, "syslog")
+	window := f.open()
+
+	// A replacement box enrolls as the same edge and counts its boots from one.
+	f.enrollment = "enrollment-two"
+	ended, err := f.subscribe(1, epochThree, "syslog")
+	if err != nil {
+		t.Fatalf("subscribe after re-enrollment: %v", err)
+	}
+
+	if ended != 1 {
+		t.Errorf("ended = %d, want the previous enrollment's window", ended)
+	}
+	rec := f.stored()
+	if rec.GetBootGeneration() != 1 || rec.GetProcessEpoch() != epochThree || rec.GetEnrollment() != "enrollment-two" {
+		t.Errorf("record = generation %d epoch %s enrollment %q, want the request adopted", rec.GetBootGeneration(), rec.GetProcessEpoch(), rec.GetEnrollment())
+	}
+	if got := f.storedEntry(window).GetState().GetStopReason(); got != rawwindowv1.RawWindowStopReason_RAW_WINDOW_STOP_REASON_EDGE_RESTART {
+		t.Errorf("stop reason = %v, want EDGE_RESTART", got)
+	}
+
+	// Within the new enrollment the fence holds again.
+	_, err = f.subscribe(1, epochTwo, "syslog")
+	wantCode(t, err, rawwindowapi.ErrCodeStaleFence)
 }
 
 func TestReconnectInTheSameEpochRefreshesOnlyTheSources(t *testing.T) {
@@ -1271,10 +1302,10 @@ func TestMalformedKeysAreRefusedBeforeTheBucketIsTouched(t *testing.T) {
 	f := newFixture(t)
 	ctx := t.Context()
 
-	_, err := f.store.Subscribe(ctx, "not.a.tenant", f.edge, 1, epochOne, nil)
+	_, err := f.store.Subscribe(ctx, "not.a.tenant", f.edge, "", 1, epochOne, nil)
 	wantCode(t, err, rawwindowapi.ErrCodeBadKey)
 
-	_, err = f.store.Subscribe(ctx, tenantA, "edge.with.dots", 1, epochOne, nil)
+	_, err = f.store.Subscribe(ctx, tenantA, "edge.with.dots", "", 1, epochOne, nil)
 	wantCode(t, err, rawwindowapi.ErrCodeBadKey)
 
 	_, err = f.store.Window(ctx, tenantA, "not-a-uuid")

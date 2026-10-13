@@ -337,6 +337,16 @@ func (h *assembly) setupHub(ctx context.Context) (service.Attempt, error) {
 	}}, nil
 }
 
+// edgeEnrollment names the enrollment an edge runs under by the setup key it
+// consumed. Rekey leaves that key alone and a re-enrollment consumes a new one.
+func (b *busResources) edgeEnrollment(ctx context.Context, tenantID, edgeID string) (string, error) {
+	stored, _, err := b.edges.Get(ctx, tenantID, edgeID)
+	if err != nil {
+		return "", err
+	}
+	return stored.GetRecord().GetState().GetSetupKey().GetId(), nil
+}
+
 func (b *busResources) edgeTenant(ctx context.Context, edgeID string) (string, error) {
 	t, err := b.edges.TenantForEdge(ctx, edgeID)
 	if err != nil {

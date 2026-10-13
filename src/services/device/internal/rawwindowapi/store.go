@@ -102,15 +102,19 @@ type OpenRequest struct {
 }
 
 // Subscribe fences the edge's process and records the sources it runs. The
-// first subscription creates the record. A greater boot generation is a new
-// process: every window that was not yet terminal ends with
+// first subscription creates the record. A greater boot generation, or any
+// generation under another enrollment, is a new process: every window that was
+// not yet terminal ends with
 // RAW_WINDOW_STOP_REASON_EDGE_RESTART and nothing is reissued, because replaying
 // a start into a process with empty memory would hand its budget back. The same
 // generation with the same epoch is a reconnect and refreshes the sources only.
 //
-// It returns how many windows a new process ended. A lower generation, or the
-// same generation with another epoch, fails with [ErrCodeStaleFence].
-func (s *Store) Subscribe(ctx context.Context, tenantID, edgeID string, generation uint64, epoch string, sources []*rawwindowv1.RawWindowSource) (int, error) {
+// The enrollment names the edge's current enrollment, so a replacement box that
+// enrolls as the same edge starts its boot generations over without being
+// fenced out by the retired one. Within one enrollment, a lower generation or
+// the same generation with another epoch fails with [ErrCodeStaleFence]. It
+// returns how many windows a new process ended.
+func (s *Store) Subscribe(ctx context.Context, tenantID, edgeID, enrollment string, generation uint64, epoch string, sources []*rawwindowv1.RawWindowSource) (int, error) {
 	key, err := edgeKey(tenantID, edgeID)
 	if err != nil {
 		return 0, err
@@ -120,7 +124,10 @@ func (s *Store) Subscribe(ctx context.Context, tenantID, edgeID string, generati
 	err = s.mutate(ctx, key, func(rec *storev1.RawWindowEdgeRecord, now time.Time) (bool, error) {
 		ended = 0
 		current := rec.GetBootGeneration()
+		reenrolled := rec.GetProcessEpoch() != "" && enrollment != rec.GetEnrollment()
 		switch {
+		case reenrolled:
+			// A new enrollment is a new process whatever its generation says.
 		case generation < current, generation == current && epoch != rec.GetProcessEpoch():
 			return false, errs.New().Code(ErrCodeStaleFence).
 				Attr("edge", edgeID).Attr("generation", generation).Attr("current_generation", current).
@@ -136,6 +143,11 @@ func (s *Store) Subscribe(ctx context.Context, tenantID, edgeID string, generati
 		ended = endProcess(rec, now)
 		rec.SetBootGeneration(generation)
 		rec.SetProcessEpoch(epoch)
+		if enrollment == "" {
+			rec.ClearEnrollment()
+		} else {
+			rec.SetEnrollment(enrollment)
+		}
 		rec.SetEnabledSources(cloneAll(sources))
 		if !rec.HasControlRevision() {
 			rec.SetControlRevision(0)

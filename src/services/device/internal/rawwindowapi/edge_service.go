@@ -28,12 +28,17 @@ const (
 
 // EdgeServiceConfig configures an [EdgeService]. A non-positive ResendInterval
 // is five seconds. A nil EdgeID reads the verified edge from the context, a nil
-// EdgeTenant refuses tenant resolution with [ErrCodeStore], and a nil Logger
-// discards records.
+// EdgeTenant refuses tenant resolution with [ErrCodeStore], a nil Logger
+// discards records, and a nil EdgeEnrollment treats every subscription as one
+// enrollment.
+//
+// EdgeEnrollment names the edge's current enrollment, which must change when
+// the edge enrolls again and must not change on a rekey.
 type EdgeServiceConfig struct {
 	ResendInterval time.Duration
 	EdgeID         func(context.Context) (string, error)
 	EdgeTenant     func(ctx context.Context, edgeID string) (string, error)
+	EdgeEnrollment func(ctx context.Context, tenantID, edgeID string) (string, error)
 	Logger         *slog.Logger
 }
 
@@ -45,6 +50,7 @@ type EdgeService struct {
 	resendInterval time.Duration
 	edgeID         func(context.Context) (string, error)
 	edgeTenant     func(ctx context.Context, edgeID string) (string, error)
+	edgeEnrollment func(ctx context.Context, tenantID, edgeID string) (string, error)
 	log            *slog.Logger
 
 	mu       sync.Mutex // guards watchers
@@ -73,6 +79,7 @@ func NewEdgeService(store *Store, cfg EdgeServiceConfig) *EdgeService {
 		resendInterval: resend,
 		edgeID:         edgeID,
 		edgeTenant:     cfg.EdgeTenant,
+		edgeEnrollment: cfg.EdgeEnrollment,
 		log:            logger,
 		watchers:       make(map[chan struct{}]struct{}),
 	}
@@ -128,7 +135,13 @@ func (s *EdgeService) Subscribe(
 	}
 
 	generation, epoch := req.Msg.GetBootGeneration(), req.Msg.GetProcessEpoch()
-	ended, err := s.store.Subscribe(ctx, tenantID, edgeID, generation, epoch, req.Msg.GetEnabledSources())
+	var enrollment string
+	if s.edgeEnrollment != nil {
+		if enrollment, err = s.edgeEnrollment(ctx, tenantID, edgeID); err != nil {
+			return connectErr(errs.From(err).Code(ErrCodeStore).Attr("edge", edgeID).Msg("resolve edge enrollment"))
+		}
+	}
+	ended, err := s.store.Subscribe(ctx, tenantID, edgeID, enrollment, generation, epoch, req.Msg.GetEnabledSources())
 	if err != nil {
 		return connectErr(err)
 	}

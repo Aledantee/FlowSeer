@@ -228,6 +228,7 @@ type RawWindowEdgeRecord struct {
 	xxx_hidden_ControlRevision uint64                 `protobuf:"varint,3,opt,name=control_revision,json=controlRevision"`
 	xxx_hidden_EnabledSources  *[]*v1.RawWindowSource `protobuf:"bytes,4,rep,name=enabled_sources,json=enabledSources"`
 	xxx_hidden_Windows         *[]*RawWindowEntry     `protobuf:"bytes,5,rep,name=windows"`
+	xxx_hidden_Enrollment      *string                `protobuf:"bytes,6,opt,name=enrollment"`
 	XXX_raceDetectHookData     protoimpl.RaceDetectHookData
 	XXX_presence               [1]uint32
 	unknownFields              protoimpl.UnknownFields
@@ -301,19 +302,29 @@ func (x *RawWindowEdgeRecord) GetWindows() []*RawWindowEntry {
 	return nil
 }
 
+func (x *RawWindowEdgeRecord) GetEnrollment() string {
+	if x != nil {
+		if x.xxx_hidden_Enrollment != nil {
+			return *x.xxx_hidden_Enrollment
+		}
+		return ""
+	}
+	return ""
+}
+
 func (x *RawWindowEdgeRecord) SetBootGeneration(v uint64) {
 	x.xxx_hidden_BootGeneration = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 5)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 6)
 }
 
 func (x *RawWindowEdgeRecord) SetProcessEpoch(v string) {
 	x.xxx_hidden_ProcessEpoch = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 5)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 6)
 }
 
 func (x *RawWindowEdgeRecord) SetControlRevision(v uint64) {
 	x.xxx_hidden_ControlRevision = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 5)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 6)
 }
 
 func (x *RawWindowEdgeRecord) SetEnabledSources(v []*v1.RawWindowSource) {
@@ -322,6 +333,11 @@ func (x *RawWindowEdgeRecord) SetEnabledSources(v []*v1.RawWindowSource) {
 
 func (x *RawWindowEdgeRecord) SetWindows(v []*RawWindowEntry) {
 	x.xxx_hidden_Windows = &v
+}
+
+func (x *RawWindowEdgeRecord) SetEnrollment(v string) {
+	x.xxx_hidden_Enrollment = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 5, 6)
 }
 
 func (x *RawWindowEdgeRecord) HasBootGeneration() bool {
@@ -345,6 +361,13 @@ func (x *RawWindowEdgeRecord) HasControlRevision() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
 }
 
+func (x *RawWindowEdgeRecord) HasEnrollment() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 5)
+}
+
 func (x *RawWindowEdgeRecord) ClearBootGeneration() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
 	x.xxx_hidden_BootGeneration = 0
@@ -358,6 +381,11 @@ func (x *RawWindowEdgeRecord) ClearProcessEpoch() {
 func (x *RawWindowEdgeRecord) ClearControlRevision() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
 	x.xxx_hidden_ControlRevision = 0
+}
+
+func (x *RawWindowEdgeRecord) ClearEnrollment() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 5)
+	x.xxx_hidden_Enrollment = nil
 }
 
 type RawWindowEdgeRecord_builder struct {
@@ -375,6 +403,12 @@ type RawWindowEdgeRecord_builder struct {
 	// Unexpired windows including close tombstones, then terminal rows kept for
 	// history. At most 16 are unexpired and at most 64 are terminal.
 	Windows []*RawWindowEntry
+	// The enrollment the subscribed process ran under: the id of the setup key
+	// the edge consumed to enroll. A rekey keeps it and a re-enrollment after
+	// retirement changes it, because boot_generation restarts at 1 on a box
+	// with an empty state directory and would otherwise fence the new box out.
+	// Unset means the resolver reported none.
+	Enrollment *string
 }
 
 func (b0 RawWindowEdgeRecord_builder) Build() *RawWindowEdgeRecord {
@@ -382,19 +416,23 @@ func (b0 RawWindowEdgeRecord_builder) Build() *RawWindowEdgeRecord {
 	b, x := &b0, m0
 	_, _ = b, x
 	if b.BootGeneration != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 5)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 6)
 		x.xxx_hidden_BootGeneration = *b.BootGeneration
 	}
 	if b.ProcessEpoch != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 5)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 6)
 		x.xxx_hidden_ProcessEpoch = b.ProcessEpoch
 	}
 	if b.ControlRevision != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 5)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 6)
 		x.xxx_hidden_ControlRevision = *b.ControlRevision
 	}
 	x.xxx_hidden_EnabledSources = &b.EnabledSources
 	x.xxx_hidden_Windows = &b.Windows
+	if b.Enrollment != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 5, 6)
+		x.xxx_hidden_Enrollment = b.Enrollment
+	}
 	return m0
 }
 
@@ -409,14 +447,18 @@ const file_flowseer_store_device_v1_raw_window_record_proto_rawDesc = "" +
 	"\brevision\x18\x03 \x01(\x04B\n" +
 	"\xbaH\a\xc8\x01\x012\x02 \x00R\brevision\x12+\n" +
 	"\x11reported_revision\x18\x04 \x01(\x04R\x10reportedRevision\x12H\n" +
-	"\x12close_requested_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\x10closeRequestedAt\"\xde\x02\n" +
+	"\x12close_requested_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\x10closeRequestedAt\"\x8a\x03\n" +
 	"\x13RawWindowEdgeRecord\x123\n" +
 	"\x0fboot_generation\x18\x01 \x01(\x04B\n" +
 	"\xbaH\a\xc8\x01\x012\x02 \x00R\x0ebootGeneration\x120\n" +
 	"\rprocess_epoch\x18\x02 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\fprocessEpoch\x121\n" +
 	"\x10control_revision\x18\x03 \x01(\x04B\x06\xbaH\x03\xc8\x01\x01R\x0fcontrolRevision\x12_\n" +
 	"\x0fenabled_sources\x18\x04 \x03(\v2,.flowseer.model.rawwindow.v1.RawWindowSourceB\b\xbaH\x05\x92\x01\x02\x10\x10R\x0eenabledSources\x12L\n" +
-	"\awindows\x18\x05 \x03(\v2(.flowseer.store.device.v1.RawWindowEntryB\b\xbaH\x05\x92\x01\x02\x10PR\awindowsB\x83\x02\n" +
+	"\awindows\x18\x05 \x03(\v2(.flowseer.store.device.v1.RawWindowEntryB\b\xbaH\x05\x92\x01\x02\x10PR\awindows\x12*\n" +
+	"\n" +
+	"enrollment\x18\x06 \x01(\tB\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80\x01R\n" +
+	"enrollmentB\x83\x02\n" +
 	"\x1ccom.flowseer.store.device.v1B\x14RawWindowRecordProtoZLgo.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1;devicev1\xa2\x02\x03FSD\xaa\x02\x18Flowseer.Store.Device.V1\xca\x02\x18Flowseer\\Store\\Device\\V1\xe2\x02$Flowseer\\Store\\Device\\V1\\GPBMetadata\xea\x02\x1bFlowseer::Store::Device::V1b\beditionsp\xe9\a"
 
 var file_flowseer_store_device_v1_raw_window_record_proto_msgTypes = make([]protoimpl.MessageInfo, 2)

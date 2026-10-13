@@ -54,4 +54,13 @@ message RawWindowEdgeRecord {
   // Unexpired windows including close tombstones, then terminal rows kept for
   // history. At most 16 are unexpired and at most 64 are terminal.
   repeated RawWindowEntry windows = 5 [(buf.validate.field).repeated.max_items = 80];
+  // The enrollment the subscribed process ran under: the id of the setup key
+  // the edge consumed to enroll. A rekey keeps it and a re-enrollment after
+  // retirement changes it, because boot_generation restarts at 1 on a box
+  // with an empty state directory and would otherwise fence the new box out.
+  // Unset means the resolver reported none.
+  string enrollment = 6 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 128
+  ];
 }

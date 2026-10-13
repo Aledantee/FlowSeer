@@ -264,8 +264,9 @@ func (h *assembly) mux(ctx context.Context, resources *busResources, log *slog.L
 		},
 	)
 	rawWindowEdgeService := rawwindowapi.NewEdgeService(resources.rawWindows, rawwindowapi.EdgeServiceConfig{
-		EdgeTenant: resources.edgeTenant,
-		Logger:     log,
+		EdgeTenant:     resources.edgeTenant,
+		EdgeEnrollment: resources.edgeEnrollment,
+		Logger:         log,
 	})
 	rawWindowOperatorService := rawwindowapi.NewOperatorService(resources.rawWindows, rawwindowapi.OperatorServiceConfig{
 		EdgeTenant:   resources.edgeTenant,

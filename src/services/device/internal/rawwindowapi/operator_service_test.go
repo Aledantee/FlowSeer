@@ -101,11 +101,11 @@ func newOperatorHarness(t *testing.T) *operatorHarness {
 	h.allowance.Store(1000)
 	h.fullPayload.Store(true)
 	for _, edge := range []string{h.edge, h.sameTenantEdge} {
-		if _, err := h.store.Subscribe(t.Context(), tenantA, edge, 1, epochOne, sources("syslog")); err != nil {
+		if _, err := h.store.Subscribe(t.Context(), tenantA, edge, "", 1, epochOne, sources("syslog")); err != nil {
 			t.Fatalf("subscribe %s: %v", edge, err)
 		}
 	}
-	if _, err := h.store.Subscribe(t.Context(), tenantB, h.otherTenantEdge, 1, epochOne, sources("syslog")); err != nil {
+	if _, err := h.store.Subscribe(t.Context(), tenantB, h.otherTenantEdge, "", 1, epochOne, sources("syslog")); err != nil {
 		t.Fatalf("subscribe the other tenant's edge: %v", err)
 	}
 
