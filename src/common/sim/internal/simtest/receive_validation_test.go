@@ -350,6 +350,85 @@ func auditErrorGuard(ret *ssa.Return, value ssa.Value) bool {
 	return false
 }
 
+func (a *receiveAudit) handlesValidationError(call *ssa.Call) bool {
+	if !types.Identical(call.Type(), types.Universe.Lookup("error").Type()) {
+		return false
+	}
+	start := slices.Index(call.Block().Instrs, ssa.Instruction(call)) + 1
+	return a.returnsValidationError(call.Block(), start, call, nil, make(map[*ssa.BasicBlock]bool))
+}
+
+func (a *receiveAudit) returnsValidationError(block *ssa.BasicBlock, start int, value ssa.Value, bindings auditBindings, seen map[*ssa.BasicBlock]bool) bool {
+	if seen[block] {
+		return false
+	}
+	seen = maps.Clone(seen)
+	seen[block] = true
+	bindings = maps.Clone(bindings)
+	if bindings == nil {
+		bindings = make(auditBindings)
+	}
+	matches := func(other ssa.Value) bool {
+		return a.matches(other, value, "", bindings, make(map[ssa.Value]bool))
+	}
+	nonNilSuccessor := -1
+	for _, instr := range block.Instrs[start:] {
+		switch instr := instr.(type) {
+		case *ssa.Store:
+			bindings[instr.Addr] = instr.Val
+		case *ssa.Return:
+			if len(instr.Results) == 0 {
+				return false
+			}
+			err := instr.Results[len(instr.Results)-1]
+			if matches(err) {
+				return true
+			}
+			// An earlier validation failure can take precedence over this error.
+			other, ok := err.(*ssa.Call)
+			if !ok || !auditErrorGuard(instr, other) {
+				return false
+			}
+			fn := other.Common().StaticCallee()
+			return fn != nil && (fn.Name() == "validateReceiveResult" || fn.Name() == "validateReceiveReport")
+		case *ssa.If:
+			cond, ok := instr.Cond.(*ssa.BinOp)
+			if !ok || (cond.Op != token.EQL && cond.Op != token.NEQ) {
+				continue
+			}
+			x, y := cond.X, cond.Y
+			if !matches(x) {
+				x, y = y, x
+			}
+			nilValue, ok := y.(*ssa.Const)
+			if !matches(x) || !ok || nilValue.Value != nil {
+				continue
+			}
+			nonNilSuccessor = 0
+			if cond.Op == token.EQL {
+				nonNilSuccessor = 1
+			}
+		}
+	}
+	for i, succ := range block.Succs {
+		if nonNilSuccessor >= 0 && i != nonNilSuccessor {
+			continue
+		}
+		next := maps.Clone(bindings)
+		for _, instr := range succ.Instrs {
+			phi, ok := instr.(*ssa.Phi)
+			if !ok {
+				break
+			}
+			next[phi] = phi.Edges[slices.Index(succ.Preds, block)]
+		}
+		if !a.returnsValidationError(succ, 0, value, next, seen) {
+			return false
+		}
+	}
+	return len(block.Succs) > 0
+}
+
 func (a *receiveAudit) covered(block *ssa.BasicBlock, start int, obligation receiveObligation, bindings auditBindings, seen map[string]bool, depth int) bool {
 	if depth > 12 {
 		return false
@@ -368,7 +447,7 @@ func (a *receiveAudit) covered(block *ssa.BasicBlock, start int, obligation rece
 		if store, ok := instr.(*ssa.Store); ok {
 			bindings[store.Addr] = store.Val
 		}
-		if call, ok := instr.(*ssa.Call); ok && a.validates(call, obligation, bindings, depth) {
+		if call, ok := instr.(*ssa.Call); ok && a.validates(call, obligation, bindings, depth) && a.handlesValidationError(call) {
 			return true
 		}
 		if ret, ok := instr.(*ssa.Return); ok {
@@ -542,6 +621,20 @@ func TestReceiveValidationAuditFixtures(t *testing.T) {
 		want int
 	}{
 		{"receive validated", `func execute(sw *vswitch.Switch) error { out := sw.Receive(now, "in", frame); return validateReceiveResult(out.Result) }`, 0},
+		{"receive error ignored", `func execute(sw *vswitch.Switch) error { out := sw.Receive(now, "in", frame); _ = validateReceiveResult(out.Result); return nil }`, 1},
+		{"report error ignored", `func execute(fab *fabric.Fabric) error { fab.Run(fabric.RunOptions{}); _ = validateReceiveReport(fab.Report()); return nil }`, 1},
+		{"delegated error ignored", `func validate(out device.Result) error { return validateReceiveResult(out) }; func execute(sw *vswitch.Switch) error { out := sw.Receive(now, "in", frame); _ = validate(out.Result); return nil }`, 1},
+		{"helper ignores error", `func validate(out device.Result) error { _ = validateReceiveResult(out); return nil }; func execute(sw *vswitch.Switch) error { out := sw.Receive(now, "in", frame); return validate(out.Result) }`, 1},
+		{"delegated report error ignored", `func validate(fab *fabric.Fabric) error { return validateReceiveReport(fab.Report()) }; func execute(fab *fabric.Fabric) error { fab.Run(fabric.RunOptions{}); _ = validate(fab); return nil }`, 1},
+		{"report helper ignores error", `func validate(fab *fabric.Fabric) error { _ = validateReceiveReport(fab.Report()); return nil }; func execute(fab *fabric.Fabric) error { fab.Run(fabric.RunOptions{}); return validate(fab) }`, 1},
+		{"checked error discarded", `func execute(sw *vswitch.Switch) error { out := sw.Receive(now, "in", frame); if err := validateReceiveResult(out.Result); err != nil { return nil }; return nil }`, 1},
+		{"error branch bypasses return", `func execute(sw *vswitch.Switch, stop bool) error { out := sw.Receive(now, "in", frame); err := validateReceiveResult(out.Result); if stop { return nil }; return err }`, 1},
+		{"error alias returned", `func execute(sw *vswitch.Switch) error { out := sw.Receive(now, "in", frame); err := validateReceiveResult(out.Result); alias := err; return alias }`, 0},
+		{"checked report error", `func execute(fab *fabric.Fabric) error { fab.Run(fabric.RunOptions{}); if err := validateReceiveReport(fab.Report()); err != nil { return err }; return nil }`, 0},
+		{"equal nil guard", `func execute(sw *vswitch.Switch) error { out := sw.Receive(now, "in", frame); err := validateReceiveResult(out.Result); if err == nil { return nil }; return err }`, 0},
+		{"error overwritten", `func execute(sw *vswitch.Switch) error { out := sw.Receive(now, "in", frame); err := validateReceiveResult(out.Result); err = nil; return err }`, 1},
+		{"error branch overwritten", `func execute(sw *vswitch.Switch, stop bool) error { out := sw.Receive(now, "in", frame); err := validateReceiveResult(out.Result); if stop { err = nil }; return err }`, 1},
+		{"error branch retained", `func execute(sw *vswitch.Switch, stop bool) error { out := sw.Receive(now, "in", frame); err := validateReceiveResult(out.Result); alias := err; if stop { alias = err }; return alias }`, 0},
 		{"receive omitted", `func execute(sw *vswitch.Switch) error { _ = sw.Receive(now, "in", frame); return nil }`, 1},
 		{"report validated", `func execute(fab *fabric.Fabric) error { fab.Run(fabric.RunOptions{}); return validateReceiveReport(fab.Report()) }`, 0},
 		{"report omitted", `func execute(fab *fabric.Fabric) error { fab.Run(fabric.RunOptions{}); return nil }`, 1},
@@ -584,7 +677,7 @@ func TestReceiveValidationAuditFixtures(t *testing.T) {
 			checked++
 		}
 	}
-	if checked != 31 {
-		t.Errorf("fixtures reaching expectations = %d, want 31", checked)
+	if checked != 45 {
+		t.Errorf("fixtures reaching expectations = %d, want 45", checked)
 	}
 }
