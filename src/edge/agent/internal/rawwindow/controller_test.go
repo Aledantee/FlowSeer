@@ -260,12 +260,14 @@ func TestExpiryIsCheckedAtTheSelectionPoint(t *testing.T) {
 	expires := c.Wall().Add(time.Minute)
 	apply(t, ctrl, open(t, windowOne, 1, deviceSelector(deviceA), expires, 1000))
 
-	c.advance(time.Minute - time.Nanosecond)
+	// Only the wall clock moves, so the elapsed deadline stays far off and
+	// only the wall expiry can end the window.
+	c.stepWall(time.Minute - time.Nanosecond)
 	if got := ctrl.Select(obs(deviceA, 1)); !slices.Equal(got, []string{windowOne}) {
 		t.Fatalf("one tick before expiry paid %v, want the window", got)
 	}
 
-	c.advance(time.Nanosecond)
+	c.stepWall(time.Nanosecond)
 	if got := ctrl.Select(obs(deviceA, 1)); got != nil {
 		t.Errorf("at expiry paid %v, want nothing even though no close arrived", got)
 	}
