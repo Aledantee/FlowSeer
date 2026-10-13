@@ -50,3 +50,28 @@ coordinator re-sent the stage. The steps were followed as written.
 Suggested change: have `drive` give the review stage a budget of two
 workers when Orca is unreachable (one reviewer, one fixer), or say in
 `review` step 6 that a fixer is not counted against a reviewer-only budget.
+
+## 2026-10-13 verify-change: a full run takes about 40 minutes and blocks every land that touches go.mod
+Skill or agent: `.claude/skills/verify-change/scripts/verify-change.sh`
+(`--full`), and `.claude/skills/land/SKILL.md`, step 5.
+What happened: the step was followed as written. A change to any `go.mod`
+leaves the `<Bash mutation; verify with --full>` marker, and `land` then
+needs a `--full` run. One such run on this machine took 40 minutes from
+start to receipt. Its race tests summed to 1054 seconds over 251
+packages, and five packages took 85 seconds or more:
+`src/protocol/smi/differential` (166 s),
+`src/services/device/test/integration` (159 s),
+`src/common/service/test/integration` (115 s), `src/modules/edgebus`
+(85 s), and `src/services/device/internal/captureapi` (76 s). When two
+verifier runs overlap on one machine, the NATS-backed suites
+(`edgebus`, `intake`, `host`, `syslogsource`) time out at 10 to 30
+seconds and pass when run alone with `-p 1`, so a red run then costs a
+second full run.
+Suggested change: profile where the 40 minutes go (gates run one after
+another, and the web gates run before the Go gates), then pick the
+cheapest of: run independent gates in parallel, move the slowest
+integration and differential suites behind a tag that only `--full` on
+the merge gate sets, and let a `go.mod` change whose module graph does not
+change outside `tools/` skip the full race run. Separately, raise the
+NATS suites' wait deadlines or hold a machine-wide lock for the race run
+so that two runs never overlap.
