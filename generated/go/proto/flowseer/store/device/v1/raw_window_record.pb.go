@@ -400,8 +400,10 @@ type RawWindowEdgeRecord_builder struct {
 	ControlRevision *uint64
 	// The sources the subscribed process advertised. Empty means none.
 	EnabledSources []*v1.RawWindowSource
-	// Unexpired windows including close tombstones, then terminal rows kept for
-	// history. At most 16 are unexpired and at most 64 are terminal.
+	// Unexpired windows including close tombstones, then expired rows kept for
+	// history. At most 16 are unexpired and at most 64 are expired. An unexpired
+	// window can already be terminal, so up to 16 more terminal rows can be
+	// present.
 	Windows []*RawWindowEntry
 	// The enrollment the subscribed process ran under: the id of the setup key
 	// the edge consumed to enroll. A rekey keeps it and a re-enrollment after

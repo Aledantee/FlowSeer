@@ -790,8 +790,7 @@ type OperatorActionRawWindow_builder struct {
 	// The window. Must be present.
 	Ref *v11.RawWindowGlobalRef
 	// The immutable configuration: selector, expiry, byte budget, and reason.
-	// Unset when the action's outcome did not load it, such as a close of an
-	// unknown window.
+	// Present only when the action's outcome loaded the window.
 	Config *v11.RawWindowConfig
 }
 

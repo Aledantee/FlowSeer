@@ -134,8 +134,7 @@ message OperatorActionRawWindow {
   // The window. Must be present.
   flowseer.model.rawwindow.v1.RawWindowGlobalRef ref = 1 [(buf.validate.field).required = true];
   // The immutable configuration: selector, expiry, byte budget, and reason.
-  // Unset when the action's outcome did not load it, such as a close of an
-  // unknown window.
+  // Present only when the action's outcome loaded the window.
   flowseer.model.rawwindow.v1.RawWindowConfig config = 2;
 }
 

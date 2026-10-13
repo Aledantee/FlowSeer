@@ -498,7 +498,10 @@ func TestOpenRawWindowBoundsTheBudgetByTheAllowance(t *testing.T) {
 	wantConnectCode(t, err, connect.CodeResourceExhausted)
 }
 
-func TestOpenAndCloseNotifyTheRelayOnlyWhenTheyChangeSomething(t *testing.T) {
+// A refused open does not reach the relay, and a successful open and a
+// successful close each do. It does not cover a close that changes nothing:
+// the handler notifies on every close that loads the window.
+func TestARefusedOpenDoesNotNotifyTheRelayButAnOpenAndACloseDo(t *testing.T) {
 	h := newOperatorHarness(t)
 	h.fullPayload.Store(false)
 	if _, err := h.open(h.openRequest(h.edge)); err == nil {
