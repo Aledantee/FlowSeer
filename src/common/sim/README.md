@@ -15,6 +15,7 @@ goroutines or wall-clock dependencies.
 | `trace`                | Step, outcome, and change trace records                      |
 | `analysis`             | Analysis trust metadata, scoped issues, and evidence catalog |
 | `stream`               | Finite Ethernet frame sources with deterministic timing      |
+| `flow`                 | Traffic stream identities, statistics, and value cloning     |
 | `port`                 | Port table, administrative state, and MTU                    |
 | `device`               | Layer-free runtime contract and state projections           |
 | `device/vswitch`       | Virtual switch composing pipeline capabilities               |
@@ -30,7 +31,7 @@ goroutines or wall-clock dependencies.
 | `layer/routing`        | Routed interfaces, per-VRF tables, equal-cost selection, recursive next hops |
 | `layer/filter`         | Interface-bound access-control rules and stateful reverse matches |
 | `layer/stp`            | Rapid Spanning Tree Protocol state machine and port guards   |
-| `layer/loopprotect`    | netsim's own loop-protection probe and per-port block/no-learn action, independent of spanning tree |
+| `layer/loopprotect`    | sim's own loop-protection probe and per-port block/no-learn action, independent of spanning tree |
 | `layer/traffic`        | Mirrors, ingress policers, and per-PCP queue limits          |
 | `netmodel`             | Translation boundary for FlowSeer network model protos       |
 | `fabric`               | Switched topology, timed cables, stepped execution, journeys |
@@ -69,7 +70,7 @@ scenarios without consuming either input.
 Comparison returns an exact `analysis.Disposition`:
 
 - `analysis.Equivalent`: Observable behavior matches across all evaluated elements.
-- `analysis.Different`: Divergence detected at a behavioral observable; the result
+- `analysis.Different`: Divergence detected at a behavioral observable. The result
   names the first differing observable (`Difference.Observable`) and the values
   observed on each side (`Difference.Current` and `Difference.Expected`). On fabric
   comparisons, `Comparison.Replay` is a `[2]ReplaySpec` holding the pre-action
@@ -90,7 +91,7 @@ Comparison guarantees three fundamental properties:
 
 1. **Non-consuming execution**: Neither input switch nor fabric is mutated.
    `vswitch.Compare` evaluates forwarding via `Switch.Peek` without learning or
-   forwarding table mutation; `fabric.Compare` forks both topologies internally
+   forwarding table mutation. `fabric.Compare` forks both topologies internally
    (`Fabric.Fork`) with isolated clocks and event queues.
 2. **Order independence**: Current-first and candidate-first evaluation produce the
    same disposition and identical named difference observable.
@@ -130,11 +131,13 @@ structured expectation of trust metadata, decisive trace steps, and
 configuration diffs. It is internal and imported by this tree's own tests only:
 the conformance tests of `device/vswitch`, `netmodel`, and `fabric`, and the
 diff-coverage tests of every `layer/` package, `port`, `device/vswitch`, and
-`fabric`; see `internal/simtest/README.md` for the admitted cases and admission bar.
+`assembly`. See [simtest](internal/simtest/README.md) for the 41 admitted cases
+and their admission bar.
 
 ## Layer architecture contract
 
 Every pipeline layer under `layer/` adheres to a uniform package contract described in [`layer/README.md`](layer/README.md).
+Layer engines remain public so hosts and reflectors can compose them directly.
 
 The conformance gate under `test/conformance/sim` verifies these invariants across all layer packages:
 - Every layer package exports `LayerName`, `Config.Normalize(layer.Env) Config`, `Config.Validate(layer.Env) error`, `Config.Clone() Config`, and `Diff(prev, next Config) []trace.Change`.

@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/flow"
 	"go.aledante.io/FlowSeer/src/common/sim/internal/simtest"
 
 	"go.aledante.io/FlowSeer/src/common/sim/assembly"
@@ -696,7 +697,7 @@ func runHeldProperty(t *testing.T, aggregated bool) heldPropertyRun {
 		flowRetention = fabric.RetainAggregate
 	}
 
-	injectFrame := func(at time.Time, daddr netip.Addr, payload []byte, flow fabric.FlowID, retention fabric.JourneyRetention) fabric.FrameID {
+	injectFrame := func(at time.Time, daddr netip.Addr, payload []byte, flow flow.ID, retention fabric.JourneyRetention) fabric.FrameID {
 		fid, err := fab.Inject(fabric.Injection{
 			At:        at,
 			Origin:    fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
@@ -778,7 +779,7 @@ func TestAggregateRetentionPreservesReleaseAttribution(t *testing.T) {
 			t.Fatalf("unretained journey %d survived settle", fid)
 		}
 	}
-	for _, flow := range []fabric.FlowID{11, 13} {
+	for _, flow := range []flow.ID{11, 13} {
 		if stats := aggregated.fab.Flows()[flow]; stats.Rejected != 1 || stats.Held != 0 {
 			t.Fatalf("flow %d = %+v, want one rejection and no hold", flow, stats)
 		}
@@ -869,7 +870,7 @@ func checkHoldExit(t *testing.T, exit string, retention fabric.JourneyRetention,
 			At:        cfg.Start.Add(time.Duration(offset) * time.Millisecond),
 			Origin:    fabric.Endpoint{Node: node, Port: "1/1/1"},
 			Frame:     heldPropertyFrame(t, srcMAC, routerMAC, netip.MustParseAddr("10.0.10.7"), netip.MustParseAddr(addr), []byte(addr)),
-			Retention: retention, Flow: fabric.FlowID(i + 1),
+			Retention: retention, Flow: flow.ID(i + 1),
 		})
 		if err != nil {
 			t.Fatal(err)
@@ -988,7 +989,7 @@ func checkHoldExit(t *testing.T, exit string, retention fabric.JourneyRetention,
 		t.Fatalf("held keys remain: %v", *fabric.ExportFabricHeld(fab))
 	}
 	for i, fid := range ids {
-		stats := fab.Flows()[fabric.FlowID(i+1)]
+		stats := fab.Flows()[flow.ID(i+1)]
 		if stats.Held != 0 || stats.Offered != 1 {
 			t.Fatalf("flow %d Held/Offered = %d/%d, want 0/1", i+1, stats.Held, stats.Offered)
 		}

@@ -31,7 +31,8 @@ removed after every part of the output has used it.
 [`settle`](../../../src/common/sim/fabric/flow.go) folds and frees an aggregate
 journey after its hold and all transmissions end. Its re-entry set is freed
 with it. Protocol journeys also release their storage at settle.
-`Flows()` reads `Held` from the live hold map. A completed release counts
+`Flows()` reads [`Stats.Held`](../../../src/common/sim/flow/flow.go)
+from the live hold map. A completed release counts
 under `Delivered`, and a failed hold under `Drops`.
 
 ```mermaid
@@ -61,7 +62,7 @@ The checks live in
 
 A result must not read what settle freed. `settle` folds a protocol
 journey's issues into a fabric-level set of distinct issues before freeing it
-(`foldProtocolIssues`, `src/common/sim/fabric/flow.go:139,201`), so
+([`foldProtocolIssues`](../../../src/common/sim/fabric/flow.go)), so
 `RunResult.Issues` and `Status` do not depend on whether a protocol frame was
 still unsettled at the stop step.
 `TestSettledProtocolJourneyKeepsItsIssues`

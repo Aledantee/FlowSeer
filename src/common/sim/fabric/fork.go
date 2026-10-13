@@ -4,6 +4,7 @@ import (
 	"maps"
 	"slices"
 
+	"go.aledante.io/FlowSeer/src/common/sim/flow"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
@@ -86,9 +87,9 @@ func (f *Fabric) Fork() *Fabric {
 		held = maps.Clone(f.held)
 	}
 
-	var flows map[FlowID]*FlowStats
+	var flows map[flow.ID]*flow.Stats
 	if f.flows != nil {
-		flows = make(map[FlowID]*FlowStats, len(f.flows))
+		flows = make(map[flow.ID]*flow.Stats, len(f.flows))
 		for id, stats := range f.flows {
 			cp := stats.Clone()
 			flows[id] = &cp

@@ -474,23 +474,7 @@ func (l *Layer) applyBPDU(t *tree, p *portState, now time.Time, b bpdu.BPDU, flu
 		}
 	}
 
-	// Built in the same shape rawVector gives the stored vector it is compared
-	// against: a non-CIST tree carries its cost in internalRootPathCost, not
-	// externalRootPathCost, and a vector built with the cost in the wrong slot
-	// compares against a different component than the one it belongs next to.
-	incoming := priorityVector{rootID: b.RootID, bridgeID: b.BridgeID, portID: b.PortID}
-	switch {
-	case t.id == cistID && internal:
-		incoming.externalRootPathCost = b.RootPathCost
-		incoming.regionalRootID = b.RegionalRootID
-		incoming.internalRootPathCost = b.InternalRootPathCost
-	case t.id == cistID:
-		incoming.externalRootPathCost = b.RootPathCost
-		incoming.regionalRootID = b.RootID
-	default:
-		incoming.regionalRootID = b.RootID
-		incoming.internalRootPathCost = b.RootPathCost
-	}
+	incoming := receivedVector(t, b, internal)
 
 	sameSource := p.rcvInfoValid && (b.BridgeID == p.rcvBridgeID && b.PortID == p.rcvPortID)
 	isSuperior := false
@@ -587,6 +571,28 @@ func (l *Layer) applyBPDU(t *tree, p *portState, now time.Time, b bpdu.BPDU, flu
 			l.requestNewInfo(t, p)
 		}
 	}
+}
+
+// Built in the same shape rawVector gives the stored vector it is compared
+// against: a non-CIST tree carries its cost in internalRootPathCost, not
+// externalRootPathCost, and a vector built with the cost in the wrong slot
+// compares against a different component than the one it belongs next to.
+func receivedVector(t *tree, b bpdu.BPDU, internal bool) priorityVector {
+	incoming := priorityVector{rootID: b.RootID, bridgeID: b.BridgeID, portID: b.PortID}
+	switch {
+	case t.id == cistID && internal:
+		incoming.externalRootPathCost = b.RootPathCost
+		incoming.regionalRootID = b.RegionalRootID
+		incoming.internalRootPathCost = b.InternalRootPathCost
+	case t.id == cistID:
+		incoming.externalRootPathCost = b.RootPathCost
+		incoming.regionalRootID = b.RootID
+	default:
+		incoming.regionalRootID = b.RootID
+		incoming.internalRootPathCost = b.RootPathCost
+	}
+
+	return incoming
 }
 
 func (l *Layer) propagateReceivedTC(t *tree, p *portState, link *linkRecord, b bpdu.BPDU, now time.Time, flushes *[]layer.FlushTarget) {

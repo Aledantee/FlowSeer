@@ -36,7 +36,7 @@ tag stack. The switch uses the logical VLAN for LAG member selection even when
 an untagged or tunnel output removed its outer tag. The switch then checks each
 candidate's output state before exposing it. A physical output must be known up.
 A logical LAG output also needs an enabled, known-up member. Unknown state
-suppresses the copy and marks the forwarding result incomplete; known-down
+suppresses the copy and marks the forwarding result incomplete. Known-down
 state is a definite copy drop with complete readiness.
 
 For example, suppose VLAN 99 is tagged on `1/1/24`, untagged on `1/1/4`, and
@@ -47,7 +47,7 @@ over a C-tag for VID 20 reaches `1/1/24` as a VID 99, PCP 0 C-tag over both
 received tags, and reaches `1/1/4` with both.
 
 `SnapLen` limits each copy after its output tag form is built. Zero leaves the
-copy untruncated; other values must be at least 18 octets, the size of a tagged
+copy untruncated. Other values must be at least 18 octets, the size of a tagged
 Ethernet header. Truncation cuts payload only. When stacked tags make the
 header longer than `SnapLen`, the copy keeps the complete header and has an
 empty payload, so its encoded length exceeds `SnapLen`.
@@ -72,7 +72,7 @@ policing.
 means that priority has no configured maximum. `PortQueues.BufferOctets` states
 a queue buffer in encoded frame octets, the length `ethernet.Frame.Encode`
 returns, so it excludes the wire's preamble, start delimiter, and interpacket
-gap. `Config.QueueBuffer` looks it up the same way; a missing entry means that
+gap. `Config.QueueBuffer` looks it up the same way. A missing entry means that
 priority's buffer is unbounded and its queue never tail-drops.
 
 `Config.AdmitEgress` takes the depth before enqueue, encoded frame octets, and
@@ -86,7 +86,7 @@ On an unstated queue, `traffic.queue.buffer-unstated` names the first enqueue
 that raises one of the physical endpoint's per-PCP queues above one
 port-MTU-sized encoded frame. `QueueThresholdFact` records the depth before that
 enqueue, the frame's encoded octets, and the threshold. A LAG supplies the
-logical queue and MTU; the selected member owns the physical queue and its
+logical queue and MTU. The selected member owns the physical queue and its
 issue. Later crossings on another PCP of the same member create no second event.
 The threshold is MTU plus 18 octets, or 1518 with no stated MTU. A lone
 9018-octet frame crosses the default threshold on an empty queue. With MTU 9000

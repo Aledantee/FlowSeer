@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+	"go.aledante.io/FlowSeer/src/common/sim/flow"
 
 	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
 
@@ -28,6 +29,14 @@ var (
 	loadH1 = netaddr.MAC{0x02, 0, 0, 0, 0x13, 1}
 	loadH2 = netaddr.MAC{0x02, 0, 0, 0, 0x13, 2}
 )
+
+// RegisterLoadCases populates registry with the stated-buffer, unstated-buffer,
+// and policer cases.
+func RegisterLoadCases(registry *Registry) {
+	registry.MustRegister(casePlanningOversubscribedTrunkStatedBuffer())
+	registry.MustRegister(casePlanningOversubscribedTrunkUnstatedBuffer())
+	registry.MustRegister(casePlanningPolicedStream())
+}
 
 func loadCaseSpec(buffer *uint64, policed bool) (assembly.ConstructionSpec, error) {
 	ports, err := port.NewBuilder().Range("1/1/%d", 1, 2,
@@ -104,17 +113,18 @@ func executeLoadCase(buffer *uint64, policed bool, decisive trace.RuleID) (Execu
 	if err != nil {
 		return ExecutionResult{}, err
 	}
-	const flow = fabric.FlowID(13)
+	const flow = flow.ID(13)
 	if err := fab.AttachStream(fabric.StreamAttachment{
 		Origin: fabric.Endpoint{Node: "h1"}, Source: source, Flow: flow, Retention: fabric.RetainJourney,
 	}); err != nil {
 		return ExecutionResult{}, err
 	}
-	if run := fab.Run(fabric.RunOptions{Budget: 10_000, Window: 0}); run.Err != nil || run.Pending.Journeys != 0 {
-		return ExecutionResult{}, errs.Msgf("load run did not settle: %+v", run)
-	}
+	run := fab.Run(fabric.RunOptions{Budget: 10_000, Window: 0})
 	if err := validateReceiveReport(fab.Report()); err != nil {
 		return ExecutionResult{}, err
+	}
+	if run.Err != nil || run.Pending.Journeys != 0 {
+		return ExecutionResult{}, errs.Msgf("load run did not settle: %+v", run)
 	}
 	stats, ok := fab.Flows()[flow]
 	if !ok || stats.Offered != 32 {

@@ -1,7 +1,7 @@
 # Multicast snooping
 
 This package keeps RFC 3376 §6.4 router state for each configured VLAN, multicast
-group, and logical ingress port. It consumes decoded IGMP and MLD messages; the
+group, and logical ingress port. It consumes decoded IGMP and MLD messages. The
 caller supplies the IP source address and the logical ingress port selected by
 the bridge. Physical LAG members are ignored because forwarding uses their
 logical parent. An admitted control trace carries an immutable fact with the
@@ -14,8 +14,8 @@ can produce a different final state when reversed.
 
 For each (VLAN, group, port), the package holds a filter mode, a group timer,
 and a set of source records, each an address with its own timer. A timer of
-zero is a real state — the source's timer has run to zero without the record
-being deleted — not an absent record. Following RFC 3376 §6.4's notation,
+zero means the source's timer has run to zero without deleting the record.
+Following RFC 3376 §6.4's notation,
 `INCLUDE (A)` is an include-mode port with source set `A`, and `EXCLUDE (X,Y)`
 is an exclude-mode port where `X` holds sources with a running timer and `Y`
 holds sources whose timer has reached zero. A port with no router state is
@@ -62,8 +62,8 @@ The layer also uses that mapping when no compatibility timer runs, a case
 those compatibility sections do not specify.
 
 Fast leave keeps its own shortcut, independent of the tables above: a message
-or record shaped like a leave — an IGMPv2 leave, an MLDv1 done, or a
-`MODE_IS_INCLUDE`/`CHANGE_TO_INCLUDE_MODE` record carrying no sources —
+or record shaped like a leave (an IGMPv2 leave, an MLDv1 done, or a
+`MODE_IS_INCLUDE`/`CHANGE_TO_INCLUDE_MODE` record carrying no sources)
 deletes the port's router state outright instead of going through `TO_IN`.
 The IGMPv1 rule still ignores Leave and `TO_IN`, even with fast leave enabled.
 
@@ -75,13 +75,13 @@ so a report uses the transition for the mode its timers leave at that time.
 `Advance(now)` removes what the reads already ignore:
 
 - A group timer expiring while the port is in `EXCLUDE` moves it to `INCLUDE`.
-  Sources with a running timer are kept with their timer; sources at a zero
+  Sources with a running timer are kept with their timer. Sources at a zero
   timer are deleted. If nothing is left, the port's router state for that
   group is deleted too.
 - A source timer expiring while the port is in `INCLUDE` deletes that source
-  record; deleting the last one deletes the port's router state.
+  record. Deleting the last one deletes the port's router state.
 - A source timer expiring while the port is in `EXCLUDE` moves that source
-  from `X` to `Y`; the record stays, now at a zero timer.
+  from `X` to `Y`. The record stays, now at a zero timer.
 
 For example, a report and query learned at `t0` on the default intervals
 leave no membership or learned router port at `t0 + 300s`, even without an
@@ -107,7 +107,7 @@ can produce a pending query.
 
 ## Queries and the unobserved-query issue
 
-This package never emits a query; "Send Q" in the tables above only records
+This package never emits a query. "Send Q" in the tables above only records
 that the router state expects one. `Resolve` tracks whether that expectation
 was met:
 

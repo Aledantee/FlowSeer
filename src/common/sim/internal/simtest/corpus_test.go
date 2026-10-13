@@ -2,7 +2,10 @@ package simtest_test
 
 import (
 	"fmt"
+	"os"
 	"reflect"
+	"slices"
+	"strings"
 	"testing"
 
 	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
@@ -1516,5 +1519,155 @@ func TestCorpusReceiveOutcomes(t *testing.T) {
 	}
 	if checked != 41 {
 		t.Errorf("cases reaching concrete expectations = %d, want 41", checked)
+	}
+}
+
+func TestCorpusAbsentRoutingNextHops(t *testing.T) {
+	checked := 0
+	for _, id := range []string{
+		"troubleshooting/neighbor-resolution-pending",
+		"troubleshooting/stateful-reply-allowed",
+		"planning/filter-rule-change",
+	} {
+		if t.Run(id, func(t *testing.T) {
+			c, ok := simtest.DefaultRegistry().Get(id)
+			if !ok {
+				t.Fatalf("missing case %s", id)
+			}
+			res := simtest.AssertCase(t, c)
+			steps := res.Steps
+			if id == "planning/filter-rule-change" {
+				if res.Comparison == nil {
+					t.Fatal("missing comparison")
+				}
+				steps = res.Comparison.Current.Steps
+			}
+			found := false
+			for _, step := range steps {
+				for _, fact := range step.Outputs {
+					if fact.TypeID() == "routing.lookup_decision" && strings.Contains(fact.Canonical(), `;next_hop="absent";`) {
+						found = true
+					}
+				}
+			}
+			if !found {
+				t.Error("no connected lookup with absent next hop")
+			}
+		}) {
+			checked++
+		}
+	}
+	if checked != 3 {
+		t.Errorf("cases reaching concrete expectations = %d, want 3", checked)
+	}
+}
+
+func checkAdmittedCaseIDs(readme string, expected []string) error {
+	const start = "## Admitted cases"
+	const end = "## Admission bar"
+	inside, closed := false, false
+	seen := make(map[string]bool)
+	var ids []string
+	for _, line := range strings.Split(readme, "\n") {
+		if line == start {
+			inside = true
+			continue
+		}
+		if inside && line == end {
+			closed = true
+			break
+		}
+		if !inside || !strings.HasPrefix(line, "- `") {
+			continue
+		}
+		id, _, ok := strings.Cut(strings.TrimPrefix(line, "- `"), "`")
+		if !ok {
+			return fmt.Errorf("admitted bullet lacks closing backtick: %q", line)
+		}
+		if seen[id] {
+			return fmt.Errorf("duplicate admitted ID %q", id)
+		}
+		seen[id] = true
+		ids = append(ids, id)
+	}
+	if !inside || !closed {
+		return fmt.Errorf("admitted case section headings absent")
+	}
+	slices.Sort(ids)
+	if !slices.Equal(ids, expected) {
+		return fmt.Errorf("admitted IDs = %v, want %v", ids, expected)
+	}
+	return nil
+}
+
+func TestCorpusREADMEIDs(t *testing.T) {
+	readme, err := os.ReadFile("README.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var ids []string
+	journeys, fabricMetadata := 0, 0
+	for _, c := range simtest.DefaultRegistry().All() {
+		ids = append(ids, c.ID)
+		result, err := c.Execute()
+		if err != nil {
+			t.Fatalf("%s: %v", c.ID, err)
+		}
+		if result.Journey != nil {
+			journeys++
+		}
+		if result.FabricMetadata != nil {
+			fabricMetadata++
+		}
+	}
+	if len(ids) != 41 {
+		t.Fatalf("executed registry cases = %d, want 41", len(ids))
+	}
+	if err := checkAdmittedCaseIDs(string(readme), ids); err != nil {
+		t.Error(err)
+	}
+	if journeys != 21 || fabricMetadata != 11 {
+		t.Errorf("journeys = %d, fabric metadata = %d, want 21 and 11", journeys, fabricMetadata)
+	}
+	if !strings.Contains(string(readme), "The twenty-one `fabric`-based cases") ||
+		!strings.Contains(string(readme), "[ExecutionResult.Journey], eleven of them alongside") {
+		t.Error("README journey and fabric metadata counts do not match the corpus")
+	}
+}
+
+func TestAdmittedCaseIDFixtures(t *testing.T) {
+	const first = "- `planning/one`: admitted\n"
+	const second = "- `planning/two`: admitted\n"
+	const before = "## Admitted cases\n"
+	const after = "## Admission bar\n"
+	want := []string{"planning/one", "planning/two"}
+	fixtures := []struct {
+		name    string
+		text    string
+		wantErr bool
+	}{
+		{"complete", before + first + second + after, false},
+		{"duplicate", before + first + first + second + after, true},
+		{"missing", before + first + after, true},
+		{"example prose", before + first + "Example: `planning/two`\n" + after, true},
+		{"other section", before + first + after + "## Example\n" + second, true},
+		{"before section", second + before + first + after, true},
+		{"noise ignored", "- `planning/noise`: elsewhere\n" + before + first + second + "Example: `planning/noise`\n" + after + "- `planning/noise`: elsewhere\n", false},
+		{"start heading absent", first + second + after, true},
+		{"end heading absent", before + first + second, true},
+	}
+	checked := 0
+	for _, tc := range fixtures {
+		if t.Run(tc.name, func(t *testing.T) {
+			err := checkAdmittedCaseIDs(tc.text, want)
+			if (err != nil) != tc.wantErr {
+				t.Fatalf("check IDs error = %v, want error %t", err, tc.wantErr)
+			}
+		}) {
+			checked++
+		}
+	}
+	if checked != 9 {
+		t.Errorf("fixtures reaching expectations = %d, want 9", checked)
 	}
 }

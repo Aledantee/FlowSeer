@@ -10,6 +10,7 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
 	"go.aledante.io/FlowSeer/src/common/sim/device"
+	"go.aledante.io/FlowSeer/src/common/sim/flow"
 )
 
 // diffFlowStats compares what the scenario added to one flow on each side, the
@@ -17,8 +18,8 @@ import (
 // held gauge and the latency extremes mix the earlier traffic with the
 // scenario's. Where either side held any before the run they cannot be
 // separated, so they are left out and the pair stays uncertain.
-func diffFlowStats(a, b, preA, preB FlowStats) (analysis.Difference, string, bool) {
-	a, b = a.since(preA), b.since(preB)
+func diffFlowStats(a, b, preA, preB flow.Stats) (analysis.Difference, string, bool) {
+	a, b = flowStatsSince(a, preA), flowStatsSince(b, preB)
 	heldSeparable := preA.Held == 0 && preB.Held == 0
 	extremesSeparable := preA.Latency.Count == 0 && preB.Latency.Count == 0
 	fields := []struct {

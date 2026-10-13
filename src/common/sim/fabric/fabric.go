@@ -8,6 +8,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
 	"go.aledante.io/FlowSeer/src/common/sim/device"
+	"go.aledante.io/FlowSeer/src/common/sim/flow"
 	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
@@ -57,7 +58,7 @@ type Fabric struct {
 	// held maps device-scoped tokens to frames still in flight.
 	held map[holdKey]FrameID
 	// flows accumulates per-flow statistics as journeys settle.
-	flows map[FlowID]*FlowStats
+	flows map[flow.ID]*flow.Stats
 	// protocolIssues holds the distinct issues settled protocol journeys
 	// carried. A protocol journey is freed at settle and has no flow, so this
 	// set is the only place its issues outlive it.

@@ -6,12 +6,20 @@ configured static routes, neighbor entries, and the rules that pick one next hop
 for a packet.
 
 The layer runs deterministically in memory, with no background goroutines and no
-wall clock of its own; `now` is a parameter the caller supplies. `Route` and
+wall clock of its own. `now` is a parameter the caller supplies. `Route` and
 `Originate` read the packet and the table and, with `commit` set, may also
 update the neighbor table described below. With `commit` clear neither one
 mutates anything, so the same packet against the same configuration always
-leaves the same way and looking at a decision cannot change it — see "Neighbor
+leaves the same way and looking at a decision cannot change it. See "Neighbor
 lifecycle" for why that distinction exists.
+
+## Files
+
+| File | Responsibility |
+| --- | --- |
+| [layer.go](layer.go) | Runtime state, construction, forwarding table, interface lookup, and retention key. |
+| [route.go](route.go) | Incoming frame forwarding with hop-limit and link-layer rewriting. |
+| [originate.go](originate.go) | Device-originated datagrams and source-address scope selection. |
 
 ## Example
 
@@ -103,7 +111,7 @@ withdrawn 198.51.100.0/24 via 203.0.113.1: unresolved
 ```
 
 Both routes to `192.0.2.0/24` stay in the table and both are reported in
-`candidates=[...]`; which one carries this packet is the flow hash below. The
+`candidates=[...]`. Which one carries this packet is the flow hash below. The
 route to `198.51.100.0/24` is valid configuration, but no chain of routes in the
 VRF reaches `203.0.113.1`, so the table does not hold it.
 
@@ -129,13 +137,13 @@ A frame's outer VLAN tag, not bridge VLAN membership, picks the sub-interface: a
 arriving on `eth1` tagged 10 is handed to `eth1.10`, and one tagged 20 to `eth1.20`. Two
 sub-interfaces may share a VID as long as they sit on different ports, and two interfaces
 naming the same `(Port, VLAN)` pair fail `Validate`. A sub-interface's VLAN must be a valid
-assigned identifier (1 through 4094; `vlan.ID.Valid`), because nothing else bounds it once
+assigned identifier (1 through 4094, `vlan.ID.Valid`), because nothing else bounds it once
 it stops needing a bridge VLAN table entry.
 
 A bridge VLAN lookup (`Layer.ByVLAN`) never answers with a sub-interface, whatever the
-interface names happen to sort to; only `Layer.ByPortVLAN` resolves one, and it answers two
+interface names happen to sort to. Only `Layer.ByPortVLAN` resolves one, and it answers two
 different questions from one lookup. A port with no routed interface at all reports
-`portRouted` false, which the caller falls through to a bridge for; a routed port with no
+`portRouted` false, which the caller falls through to a bridge for. A routed port with no
 interface at the given VID reports `portRouted` true and `matched` false, which the caller
 drops on, since a routed port has no bridge to fall back to.
 
@@ -149,7 +157,7 @@ the tie within one preference. The metric comparison is deliberately not global:
 Cisco compares metrics only "if there are multiple paths to the same destination
 from a single routing protocol", and metrics from different sources are not
 comparable numbers. In a static-only table one preference is one source, so the
-distinction does not bite yet; it will as soon as a dynamic protocol lands.
+distinction does not bite yet. It will as soon as a dynamic protocol lands.
 
 `Preference` is a `uint8`, which covers the Cisco administrative distance range
 of 0 to 255. It cannot express a Junos preference, whose range runs to
@@ -162,9 +170,16 @@ that puts connected at 0 and static at 1. The reservation also means a `uint8`
 needs no pointer to tell an unset field from an explicit 0. Without it a static
 route at preference 0 would tie the connected route covering its prefix, join its
 candidate set, and the flow hash would spread one destination between on-link
-delivery and a next hop — an outcome no vendor documents.
+delivery and a next hop, an outcome no vendor documents.
 
 ## The candidate set
+
+Canonical routing facts use `absent` for a next hop that is not configured,
+including connected routes and their configured/forwarded candidate values.
+Packet addresses and lookup hash addresses use `undecoded` when the address
+is uninitialized. Decoded addresses keep their IP text after a TTL or family
+refusal. The admission `valid` flag does not control address rendering
+([fact.go](fact.go), `TestRouteAddressFactText` in [layer_test.go](layer_test.go)).
 
 Every route that contains the destination and ties the winner on prefix length,
 preference, and metric is a candidate, and all of them are reported in
@@ -176,8 +191,8 @@ Candidates are ordered by next hop, then egress interface. The order is part of
 the contract: the reduction below turns a hash into an index into this slice, and
 the route fact's canonical string is compared verbatim across constructions.
 
-One prefix carries at most 64 equal-cost routes. That is FRR's number — it "is
-generally compiled with a limit of 64 way ECMP" — and an uncapped set would be
+One prefix carries at most 64 equal-cost routes. FRR "is
+generally compiled with a limit of 64 way ECMP", and an uncapped set would be
 netsim inventing the one behavior no router has. Above the cap the first 64 in
 canonical order are installed and the rest are withdrawn as `max-paths`. The cap
 applies twice, because there are two ways to exceed it: to the paths one
@@ -204,7 +219,7 @@ has one ([RFC 6724 sections 3.1 and 5 Rule 2](https://www.rfc-editor.org/rfc/rfc
 This includes IPv6 multicast scopes 0, 1, and 2. The layer departs from
 [RFC 6724 section 3.2](https://www.rfc-editor.org/rfc/rfc6724#section-3.2)
 by treating IPv4 multicast `224.0.0.0/24` as link-local and `127/8` as global
-([linkLocalScope](layer.go)).
+([linkLocalScope](originate.go)).
 The caller's payload contributes nothing to selection.
 
 ```mermaid
@@ -227,7 +242,7 @@ source and destination addresses with no transport fields, and Linux's default
 `fib_multipath_hash_policy=0` is layer 3, with ports entering only at policy 1.
 RFC 2991 section 3 warns that "including transport-layer information in the
 next-hop selection process can actually be problematic". A five-tuple would model
-a box someone had configured, and netsim has no field that says they did — the
+a box someone had configured, and netsim has no field that says they did. The
 hash input is the vendor default, not a knob, and `ip cef load-sharing full` and
 `fib_multipath_hash_policy` have no equivalent here.
 
@@ -240,7 +255,7 @@ Two consequences are worth stating, because they are why the input is short:
   reassembly is not even on its list.
 - A TCP segment behind an IPv6 extension header hashes like one without. `ip.Decode`
   does not walk the extension header chain, so `Header.Protocol` is the fixed
-  header's first Next Header; hashing it would split one flow on the headers its
+  header's first Next Header. Hashing it would split one flow on the headers its
   packets happen to carry. The flow label is in the fixed header instead, and
   RFC 6437 put it there precisely "to enable and encourage the use of the flow
   label for various forms of stateless load distribution, especially across Equal
@@ -259,12 +274,11 @@ are candidates, in canonical order, and the packet takes the candidate whose
 region holds its hash (RFC 2992). The last region absorbs the remainder.
 
 The reduction is not `hash % len(candidates)`, which would be shorter and wrong
-for what netsim is for. RFC 2992 measures modulo-N as "the most disruptive of the
-algorithms; if a next-hop is added or removed the disruption is (N-1)/N", against
+for what netsim is for. RFC 2992 measures modulo-N as `"the most disruptive of the algorithms; if a next-hop is added or removed the disruption is (N-1)/N"`, against
 "between 1/4 and 1/2" for hash-threshold. "Which flows move when this path fails"
 is the question this table exists to answer, and under modulo-N nearly every flow
 in the VRF moves when any path does. Linux reduces by cumulative upper bounds and
-Cisco by a 16-bucket load-share table; hash-threshold is the published form of the
+Cisco by a 16-bucket load-share table. Hash-threshold is the published form of the
 same idea.
 
 What the reduction buys is a bound, not immobility. When a candidate goes, every
@@ -282,14 +296,14 @@ with nothing to keep.
 A static route whose next hop is not on-link resolves against its own VRF's table
 when the table is built, and installs carrying the on-link next hop and interface
 it reached. `Route.NextHop` keeps the configured value for `Canonical`, `Diff`,
-and the facts; the resolved pair is what the frame is built for, because the
+and the facts. The resolved pair is what the frame is built for, because the
 neighbor lookup keys on the next hop rather than on the egress interface.
 
 Resolution walks at most 8 routes. Cisco names a "maximum IPv6 forwarding
 recursion depth" without publishing a value, BIRD allows exactly one level, and
 FRR bounds recursion by its self-match test instead. Eight is netsim's own
 number, above BIRD's so an ordinary two-step chain resolves, and low enough to
-catch a configuration mistake; a real static chain is one or two hops, so the
+catch a configuration mistake. A real static chain is one or two hops, so the
 bound guards against a loop rather than limiting anyone.
 
 A next hop does not resolve through the default route, following FRR: "Nexthop
@@ -300,12 +314,12 @@ resolve through it.
 Resolution walks the whole table, which is netsim's simplification. FRR resolves a
 next hop only against the selected, installed route for the matching prefix, and
 only for route types with recursion enabled. In a static-only table with one
-selection rule those gates coincide with walking the table; a dynamic protocol
+selection rule those gates coincide with walking the table. A dynamic protocol
 would end that and the resolver would have to grow them.
 
 Resolution consults routes and connected prefixes only, never neighbors. A next
 hop the table reaches but no neighbor entry resolves is a per-packet drop, not a
-withdrawal — see below.
+withdrawal. See below.
 
 ## Withdrawn routes
 
@@ -319,8 +333,8 @@ The reasons are `self-recursive`, `depth-exceeded`, `unresolved`, and
 
 A withdrawn route is valid configuration, not a construction error: real gear
 keeps it in the configuration and out of the routing table, and so does netsim.
-Forwarding then answers from the routes that remain — a less specific route, or
-`no-route` — and that answer is complete, not an admission that netsim lacked an
+Forwarding then answers from the routes that remain (a less specific route, or
+`no-route`), and that answer is complete, not an admission that netsim lacked an
 input.
 
 A withdrawal, a `neighbor-miss`, and a `neighbor-pending` are three different
@@ -355,7 +369,7 @@ stateDiagram-v2
     Probe --> [*]: RetransTimer after the third
 ```
 
-`Unobserved` is the zero value for an absent entry. A committing lookup
+`NeighborUnobserved` is the zero value for an absent entry. A committing lookup
 under `NeighborObserved` holds the frame and returns the first solicitation
 in `Result.Emissions`. Without an egress address of the target's family,
 it returns `neighbor-miss` and emits nothing. The source address is the
@@ -449,7 +463,7 @@ The replaced frame surfaces in `DrainExits` after the next `Advance` or a
 committing lookup or `Receive` retires its exhausted neighbor entry, as a
 `HeldEvicted` exit under its own reason `neighbor-hold-overflow`. That reason
 is deliberately not `neighbor-miss`, because the neighbor may well resolve,
-and on a queue that overflowed because frames kept arriving it usually does —
+and on a queue that overflowed because frames kept arriving it usually does,
 often on the same `Advance` that reports the eviction.
 
 `commit` is what makes a preview safe. With it clear, a miss reports
@@ -489,7 +503,8 @@ solicits or holds a frame for an absent binding.
   solicited reply confirms reachability.
 - Every ARP reply counts as solicited. RFC 826's intent for an unrequested
   reply is unverified.
-- No removal of an unused entry.
+- Passively learned stale neighbors are unbounded. There is no capacity
+  limit or inactivity expiry ([receive.go](receive.go), [neighbor.go](neighbor.go)).
 - A unicast Neighbor Advertisement is not sent when neither the
   solicitation's source link-layer option nor a resolved cache entry
   supplies the destination MAC. RFC 4861 section 7.2.4 calls for resolving

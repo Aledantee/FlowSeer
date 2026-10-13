@@ -50,6 +50,7 @@ device.
 ```
 src/common/sim/
   trace/  analysis/  stream/     unchanged leaves
+  flow/                          traffic stream identities and statistics
   port/                          the port table every device is built on
   layer/                         the capability contract's shared types
     phy/ bridge/ lag/ stp/ loopprotect/ mcast/ routing/ filter/ traffic/
@@ -69,6 +70,9 @@ src/common/sim/
 ```mermaid
 flowchart BT
     trace --> analysis --> port --> layer["layer/*"]
+    trace --> flow
+    analysis --> flow
+    flow --> fabric
     layer --> device["device/*"]
     device --> assembly
     seam["device"] --> fabric
@@ -85,6 +89,10 @@ diagram cannot show:
 - A capability package imports `port`, `layer`, `trace`, `analysis`, and
   `src/common/net`. It imports no sibling capability and no device.
 - A device imports capability packages and never `fabric`.
+- `flow` imports `trace` and `analysis`. It owns `ID`, `Stats`,
+  `LatencyStats`, and value cloning. Fabric owns folding, held gauges, and
+  add/since accounting ([flow/flow.go](../../src/common/sim/flow/flow.go),
+  [fabric/flow.go](../../src/common/sim/fabric/flow.go)).
 - `fabric` imports `device` and no package beneath it, and `medium/cable`.
   It imports no capability package directly. What it needs from a device (forwarding, emissions, state for a
   snapshot) crosses the device seam.
@@ -135,6 +143,9 @@ drawn now so that extraction touches `fabric` and nothing else.
   Start then End, with nil/member facts at unmatched tails. Sort-only
   multisets emit a value-fact removal or addition for each unmatched
   occurrence, including repeated records when multiplicity changes.
+  A subject addition or removal uses an empty field when the subject itself
+  is the lifecycle coordinate, rather than a capability's `presence` field.
+  Owner-specific identity replacements retain removal before addition.
   A change's subject key of several
   parts comes from `trace.CompositeKey`, which quotes each part with
   `strconv.Quote` and joins them with `/`, since port names hold `/`.
@@ -167,10 +178,12 @@ host or an access point would import its relay and IP stack through the
 switch's directory, and the next device kind would repeat the argument.
 
 **Hide the layer engines under `internal/`.** The public surface would shrink
-to configuration types. It loses for now: it adds a package per capability,
-and the host needs the routing engine from outside the switch. The question
-reopens once `device/host` exists and the set of packages that reach an
-engine is known.
+to configuration types. Keep engines public: splitting configuration from
+engines adds a package per capability, while both the host and reflector
+consume routing and traffic engines outside the switch
+([host.go](../../src/common/sim/device/host/host.go),
+[reflector.go](../../src/common/sim/device/reflector/reflector.go)).
+The existing device packages settle the consumer boundary.
 
 **Write a `Medium` interface now.** It would show where radio goes. It loses
 to the rule against an interface with one implementation, and a cable has

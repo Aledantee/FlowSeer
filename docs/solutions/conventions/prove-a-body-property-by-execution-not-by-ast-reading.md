@@ -1,6 +1,7 @@
 ---
 title: A Static Scan Cannot Decide What a Function Does With Its Arguments; Prove That By Execution
 date: 2026-09-15
+last_verified: 2026-10-13
 category: conventions
 module: src/protocol/smi/internal/diag
 problem_type: convention
@@ -11,6 +12,7 @@ applies_when:
   - "Exempting a call from a static check because an enclosing function is 'known' to behave a certain way."
   - "A conformance scan reports zero findings and you are deciding whether that means the property holds or that the scan cannot see the violation."
   - "Reviewing a second or third narrowing of the same syntactic predicate after each earlier one turned out to miss a shape."
+  - "Auditing validator coverage when the validator returns an error, including delegated validators whose callers can discard it."
 related_components: [smi-parser, testing]
 tags: [go-ast, conformance-gate, static-analysis, proof-obligation, test-design]
 ---
@@ -72,7 +74,7 @@ one code matters because the obvious sample is the wrong one: each forwarder's
 own cap branch hardcodes `ErrCodeLimitExceeded` a few lines above, so a body that
 ignored `code` and substituted that constant passed a single-code test.
 
-`spreadFinding` (`src/protocol/smi/internal/diag/arity_scan_test.go:504-518`)
+`spreadFinding` (`src/protocol/smi/internal/diag/arity_scan_test.go:504-519`)
 records the division and why it exists, so the next reader does not attempt a
 third narrowing. What the scan still decides about a forwarder is that the
 registry's parameter indices match the declaration, which no runtime test would
@@ -84,10 +86,34 @@ row.
 An exemption justified by a test is only as good as that test existing. Prose
 saying so is not a check: delete the test, or constrain its file out of the
 build, and the scan stays green over an empty proof. `scanCoverage`
-(`arity_scan_test.go:565-576`) therefore requires each forwarder's test to be
-declared in its package, and `parseForwarderTests` (`:887`) filters candidate
+(`arity_scan_test.go:565-577`) therefore requires each forwarder's test to be
+declared in its package, and `parseForwarderTests` (`:871-897`) filters candidate
 files through `build.Default.MatchFile`, because `parser.ParseFile` ignores build
 constraints and would count a `//go:build ignore` file as proof.
+
+## A validator call needs an error path
+
+A receive audit can find the correct validator and still accept an executor
+that discards its error. Commit `58283a30` records the mutation
+`_ = validateReceiveReport(fab.Report())` and its rejection:
+
+```text
+--- FAIL: TestCorpusReceiveValidationSources (0.85s)
+```
+
+Require the validation error to reach the caller, directly or through a
+non-nil guard. Follow the error through delegated helpers as well.
+`src/common/sim/internal/simtest/receive_validation_test.go:623-631` pairs
+accepted returns with ignored errors and a guard that returns success:
+
+```go
+{"receive validated", `func execute(sw *vswitch.Switch) error { out := sw.Receive(now, "in", frame); return validateReceiveResult(out.Result) }`, 0},
+{"receive error ignored", `func execute(sw *vswitch.Switch) error { out := sw.Receive(now, "in", frame); _ = validateReceiveResult(out.Result); return nil }`, 1},
+```
+
+The audit follows returned values and non-nil branches at `:353-419`.
+These fixtures test the audit's claimed coverage. They do not establish what
+the validator itself accepts, which still needs execution tests.
 
 ## What this does not cover
 

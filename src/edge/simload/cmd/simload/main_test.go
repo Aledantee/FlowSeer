@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
+	"go.aledante.io/FlowSeer/src/common/sim/flow"
 	"go.aledante.io/FlowSeer/src/edge/simload"
 	"go.aledante.io/FlowSeer/src/edge/simload/packetio"
 	"go.aledante.io/FlowSeer/src/modules/capture/rawsocket"
@@ -118,15 +119,25 @@ func TestTransmitRejectsDuplicateFlowsBeforeOpening(t *testing.T) {
 func TestCompareRejectsDuplicateAndUnknownFlowIDs(t *testing.T) {
 	for _, tc := range []struct {
 		name  string
-		input string
+		ids   []flow.ID
+		labID flow.ID
 		want  string
 	}{
-		{"duplicate simulator IDs", `{"version":1,"destination":"host","simulator":{"flows":[{"id":1},{"id":1}]},"lab":{"flows":{}}}`, "duplicated"},
-		{"unknown lab ID", `{"version":1,"destination":"host","simulator":{"flows":[{"id":1}]},"lab":{"flows":{"2":{"sent":1}}}}`, "unknown"},
+		{"duplicate simulator IDs", []flow.ID{1, 1}, 1, "simulator flow ID 1 is duplicated"},
+		{"unknown lab ID", []flow.ID{1}, 2, "lab flow ID 2 is unknown to the simulator input"},
+		{"zero simulator ID", []flow.ID{0}, 0, "simulator flow ID must be nonzero"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
+			document := compareDocument{Version: inputVersion, Destination: "host", Lab: simload.Observation{Flows: map[flow.ID]simload.FlowObservation{tc.labID: {Sent: 1}}}}
+			for _, id := range tc.ids {
+				document.Simulator.Flows = append(document.Simulator.Flows, simload.SimulatorFlow{ID: id})
+			}
+			input, err := json.Marshal(document)
+			if err != nil {
+				t.Fatal(err)
+			}
 			var output, diagnostics bytes.Buffer
-			if code := run([]string{"compare"}, strings.NewReader(tc.input), &output, &diagnostics, simload.Dependencies{}); code == 0 || !strings.Contains(diagnostics.String(), tc.want) || output.Len() != 0 {
+			if code := run([]string{"compare"}, bytes.NewReader(input), &output, &diagnostics, simload.Dependencies{}); code == 0 || strings.TrimSpace(diagnostics.String()) != tc.want || output.Len() != 0 {
 				t.Fatalf("code=%d stderr=%q stdout=%q", code, diagnostics.String(), output.String())
 			}
 		})
@@ -179,8 +190,13 @@ func (c *deadlineClock) Wait(_ context.Context, at time.Time) error {
 
 type idleReceiver struct{}
 
-func (idleReceiver) Receive(context.Context) <-chan rawsocket.Frame {
-	return make(chan rawsocket.Frame)
+func (idleReceiver) Receive(ctx context.Context) <-chan rawsocket.Frame {
+	frames := make(chan rawsocket.Frame)
+	go func() {
+		<-ctx.Done()
+		close(frames)
+	}()
+	return frames
 }
 func (idleReceiver) Stats() (uint64, uint64, error) { return 0, 0, nil }
 func (idleReceiver) Close() error                   { return nil }

@@ -51,6 +51,13 @@ uses `phy_assumption.presence` with its snapshot. Retained assumptions report
 `phy_assumption.medium` followed by delegated `phy_assumption.ethernet.*`
 fields. [diff_coverage_test.go](diff_coverage_test.go) checks the complete
 257-slot mapping and 28 delegated correspondence cases.
+Whole switch, host, cable, and reflector additions or removals use an empty
+field with a subject snapshot. This subject-lifecycle exception differs from
+capability `presence` and named attachment lifecycle fields. Delegated ranges
+use normalized positions such as `match.src_ports[0].start`, with Start before
+End. Sort-only multisets retain one removal or addition for each unmatched
+occurrence, including repeated prefix records. Coverage compares complete
+ordered sequences, with empty sequences for normalized no-ops.
 
 `DiffSpecs` sorts subjects stably and preserves each subject's local member
 sequence. Its `construction_inputs` records compare switch construction inputs

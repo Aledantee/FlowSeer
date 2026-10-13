@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+	"go.aledante.io/FlowSeer/src/common/sim/flow"
 
 	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
 
@@ -120,7 +121,7 @@ func egressBufferFrame(src, dst netaddr.MAC) ethernet.Frame {
 	return ethernet.Frame{Src: src, Dst: dst, Payload: make([]byte, 1000)}
 }
 
-func injectEgressFlow(t *testing.T, fab *fabric.Fabric, macs map[string]netaddr.MAC, host string, flow fabric.FlowID, retention fabric.JourneyRetention) {
+func injectEgressFlow(t *testing.T, fab *fabric.Fabric, macs map[string]netaddr.MAC, host string, flow flow.ID, retention fabric.JourneyRetention) {
 	t.Helper()
 	at := fab.Clock()
 	for range 20 {
@@ -163,7 +164,7 @@ func TestEgressStatedBufferTailDrop(t *testing.T) {
 		flowDrops uint64
 		delivered uint64
 	)
-	for _, flow := range []fabric.FlowID{1, 2} {
+	for _, flow := range []flow.ID{1, 2} {
 		stats := fab.Flows()[flow]
 		drops := stats.Drops[traffic.ReasonQueueFull]
 		flowDrops += drops
@@ -204,7 +205,7 @@ func TestEgressStatedBufferUnderCapacity(t *testing.T) {
 		t.Fatalf("Run stop = %s, want %s", res.Stop, fabric.StopQueueDrained)
 	}
 
-	for _, flow := range []fabric.FlowID{1, 2} {
+	for _, flow := range []flow.ID{1, 2} {
 		stats := fab.Flows()[flow]
 		if got := stats.Delivered["h3"]; got != 20 {
 			t.Errorf("flow %d Delivered[h3] = %d, want 20", flow, got)
@@ -267,7 +268,7 @@ func TestEgressUnstatedBufferNeverDrops(t *testing.T) {
 	injectEgressFlow(t, fab, macs, "h2", 2, fabric.RetainAggregate)
 	fab.Run(fabric.RunOptions{Budget: 1_000_000, Window: 0})
 
-	for _, flow := range []fabric.FlowID{1, 2} {
+	for _, flow := range []flow.ID{1, 2} {
 		stats := fab.Flows()[flow]
 		if got := stats.Delivered["h3"]; got != 20 {
 			t.Errorf("flow %d Delivered[h3] = %d, want 20", flow, got)

@@ -21,14 +21,14 @@ go test -tags=simload_lab -run '^TestICX7150Comparison$' -count=1 -v ./src/edge/
 Replace every example value with the lab's observed wiring. The test checks
 that each named NIC is up and has the configured MAC. Both switch ports must
 be untagged members of the configured VLAN. The test connects once to
-LABSW06 at `172.16.0.6:22` before opening raw sockets; an unreachable switch
+LABSW06 at `172.16.0.6:22` before opening raw sockets. An unreachable switch
 ends the run without retry. A completely unset configuration skips. A partial
 or malformed configuration fails before any traffic. Linux raw packet sockets
 require `CAP_NET_RAW` or root.
 
 The blast radius is data-plane traffic only: at most 20,000 unicast frames,
 2.56 MB on the wire, over about 20 seconds at 1,000 frames per second.
-The source and destination are the configured NIC MACs; EtherType is `0x88b5`,
+The source and destination are the configured NIC MACs. EtherType is `0x88b5`,
 and the first 32 payload octets carry the `FSLD` flow signature. No switch
 configuration changes occur. The run stops on the first sender or receiver
 error, reports an unreachable switch once, and closes its sockets after each
@@ -36,6 +36,13 @@ case. It updates ordinary switch MAC-table and port counters.
 
 Before each live run, record the actual ports, VLAN, NICs, and MACs in the
 operator handoff and obtain the owner's go-ahead. A missing sequence stays a
-lab observation; the report does not claim a switch drop reason. The pacing
+lab observation. The report does not claim a switch drop reason. The pacing
 check compares capture timestamps against the scheduled 9.999-second span,
 with a 1% bound and zero interface-reported capture drops.
+
+A harness `PASS` proves these run and pacing checks, not simulator/lab
+equality. The test requires signed receptions and consistent sent, unique,
+and missing counts, but permits missing frames. It prints the comparison
+without asserting that the normalized simulator and lab rows are equal
+([lab_test.go](lab_test.go), `TestICX7150Comparison`). The owner must inspect
+that JSON to establish observed equality. No live result is recorded here.
