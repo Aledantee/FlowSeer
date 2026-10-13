@@ -58,7 +58,7 @@ type Fact interface {
 
 A fact exposes a stable type identifier and a deterministic canonical string.
 Semantic comparison compares `TypeID()` then `Canonical()` without reflection,
-`any`, or JSON serialization. A capability owns its fact types and validation;
+`any`, or JSON serialization. A capability owns its fact types and validation.
 `trace` only requires equality and canonical ordering keys. Capability APIs
 return immutable fact snapshots so a retained step or change cannot be altered
 by later mutation of the source configuration.
@@ -80,7 +80,7 @@ and deduplicates references without inspecting their catalog entries.
 `OpQueue` marks an egress queue observation. The first enqueue beyond an
 unstated buffer's maximum-frame threshold carries a producer-owned
 `traffic.queue.buffer-unstated` rule, a typed depth fact, and one reference to
-runtime evidence. It records why readiness is Incomplete; the frame may still
+runtime evidence. It records why readiness is Incomplete. The frame may still
 be delivered.
 
 `Held` names a frame awaiting resolution. The literal values `Held` and

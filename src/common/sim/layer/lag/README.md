@@ -375,6 +375,13 @@ A newly selected member enters the Mux `WAITING` state for the two-second
 same deadline, so a member learned one second later does not attach early, while
 already-attached members remain forwarding.
 
+When a late `Advance(now)` processes receive timeouts and newly selects a
+member, its aggregate wait starts at `now`, not at the expired receive
+deadline. For example, reselection at 7s waits until 9s. `Advance` sets
+`l.now` before selection, and `updateSelection` adds two seconds to that
+instant ([layer.go](layer.go), [lacp.go](lacp.go)). This late-call timing is
+the layer's rule, without a claim that the standard prescribes it.
+
 Mux uses the coupled control diagram (`AX` 6.4.15, Figure 6-22), because one
 `enabled` flag controls both collection and distribution. `MinLinks` gates
 collection and distribution while attachment and synchronization proceed, so

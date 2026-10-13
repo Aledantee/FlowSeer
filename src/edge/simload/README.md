@@ -36,7 +36,7 @@ The example schedules sequences 0 through 9,999 over 9.999 seconds. A real
 run needs an isolated interface pair, an interface that is up, and the
 capability to open raw packet sockets, normally `CAP_NET_RAW`. The transmit and
 receive interfaces must be distinct. `packetio` writes with a send-only
-`AF_PACKET` socket; capture uses the existing non-promiscuous raw-socket source.
+`AF_PACKET` socket. Capture uses the existing non-promiscuous raw-socket source.
 
 The first 32 payload octets are reserved as follows:
 
@@ -52,7 +52,7 @@ The first 32 payload octets are reserved as follows:
 The report keeps simulator counters and lab observations separate. A transmit
 timestamp proves submission to the kernel, not physical departure from the
 NIC. A capture timestamp is when the receive path observed the frame. A missing
-sequence is an observation; it is not assigned a switch drop reason or cable
+sequence is an observation. It is not assigned a switch drop reason or cable
 loss without evidence.
 
 Shutdown retains every frame the capture channel accepted, including data

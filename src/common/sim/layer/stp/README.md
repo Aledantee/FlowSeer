@@ -482,7 +482,7 @@ an edge port from ACTIVE to LEARNING. Its INACTIVE state clears the timer and
 acknowledgment. Only a Configuration BPDU's acknowledgment stops a Root port's
 timer. Detection and propagation follow IEEE 802.1Q-2003 clause 13.17 and clause
 14.6 g), and P802.1aq/D1.5 Figure 13-28, page 82, and clauses 13.29.11, page 63,
-and 13.29.26, page 67. A topology change raised by a BPDU is handled before
+and 13.29.26, page 67. A topology-change flag received in a BPDU is handled before
 that BPDU's root election for every BPDU class. A port that does not send RSTP
 sets `tcWhile` from the Max Age plus Forward Delay of the root held before the
 BPDU. This timer order is the layer's own rule. P802.1aq/D1.5 clauses

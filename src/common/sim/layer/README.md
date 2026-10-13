@@ -37,6 +37,28 @@ filtering database entries, or update port state.
 ## Layer architecture contract
 
 Every package under `src/common/sim/layer/` implements a uniform contract.
+Layer engines remain public so hosts and reflectors can use routing without
+importing the switch ([host.go](../device/host/host.go),
+[reflector.go](../device/reflector/reflector.go)). A device call returns an
+`Output` with its forwarding result, emissions, copies, and held-frame drops.
+A nonzero `HoldToken` identifies a frame queued within that device. `Fork`
+copies runtime state independently at the same instant
+([device.go](../device/device.go)). A layer returns capability effects or
+held-frame exits for that device to compose.
+
+`Diff` compares normalized values. Static field members use dots, and keyed
+or scalar-set members use Go-quoted bracket coordinates, for example
+`attachments["edge.1"].vlan`. Structured ranges pair by normalized position,
+Start then End: `match.src_ports[0].start` precedes
+`match.src_ports[0].end`, with nil facts at unmatched tails. Capability
+lifecycle uses `presence` or a nested `.presence` suffix. Subject addition
+and removal can instead use an empty field with a complete typed snapshot.
+An identity replacement includes both removal and addition. Sort-only
+multisets emit one record per unmatched occurrence, so removing two equal
+prefixes emits two equal records. Coverage expectations are complete ordered
+sequences, including empty normalized no-ops
+([diffcoverage.go](../internal/simtest/diffcoverage.go),
+[filter/diff.go](filter/diff.go), [routing/diff.go](routing/diff.go)).
 
 ### Universal members
 

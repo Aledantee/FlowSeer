@@ -1,18 +1,18 @@
 # loopprotect
 
-Package `loopprotect` implements netsim's own loop-protection mechanism for
+Package `loopprotect` implements sim's own loop-protection mechanism for
 the virtual switch: a probe frame that floods a foreign switch but returns to
 its own sender through an unmanaged loop, and a per-port action and recovery
 timer that reacts to it. It is drawn from vendor loop-detection features
 (H3C loop detection, HPE Aruba loop-protect, Huawei loopback-detect) but is
-not an emulation of any of them — each vendor's probe format is proprietary,
+not an emulation of any of them. Each vendor's probe format is proprietary,
 so this package parses none of them, and defines its own instead.
 
 The layer runs deterministically in memory without background goroutines or
 wall clocks. Time advances through explicit, time-stamped calls to `Receive`,
 `Advance`, and `LinkChange`. It is independent of spanning tree: both may be
 configured on one switch, and a `Layer` here neither knows about STP nor
-consults its own gate before deciding whether to keep sending probes — see
+consults its own gate before deciding whether to keep sending probes. See
 "Emission ignores the gate" below.
 
 ## Example
@@ -124,27 +124,27 @@ the layer's own emission cannot fail to encode.
 ## Detection
 
 A probe whose payload names this switch's own MAC as the originator is a
-loop on the port the payload names as the sender — `p.Port`, not the port
+loop on the port the payload names as the sender (`p.Port`), rather than the port
 `Receive`'s ingress argument names. The switch that decodes the probe and
-recognizes itself is responsible for calling `Receive` only in that case;
-this layer trusts the caller and never re-derives ownership from the wire.
+recognizes itself is responsible for calling `Receive` only in that case.
+This layer trusts the caller and never re-derives ownership from the wire.
 
 The `Return.VID` `Receive` takes is the VLAN the frame was classified into
 on arrival, which can differ from `Probe.VID`, the VLAN the probe carried
 when it was sent: a probe that returns under a different VLAN tag has
 crossed an inter-VLAN loop, and `PortInfo.InterVLAN` records it. The
 comparison is against the classified VLAN rather than a tag the returning
-frame may not carry at all — an access-port loop returns the probe untagged.
+frame may not carry at all. An access-port loop returns the probe untagged.
 
 A VID difference is not evidence of an inter-VLAN loop when the sending
 port is itself an untagged member of both VLANs (`Return.SameUntaggedDomain`).
 IEEE 802.1Q makes untagged egress a per-VLAN port set while ingress
 classification is a per-port PVID scalar, so a port can legitimately untag
-several VLANs while classifying ingress into only one of them — vendors
+several VLANs while classifying ingress into only one of them. Vendors
 ship this as "asymmetric VLAN" for a shared uplink to many tenant VLANs. An
 untagged frame carries no tag at all, so both VLAN numbers on such a port
 are local bookkeeping on either end of the wire, not something the wire
-joined; the switch, which owns the VLAN configuration this layer does not,
+joined. The switch, which owns the VLAN configuration this layer does not,
 computes `SameUntaggedDomain` and `Receive` only sets `InterVLAN` when it is
 false.
 
@@ -156,7 +156,7 @@ false.
 | `NoLearn` | denied | allowed | yes |
 | `Disable` | denied | denied | no |
 
-`NoLearn` contains the MAC flapping a loop causes; it does not break the
+`NoLearn` contains the MAC flapping a loop causes. It does not break the
 loop, because the port keeps forwarding. An unprotected port, or a protected
 port with no action currently applied, allows both, following the house
 convention (see `stp`) that an untracked port never blocks.
@@ -171,7 +171,7 @@ covers a topology change. `FIDs` is always empty, meaning every FID on the
 port.
 
 This fires only on the transition into a forwarding-denying action (`Block`
-or `Disable`) — a repeat probe for a port already carrying one flushes
+or `Disable`). A repeat probe for a port already carrying one flushes
 nothing again, and `NoLearn` never flushes, because it keeps forwarding and
 denies only new learning.
 
@@ -185,7 +185,7 @@ denies only new learning.
 
 `Timer` adds no backoff: a returned probe after it lifts reapplies the
 action immediately and increments `PortInfo.Recurrences`. A returned probe
-while the action is still applied changes nothing under `Timer` — the timer
+while the action is still applied changes nothing under `Timer`. The timer
 does not restart, matching the "whether or not the loop is gone" rule.
 `LoopCleared` is the opposite: every returned probe restarts the wait,
 whether the action was already applied or is being applied for the first
@@ -194,7 +194,7 @@ time, so a persistent loop holds the port down indefinitely.
 `Manual`'s link-cycle recovery follows spanning tree's BPDU-guard precedent:
 clearing happens on the down transition, not the up one, so an up report
 with no preceding down leaves the action applied. `LinkChange`'s first call
-to the layer, on any port, also arms the probe-emission cadence — this
+to the layer, on any port, also arms the probe-emission cadence. This
 mirrors how `stp.Layer` arms its hello timer on the first `LinkChange` or
 `Receive` rather than at construction, since `New` is never given the
 fabric's current time.
@@ -213,13 +213,13 @@ clearing and would hold the port down forever.
 
 ## Emission ignores the gate
 
-`Advance` emits one probe per protected port per VLAN in `Port.VLANs` — or one
+`Advance` emits one probe per protected port per VLAN in `Port.VLANs` (or one
 probe for VID 0, which the switch sends on the port's PVID, when `VLANs` is
-empty — for every port that is not currently applying `Disable`, walking
+empty) for every port that is not currently applying `Disable`, walking
 ports in sorted name order so a wake's emissions are deterministic. A
 `Disable`-configured port keeps probing until a returned probe applies the
-action; only an *applied* `Disable` stops emission, because only a returned
-probe can apply it in the first place — gating on the configured action
+action. Only an *applied* `Disable` stops emission, because only a returned
+probe can apply it in the first place. Gating on the configured action
 alone would make `Disable` unreachable. Sequence numbers increase per port.
 
 The layer meters its own probes: an `Advance` before the interval is due lifts
@@ -239,7 +239,7 @@ would stop returning and `LoopCleared` would decay into a plain timer that
 lifts while the cable is still looped, defeating the point of the mode.
 Whether a port's operational state and any other gate (spanning tree
 included) actually let a probe onto the wire is the switch's decision, not
-this layer's; `Disable` is the one action defined to stop probing, which is
+this layer's. `Disable` is the one action defined to stop probing, which is
 also why pairing it with `LoopCleared` recovery is refused at construction.
 
 ## State retention
@@ -259,7 +259,7 @@ keys match and rebuilds it otherwise.
 - Per-VLAN recovery: an action is per port, matching every fetched vendor's
   default target.
 - Operational state and spanning tree, for emission. This layer knows about
-  neither; the switch drops a probe for a port that is not forwarding or that
+  neither. The switch drops a probe for a port that is not forwarding or that
   a spanning tree holds discarding before it reaches the wire. See "Emission
   ignores the gate" above.
 
