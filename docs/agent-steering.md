@@ -376,6 +376,19 @@ is a judgment. The script prints the names and `next` step 2 makes the
 comparison, because a pattern match on names would flag plans that nobody
 is working.
 
+Above the computed order sits the Priority list in `GOALS.md`, which the
+owner sets and changes there. A plan that serves an earlier priority goes
+ahead of one that serves none, across the `in-progress`, `unchecked`, `replan`, and `ready` groups, so a ready
+monitoring plan can outrank in-progress work that serves no priority. The
+owner chose focus over the Kanban rule for those areas. Finished work
+waiting to land keeps its place, because it gates every plan the branch
+carries past `main`. Whether a plan serves an area
+such as monitoring is read from its Goal, a judgment the script does not
+make, so `next` step 1 applies the list after the script prints. The
+shared-file rule still holds across tiers, lifting the plans a line
+depends on into its tier, since starting on a file
+another plan is about to change costs more than any priority gains.
+
 ### `plan`
 
 Promote lasting decisions out of the plan, from the plan. A plan under
