@@ -33,7 +33,7 @@ per edge:
   `FLOWSEER_OPERATOR_ACTIONS`, `FLOWSEER_OPERATOR_READS`, one typed ingest
   stream per record type, and `FLOWSEER_INGEST_EVIDENCE`. The streams are
   written through central's own CENTRAL-account connection. Typed ingest is
-  bounded to 256 MiB and 24 hours by default. Raw evidence is bounded to 64 MiB
+  bounded to 256 MiB and 72 hours by default. Raw evidence is bounded to 64 MiB
   and 24 hours. Both ingest streams discard the oldest records first and
   remember message ids for ten minutes. The `tenants` stream allows atomic
   batches so the tenant store writes a record and its organization index
@@ -101,7 +101,32 @@ record type. `FLOWSEER_INGEST_SYSLOG` stores
 `flowseer.*.evidence.>`. Both streams discard the oldest record at their byte
 or age limit and deduplicate a message id for up to ten minutes, capped by the
 stream's configured maximum age. The default typed stream limit is 256 MiB for
-24 hours. The default evidence limit is 64 MiB for 24 hours.
+72 hours. The default evidence limit is 64 MiB for 24 hours.
+
+### Sizing the ingest streams
+
+The defaults suit a test host, since the hub reserves each stream's byte bound
+against 75 percent of free disk. A deployment sets `ingest_streams` in the
+device service configuration (`max_age`, `max_bytes_per_type`,
+`central_budget_bytes`) from this formula:
+
+```text
+max_bytes_per_type = stored_bytes_per_message x 60 x retention_hours
+                     x devices x messages_per_device_per_minute
+```
+
+`TestStoredBytesPerSyslogMessage` measures `stored_bytes_per_message` for a
+typical syslog record: a 341-byte envelope occupies 571 bytes in the stream.
+At the planning rate of one message per device per minute, 72 hours, and 1,000
+devices, a stream holds 571 x 60 x 72 x 1,000, about 2.3 GiB. The central
+budget must cover that stream plus the others, which `HubConfig.CentralStreamBytes`
+sums (the audit stream, both operator streams, one ingest stream per record
+type, and the evidence stream). The device service refuses a configuration
+whose budget is below it.
+
+The 72-hour retention is the window in which the history store may be down
+before the oldest records are lost. A stream that reaches its byte bound
+discards its oldest records sooner.
 
 A leaf without a distinct domain silently extends the hub's; `EdgeDomain` is
 the guard.

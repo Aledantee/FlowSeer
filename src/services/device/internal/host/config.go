@@ -18,6 +18,7 @@ import (
 
 	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/modules/edgebus"
 )
 
 // Error codes the host returns while reading its configuration.
@@ -65,7 +66,51 @@ func parseConfig(data []byte, path string) (*Config, error) {
 		return nil, errs.From(err).Code(ErrCodeConfigInvalid).Attr("path", path).
 			Msg("service configuration fails its schema rules")
 	}
-	return &Config{msg: msg}, nil
+	cfg := &Config{msg: msg}
+	// The central account's budget must cover every stream it reserves for.
+	// The schema cannot say so, because the sum includes streams the host
+	// does not configure, so the host asks the hub's own arithmetic. Left
+	// to the server, the same mistake surfaces as a refused stream at start.
+	hub := cfg.IngestStreams().apply(edgebus.HubConfig{})
+	if need, have := hub.CentralStreamBytes(), hub.CentralBudget(); need > have {
+		return nil, errs.New().Code(ErrCodeConfigInvalid).Attr("path", path).
+			Attr("central_budget_bytes", have).Attr("stream_bytes", need).
+			Msg("ingest_streams.central_budget_bytes is below the sum of the central streams")
+	}
+	return cfg, nil
+}
+
+// IngestStreams are the typed ingest stream bounds, zero where the deployment
+// named none. Zero is passed through for the same reason Intervals does: the
+// hub holds the defaults.
+type IngestStreams struct {
+	MaxAge             time.Duration
+	MaxBytesPerType    int64
+	CentralBudgetBytes int64
+}
+
+// IngestStreams reads the configured ingest stream bounds.
+func (c *Config) IngestStreams() IngestStreams {
+	s := c.msg.GetIngestStreams()
+	return IngestStreams{
+		MaxAge:             s.GetMaxAge().AsDuration(),
+		MaxBytesPerType:    s.GetMaxBytesPerType(),
+		CentralBudgetBytes: s.GetCentralBudgetBytes(),
+	}
+}
+
+// apply sets the bounds on a hub configuration.
+func (s IngestStreams) apply(cfg edgebus.HubConfig) edgebus.HubConfig {
+	cfg.IngestMaxAge = s.MaxAge
+	cfg.IngestMaxBytes = s.MaxBytesPerType
+	cfg.CentralBudgetBytes = s.CentralBudgetBytes
+	return cfg
+}
+
+// History returns the configured history store, or nil when the deployment
+// runs without one.
+func (c *Config) History() *storev1.HistoryStore {
+	return c.msg.GetHistory()
 }
 
 // StateDir is the directory the service owns: the bus store, the keys it mints

@@ -90,6 +90,20 @@ in-house migrator. This phase adds:
   credential-free source, since no ClickHouse doc states one
   (decided by the user, 2026-10-13).
 
+Ruled: the lab's migrate run is a host command in `deploy/lab/README.md`, not a
+compose service, and the lab ClickHouse sits in the compose profile `history`
+with its admin password taken from the environment. Why: the lab has no device
+image and runs central with `go run` on the host, and `TestTheLabReadmeReadsOnlyFilesTheSecretsScriptWrites`
+forbids the README naming a `secrets/` file the secrets script does not write,
+which U2 does not list. Cost if wrong: a compose service plus a device image,
+and a change to the secrets script.
+
+Ruled: ingest stream code defaults keep 256 MiB per type, and the host refuses a
+configuration whose `central_budget_bytes` is below `HubConfig.CentralStreamBytes`
+(the sum of every central stream's byte bound, the key-value buckets excluded).
+Why: Requirement 7 names the sum, and the hub's own arithmetic keeps one owner.
+Cost if wrong: one function in `src/modules/edgebus/hub.go`.
+
 ## Requirements
 
 Tenant ids below are `a1…` for `018f0000-0000-7000-8000-0000000000a1`, device

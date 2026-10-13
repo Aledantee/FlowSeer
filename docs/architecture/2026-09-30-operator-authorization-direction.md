@@ -1057,6 +1057,22 @@ window exists, and the principal is stamped from the admitted context.
 The edge-facing `RawWindowEdgeService` is authorized as the asserting edge,
 like `CaptureEdgeService`.
 
+### 2026-10-08: a rule may allow a set of tenants
+
+A rule with `RULE_MODE_TENANT` may set `multi_tenant`. For such a method the
+`X-FlowSeer-Tenant` header may list up to 25 tenants, comma-separated. The
+interceptor reads every header line, refuses duplicates and empty items, and
+admits the set in one `BatchCheck`. One denied tenant fails the call. The
+admitted set rides the request context, and the handler reads it from there.
+Every other method refuses a list and a second header line, so tenancy stays
+ambient and single for them.
+
+The first such method is the history read, with relation `viewer` on each
+tenant. A partner's active admins hold `viewer` on the customer through the
+partner link (the tenant model above), and ordinary partner users do not. The
+[history store record](2026-10-08-history-store-direction.md) states why a
+read names a set.
+
 ## Open questions
 
 - Whether change records need one JetStream stream per tenant remains open.

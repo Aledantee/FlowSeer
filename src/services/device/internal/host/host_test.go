@@ -180,6 +180,18 @@ func startTestService(
 	modifyOpts func(opts *host.Options),
 ) *testService {
 	t.Helper()
+	return startTestServiceWithConfig(t, "", modifyOpts)
+}
+
+// startTestServiceWithConfig starts the service with extra prototext appended
+// to the file the helper writes, for a test that sets a field the default
+// deployment leaves out.
+func startTestServiceWithConfig(
+	t *testing.T,
+	extraConfig string,
+	modifyOpts func(opts *host.Options),
+) *testService {
+	t.Helper()
 	dir := t.TempDir()
 	stateDir := filepath.Join(dir, "state")
 	credentialRoot := filepath.Join(dir, "credentials")
@@ -242,7 +254,7 @@ authorization {
   model_id: "01JK1234567890ABCDEFGHJKMM"
   preshared_key_file: %q
 }
-`, stateDir, writeRegistry(t, dir), credentialRoot, busPort, busPort, iss.URL(), caPath, keyPath)
+`, stateDir, writeRegistry(t, dir), credentialRoot, busPort, busPort, iss.URL(), caPath, keyPath) + extraConfig
 
 	cfg, err := host.LoadConfig(writeConfig(t, body))
 	if err != nil {
@@ -1784,6 +1796,35 @@ func TestCreateEdgeSucceedsAndLogsWhenEngineWriteFails(t *testing.T) {
 	}
 	if matches != 1 {
 		t.Fatalf("found %d log records with msg %q and error.type %q, want one; got log:\n%s", matches, "failed to project object relationship", "authz/engine-unreachable", output)
+	}
+}
+
+func TestConfiguredIngestBoundsReachTheHub(t *testing.T) {
+	hub := startTestServiceWithConfig(t, `
+ingest_streams {
+  max_age { seconds: 172800 }
+  max_bytes_per_type: 300000000
+  central_budget_bytes: 1073741824
+}
+`, nil).Hub
+	stream, err := hub.JetStream().Stream(context.Background(), edgebus.IngestStream(edgebus.IngestRecordTypeSyslog))
+	if err != nil {
+		t.Fatalf("load central ingest stream: %v", err)
+	}
+	config := stream.CachedInfo().Config
+	if config.MaxAge != 48*time.Hour || config.MaxBytes != 300000000 {
+		t.Fatalf("ingest stream limits = %v and %d bytes, want 48h and 300000000", config.MaxAge, config.MaxBytes)
+	}
+}
+
+func TestUnsetIngestBoundsTakeTheHubDefaults(t *testing.T) {
+	hub := startTestService(t, nil).Hub
+	stream, err := hub.JetStream().Stream(context.Background(), edgebus.IngestStream(edgebus.IngestRecordTypeSyslog))
+	if err != nil {
+		t.Fatalf("load central ingest stream: %v", err)
+	}
+	if got := stream.CachedInfo().Config.MaxAge; got != 72*time.Hour {
+		t.Fatalf("ingest stream MaxAge = %v, want 72h", got)
 	}
 }
 

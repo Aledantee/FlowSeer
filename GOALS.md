@@ -95,6 +95,9 @@ waiting to land stays ahead of both, since it gates the branch it sits on.
   changed (`snTrapRunningConfigChanged` in
   `spec/mib/ruckus/icx/FOUNDRY-SN-NOTIFICATION-MIB`), so the read still does
   the comparison. No record decides its shape yet.
+- Observation history lands in ClickHouse in five table patterns, read per
+  tenant set with bounded cost, and kept by a per-tenant retention class.
+  [`history-store-direction`](docs/architecture/2026-10-08-history-store-direction.md), proposed.
 - The operator and admin API surfaces are authenticated with OIDC tokens and
   authorized through a Zanzibar-style relationship engine, for more than one
   tenant.
