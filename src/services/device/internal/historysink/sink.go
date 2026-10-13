@@ -32,7 +32,7 @@ const (
 	consumerName    = "history_sink"
 	maxAckPending   = 10000
 	ackWait         = 2 * time.Minute
-	insertTimeout   = time.Minute
+	insertTimeout   = 30 * time.Second
 	logInterval     = 10 * time.Second
 	discardInterval = 10 * time.Second
 

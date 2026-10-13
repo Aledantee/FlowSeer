@@ -205,10 +205,10 @@ Tests: `interceptor_internal_test.go` covers a two-tenant header admitted, one d
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- spec/proto/flowseer/authz spec/proto/flowseer/api/history src/common/tenant src/services/device/internal/authz src/services/device/internal/historyquery src/services/device/internal/historyapi src/services/device/internal/host test/conformance/proto`
 
 ### U6. End-to-end tier
-Files: src/services/device/test/integration/history_test.go, src/services/device/test/integration/README.md
+Files: src/services/device/test/integration/history_test.go, src/services/device/test/integration/fixture_test.go, src/services/device/test/integration/README.md, src/services/device/internal/history/historytest/, src/services/device/internal/historysink/sink.go
 After: U4, U5
 Change: one test under the `history_integration` tag starts NATS, the device host with `history` configured, the migrate mode, an agent, and ClickHouse, sends `<34>1 2026-10-02T10:00:00Z sw1 app - - - link down` to the agent from a registry device's address, and reads it back through `ListSyslogRecords`. The README states the run command.
-Tests: the test covers Requirements 1, 2, and 8. It pauses the ClickHouse container for 60 s (`docker pause`, so the mapped port stays) and fails, not skips, when the image is missing (`docs/solutions/README.md`, line 87).
+Tests: the test covers Requirements 1, 2, and 8. It pauses the ClickHouse container for 60 s (`docker pause`, so the mapped port stays) and fails, not skips, when the image is missing (`docs/solutions/README.md`, line 87). Requirement 8 creates the two tenant records through the tenant store, since the platform-admin `CreateTenant` path needs an identity setup this tier does not carry, and `identityapi` tests cover `CreateTenant` setting the class. The sink's insert timeout is 30 s, shorter than the pause, so the test sees the timeout and retry path and not only a delayed insert.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/services/device/test/integration`
 
 Waves: U1 U2 U3 | U4 | U5 | U6

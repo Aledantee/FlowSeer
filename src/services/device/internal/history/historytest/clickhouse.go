@@ -9,6 +9,7 @@ import (
 	_ "embed"
 	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -49,6 +50,8 @@ type Server struct {
 	Admin clickhouse.Conn
 	// Dir holds the password files.
 	Dir string
+
+	containerID string
 }
 
 // Start runs the pinned image and waits until the admin user can query. With
@@ -111,7 +114,7 @@ func Start(t *testing.T, cluster bool) *Server {
 	}
 	endpoint := net.JoinHostPort(host, port.Port())
 
-	s := &Server{Dir: t.TempDir()}
+	s := &Server{Dir: t.TempDir(), containerID: ctr.GetContainerID()}
 	s.Cfg = history.Config{
 		Endpoints: []string{endpoint},
 		Database:  "flowseer",
@@ -149,6 +152,29 @@ func Start(t *testing.T, cluster bool) *Server {
 		time.Sleep(500 * time.Millisecond)
 	}
 	return s
+}
+
+// Pause freezes the container's processes with docker pause. The mapped port
+// stays open, so a client connects and then waits for an answer that does not
+// come, the way it does when a server hangs. The container is unpaused when
+// the test ends if the test did not do it.
+func (s *Server) Pause(t *testing.T) {
+	t.Helper()
+	s.docker(t, "pause")
+	t.Cleanup(func() { _ = exec.Command("docker", "unpause", s.containerID).Run() })
+}
+
+// Unpause resumes a container [Server.Pause] froze.
+func (s *Server) Unpause(t *testing.T) {
+	t.Helper()
+	s.docker(t, "unpause")
+}
+
+func (s *Server) docker(t *testing.T, verb string) {
+	t.Helper()
+	if out, err := exec.Command("docker", verb, s.containerID).CombinedOutput(); err != nil {
+		t.Fatalf("docker %s %s: %v: %s", verb, s.containerID, err, out)
+	}
 }
 
 // User writes a password file for name under Dir and returns the user that
