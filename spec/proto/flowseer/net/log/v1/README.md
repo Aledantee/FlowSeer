@@ -7,7 +7,7 @@ facility registries as pass-through enums matching RFC 5424 §6.2.1.
 
 Imports: nothing FlowSeer-owned
 
-Imported by: event/log
+Imported by: api/history, event/log
 
 Deliberately absent:
 

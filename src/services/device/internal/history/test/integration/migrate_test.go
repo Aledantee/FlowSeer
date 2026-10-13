@@ -8,14 +8,15 @@ import (
 	"testing"
 
 	"go.aledante.io/FlowSeer/src/services/device/internal/history"
+	"go.aledante.io/FlowSeer/src/services/device/internal/history/historytest"
 )
 
 // showCreate returns SHOW CREATE output for every table and view of a
 // database, in name order.
-func (s *server) showCreate(t *testing.T, database string) map[string]string {
+func showCreate(t *testing.T, s *historytest.Server, database string) map[string]string {
 	t.Helper()
 	ctx := context.Background()
-	rows, err := s.admin.Query(ctx, "SELECT name FROM system.tables WHERE database = ? ORDER BY name", database)
+	rows, err := s.Admin.Query(ctx, "SELECT name FROM system.tables WHERE database = ? ORDER BY name", database)
 	if err != nil {
 		t.Fatalf("list tables of %s: %v", database, err)
 	}
@@ -34,14 +35,14 @@ func (s *server) showCreate(t *testing.T, database string) map[string]string {
 
 	out := make(map[string]string, len(names))
 	for _, name := range names {
-		out[name] = s.scalar(t, "SHOW CREATE TABLE `"+database+"`.`"+name+"`")
+		out[name] = s.Scalar(t, "SHOW CREATE TABLE `"+database+"`.`"+name+"`")
 	}
 	return out
 }
 
 func TestMigrateBringsAnEmptyServerToTheCurrentSchemaAndASecondRunChangesNothing(t *testing.T) {
-	s := startClickHouse(t, false)
-	store := s.open(t)
+	s := historytest.Start(t, false)
+	store := s.Open(t)
 	ctx := context.Background()
 
 	first, err := history.Migrate(ctx, store)
@@ -51,8 +52,8 @@ func TestMigrateBringsAnEmptyServerToTheCurrentSchemaAndASecondRunChangesNothing
 	if len(first) != 7 {
 		t.Fatalf("first run applied %d steps (%v), want 7", len(first), first)
 	}
-	before := s.showCreate(t, "flowseer")
-	beforeControl := s.showCreate(t, "flowseer_control")
+	before := showCreate(t, s, "flowseer")
+	beforeControl := showCreate(t, s, "flowseer_control")
 	wantTables := []string{"device_dim", "syslog", "syslog_by_location", "syslog_by_location_mv", "syslog_daily", "syslog_daily_mv"}
 	for _, name := range wantTables {
 		if _, ok := before[name]; !ok {
@@ -69,41 +70,41 @@ func TestMigrateBringsAnEmptyServerToTheCurrentSchemaAndASecondRunChangesNothing
 	}
 
 	for name, ddl := range before {
-		if got := s.showCreate(t, "flowseer")[name]; got != ddl {
+		if got := showCreate(t, s, "flowseer")[name]; got != ddl {
 			t.Errorf("SHOW CREATE %s changed on the second run:\n got %s\nwant %s", name, got, ddl)
 		}
 	}
 	for name, ddl := range beforeControl {
-		if got := s.showCreate(t, "flowseer_control")[name]; got != ddl {
+		if got := showCreate(t, s, "flowseer_control")[name]; got != ddl {
 			t.Errorf("SHOW CREATE %s changed on the second run:\n got %s\nwant %s", name, got, ddl)
 		}
 	}
-	if got := s.scalar(t, "SELECT toString(count()) FROM flowseer_control.schema_steps"); got != "7" {
+	if got := s.Scalar(t, "SELECT toString(count()) FROM flowseer_control.schema_steps"); got != "7" {
 		t.Errorf("schema_steps rows after two runs = %s, want 7", got)
 	}
-	if got := s.scalar(t, "SELECT toString(count(DISTINCT step)) FROM flowseer_control.schema_steps"); got != "7" {
+	if got := s.Scalar(t, "SELECT toString(count(DISTINCT step)) FROM flowseer_control.schema_steps"); got != "7" {
 		t.Errorf("distinct steps recorded = %s, want 7", got)
 	}
 }
 
 func TestMigrateOnAClusterNodeCreatesReplicatedObjects(t *testing.T) {
-	s := startClickHouse(t, true)
-	store := s.open(t)
+	s := historytest.Start(t, true)
+	store := s.Open(t)
 
 	if _, err := history.Migrate(context.Background(), store); err != nil {
 		t.Fatalf("cluster migrate: %v", err)
 	}
 
-	if got := s.scalar(t, "SELECT engine FROM system.databases WHERE name = 'flowseer'"); got != "Replicated" {
+	if got := s.Scalar(t, "SELECT engine FROM system.databases WHERE name = 'flowseer'"); got != "Replicated" {
 		t.Errorf("database engine = %q, want Replicated", got)
 	}
 	for _, table := range []string{"syslog", "syslog_by_location", "syslog_daily", "device_dim"} {
-		got := s.scalar(t, "SELECT engine FROM system.tables WHERE database = 'flowseer' AND name = '"+table+"'")
+		got := s.Scalar(t, "SELECT engine FROM system.tables WHERE database = 'flowseer' AND name = '"+table+"'")
 		if !strings.HasPrefix(got, "Replicated") {
 			t.Errorf("engine of %s = %q, want a Replicated engine", table, got)
 		}
 	}
-	if got := s.scalar(t, "SELECT toString(count()) FROM system.workloads WHERE name IN ('ingestion', 'monitoring', 'analytics')"); got != "3" {
+	if got := s.Scalar(t, "SELECT toString(count()) FROM system.workloads WHERE name IN ('ingestion', 'monitoring', 'analytics')"); got != "3" {
 		t.Errorf("workloads on the cluster node = %s, want 3", got)
 	}
 

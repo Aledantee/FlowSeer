@@ -13,13 +13,14 @@ import (
 	"github.com/google/uuid"
 
 	"go.aledante.io/FlowSeer/src/services/device/internal/history"
+	"go.aledante.io/FlowSeer/src/services/device/internal/history/historytest"
 )
 
 // migrated starts a single-node server and brings it to the current schema.
-func migrated(t *testing.T) (*server, *history.Store) {
+func migrated(t *testing.T) (*historytest.Server, *history.Store) {
 	t.Helper()
-	s := startClickHouse(t, false)
-	store := s.open(t)
+	s := historytest.Start(t, false)
+	store := s.Open(t)
 	if _, err := history.Migrate(context.Background(), store); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
@@ -29,7 +30,7 @@ func migrated(t *testing.T) (*server, *history.Store) {
 // seedSyslog inserts perDevice rows for each of tenants t<first>..t<first+tenants-1>
 // and devices d0..d<devices-1>, as the admin user so the volume costs one
 // statement.
-func (s *server) seedSyslog(t *testing.T, first, tenants, devices, perDevice int) {
+func seedSyslog(t *testing.T, s *historytest.Server, first, tenants, devices, perDevice int) {
 	t.Helper()
 	query := `INSERT INTO flowseer.syslog (tenant_id, device_id, ts, record_id, severity, present, message, location_id, retention_class)
 SELECT
@@ -45,12 +46,12 @@ SELECT
 FROM (SELECT number AS n FROM numbers(?)) AS rows
 CROSS JOIN (SELECT number + ? AS tenant FROM numbers(?)) AS tenants
 CROSS JOIN (SELECT number AS device FROM numbers(?)) AS devices`
-	if err := s.admin.Exec(context.Background(), query, uint64(perDevice), uint64(first), uint64(tenants), uint64(devices)); err != nil {
+	if err := s.Admin.Exec(context.Background(), query, uint64(perDevice), uint64(first), uint64(tenants), uint64(devices)); err != nil {
 		t.Fatalf("seed syslog: %v", err)
 	}
 	// One part per partition, so the plan counts key ranges of the data and
 	// not of the insert blocks that have not merged yet.
-	if err := s.admin.Exec(context.Background(), "OPTIMIZE TABLE flowseer.syslog FINAL"); err != nil {
+	if err := s.Admin.Exec(context.Background(), "OPTIMIZE TABLE flowseer.syslog FINAL"); err != nil {
 		t.Fatalf("optimize syslog: %v", err)
 	}
 }
@@ -58,7 +59,7 @@ CROSS JOIN (SELECT number AS device FROM numbers(?)) AS devices`
 func TestEveryTableTheAnalystReadsHasARowPolicyInTheSubqueryForm(t *testing.T) {
 	s, _ := migrated(t)
 
-	rows, err := s.admin.Query(context.Background(), `
+	rows, err := s.Admin.Query(context.Background(), `
 SELECT name FROM system.tables WHERE database = 'flowseer' AND engine != 'MaterializedView' ORDER BY name`)
 	if err != nil {
 		t.Fatalf("list tables: %v", err)
@@ -77,7 +78,7 @@ SELECT name FROM system.tables WHERE database = 'flowseer' AND engine != 'Materi
 	}
 
 	for _, table := range tables {
-		got := s.scalar(t, `SELECT toString(count()) FROM system.row_policies
+		got := s.Scalar(t, `SELECT toString(count()) FROM system.row_policies
 WHERE database = 'flowseer' AND table = '`+table+`'
   AND has(apply_to_list, 'flowseer_analyst')
   AND select_filter LIKE '%tenant_id IN (SELECT tenant_id FROM flowseer_control.user_tenants WHERE%'
@@ -95,9 +96,9 @@ var (
 
 // deviceScopeIndex returns how many granules the primary key keeps for one
 // device's day of rows, and how many key ranges that read scans.
-func (s *server) deviceScopeIndex(t *testing.T, tenant, device string) (granules, ranges int) {
+func deviceScopeIndex(t *testing.T, s *historytest.Server, tenant, device string) (granules, ranges int) {
 	t.Helper()
-	plan := s.scalar(t, `SELECT arrayStringConcat(groupArray(explain), '\n') FROM (EXPLAIN indexes = 1
+	plan := s.Scalar(t, `SELECT arrayStringConcat(groupArray(explain), '\n') FROM (EXPLAIN indexes = 1
 SELECT record_id FROM flowseer.syslog
 WHERE tenant_id IN ('`+tenant+`') AND device_id = toUUID('`+device+`')
   AND ts >= toDateTime64('2026-10-01 00:00:00', 3, 'UTC') AND ts < toDateTime64('2026-10-02 00:00:00', 3, 'UTC')
@@ -119,17 +120,17 @@ func TestADeviceScopeReadSelectsOneKeyRangeThatOtherTenantsDataDoesNotGrow(t *te
 	// 2000 rows of one device span at most two granules of 8192 rows.
 	const maxGranules = 2
 
-	s.seedSyslog(t, 0, 20, 10, 2000)
-	granules, ranges := s.deviceScopeIndex(t, "t3", device)
+	seedSyslog(t, s, 0, 20, 10, 2000)
+	granules, ranges := deviceScopeIndex(t, s, "t3", device)
 	if ranges != 1 || granules > maxGranules {
 		t.Errorf("with 400,000 rows: granules %d, key ranges %d; want at most %d and 1", granules, ranges, maxGranules)
 	}
 
-	if err := s.admin.Exec(context.Background(), "TRUNCATE TABLE flowseer.syslog"); err != nil {
+	if err := s.Admin.Exec(context.Background(), "TRUNCATE TABLE flowseer.syslog"); err != nil {
 		t.Fatalf("truncate: %v", err)
 	}
-	s.seedSyslog(t, 0, 80, 10, 2000)
-	granules, ranges = s.deviceScopeIndex(t, "t3", device)
+	seedSyslog(t, s, 0, 80, 10, 2000)
+	granules, ranges = deviceScopeIndex(t, s, "t3", device)
 	if ranges != 1 || granules > maxGranules {
 		t.Errorf("with 1,600,000 rows of other tenants: granules %d, key ranges %d; want at most %d and 1", granules, ranges, maxGranules)
 	}
@@ -174,16 +175,16 @@ func TestAnInsertAsTheWriterFeedsTheLocationTableAndTheDailyCounts(t *testing.T)
 		syslogRow{tenant: "a1", device: device, location: location, ts: day.Add(2 * time.Minute), severity: 0, present: 0, message: "plain text"},
 	)
 
-	if got := s.scalar(t, "SELECT toString(count()) FROM flowseer.syslog_by_location WHERE tenant_id = 'a1' AND location_id = '"+location.String()+"' AND vendor_tag = 'LINK-3-UPDOWN'"); got != "2" {
+	if got := s.Scalar(t, "SELECT toString(count()) FROM flowseer.syslog_by_location WHERE tenant_id = 'a1' AND location_id = '"+location.String()+"' AND vendor_tag = 'LINK-3-UPDOWN'"); got != "2" {
 		t.Errorf("tagged rows by location = %s, want 2", got)
 	}
-	if got := s.scalar(t, "SELECT toString(sum(messages)) FROM flowseer.syslog_daily WHERE tenant_id = 'a1' AND severity = 3 AND vendor_tag = 'LINK-3-UPDOWN' AND day = '2026-10-02'"); got != "2" {
+	if got := s.Scalar(t, "SELECT toString(sum(messages)) FROM flowseer.syslog_daily WHERE tenant_id = 'a1' AND severity = 3 AND vendor_tag = 'LINK-3-UPDOWN' AND day = '2026-10-02'"); got != "2" {
 		t.Errorf("daily count of severity 3 = %s, want 2", got)
 	}
-	if got := s.scalar(t, "SELECT toString(sum(messages)) FROM flowseer.syslog_daily WHERE tenant_id = 'a1' AND severity = 255 AND day = '2026-10-02'"); got != "1" {
+	if got := s.Scalar(t, "SELECT toString(sum(messages)) FROM flowseer.syslog_daily WHERE tenant_id = 'a1' AND severity = 255 AND day = '2026-10-02'"); got != "1" {
 		t.Errorf("daily count of the message without a priority = %s, want 1 under severity 255", got)
 	}
-	if got := s.scalar(t, "SELECT toString(any(location_id)) FROM flowseer.syslog_daily WHERE tenant_id = 'a1'"); got != location.String() {
+	if got := s.Scalar(t, "SELECT toString(any(location_id)) FROM flowseer.syslog_daily WHERE tenant_id = 'a1'"); got != location.String() {
 		t.Errorf("daily location_id = %s, want %s", got, location)
 	}
 }
@@ -226,8 +227,8 @@ func TestTheServiceReaderProfileLimitsCannotBeRaised(t *testing.T) {
 func TestTheAnalystReadsOnlyTheTenantsMappedToIt(t *testing.T) {
 	s, _ := migrated(t)
 	ctx := context.Background()
-	s.seedSyslog(t, 0, 3, 2, 10)
-	analyst := s.connectAsAnalyst(t, "analyst-secret")
+	seedSyslog(t, s, 0, 3, 2, 10)
+	analyst := s.ConnectAsAnalyst(t, "analyst-secret")
 
 	tenants := func() []string {
 		rows, err := analyst.Query(ctx, "SELECT DISTINCT tenant_id FROM flowseer.syslog ORDER BY tenant_id")
@@ -250,7 +251,7 @@ func TestTheAnalystReadsOnlyTheTenantsMappedToIt(t *testing.T) {
 		t.Fatalf("analyst without a mapping reads tenants %v, want none", got)
 	}
 
-	if err := s.admin.Exec(ctx, "INSERT INTO flowseer_control.user_tenants (user, tenant_id) VALUES ('flowseer_analyst', 't0'), ('flowseer_analyst', 't2'), ('someone_else', 't1')"); err != nil {
+	if err := s.Admin.Exec(ctx, "INSERT INTO flowseer_control.user_tenants (user, tenant_id) VALUES ('flowseer_analyst', 't0'), ('flowseer_analyst', 't2'), ('someone_else', 't1')"); err != nil {
 		t.Fatalf("map tenants: %v", err)
 	}
 	got := tenants()
@@ -268,25 +269,25 @@ func TestTheAnalystReadsOnlyTheTenantsMappedToIt(t *testing.T) {
 }
 
 func TestMigrateAppliesARotatedPasswordFile(t *testing.T) {
-	s := startClickHouse(t, false)
-	store := s.open(t)
+	s := historytest.Start(t, false)
+	store := s.Open(t)
 	ctx := context.Background()
 	if _, err := history.Migrate(ctx, store); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
-	if err := s.connectAsAnalyst(t, "analyst-secret").Ping(ctx); err != nil {
+	if err := s.ConnectAsAnalyst(t, "analyst-secret").Ping(ctx); err != nil {
 		t.Fatalf("analyst with the first password: %v", err)
 	}
 
-	s.user(t, "flowseer_analyst", "rotated-secret")
+	s.User(t, "flowseer_analyst", "rotated-secret")
 	if _, err := history.Migrate(ctx, store); err != nil {
 		t.Fatalf("migrate after rotation: %v", err)
 	}
 
-	if err := s.connectAsAnalyst(t, "analyst-secret").Ping(ctx); err == nil {
+	if err := s.ConnectAsAnalyst(t, "analyst-secret").Ping(ctx); err == nil {
 		t.Error("the old analyst password still works after the rotation")
 	}
-	if err := s.connectAsAnalyst(t, "rotated-secret").Ping(ctx); err != nil {
+	if err := s.ConnectAsAnalyst(t, "rotated-secret").Ping(ctx); err != nil {
 		t.Errorf("the rotated analyst password: %v", err)
 	}
 }
@@ -305,13 +306,13 @@ func TestMirrorDevicesKeepsTheNewestRowOfADevice(t *testing.T) {
 		t.Fatalf("second mirror: %v", err)
 	}
 
-	if got := s.scalar(t, "SELECT name FROM flowseer.device_dim FINAL WHERE tenant_id = '"+tenantID+"' AND device_id = '"+device+"'"); got != "sw1-renamed" {
+	if got := s.Scalar(t, "SELECT name FROM flowseer.device_dim FINAL WHERE tenant_id = '"+tenantID+"' AND device_id = '"+device+"'"); got != "sw1-renamed" {
 		t.Errorf("name after the second mirror = %q, want sw1-renamed", got)
 	}
-	if got := s.scalar(t, "SELECT toString(location_id) FROM flowseer.device_dim FINAL WHERE tenant_id = '"+tenantID+"' AND device_id = '"+device+"'"); got != location {
+	if got := s.Scalar(t, "SELECT toString(location_id) FROM flowseer.device_dim FINAL WHERE tenant_id = '"+tenantID+"' AND device_id = '"+device+"'"); got != location {
 		t.Errorf("location after the second mirror = %q, want %q", got, location)
 	}
-	if got := s.scalar(t, "SELECT toString(count()) FROM flowseer.device_dim FINAL WHERE tenant_id = '"+tenantID+"'"); got != "2" {
+	if got := s.Scalar(t, "SELECT toString(count()) FROM flowseer.device_dim FINAL WHERE tenant_id = '"+tenantID+"'"); got != "2" {
 		t.Errorf("devices mirrored = %s, want 2", got)
 	}
 }

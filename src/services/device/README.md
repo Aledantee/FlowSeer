@@ -132,6 +132,9 @@ tenant identifier in the `X-FlowSeer-Tenant` header. Calls are checked against
 OpenFGA (`internal/authz`, `internal/authz/openfga`) per the service options.
 `TenantService` uses the platform rule and needs no tenant header. Both identity
 services use the operator interceptor chain (`internal/host/serve.go`).
+`HistoryService` is the one method that reads several tenants: the header may
+list up to 25, comma-separated, and the caller needs `viewer` on each. Every
+other method refuses a list and a header sent on more than one line.
 
 Bootstrap starts with configured platform subjects. For an issuer `I` and
 subject `P`, configure `platform_admin.subjects: "P"` and the platform
@@ -324,6 +327,8 @@ authorized open. Edge enforcement and the intake path are described in the
 | `internal/intake` | validation and republishing of edge ingestion records into central streams |
 | `internal/history` | the ClickHouse pools, the schema migrator, and the device dimension mirror |
 | `internal/historysink` | the consumer that inserts central syslog records into ClickHouse |
+| `internal/historyquery` | the history read statements, scoped by the admitted tenant set |
+| `internal/historyapi` | `HistoryService`: the operator's read of stored syslog history |
 | `internal/credential` | the mounted credential files |
 | `internal/edge` | the assertion verifier |
 | `internal/edgeapi` | `EdgeService`, `EdgeAdminService`, and the assertion middleware |

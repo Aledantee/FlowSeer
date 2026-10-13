@@ -16,11 +16,11 @@ calls on its own behalf. An operator never calls it.
 
 ## Boundaries
 
-Imports: authz, model/access, model/capture, model/edge, model/identity, model/inventory, model/rawwindow, net/capture, net/key
+Imports: authz, event/log, model/access, model/capture, model/edge, model/identity, model/inventory, model/rawwindow, net/capture, net/key, net/log
 
 Imported by: nothing
 
-Packages under `api/` may import `model/` entities and handles, `net/`
+Packages under `api/` may import `model/` entities and handles, `event/` records a read hands back, `net/`
 primitives, `authz`, and `errs/`. They are sinks: every package here declares a service,
 so no schema in the tree may import one. Every RPC declares an authorization rule.
 
@@ -29,5 +29,6 @@ so no schema in the tree may import one. Every RPC declares an authorization rul
 - `capture/v1/`: Operator-facing `CaptureService` to create, control, and read back a capture.
 - `device/v1/`: Operator-facing `DeviceService` for immediate device observation and mutation.
 - `edge/v1/`: Operator-facing `EdgeAdminService` to create, provision, and retire edges.
+- `history/v1/`: Operator-facing `HistoryService` to read stored observation history across one or several tenants.
 - `identity/v1/`: Operator-facing `TenantService` and `TenantAdminService` for tenant and tenant-access administration.
 - `ingest/v1/`: Operator-facing `RawWindowService` to open, read, and close a raw window.

@@ -36,6 +36,8 @@ import (
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/device/v1/devicev1connect"
 	apiedgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1/edgev1connect"
+	historyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/history/v1"
+	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/history/v1/historyv1connect"
 	identityv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/identity/v1"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/identity/v1/identityv1connect"
 	attachv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1"
@@ -1997,6 +1999,48 @@ func TestWithClickHouseUnreachableTheSinkWaitsAndTheOtherModulesStayUp(t *testin
 	client := devicev1connect.NewDeviceServiceClient(serviceClient(), svc.Base)
 	if _, err := callWhenServing(t, client, unlistedDeviceStatusRequest()); connect.CodeOf(err) != connect.CodePermissionDenied {
 		t.Errorf("with the sink waiting, the api answered %v, want the authorization refusal it gives an unlisted device", err)
+	}
+}
+
+func historyReadRequest() *connect.Request[historyv1.ListSyslogRecordsRequest] {
+	from := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
+	device := inventoryv1.DeviceGlobalRef_builder{Device: inventoryv1.DeviceLocalRef_builder{Id: proto.String(testDeviceID)}.Build()}.Build()
+	return connect.NewRequest(historyv1.ListSyslogRecordsRequest_builder{
+		Device: device,
+		From:   timestamppb.New(from),
+		To:     timestamppb.New(from.Add(24 * time.Hour)),
+	}.Build())
+}
+
+func TestTheHistoryReadIsMountedBehindTheOperatorChainWhenHistoryIsConfigured(t *testing.T) {
+	svc := startTestServiceWithConfig(t, historyConfigText(t, "127.0.0.1:1"), nil)
+	if _, err := callWhenServing(t, devicev1connect.NewDeviceServiceClient(serviceClient(), svc.Base), unlistedDeviceStatusRequest()); connect.CodeOf(err) != connect.CodePermissionDenied {
+		t.Fatalf("the service is not answering: %v", err)
+	}
+	client := historyv1connect.NewHistoryServiceClient(serviceClient(), svc.Base)
+
+	_, denied := client.ListSyslogRecords(context.Background(), historyReadRequest())
+	if connect.CodeOf(denied) != connect.CodePermissionDenied {
+		t.Errorf("without the viewer relation the call gave %v (err %v), want PermissionDenied from the operator chain", connect.CodeOf(denied), denied)
+	}
+
+	svc.Engine.Grant("user:"+svc.PrincipalID, "viewer", "tenant")
+	_, err := client.ListSyslogRecords(context.Background(), historyReadRequest())
+	if connect.CodeOf(err) != connect.CodeUnavailable {
+		t.Errorf("with the viewer relation and ClickHouse unreachable the call gave %v (err %v), want Unavailable from the read", connect.CodeOf(err), err)
+	}
+}
+
+func TestWithoutAHistorySectionTheHistoryServiceIsNotMounted(t *testing.T) {
+	svc := startTestService(t, nil)
+	if _, err := callWhenServing(t, devicev1connect.NewDeviceServiceClient(serviceClient(), svc.Base), unlistedDeviceStatusRequest()); connect.CodeOf(err) != connect.CodePermissionDenied {
+		t.Fatalf("the service is not answering: %v", err)
+	}
+
+	_, err := historyv1connect.NewHistoryServiceClient(serviceClient(), svc.Base).ListSyslogRecords(context.Background(), historyReadRequest())
+
+	if connect.CodeOf(err) != connect.CodeUnimplemented {
+		t.Errorf("the call gave %v (err %v), want Unimplemented for a service that is not mounted", connect.CodeOf(err), err)
 	}
 }
 

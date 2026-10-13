@@ -131,6 +131,18 @@ func Run(ctx context.Context, cfg *Config, version string, opts Options) error {
 		hub:         newHubHandle(),
 	}
 
+	// One store serves the sink and the read call. Its pools connect when
+	// first used, so opening it never depends on ClickHouse being up, and it
+	// outlives a module restart because the pools hold no per-attempt state.
+	if section := cfg.History(); section != nil {
+		store, err := history.Open(historyConfig(section))
+		if err != nil {
+			return err
+		}
+		defer func() { _ = store.Close() }()
+		h.history = store
+	}
+
 	var (
 		engine authz.Engine
 		closer io.Closer
@@ -273,6 +285,8 @@ type assembly struct {
 	hub         *hubHandle
 	engine      authz.Engine
 	authnClient *http.Client
+	// history is nil when the configuration has no history section.
+	history *history.Store
 }
 
 func (h *assembly) telemetryConfig() service.TelemetryConfig {
@@ -762,13 +776,12 @@ func (h *assembly) setupHistorySink(ctx context.Context) (service.Attempt, error
 	if err != nil {
 		return service.Attempt{}, err
 	}
-	store, err := history.Open(historyConfig(h.cfg.History()))
-	if err != nil {
-		return service.Attempt{}, err
+	if h.history == nil {
+		return service.Attempt{}, errs.New().Code(ErrCodeStart).Msg("the history sink is enabled but the configuration has no history section")
 	}
 	sink, err := historysink.Start(ctx, historysink.Config{
 		JetStream: resources.hub.JetStream(),
-		Inserter:  historysink.NewInserter(store.Writer(), h.cfg.History().GetDatabase()),
+		Inserter:  historysink.NewInserter(h.history.Writer(), h.cfg.History().GetDatabase()),
 		Retention: func(ctx context.Context, tenantID string) (identityv1.RetentionClass, error) {
 			record, err := resources.tenants.Get(ctx, tenantID)
 			if err != nil {
@@ -777,24 +790,15 @@ func (h *assembly) setupHistorySink(ctx context.Context) (service.Attempt, error
 			return record.GetConfig().GetRetentionClass(), nil
 		},
 		Location:      h.deviceLocation,
-		Mirror:        func(ctx context.Context) error { return h.mirrorDevices(ctx, resources, store) },
+		Mirror:        func(ctx context.Context) error { return h.mirrorDevices(ctx, resources, h.history) },
 		Logger:        service.Logger(ctx),
 		MeterProvider: service.MeterProvider(ctx),
 	})
 	if err != nil {
-		_ = store.Close()
-		return service.Attempt{}, err
-	}
-	// See setupHub: the Runner is not guaranteed to run.
-	if err := ctx.Err(); err != nil {
-		_ = store.Close()
 		return service.Attempt{}, err
 	}
 
-	return service.Attempt{Runner: func(ctx context.Context) error {
-		defer func() { _ = store.Close() }()
-		return sink.Run(ctx)
-	}}, nil
+	return service.Attempt{Runner: sink.Run}, nil
 }
 
 // deviceLocation is the UUID of the location the registry places a device in,

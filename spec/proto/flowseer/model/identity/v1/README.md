@@ -9,7 +9,7 @@ hierarchy as a leaf package that imports no other FlowSeer-owned package.
 
 Imports: nothing FlowSeer-owned
 
-Imported by: api/identity, event/operator, model/access, model/capture, model/rawwindow
+Imported by: api/history, api/identity, event/operator, model/access, model/capture, model/rawwindow
 
 Deliberately absent:
 
