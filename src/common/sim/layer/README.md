@@ -37,10 +37,12 @@ filtering database entries, or update port state.
 ## Layer architecture contract
 
 Every package under `src/common/sim/layer/` implements a uniform contract.
-Layer engines remain public so hosts and reflectors can use routing without
-importing the switch ([host.go](../device/host/host.go),
-[reflector.go](../device/reflector/reflector.go)). A device call returns an
-`Output` with its forwarding result, emissions, copies, and held-frame drops.
+Layer engines remain public so devices can compose them without importing
+the switch. Hosts use routing for their optional IP stack and traffic for
+egress admission ([host.go](../device/host/host.go)). Reflectors use traffic
+for egress admission ([reflector.go](../device/reflector/reflector.go)).
+A device call returns an `Output` with its forwarding result, emissions,
+copies, and held-frame drops.
 A nonzero `HoldToken` identifies a frame queued within that device. `Fork`
 copies runtime state independently at the same instant
 ([device.go](../device/device.go)). A layer returns capability effects or
