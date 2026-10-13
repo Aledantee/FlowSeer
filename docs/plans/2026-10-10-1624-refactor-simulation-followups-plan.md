@@ -261,7 +261,8 @@ G003 coupled to C168 so a per-frame mechanism includes memory measurements.
 ## Verification
 
 Compare each preserved row with
-[the close-out inventory](2026-10-01-2200-refactor-sim-package-overhaul-phase12-plan.md)
+the close-out inventory as it stood before its plan was retired
+(`git show c9a9900d:docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase12-plan.md`)
 and every deferred subitem in retirement commit `ef213026`. Check repeated
 references and each standards qualification separately. Runtime work needs
 failing-first and mutation-sensitive tests at its eventual public entry point.
