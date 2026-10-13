@@ -1,6 +1,7 @@
 package syslogsource
 
 import (
+	"slices"
 	"strconv"
 	"unicode/utf8"
 
@@ -11,6 +12,7 @@ import (
 	ingestv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/ingest/v1"
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
+	rawwindowv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/rawwindow/v1"
 	addrv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/addr/v1"
 	netlogv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/log/v1"
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/lanehost"
@@ -170,28 +172,46 @@ func MapRecord(
 }
 
 // BuildEnvelope packages a syslog record, provenance, and optional raw evidence
-// into an IngestRecord.
+// into an IngestRecord. A nil raw attaches none.
 func BuildEnvelope(
 	recordID string,
 	prov *inventoryv1.Provenance,
 	syslogRec *eventlogv1.SyslogRecord,
-	rawData []byte,
-	keepRaw bool,
-	suppressed uint64,
+	raw *ingestv1.RawEvidence,
 ) *ingestv1.IngestRecord {
-	envBuilder := ingestv1.IngestRecord_builder{
+	return ingestv1.IngestRecord_builder{
 		RecordId:   proto.String(recordID),
 		Provenance: prov,
 		Syslog:     syslogRec,
+		Raw:        raw,
+	}.Build()
+}
+
+// ParseFailureEvidence is the raw evidence kept for a record that failed
+// parsing. suppressed counts the failures the raw policy dropped since the
+// last kept one.
+func ParseFailureEvidence(data []byte, suppressed uint64) *ingestv1.RawEvidence {
+	return ingestv1.RawEvidence_builder{
+		Data:                data,
+		Reason:              ingestv1.RawReason_RAW_REASON_PARSE_FAILURE.Enum(),
+		SuppressedSinceLast: proto.Uint64(suppressed),
+	}.Build()
+}
+
+// WindowEvidence is the raw evidence kept for a record that one or more raw
+// windows paid for. It names the sorted distinct window ids and carries no
+// suppression count, since the parse-failure policy was not consulted.
+func WindowEvidence(data []byte, windowIDs []string) *ingestv1.RawEvidence {
+	ids := slices.Compact(slices.Sorted(slices.Values(windowIDs)))
+	refs := make([]*rawwindowv1.RawWindowLocalRef, len(ids))
+	for i, id := range ids {
+		refs[i] = rawwindowv1.RawWindowLocalRef_builder{Id: proto.String(id)}.Build()
 	}
-	if keepRaw {
-		envBuilder.Raw = ingestv1.RawEvidence_builder{
-			Data:                rawData,
-			Reason:              ingestv1.RawReason_RAW_REASON_PARSE_FAILURE.Enum(),
-			SuppressedSinceLast: proto.Uint64(suppressed),
-		}.Build()
-	}
-	return envBuilder.Build()
+	return ingestv1.RawEvidence_builder{
+		Data:    data,
+		Reason:  ingestv1.RawReason_RAW_REASON_WINDOW.Enum(),
+		Windows: refs,
+	}.Build()
 }
 
 // validText reports whether s fits a string field bounded to 1..limit

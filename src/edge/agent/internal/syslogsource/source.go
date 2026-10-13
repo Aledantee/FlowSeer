@@ -14,11 +14,18 @@ import (
 	"go.opentelemetry.io/otel/metric/noop"
 	"google.golang.org/protobuf/proto"
 
+	ingestv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/ingest/v1"
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/lanehost"
+	"go.aledante.io/FlowSeer/src/edge/agent/internal/rawwindow"
 	"go.aledante.io/FlowSeer/src/protocol/syslog"
 )
+
+// SourceKey is the ingestion source key of this adapter, the token its records
+// travel under (ingest.syslog). It covers every listener, and it is the key a
+// raw window names to collect from all of them.
+const SourceKey = "syslog"
 
 // Publisher writes records to an edge bus leaf. Satisfied by *edgebus.Leaf.
 type Publisher interface {
@@ -29,6 +36,8 @@ type Publisher interface {
 // Config configures a syslog Source.
 //
 // Policy defaults to 20 failures per device per minute, sampling 1 in 100 thereafter.
+// Windows is the process's raw window controller; nil means no window ever
+// retains a payload and only the parse-failure policy attaches raw evidence.
 // Meter defaults to an OpenTelemetry no-op meter.
 // InitialBackoff defaults to 25ms.
 // MaxBackoff defaults to 1s.
@@ -38,6 +47,7 @@ type Config struct {
 	Publisher      Publisher
 	EdgeRef        *edgev1.EdgeGlobalRef
 	Policy         *RawPolicy
+	Windows        *rawwindow.Controller
 	Meter          metric.Meter
 	InitialBackoff time.Duration
 	MaxBackoff     time.Duration
@@ -54,6 +64,7 @@ type Source struct {
 	publisher      Publisher
 	edgeRef        *edgev1.EdgeGlobalRef
 	policy         *RawPolicy
+	windows        *rawwindow.Controller
 	initialBackoff time.Duration
 	maxBackoff     time.Duration
 
@@ -61,6 +72,7 @@ type Source struct {
 	dropped       metric.Int64Counter
 	rawKept       metric.Int64Counter
 	rawSuppressed metric.Int64Counter
+	rawWindowed   metric.Int64Counter
 	retries       metric.Int64Counter
 }
 
@@ -118,7 +130,11 @@ func Listen(ctx context.Context, cfg Config) (*Source, error) {
 		metric.WithUnit("{attempt}"),
 		metric.WithDescription("syslog publish attempts retried after buffer refusal"),
 	)
-	if err := errors.Join(err1, err2, err3, err4, err5); err != nil {
+	rawWindowed, err6 := meter.Int64Counter("flowseer.edge.syslog.raw.windowed",
+		metric.WithUnit("{record}"),
+		metric.WithDescription("raw syslog payloads kept for a raw window and attached to ingest records"),
+	)
+	if err := errors.Join(err1, err2, err3, err4, err5, err6); err != nil {
 		_ = receiver.Close()
 		return nil, err
 	}
@@ -143,14 +159,30 @@ func Listen(ctx context.Context, cfg Config) (*Source, error) {
 		publisher:      cfg.Publisher,
 		edgeRef:        cfg.EdgeRef,
 		policy:         policy,
+		windows:        cfg.Windows,
 		initialBackoff: initialBackoff,
 		maxBackoff:     maxBackoff,
 		published:      published,
 		dropped:        dropped,
 		rawKept:        rawKept,
 		rawSuppressed:  rawSuppressed,
+		rawWindowed:    rawWindowed,
 		retries:        retries,
 	}, nil
+}
+
+// selectWindows charges the raw windows that match a resolved sender for the
+// record's original payload, once. Publishing retries reuse the result.
+func (s *Source) selectWindows(entry lanehost.DeviceEntry, payload []byte) []string {
+	if s.windows == nil {
+		return nil
+	}
+	return s.windows.Select(rawwindow.Observation{
+		Source:        SourceKey,
+		DeviceID:      entry.DeviceID,
+		IntegrationID: entry.Integration.GetIntegration().GetId(),
+		Bytes:         uint64(len(payload)),
+	})
 }
 
 // Receiver returns the underlying syslog.Receiver.
@@ -210,26 +242,30 @@ func (s *Source) Run(ctx context.Context) error {
 		}
 		recordID := id.String()
 
-		var (
-			keepRaw    bool
-			suppressed uint64
-			rawData    []byte
-		)
-		if isParseFailure {
-			var keep bool
-			keep, suppressed = s.policy.Evaluate(devEntry.DeviceID)
+		var rawData []byte
+		if rec.Raw != nil {
+			rawData = *rec.Raw
+		}
+
+		// A window that paid for the payload keeps it, and the parse-failure
+		// policy is not consulted: a window must not spend the per-device
+		// failure allowance, and a failure a window kept must not be counted
+		// as one the policy kept.
+		var evidence *ingestv1.RawEvidence
+		if windowIDs := s.selectWindows(devEntry, rawData); len(windowIDs) > 0 {
+			s.rawWindowed.Add(ctx, 1)
+			evidence = WindowEvidence(rawData, windowIDs)
+		} else if isParseFailure {
+			keep, suppressed := s.policy.Evaluate(devEntry.DeviceID)
 			if keep {
 				s.rawKept.Add(ctx, 1)
-				keepRaw = true
-				if rec.Raw != nil {
-					rawData = *rec.Raw
-				}
+				evidence = ParseFailureEvidence(rawData, suppressed)
 			} else {
 				s.rawSuppressed.Add(ctx, 1)
 			}
 		}
 
-		envelope := BuildEnvelope(recordID, prov, syslogRec, rawData, keepRaw, suppressed)
+		envelope := BuildEnvelope(recordID, prov, syslogRec, evidence)
 		if err := protovalidate.Validate(envelope); err != nil {
 			return errs.From(err).Msg("validate ingest record")
 		}

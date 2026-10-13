@@ -10,7 +10,7 @@ alone.
 
 Imports: nothing FlowSeer-owned
 
-Imported by: api/capture, api/device, api/edge, api/identity
+Imported by: api/capture, api/device, api/edge, api/identity, api/ingest
 
 Deliberately absent:
 

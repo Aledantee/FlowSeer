@@ -38,6 +38,7 @@ import (
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1/edgev1connect"
 	identityv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/identity/v1"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/identity/v1/identityv1connect"
+	ingestapiv1connect "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/ingest/v1/ingestv1connect"
 	attachv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1/attachv1connect"
 	auditv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/audit/v1"
@@ -46,6 +47,7 @@ import (
 	captureedgev1connect "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/capture/v1/capturev1connect"
 	dispatchv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1/dispatchv1connect"
+	ingestedgev1connect "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/ingest/v1/ingestv1connect"
 	errsv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/errs/v1"
 	eventlogv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/log/v1"
 	ingestv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/ingest/v1"
@@ -700,6 +702,7 @@ func TestTheEdgeListenerDoesNotRouteOperatorProcedures(t *testing.T) {
 		capturev1connect.CaptureServiceGetCaptureSessionProcedure,
 		identityv1connect.TenantServiceCreateTenantProcedure,
 		identityv1connect.TenantAdminServiceListMembersProcedure,
+		ingestapiv1connect.RawWindowServiceGetRawWindowProcedure,
 	} {
 		t.Run(procedure[strings.LastIndexByte(procedure, '/')+1:], func(t *testing.T) {
 			if got := postProcedure(t, client, svc.EdgeBase, procedure, nil); got != http.StatusNotFound {
@@ -728,6 +731,7 @@ func TestTheAPIListenerDoesNotRouteEdgeProcedures(t *testing.T) {
 		dispatchv1connect.DispatchServiceReportProcedure,
 		auditv1connect.AuditServiceDeliverProcedure,
 		captureedgev1connect.CaptureEdgeServiceUploadCaptureProcedure,
+		ingestedgev1connect.RawWindowEdgeServiceReportProcedure,
 	} {
 		t.Run(procedure[strings.LastIndexByte(procedure, '/')+1:], func(t *testing.T) {
 			if got := postProcedure(t, client, svc.Base, procedure, nil); got != http.StatusNotFound {

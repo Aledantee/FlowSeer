@@ -252,6 +252,46 @@ func TestAFileWithoutAnEdgeListenerIsRefused(t *testing.T) {
 	}
 }
 
+func TestRawWindowEdgeAllowanceIsReadFromTheDeployment(t *testing.T) {
+	cfg, err := host.LoadConfig(writeConfig(t, validConfig+"raw_windows {\n  edge_allowance_bytes: 1048576\n}\n"))
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+
+	got, ok := cfg.RawWindowEdgeAllowanceBytes()
+	if !ok || got != 1048576 {
+		t.Errorf("RawWindowEdgeAllowanceBytes = %d, %v; want 1048576, true", got, ok)
+	}
+}
+
+// A deployment that names no allowance has none: opens are refused rather than
+// bounded by a number this package made up.
+func TestRawWindowEdgeAllowanceHasNoDefault(t *testing.T) {
+	cfg, err := host.LoadConfig(writeConfig(t, validConfig))
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+
+	if got, ok := cfg.RawWindowEdgeAllowanceBytes(); ok || got != 0 {
+		t.Errorf("RawWindowEdgeAllowanceBytes = %d, %v; want 0, false", got, ok)
+	}
+}
+
+func TestRawWindowEdgeAllowanceRefusals(t *testing.T) {
+	cases := map[string]string{
+		"empty section":  "raw_windows {}\n",
+		"zero allowance": "raw_windows {\n  edge_allowance_bytes: 0\n}\n",
+	}
+	for name, section := range cases {
+		t.Run(name, func(t *testing.T) {
+			_, err := host.LoadConfig(writeConfig(t, validConfig+section))
+			if code, _ := errs.CodeOf(err); code != host.ErrCodeConfigInvalid {
+				t.Fatalf("error = %v, want code %v", err, host.ErrCodeConfigInvalid)
+			}
+		})
+	}
+}
+
 func TestLoadConfigReportsAMissingFile(t *testing.T) {
 	_, err := host.LoadConfig(filepath.Join(t.TempDir(), "absent.textproto"))
 	if code, _ := errs.CodeOf(err); code != host.ErrCodeConfigLoad {

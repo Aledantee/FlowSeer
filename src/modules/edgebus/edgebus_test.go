@@ -1351,11 +1351,11 @@ func TestOperatorActionStreamExistsUnderDefaultBudgetWithKVWriteAccepted(t *test
 	}
 }
 
-func TestOperatorStreamsAndFiveBucketsExistUnderTheDefaultCentralBudget(t *testing.T) {
+func TestOperatorStreamsAndSixBucketsExistUnderTheDefaultCentralBudget(t *testing.T) {
 	ctx := context.Background()
 	hub := startHub(t, t.TempDir(), 0)
 
-	for _, bucket := range []string{edgebus.LaneBucket, edgebus.EdgeBucket, edgebus.CapturesBucket, edgebus.TenantBucket, edgebus.AccessBucket} {
+	for _, bucket := range []string{edgebus.LaneBucket, edgebus.EdgeBucket, edgebus.CapturesBucket, edgebus.RawWindowsBucket, edgebus.TenantBucket, edgebus.AccessBucket} {
 		if _, err := hub.JetStream().KeyValue(ctx, bucket); err != nil {
 			t.Errorf("key-value bucket %q missing: %v", bucket, err)
 		}

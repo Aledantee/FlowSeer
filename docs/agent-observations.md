@@ -56,3 +56,14 @@ docs/plans/2026-10-03-1533-feat-deployment-plan.md". Deployment, Phase 3
 Suggested change: let `after` name a phase or plan of another parent, and
 have `next plan-queue` read an unfinished one as `waiting`. Failing that, a
 state field such as `blocked_by: <plan>` that `next` reads the same way.
+
+## 2026-10-13 review: a drive without Orca spends the review stage's one worker on the reviewer
+Skill or agent: `.claude/skills/review/SKILL.md`, step 6, and
+`.claude/skills/drive/SKILL.md` (the review stage brief).
+What happened: the review stage ran with a budget of one sub-worker and
+spent it on the independent reviewer. The review skill does not let the
+coordinator make fixes itself, so the fix loop did not run until the drive
+coordinator re-sent the stage. The steps were followed as written.
+Suggested change: have `drive` give the review stage a budget of two
+workers when Orca is unreachable (one reviewer, one fixer), or say in
+`review` step 6 that a fixer is not counted against a reviewer-only budget.

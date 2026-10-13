@@ -192,6 +192,17 @@ func (c *Config) Authentication() *storev1.OperatorAuthentication {
 	return c.msg.GetAuthentication()
 }
 
+// RawWindowEdgeAllowanceBytes is the most original payload octets one edge's
+// live raw windows may reserve together. The bool is false when the deployment
+// names none, which means raw windows cannot be opened: there is no default.
+func (c *Config) RawWindowEdgeAllowanceBytes() (uint64, bool) {
+	limits := c.msg.GetRawWindows()
+	if limits == nil {
+		return 0, false
+	}
+	return limits.GetEdgeAllowanceBytes(), true
+}
+
 // Authorization returns the configured authorization engine options, or nil if
 // none is set.
 func (c *Config) Authorization() *storev1.AuthorizationEngine {

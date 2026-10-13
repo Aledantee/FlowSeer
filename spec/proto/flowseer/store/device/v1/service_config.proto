@@ -79,6 +79,21 @@ message DeviceServiceConfig {
   OperatorAuthentication authentication = 11 [(buf.validate.field).required = true];
   // Authorization service configuration. Must be present.
   AuthorizationEngine authorization = 12 [(buf.validate.field).required = true];
+  // Limits on raw windows. Unset means the deployment allows none: the service
+  // refuses every open instead of choosing an allowance.
+  RawWindowLimits raw_windows = 13;
+}
+
+// What a deployment lets operators keep as raw window evidence.
+message RawWindowLimits {
+  // The most original payload octets the unexpired, unfinished raw windows of
+  // one edge may reserve together. Each window reserves its full byte budget,
+  // so reported consumption never frees room for another. Must be present and
+  // positive.
+  uint64 edge_allowance_bytes = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).uint64.gt = 0
+  ];
 }
 
 // An OpenID Connect issuer trusted to authenticate operators.
@@ -224,7 +239,8 @@ message ServiceListeners {
   };
 
   // host:port for the operator Connect APIs: TenantService,
-  // TenantAdminService, EdgeAdminService, DeviceService, and CaptureService.
+  // TenantAdminService, EdgeAdminService, DeviceService, CaptureService, and
+  // RawWindowService.
   // The services an edge calls are on the edge listener, not here. Must be
   // present, and must carry a port:
   // an address with none is read as "pick a free one", which is right for a
@@ -264,7 +280,8 @@ message ServiceListeners {
   // The private key for certificate_file. Present exactly when it is.
   string private_key_file = 4 [(buf.validate.field).string.max_len = 4096];
   // host:port for the services an edge calls: EdgeService, including Enroll,
-  // DispatchService, AuditService, and CaptureEdgeService.
+  // DispatchService, AuditService, CaptureEdgeService, and
+  // RawWindowEdgeService.
   // EdgeEnrollmentPolicy.central_url names this listener. Must be present and
   // must carry a port. Use a fixed port, not 0: an edge dials central_url, and
   // validation accepts :0 but an edge listener on a port the kernel picked

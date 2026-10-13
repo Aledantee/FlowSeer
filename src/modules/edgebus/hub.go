@@ -369,7 +369,7 @@ func waitForJetStream(ctx context.Context, js jetstream.JetStream) error {
 }
 
 func (h *Hub) createStores(ctx context.Context) error {
-	for _, bucket := range []string{LaneBucket, EdgeBucket, CapturesBucket, TenantBucket, AccessBucket} {
+	for _, bucket := range []string{LaneBucket, EdgeBucket, CapturesBucket, RawWindowsBucket, TenantBucket, AccessBucket} {
 		if _, err := h.centralJS.CreateOrUpdateKeyValue(ctx, jetstream.KeyValueConfig{
 			Bucket:  bucket,
 			Storage: jetstream.FileStorage,

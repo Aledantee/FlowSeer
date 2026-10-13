@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/google/uuid"
 	"go.opentelemetry.io/otel/metric"
 	"google.golang.org/protobuf/proto"
 
@@ -16,6 +17,8 @@ import (
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/capture/v1/capturev1connect"
 	dispatchv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1/dispatchv1connect"
+	edgeingestv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/ingest/v1"
+	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/ingest/v1/ingestv1connect"
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/service"
@@ -25,6 +28,7 @@ import (
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/dispatch"
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/identity"
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/lanehost"
+	"go.aledante.io/FlowSeer/src/edge/agent/internal/rawwindow"
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/report"
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/subscribeloop"
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/syslogsource"
@@ -147,6 +151,11 @@ func Run(ctx context.Context, cfg *Config, version string, opts Options) error {
 
 	deviceIndex := lanehost.NewDeviceIndex()
 
+	// One controller for the whole process, built here rather than in a module
+	// attempt: a module the supervisor restarts keeps the budgets and deadlines
+	// of its windows, and only a process restart starts them empty.
+	windows := newRawWindowController(store, cfg, opts, base)
+
 	assembly := &assembly{
 		cfg:      cfg,
 		opts:     opts,
@@ -156,6 +165,12 @@ func Run(ctx context.Context, cfg *Config, version string, opts Options) error {
 		dispatch: dispatchClient,
 		audit:    auditClient,
 		index:    deviceIndex,
+		windows:  windows,
+	}
+	rawWindowAssembly := &rawWindowAssembly{
+		cfg:        cfg,
+		controller: windows,
+		client:     ingestv1connect.NewRawWindowEdgeServiceClient(signed, cfg.CentralURL()),
 	}
 
 	captureAssembly := &captureAssembly{
@@ -191,8 +206,108 @@ func Run(ctx context.Context, cfg *Config, version string, opts Options) error {
 			Insecure:    &loopbackIsInsecure,
 			Headers:     map[string]string{},
 		},
-		Modules: modules(assembly, captureAssembly, syslogAssembly),
+		Modules: append(modules(assembly, captureAssembly, syslogAssembly), rawWindowAssembly.module()),
 	})
+}
+
+// newRawWindowController advances the durable boot generation, then builds the
+// process's controller under a fresh epoch. It returns nil when the generation
+// cannot advance, which disables raw windows for this process: collecting under
+// a generation a crash could take back would let central confuse this process
+// with an earlier one. The agent otherwise runs, and the failure is logged at
+// error level because the feature is abandoned.
+func newRawWindowController(store *identity.Store, cfg *Config, opts Options, log *slog.Logger) *rawwindow.Controller {
+	generation, err := store.AdvanceBootGeneration()
+	if err != nil {
+		log.Error("raw windows disabled",
+			slog.String("otel.event.name", "flowseer.edge.raw_window.disabled"),
+			slog.String("error.type", errorTypeOf(err)))
+		return nil
+	}
+	var sources []string
+	if len(cfg.SyslogListeners()) > 0 {
+		sources = append(sources, syslogsource.SourceKey)
+	}
+	controller, err := rawwindow.NewController(rawwindow.Config{
+		BootGeneration: generation,
+		Epoch:          uuid.NewString(),
+		Sources:        sources,
+		Wall:           opts.Clock,
+		Logger:         log,
+	})
+	if err != nil {
+		log.Error("raw windows disabled",
+			slog.String("otel.event.name", "flowseer.edge.raw_window.disabled"),
+			slog.String("error.type", errorTypeOf(err)))
+		return nil
+	}
+	return controller
+}
+
+func errorTypeOf(err error) string {
+	if code, ok := errs.CodeOf(err); ok {
+		return string(code)
+	}
+	return "unknown"
+}
+
+// rawWindowAssembly holds what the raw window module draws from. The module is
+// off without a controller or without a source to collect from.
+type rawWindowAssembly struct {
+	cfg        *Config
+	controller *rawwindow.Controller
+	client     ingestv1connect.RawWindowEdgeServiceClient
+}
+
+func (ra *rawWindowAssembly) module() service.Module {
+	return service.Module{
+		Name: "raw_window",
+		Gate: service.FixedGate(ra.controller != nil && len(ra.controller.Sources()) > 0),
+		Leaf: &service.Leaf{Setup: ra.setup},
+	}
+}
+
+// setup builds one attempt: the control stream and the reporter that answers
+// it. Both draw on the process's controller, so a restarted attempt resumes
+// with the windows it already holds.
+func (ra *rawWindowAssembly) setup(ctx context.Context) (service.Attempt, error) {
+	log := service.Logger(ctx)
+	contact := &subscribeloop.Contact{}
+	if err := registerRawWindowContactInstruments(service.Meter(ctx), contact); err != nil {
+		return service.Attempt{}, err
+	}
+	backoffFloor, backoffCeiling := ra.cfg.DispatchBackoff()
+
+	return service.Attempt{Runner: func(ctx context.Context) error {
+		return runAll(ctx,
+			func(ctx context.Context) error {
+				return subscribeloop.Run(ctx, subscribeloop.Config[edgeingestv1.SubscribeResponse]{
+					Open:       rawwindow.Open(ra.client, ra.controller),
+					Handler:    rawwindow.Handler{Controller: ra.controller},
+					MinBackoff: backoffFloor,
+					MaxBackoff: backoffCeiling,
+					Events:     rawwindow.Events,
+					LogAttrs:   rawwindow.LogAttrs,
+					Logger:     log,
+				}, contact)
+			},
+			func(ctx context.Context) error {
+				return rawwindow.RunReporter(ctx, rawwindow.ReporterConfig{
+					Client: ra.client, Controller: ra.controller, Logger: log,
+				})
+			})
+	}}, nil
+}
+
+func registerRawWindowContactInstruments(meter metric.Meter, contact *subscribeloop.Contact) error {
+	return errors.Join(
+		observe(meter, "flowseer.edge.raw_window.connections", "{stream}",
+			"raw window control streams central has served this agent", contact.Connections),
+		observe(meter, "flowseer.edge.raw_window.failures", "{attempt}",
+			"raw window control stream attempts that failed, opening or mid-stream", contact.Failures),
+		observe(meter, "flowseer.edge.raw_window.messages", "{message}",
+			"raw window frames received on the control stream", contact.Messages),
+	)
 }
 
 // assembly holds what the lane module draws from: the things read or
@@ -206,6 +321,7 @@ type assembly struct {
 	dispatch dispatchv1connect.DispatchServiceClient
 	audit    auditv1connect.AuditServiceClient
 	index    *lanehost.DeviceIndex
+	windows  *rawwindow.Controller
 }
 
 // setup builds one attempt: the lane, the onboarder, the report queue, and
@@ -502,20 +618,22 @@ func registerCaptureInstruments(meter metric.Meter, contact *subscribeloop.Conta
 // already holds, so the two cannot be given different device indexes.
 func syslogAssemblyFor(lane *assembly, leaf syslogsource.Publisher) *syslogAssembly {
 	return &syslogAssembly{
-		cfg:    lane.cfg,
-		opts:   lane.opts,
-		edgeID: lane.edgeID,
-		leaf:   leaf,
-		index:  lane.index,
+		cfg:     lane.cfg,
+		opts:    lane.opts,
+		edgeID:  lane.edgeID,
+		leaf:    leaf,
+		index:   lane.index,
+		windows: lane.windows,
 	}
 }
 
 type syslogAssembly struct {
-	cfg    *Config
-	opts   Options
-	edgeID string
-	leaf   syslogsource.Publisher
-	index  *lanehost.DeviceIndex
+	cfg     *Config
+	opts    Options
+	edgeID  string
+	leaf    syslogsource.Publisher
+	index   *lanehost.DeviceIndex
+	windows *rawwindow.Controller
 }
 
 func (sa *syslogAssembly) setup(ctx context.Context) (service.Attempt, error) {
@@ -536,6 +654,7 @@ func (sa *syslogAssembly) setup(ctx context.Context) (service.Attempt, error) {
 		Publisher: sa.leaf,
 		EdgeRef:   edgeRefOf(sa.edgeID),
 		Policy:    policy,
+		Windows:   sa.windows,
 		Meter:     meter,
 	})
 	if err != nil {

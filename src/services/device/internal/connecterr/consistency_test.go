@@ -14,6 +14,7 @@ import (
 	"go.aledante.io/FlowSeer/src/services/device/internal/dispatchapi"
 	"go.aledante.io/FlowSeer/src/services/device/internal/edgeapi"
 	"go.aledante.io/FlowSeer/src/services/device/internal/identityapi"
+	"go.aledante.io/FlowSeer/src/services/device/internal/rawwindowapi"
 )
 
 // A code two services both return has to answer the same thing in both, or a
@@ -25,12 +26,13 @@ import (
 // already depends on.
 func TestNoCodeAnswersTwoDifferentThings(t *testing.T) {
 	for _, conflict := range conflicts(map[string]connecterr.Table{
-		"auditapi":    auditapi.ClientErrors,
-		"captureapi":  captureapi.ClientErrors,
-		"deviceapi":   deviceapi.ClientErrors,
-		"dispatchapi": dispatchapi.ClientErrors,
-		"edgeapi":     edgeapi.ClientErrors,
-		"identityapi": identityapi.ClientErrors,
+		"auditapi":     auditapi.ClientErrors,
+		"captureapi":   captureapi.ClientErrors,
+		"deviceapi":    deviceapi.ClientErrors,
+		"dispatchapi":  dispatchapi.ClientErrors,
+		"edgeapi":      edgeapi.ClientErrors,
+		"identityapi":  identityapi.ClientErrors,
+		"rawwindowapi": rawwindowapi.ClientErrors,
 	}) {
 		t.Error(conflict)
 	}

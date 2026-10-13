@@ -28,9 +28,10 @@ import (
 )
 
 const (
-	syslogTestEdgeID    = "0192e6a0-0000-7000-8000-0000000000e1"
-	syslogTestDeviceID  = "0192e6a0-0000-7000-8000-0000000000d1"
-	syslogTestBindingID = "0192e6a0-0000-7000-8000-0000000000b1"
+	syslogTestEdgeID        = "0192e6a0-0000-7000-8000-0000000000e1"
+	syslogTestDeviceID      = "0192e6a0-0000-7000-8000-0000000000d1"
+	syslogTestBindingID     = "0192e6a0-0000-7000-8000-0000000000b1"
+	syslogTestIntegrationID = "0192e6a0-0000-7000-8000-0000000000c1"
 )
 
 // seedListing applies every row of one listing to the index in one call, as
@@ -42,7 +43,9 @@ func seedListing(t *testing.T, index *lanehost.DeviceIndex, rows ...*attachv1.Li
 			t.Fatalf("listed device %s: %v", row.GetDeviceId(), err)
 		}
 	}
-	index.ApplyListing(rows)
+	if err := index.ApplyListing(rows); err != nil {
+		t.Fatalf("apply listing: %v", err)
+	}
 }
 
 // syslogHostConfig is an agent configuration naming the given listeners and
@@ -253,9 +256,10 @@ func TestSyslogAssembly_SetupPublishesAnIngestRecordNamingThisEdge(t *testing.T)
 	index := lanehost.NewDeviceIndex()
 	loopback := netip.MustParseAddr("127.0.0.1").As4()
 	seedListing(t, index, attachv1.ListedDevice_builder{
-		DeviceId:  proto.String(syslogTestDeviceID),
-		BindingId: proto.String(syslogTestBindingID),
-		Ip:        addrv1.IpAddress_builder{V4: addrv1.Ipv4Address_builder{Octets: loopback[:]}.Build()}.Build(),
+		DeviceId:      proto.String(syslogTestDeviceID),
+		BindingId:     proto.String(syslogTestBindingID),
+		IntegrationId: proto.String(syslogTestIntegrationID),
+		Ip:            addrv1.IpAddress_builder{V4: addrv1.Ipv4Address_builder{Octets: loopback[:]}.Build()}.Build(),
 		AccessPolicy: policyv1.AccessPolicyHandle_builder{
 			Key: proto.String("icx7150-lab"), Version: proto.Uint64(3),
 		}.Build(),
@@ -335,6 +339,62 @@ func TestSyslogAssembly_SetupPublishesAnIngestRecordNamingThisEdge(t *testing.T)
 		}
 	case <-time.After(10 * time.Second):
 		t.Fatal("timed out waiting for the runner to return")
+	}
+}
+
+// TestSyslogAssembly_SharesTheProcessWindowsWithItsSource opens a window on the
+// controller the lane assembly holds and proves the syslog module the assembly
+// builds spends from it: the record carries window evidence, not parse-failure
+// evidence.
+func TestSyslogAssembly_SharesTheProcessWindowsWithItsSource(t *testing.T) {
+	t.Parallel()
+
+	address := freeUDPAddress(t)
+	cfg := syslogHostConfig(&agentv1.AgentSyslog_builder{}, address)
+	index := lanehost.NewDeviceIndex()
+	loopback := netip.MustParseAddr("127.0.0.1").As4()
+	seedListing(t, index, attachv1.ListedDevice_builder{
+		DeviceId:      proto.String(syslogTestDeviceID),
+		BindingId:     proto.String(syslogTestBindingID),
+		IntegrationId: proto.String(syslogTestIntegrationID),
+		Ip:            addrv1.IpAddress_builder{V4: addrv1.Ipv4Address_builder{Octets: loopback[:]}.Build()}.Build(),
+		AccessPolicy: policyv1.AccessPolicyHandle_builder{
+			Key: proto.String("icx7150-lab"), Version: proto.Uint64(3),
+		}.Build(),
+	}.Build())
+	windows := newRawWindowController(mustStore(t), cfg, Options{}, slog.New(slog.DiscardHandler))
+	if err := windows.Apply(rawWindowOpenControl(t, windows, time.Now().Add(time.Hour), 4096)); err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	publisher := newRecordingPublisher()
+	lane := &assembly{cfg: cfg, edgeID: syslogTestEdgeID, index: index, windows: windows}
+	sa := syslogAssemblyFor(lane, publisher)
+
+	attempt, err := sa.setup(context.Background())
+	if err != nil {
+		t.Fatalf("setup: %v", err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	spawn.Go(ctx, "syslog runner", func() { _ = attempt.Runner(ctx) })
+	conn, err := net.Dial("udp", address)
+	if err != nil {
+		t.Fatalf("dial the listener: %v", err)
+	}
+	defer func() { _ = conn.Close() }()
+
+	payload := []byte("<34>1 2026-10-03T10:00:00Z sw1 app - - - link down")
+	if _, err := conn.Write(payload); err != nil {
+		t.Fatalf("send a datagram: %v", err)
+	}
+
+	_, record := publisher.next(t)
+	raw := record.GetRaw()
+	if raw.GetReason() != ingestv1.RawReason_RAW_REASON_WINDOW || len(raw.GetWindows()) != 1 {
+		t.Fatalf("raw = %v, want window evidence naming the one window", raw)
+	}
+	if got := raw.GetWindows()[0].GetId(); got != wiringWindowID {
+		t.Errorf("window ref = %q, want %q", got, wiringWindowID)
 	}
 }
 

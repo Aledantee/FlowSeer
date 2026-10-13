@@ -342,6 +342,68 @@ func snmpMaterial() *credentialv1.CredentialMaterial {
 	}.Build()
 }
 
+func listedDeviceRow(edit func(*attachv1.ListedDevice_builder)) *attachv1.ListedDevice {
+	b := attachv1.ListedDevice_builder{
+		DeviceId:      proto.String(deviceID),
+		BindingId:     proto.String(bindingID),
+		IntegrationId: proto.String(integrationID),
+		Ip:            testNet1(10),
+		AccessPolicy:  policyv1.AccessPolicyHandle_builder{Key: proto.String("icx7150-lab"), Version: proto.Uint64(1)}.Build(),
+	}
+	if edit != nil {
+		edit(&b)
+	}
+	return b.Build()
+}
+
+// TestListedDeviceRules holds a listed row to naming the integration that
+// owns its binding. The edge cannot derive it from the opaque binding id, so a
+// row without it would leave integration-scoped selectors unable to match.
+func TestListedDeviceRules(t *testing.T) {
+	rows := make([]*attachv1.ListedDevice, 4097)
+	for i := range rows {
+		rows[i] = listedDeviceRow(nil)
+	}
+
+	runFieldCases(t, []fieldCase{
+		{name: "row naming its integration", message: listedDeviceRow(nil)},
+		{
+			name:      "row without an integration",
+			message:   listedDeviceRow(func(b *attachv1.ListedDevice_builder) { b.IntegrationId = nil }),
+			wantField: "integration_id",
+			wantText:  "value is required",
+		},
+		{
+			name:      "row with an empty integration",
+			message:   listedDeviceRow(func(b *attachv1.ListedDevice_builder) { b.IntegrationId = proto.String("") }),
+			wantField: "integration_id",
+			wantText:  "value is empty",
+		},
+		{
+			name:      "row with an integration that is not a uuid",
+			message:   listedDeviceRow(func(b *attachv1.ListedDevice_builder) { b.IntegrationId = proto.String("integration-1") }),
+			wantField: "integration_id",
+			wantText:  "must be a valid UUID",
+		},
+		{
+			name:    "listing of two rows sharing an integration",
+			message: attachv1.ListDevicesResponse_builder{Devices: []*attachv1.ListedDevice{listedDeviceRow(nil), listedDeviceRow(nil)}}.Build(),
+		},
+		{
+			name:      "listing carrying a row without an integration",
+			message:   attachv1.ListDevicesResponse_builder{Devices: []*attachv1.ListedDevice{listedDeviceRow(func(b *attachv1.ListedDevice_builder) { b.IntegrationId = nil })}}.Build(),
+			wantField: "devices[0].integration_id",
+			wantText:  "value is required",
+		},
+		{
+			name:      "listing of more than 4096 rows",
+			message:   attachv1.ListDevicesResponse_builder{Devices: rows}.Build(),
+			wantField: "devices",
+			wantText:  "no more than 4096",
+		},
+	})
+}
+
 func shellMaterial() *credentialv1.CredentialMaterial {
 	return credentialv1.CredentialMaterial_builder{
 		Shell: credentialv1.ShellCredential_builder{

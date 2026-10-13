@@ -111,6 +111,7 @@ type DeviceServiceConfig struct {
 	xxx_hidden_PlatformAdmin  *PlatformAdmin          `protobuf:"bytes,9,opt,name=platform_admin,json=platformAdmin"`
 	xxx_hidden_Authentication *OperatorAuthentication `protobuf:"bytes,11,opt,name=authentication"`
 	xxx_hidden_Authorization  *AuthorizationEngine    `protobuf:"bytes,12,opt,name=authorization"`
+	xxx_hidden_RawWindows     *RawWindowLimits        `protobuf:"bytes,13,opt,name=raw_windows,json=rawWindows"`
 	XXX_raceDetectHookData    protoimpl.RaceDetectHookData
 	XXX_presence              [1]uint32
 	unknownFields             protoimpl.UnknownFields
@@ -230,19 +231,26 @@ func (x *DeviceServiceConfig) GetAuthorization() *AuthorizationEngine {
 	return nil
 }
 
+func (x *DeviceServiceConfig) GetRawWindows() *RawWindowLimits {
+	if x != nil {
+		return x.xxx_hidden_RawWindows
+	}
+	return nil
+}
+
 func (x *DeviceServiceConfig) SetStateDir(v string) {
 	x.xxx_hidden_StateDir = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 11)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 12)
 }
 
 func (x *DeviceServiceConfig) SetRegistryPath(v string) {
 	x.xxx_hidden_RegistryPath = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 11)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 12)
 }
 
 func (x *DeviceServiceConfig) SetCredentialRoot(v string) {
 	x.xxx_hidden_CredentialRoot = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 11)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 12)
 }
 
 func (x *DeviceServiceConfig) SetListeners(v *ServiceListeners) {
@@ -263,7 +271,7 @@ func (x *DeviceServiceConfig) SetIntervals(v *ServiceIntervals) {
 
 func (x *DeviceServiceConfig) SetLogLevel(v LogLevel) {
 	x.xxx_hidden_LogLevel = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 7, 11)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 7, 12)
 }
 
 func (x *DeviceServiceConfig) SetPlatformAdmin(v *PlatformAdmin) {
@@ -276,6 +284,10 @@ func (x *DeviceServiceConfig) SetAuthentication(v *OperatorAuthentication) {
 
 func (x *DeviceServiceConfig) SetAuthorization(v *AuthorizationEngine) {
 	x.xxx_hidden_Authorization = v
+}
+
+func (x *DeviceServiceConfig) SetRawWindows(v *RawWindowLimits) {
+	x.xxx_hidden_RawWindows = v
 }
 
 func (x *DeviceServiceConfig) HasStateDir() bool {
@@ -355,6 +367,13 @@ func (x *DeviceServiceConfig) HasAuthorization() bool {
 	return x.xxx_hidden_Authorization != nil
 }
 
+func (x *DeviceServiceConfig) HasRawWindows() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_RawWindows != nil
+}
+
 func (x *DeviceServiceConfig) ClearStateDir() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
 	x.xxx_hidden_StateDir = nil
@@ -403,6 +422,10 @@ func (x *DeviceServiceConfig) ClearAuthorization() {
 	x.xxx_hidden_Authorization = nil
 }
 
+func (x *DeviceServiceConfig) ClearRawWindows() {
+	x.xxx_hidden_RawWindows = nil
+}
+
 type DeviceServiceConfig_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
@@ -439,6 +462,9 @@ type DeviceServiceConfig_builder struct {
 	Authentication *OperatorAuthentication
 	// Authorization service configuration. Must be present.
 	Authorization *AuthorizationEngine
+	// Limits on raw windows. Unset means the deployment allows none: the service
+	// refuses every open instead of choosing an allowance.
+	RawWindows *RawWindowLimits
 }
 
 func (b0 DeviceServiceConfig_builder) Build() *DeviceServiceConfig {
@@ -446,15 +472,15 @@ func (b0 DeviceServiceConfig_builder) Build() *DeviceServiceConfig {
 	b, x := &b0, m0
 	_, _ = b, x
 	if b.StateDir != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 11)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 12)
 		x.xxx_hidden_StateDir = b.StateDir
 	}
 	if b.RegistryPath != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 11)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 12)
 		x.xxx_hidden_RegistryPath = b.RegistryPath
 	}
 	if b.CredentialRoot != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 11)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 12)
 		x.xxx_hidden_CredentialRoot = b.CredentialRoot
 	}
 	x.xxx_hidden_Listeners = b.Listeners
@@ -462,12 +488,93 @@ func (b0 DeviceServiceConfig_builder) Build() *DeviceServiceConfig {
 	x.xxx_hidden_Telemetry = b.Telemetry
 	x.xxx_hidden_Intervals = b.Intervals
 	if b.LogLevel != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 7, 11)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 7, 12)
 		x.xxx_hidden_LogLevel = *b.LogLevel
 	}
 	x.xxx_hidden_PlatformAdmin = b.PlatformAdmin
 	x.xxx_hidden_Authentication = b.Authentication
 	x.xxx_hidden_Authorization = b.Authorization
+	x.xxx_hidden_RawWindows = b.RawWindows
+	return m0
+}
+
+// What a deployment lets operators keep as raw window evidence.
+type RawWindowLimits struct {
+	state                         protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_EdgeAllowanceBytes uint64                 `protobuf:"varint,1,opt,name=edge_allowance_bytes,json=edgeAllowanceBytes"`
+	XXX_raceDetectHookData        protoimpl.RaceDetectHookData
+	XXX_presence                  [1]uint32
+	unknownFields                 protoimpl.UnknownFields
+	sizeCache                     protoimpl.SizeCache
+}
+
+func (x *RawWindowLimits) Reset() {
+	*x = RawWindowLimits{}
+	mi := &file_flowseer_store_device_v1_service_config_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RawWindowLimits) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RawWindowLimits) ProtoMessage() {}
+
+func (x *RawWindowLimits) ProtoReflect() protoreflect.Message {
+	mi := &file_flowseer_store_device_v1_service_config_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *RawWindowLimits) GetEdgeAllowanceBytes() uint64 {
+	if x != nil {
+		return x.xxx_hidden_EdgeAllowanceBytes
+	}
+	return 0
+}
+
+func (x *RawWindowLimits) SetEdgeAllowanceBytes(v uint64) {
+	x.xxx_hidden_EdgeAllowanceBytes = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 1)
+}
+
+func (x *RawWindowLimits) HasEdgeAllowanceBytes() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *RawWindowLimits) ClearEdgeAllowanceBytes() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_EdgeAllowanceBytes = 0
+}
+
+type RawWindowLimits_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The most original payload octets the unexpired, unfinished raw windows of
+	// one edge may reserve together. Each window reserves its full byte budget,
+	// so reported consumption never frees room for another. Must be present and
+	// positive.
+	EdgeAllowanceBytes *uint64
+}
+
+func (b0 RawWindowLimits_builder) Build() *RawWindowLimits {
+	m0 := &RawWindowLimits{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.EdgeAllowanceBytes != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 1)
+		x.xxx_hidden_EdgeAllowanceBytes = *b.EdgeAllowanceBytes
+	}
 	return m0
 }
 
@@ -485,7 +592,7 @@ type OidcIssuer struct {
 
 func (x *OidcIssuer) Reset() {
 	*x = OidcIssuer{}
-	mi := &file_flowseer_store_device_v1_service_config_proto_msgTypes[1]
+	mi := &file_flowseer_store_device_v1_service_config_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -497,7 +604,7 @@ func (x *OidcIssuer) String() string {
 func (*OidcIssuer) ProtoMessage() {}
 
 func (x *OidcIssuer) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_store_device_v1_service_config_proto_msgTypes[1]
+	mi := &file_flowseer_store_device_v1_service_config_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -633,7 +740,7 @@ type OperatorAuthentication struct {
 
 func (x *OperatorAuthentication) Reset() {
 	*x = OperatorAuthentication{}
-	mi := &file_flowseer_store_device_v1_service_config_proto_msgTypes[2]
+	mi := &file_flowseer_store_device_v1_service_config_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -645,7 +752,7 @@ func (x *OperatorAuthentication) String() string {
 func (*OperatorAuthentication) ProtoMessage() {}
 
 func (x *OperatorAuthentication) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_store_device_v1_service_config_proto_msgTypes[2]
+	mi := &file_flowseer_store_device_v1_service_config_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -735,7 +842,7 @@ type AuthorizationEngine struct {
 
 func (x *AuthorizationEngine) Reset() {
 	*x = AuthorizationEngine{}
-	mi := &file_flowseer_store_device_v1_service_config_proto_msgTypes[3]
+	mi := &file_flowseer_store_device_v1_service_config_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -747,7 +854,7 @@ func (x *AuthorizationEngine) String() string {
 func (*AuthorizationEngine) ProtoMessage() {}
 
 func (x *AuthorizationEngine) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_store_device_v1_service_config_proto_msgTypes[3]
+	mi := &file_flowseer_store_device_v1_service_config_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -954,7 +1061,7 @@ type PlatformAdmin struct {
 
 func (x *PlatformAdmin) Reset() {
 	*x = PlatformAdmin{}
-	mi := &file_flowseer_store_device_v1_service_config_proto_msgTypes[4]
+	mi := &file_flowseer_store_device_v1_service_config_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -966,7 +1073,7 @@ func (x *PlatformAdmin) String() string {
 func (*PlatformAdmin) ProtoMessage() {}
 
 func (x *PlatformAdmin) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_store_device_v1_service_config_proto_msgTypes[4]
+	mi := &file_flowseer_store_device_v1_service_config_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1121,7 +1228,7 @@ type ServiceListeners struct {
 
 func (x *ServiceListeners) Reset() {
 	*x = ServiceListeners{}
-	mi := &file_flowseer_store_device_v1_service_config_proto_msgTypes[5]
+	mi := &file_flowseer_store_device_v1_service_config_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1133,7 +1240,7 @@ func (x *ServiceListeners) String() string {
 func (*ServiceListeners) ProtoMessage() {}
 
 func (x *ServiceListeners) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_store_device_v1_service_config_proto_msgTypes[5]
+	mi := &file_flowseer_store_device_v1_service_config_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1283,7 +1390,8 @@ type ServiceListeners_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
 	// host:port for the operator Connect APIs: TenantService,
-	// TenantAdminService, EdgeAdminService, DeviceService, and CaptureService.
+	// TenantAdminService, EdgeAdminService, DeviceService, CaptureService, and
+	// RawWindowService.
 	// The services an edge calls are on the edge listener, not here. Must be
 	// present, and must carry a port:
 	// an address with none is read as "pick a free one", which is right for a
@@ -1313,7 +1421,8 @@ type ServiceListeners_builder struct {
 	// The private key for certificate_file. Present exactly when it is.
 	PrivateKeyFile *string
 	// host:port for the services an edge calls: EdgeService, including Enroll,
-	// DispatchService, AuditService, and CaptureEdgeService.
+	// DispatchService, AuditService, CaptureEdgeService, and
+	// RawWindowEdgeService.
 	// EdgeEnrollmentPolicy.central_url names this listener. Must be present and
 	// must carry a port. Use a fixed port, not 0: an edge dials central_url, and
 	// validation accepts :0 but an edge listener on a port the kernel picked
@@ -1371,7 +1480,7 @@ type EdgeEnrollmentPolicy struct {
 
 func (x *EdgeEnrollmentPolicy) Reset() {
 	*x = EdgeEnrollmentPolicy{}
-	mi := &file_flowseer_store_device_v1_service_config_proto_msgTypes[6]
+	mi := &file_flowseer_store_device_v1_service_config_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1383,7 +1492,7 @@ func (x *EdgeEnrollmentPolicy) String() string {
 func (*EdgeEnrollmentPolicy) ProtoMessage() {}
 
 func (x *EdgeEnrollmentPolicy) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_store_device_v1_service_config_proto_msgTypes[6]
+	mi := &file_flowseer_store_device_v1_service_config_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1530,7 +1639,7 @@ type ServiceTelemetry struct {
 
 func (x *ServiceTelemetry) Reset() {
 	*x = ServiceTelemetry{}
-	mi := &file_flowseer_store_device_v1_service_config_proto_msgTypes[7]
+	mi := &file_flowseer_store_device_v1_service_config_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1542,7 +1651,7 @@ func (x *ServiceTelemetry) String() string {
 func (*ServiceTelemetry) ProtoMessage() {}
 
 func (x *ServiceTelemetry) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_store_device_v1_service_config_proto_msgTypes[7]
+	mi := &file_flowseer_store_device_v1_service_config_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1635,7 +1744,7 @@ type ServiceIntervals struct {
 
 func (x *ServiceIntervals) Reset() {
 	*x = ServiceIntervals{}
-	mi := &file_flowseer_store_device_v1_service_config_proto_msgTypes[8]
+	mi := &file_flowseer_store_device_v1_service_config_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1647,7 +1756,7 @@ func (x *ServiceIntervals) String() string {
 func (*ServiceIntervals) ProtoMessage() {}
 
 func (x *ServiceIntervals) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_store_device_v1_service_config_proto_msgTypes[8]
+	mi := &file_flowseer_store_device_v1_service_config_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1912,7 +2021,7 @@ var File_flowseer_store_device_v1_service_config_proto protoreflect.FileDescript
 
 const file_flowseer_store_device_v1_service_config_proto_rawDesc = "" +
 	"\n" +
-	"-flowseer/store/device/v1/service_config.proto\x12\x18flowseer.store.device.v1\x1a\x1egoogle/protobuf/duration.proto\"\xeb\b\n" +
+	"-flowseer/store/device/v1/service_config.proto\x12\x18flowseer.store.device.v1\x1a\x1egoogle/protobuf/duration.proto\"\xb7\t\n" +
 	"\x13DeviceServiceConfig\x12,\n" +
 	"\tstate_dir\x18\x01 \x01(\tB\x0f\xbaH\f\xc8\x01\x01r\a\x18\x80 2\x02^/R\bstateDir\x122\n" +
 	"\rregistry_path\x18\x02 \x01(\tB\r\xbaH\n" +
@@ -1925,10 +2034,15 @@ const file_flowseer_store_device_v1_service_config_proto_rawDesc = "" +
 	"\tlog_level\x18\b \x01(\x0e2\".flowseer.store.device.v1.LogLevelR\blogLevel\x12N\n" +
 	"\x0eplatform_admin\x18\t \x01(\v2'.flowseer.store.device.v1.PlatformAdminR\rplatformAdmin\x12`\n" +
 	"\x0eauthentication\x18\v \x01(\v20.flowseer.store.device.v1.OperatorAuthenticationB\x06\xbaH\x03\xc8\x01\x01R\x0eauthentication\x12[\n" +
-	"\rauthorization\x18\f \x01(\v2-.flowseer.store.device.v1.AuthorizationEngineB\x06\xbaH\x03\xc8\x01\x01R\rauthorization:\xa1\x02\xbaH\x9d\x02\x1a\x9a\x02\n" +
+	"\rauthorization\x18\f \x01(\v2-.flowseer.store.device.v1.AuthorizationEngineB\x06\xbaH\x03\xc8\x01\x01R\rauthorization\x12J\n" +
+	"\vraw_windows\x18\r \x01(\v2).flowseer.store.device.v1.RawWindowLimitsR\n" +
+	"rawWindows:\xa1\x02\xbaH\x9d\x02\x1a\x9a\x02\n" +
 	"6device_service_config.platform_admin_issuer_configured\x12Vplatform_admin issuer must match one of the configured operator authentication issuers\x1a\x87\x01!has(this.platform_admin) || !has(this.authentication) || this.authentication.issuers.exists(i, i.issuer == this.platform_admin.issuer)J\x04\b\n" +
 	"\x10\vR\n" +
-	"dev_tenant\"\xad\x01\n" +
+	"dev_tenant\"O\n" +
+	"\x0fRawWindowLimits\x12<\n" +
+	"\x14edge_allowance_bytes\x18\x01 \x01(\x04B\n" +
+	"\xbaH\a\xc8\x01\x012\x02 \x00R\x12edgeAllowanceBytes\"\xad\x01\n" +
 	"\n" +
 	"OidcIssuer\x120\n" +
 	"\x06issuer\x18\x01 \x01(\tB\x18\xbaH\x15\xc8\x01\x01r\x10\x18\x80\x10:\bhttps://\x88\x01\x01R\x06issuer\x12)\n" +
@@ -2003,47 +2117,49 @@ const file_flowseer_store_device_v1_service_config_proto_rawDesc = "" +
 	"\x1ccom.flowseer.store.device.v1B\x12ServiceConfigProtoZLgo.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1;devicev1\xa2\x02\x03FSD\xaa\x02\x18Flowseer.Store.Device.V1\xca\x02\x18Flowseer\\Store\\Device\\V1\xe2\x02$Flowseer\\Store\\Device\\V1\\GPBMetadata\xea\x02\x1bFlowseer::Store::Device::V1b\beditionsp\xe9\a"
 
 var file_flowseer_store_device_v1_service_config_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_flowseer_store_device_v1_service_config_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
+var file_flowseer_store_device_v1_service_config_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
 var file_flowseer_store_device_v1_service_config_proto_goTypes = []any{
 	(LogLevel)(0),                  // 0: flowseer.store.device.v1.LogLevel
 	(*DeviceServiceConfig)(nil),    // 1: flowseer.store.device.v1.DeviceServiceConfig
-	(*OidcIssuer)(nil),             // 2: flowseer.store.device.v1.OidcIssuer
-	(*OperatorAuthentication)(nil), // 3: flowseer.store.device.v1.OperatorAuthentication
-	(*AuthorizationEngine)(nil),    // 4: flowseer.store.device.v1.AuthorizationEngine
-	(*PlatformAdmin)(nil),          // 5: flowseer.store.device.v1.PlatformAdmin
-	(*ServiceListeners)(nil),       // 6: flowseer.store.device.v1.ServiceListeners
-	(*EdgeEnrollmentPolicy)(nil),   // 7: flowseer.store.device.v1.EdgeEnrollmentPolicy
-	(*ServiceTelemetry)(nil),       // 8: flowseer.store.device.v1.ServiceTelemetry
-	(*ServiceIntervals)(nil),       // 9: flowseer.store.device.v1.ServiceIntervals
-	nil,                            // 10: flowseer.store.device.v1.ServiceTelemetry.HeadersEntry
-	(*durationpb.Duration)(nil),    // 11: google.protobuf.Duration
+	(*RawWindowLimits)(nil),        // 2: flowseer.store.device.v1.RawWindowLimits
+	(*OidcIssuer)(nil),             // 3: flowseer.store.device.v1.OidcIssuer
+	(*OperatorAuthentication)(nil), // 4: flowseer.store.device.v1.OperatorAuthentication
+	(*AuthorizationEngine)(nil),    // 5: flowseer.store.device.v1.AuthorizationEngine
+	(*PlatformAdmin)(nil),          // 6: flowseer.store.device.v1.PlatformAdmin
+	(*ServiceListeners)(nil),       // 7: flowseer.store.device.v1.ServiceListeners
+	(*EdgeEnrollmentPolicy)(nil),   // 8: flowseer.store.device.v1.EdgeEnrollmentPolicy
+	(*ServiceTelemetry)(nil),       // 9: flowseer.store.device.v1.ServiceTelemetry
+	(*ServiceIntervals)(nil),       // 10: flowseer.store.device.v1.ServiceIntervals
+	nil,                            // 11: flowseer.store.device.v1.ServiceTelemetry.HeadersEntry
+	(*durationpb.Duration)(nil),    // 12: google.protobuf.Duration
 }
 var file_flowseer_store_device_v1_service_config_proto_depIdxs = []int32{
-	6,  // 0: flowseer.store.device.v1.DeviceServiceConfig.listeners:type_name -> flowseer.store.device.v1.ServiceListeners
-	7,  // 1: flowseer.store.device.v1.DeviceServiceConfig.edges:type_name -> flowseer.store.device.v1.EdgeEnrollmentPolicy
-	8,  // 2: flowseer.store.device.v1.DeviceServiceConfig.telemetry:type_name -> flowseer.store.device.v1.ServiceTelemetry
-	9,  // 3: flowseer.store.device.v1.DeviceServiceConfig.intervals:type_name -> flowseer.store.device.v1.ServiceIntervals
+	7,  // 0: flowseer.store.device.v1.DeviceServiceConfig.listeners:type_name -> flowseer.store.device.v1.ServiceListeners
+	8,  // 1: flowseer.store.device.v1.DeviceServiceConfig.edges:type_name -> flowseer.store.device.v1.EdgeEnrollmentPolicy
+	9,  // 2: flowseer.store.device.v1.DeviceServiceConfig.telemetry:type_name -> flowseer.store.device.v1.ServiceTelemetry
+	10, // 3: flowseer.store.device.v1.DeviceServiceConfig.intervals:type_name -> flowseer.store.device.v1.ServiceIntervals
 	0,  // 4: flowseer.store.device.v1.DeviceServiceConfig.log_level:type_name -> flowseer.store.device.v1.LogLevel
-	5,  // 5: flowseer.store.device.v1.DeviceServiceConfig.platform_admin:type_name -> flowseer.store.device.v1.PlatformAdmin
-	3,  // 6: flowseer.store.device.v1.DeviceServiceConfig.authentication:type_name -> flowseer.store.device.v1.OperatorAuthentication
-	4,  // 7: flowseer.store.device.v1.DeviceServiceConfig.authorization:type_name -> flowseer.store.device.v1.AuthorizationEngine
-	2,  // 8: flowseer.store.device.v1.OperatorAuthentication.issuers:type_name -> flowseer.store.device.v1.OidcIssuer
-	11, // 9: flowseer.store.device.v1.EdgeEnrollmentPolicy.assertion_clock_skew:type_name -> google.protobuf.Duration
-	10, // 10: flowseer.store.device.v1.ServiceTelemetry.headers:type_name -> flowseer.store.device.v1.ServiceTelemetry.HeadersEntry
-	11, // 11: flowseer.store.device.v1.ServiceIntervals.drift:type_name -> google.protobuf.Duration
-	11, // 12: flowseer.store.device.v1.ServiceIntervals.drift_read_deadline:type_name -> google.protobuf.Duration
-	11, // 13: flowseer.store.device.v1.ServiceIntervals.dispatch_resend:type_name -> google.protobuf.Duration
-	11, // 14: flowseer.store.device.v1.ServiceIntervals.read_sweep:type_name -> google.protobuf.Duration
-	11, // 15: flowseer.store.device.v1.ServiceIntervals.submission_pulse:type_name -> google.protobuf.Duration
-	11, // 16: flowseer.store.device.v1.ServiceIntervals.edge_stale_after:type_name -> google.protobuf.Duration
-	11, // 17: flowseer.store.device.v1.ServiceIntervals.edge_dormant_after:type_name -> google.protobuf.Duration
-	11, // 18: flowseer.store.device.v1.ServiceIntervals.capture_sweep:type_name -> google.protobuf.Duration
-	11, // 19: flowseer.store.device.v1.ServiceIntervals.relationship_reconcile:type_name -> google.protobuf.Duration
-	20, // [20:20] is the sub-list for method output_type
-	20, // [20:20] is the sub-list for method input_type
-	20, // [20:20] is the sub-list for extension type_name
-	20, // [20:20] is the sub-list for extension extendee
-	0,  // [0:20] is the sub-list for field type_name
+	6,  // 5: flowseer.store.device.v1.DeviceServiceConfig.platform_admin:type_name -> flowseer.store.device.v1.PlatformAdmin
+	4,  // 6: flowseer.store.device.v1.DeviceServiceConfig.authentication:type_name -> flowseer.store.device.v1.OperatorAuthentication
+	5,  // 7: flowseer.store.device.v1.DeviceServiceConfig.authorization:type_name -> flowseer.store.device.v1.AuthorizationEngine
+	2,  // 8: flowseer.store.device.v1.DeviceServiceConfig.raw_windows:type_name -> flowseer.store.device.v1.RawWindowLimits
+	3,  // 9: flowseer.store.device.v1.OperatorAuthentication.issuers:type_name -> flowseer.store.device.v1.OidcIssuer
+	12, // 10: flowseer.store.device.v1.EdgeEnrollmentPolicy.assertion_clock_skew:type_name -> google.protobuf.Duration
+	11, // 11: flowseer.store.device.v1.ServiceTelemetry.headers:type_name -> flowseer.store.device.v1.ServiceTelemetry.HeadersEntry
+	12, // 12: flowseer.store.device.v1.ServiceIntervals.drift:type_name -> google.protobuf.Duration
+	12, // 13: flowseer.store.device.v1.ServiceIntervals.drift_read_deadline:type_name -> google.protobuf.Duration
+	12, // 14: flowseer.store.device.v1.ServiceIntervals.dispatch_resend:type_name -> google.protobuf.Duration
+	12, // 15: flowseer.store.device.v1.ServiceIntervals.read_sweep:type_name -> google.protobuf.Duration
+	12, // 16: flowseer.store.device.v1.ServiceIntervals.submission_pulse:type_name -> google.protobuf.Duration
+	12, // 17: flowseer.store.device.v1.ServiceIntervals.edge_stale_after:type_name -> google.protobuf.Duration
+	12, // 18: flowseer.store.device.v1.ServiceIntervals.edge_dormant_after:type_name -> google.protobuf.Duration
+	12, // 19: flowseer.store.device.v1.ServiceIntervals.capture_sweep:type_name -> google.protobuf.Duration
+	12, // 20: flowseer.store.device.v1.ServiceIntervals.relationship_reconcile:type_name -> google.protobuf.Duration
+	21, // [21:21] is the sub-list for method output_type
+	21, // [21:21] is the sub-list for method input_type
+	21, // [21:21] is the sub-list for extension type_name
+	21, // [21:21] is the sub-list for extension extendee
+	0,  // [0:21] is the sub-list for field type_name
 }
 
 func init() { file_flowseer_store_device_v1_service_config_proto_init() }
@@ -2057,7 +2173,7 @@ func file_flowseer_store_device_v1_service_config_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_flowseer_store_device_v1_service_config_proto_rawDesc), len(file_flowseer_store_device_v1_service_config_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   10,
+			NumMessages:   11,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

@@ -6,7 +6,7 @@ central ingestion pipeline over NATS JetStream.
 
 ## Boundaries
 
-Imports: event/log, model/inventory
+Imports: event/log, model/inventory, model/rawwindow
 
 Imported by: nothing FlowSeer-owned
 

@@ -58,6 +58,9 @@ type agentOptions struct {
 	openCaptureSource        agenthost.CaptureSourceOpener
 	logger                   *slog.Logger
 	captureInactivityTimeout time.Duration
+	// syslogAddress is the UDP address the agent's syslog listener binds. Empty
+	// runs the agent with no listener.
+	syslogAddress string
 }
 
 // startAgent writes the agent's two files and runs it against device.
@@ -89,11 +92,17 @@ func startAgentWithOptions(t *testing.T, dir string, provisioning *edgev1.EdgePr
 	shipped.SetCentralUrl(centralURL)
 	provisioningPath := writePrototext(t, filepath.Join(dir, "provisioning.textproto"), shipped)
 
-	cfg := agentv1.AgentConfig_builder{
+	cfgBuilder := agentv1.AgentConfig_builder{
 		StateDir:         proto.String(stateDir),
 		ProvisioningPath: proto.String(provisioningPath),
 		LogLevel:         agentv1.AgentLogLevel_AGENT_LOG_LEVEL_DEBUG.Enum(),
-	}.Build()
+	}
+	if opts.syslogAddress != "" {
+		cfgBuilder.Syslog = agentv1.AgentSyslog_builder{
+			Listeners: []*agentv1.AgentSyslogListener{agentv1.AgentSyslogListener_builder{Address: proto.String(opts.syslogAddress)}.Build()},
+		}.Build()
+	}
+	cfg := cfgBuilder.Build()
 	configPath := writePrototext(t, filepath.Join(dir, "agent.textproto"), cfg)
 
 	loaded, err := agenthost.LoadConfig(configPath)
