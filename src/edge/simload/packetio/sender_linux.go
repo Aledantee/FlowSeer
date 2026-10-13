@@ -96,10 +96,10 @@ func (s *linuxSender) Send(ctx context.Context, frame []byte) error {
 
 	n, err := s.sock.write(frame)
 	if err != nil {
-		return err
+		return errs.From(err).Code(ErrCodeSenderOpen).Msg("write transmit frame")
 	}
 	if n != len(frame) {
-		return io.ErrShortWrite
+		return errs.From(io.ErrShortWrite).Code(ErrCodeSenderOpen).Msgf("write transmit frame: wrote %d of %d octets", n, len(frame))
 	}
 
 	return nil

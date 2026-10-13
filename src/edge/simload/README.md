@@ -55,6 +55,23 @@ NIC. A capture timestamp is when the receive path observed the frame. A missing
 sequence is an observation; it is not assigned a switch drop reason or cable
 loss without evidence.
 
+Shutdown retains every frame the capture channel accepted, including data
+queued before a receiver failure. [`run.go`](run.go) completes this boundary:
+
+```mermaid
+flowchart LR
+    cancel[Cancel capture] --> drain[Consume through channel closure]
+    drain --> stats[Read capture statistics]
+    stats --> freeze[Freeze observations]
+    freeze --> sockets[Close receiver and sender]
+```
+
+Internal capture cancellation is normal shutdown. A statistics failure still
+returns an error when capture emits a cancellation frame. An existing run
+error takes precedence over receiver and statistics errors, followed by receiver
+close and sender close errors. Socket write failures carry
+`packetio.ErrCodeSenderOpen` while retaining their cause for `errors.Is`.
+
 `compare` reads a version-one document containing a simulator report, a lab
 observation, and the named simulator destination host. It writes deterministic
 JSON with the raw counters, simulator status and issues, lab counters, and

@@ -31,6 +31,7 @@ func IsUnsupported(err error) bool {
 // Sender writes complete Ethernet frames to one interface. A Sender is safe
 // for one writer and concurrent Close calls. Cancellation is checked before
 // each write; it does not interrupt a write already in progress.
+// Socket write failures carry ErrCodeSenderOpen and retain their cause.
 type Sender interface {
 	Send(ctx context.Context, frame []byte) error
 	Close() error

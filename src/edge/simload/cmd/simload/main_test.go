@@ -190,8 +190,13 @@ func (c *deadlineClock) Wait(_ context.Context, at time.Time) error {
 
 type idleReceiver struct{}
 
-func (idleReceiver) Receive(context.Context) <-chan rawsocket.Frame {
-	return make(chan rawsocket.Frame)
+func (idleReceiver) Receive(ctx context.Context) <-chan rawsocket.Frame {
+	frames := make(chan rawsocket.Frame)
+	go func() {
+		<-ctx.Done()
+		close(frames)
+	}()
+	return frames
 }
 func (idleReceiver) Stats() (uint64, uint64, error) { return 0, 0, nil }
 func (idleReceiver) Close() error                   { return nil }

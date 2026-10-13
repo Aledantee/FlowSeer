@@ -6,7 +6,12 @@ import (
 	"context"
 	"errors"
 	"io"
+	"strings"
 	"testing"
+
+	"golang.org/x/sys/unix"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
 func TestLinuxSenderUsesSendOnlyProtocol(t *testing.T) {
@@ -62,15 +67,23 @@ func TestLinuxSenderRejectsCancellationBeforeWrite(t *testing.T) {
 func TestLinuxSenderReportsShortAndSyscallWrites(t *testing.T) {
 	sock := &fakeWriteSocket{writeN: 1}
 	sender := newLinuxSender(sock)
-	if err := sender.Send(context.Background(), []byte{1, 2}); !errors.Is(err, io.ErrShortWrite) {
+	err := sender.Send(context.Background(), []byte{1, 2})
+	if !errors.Is(err, io.ErrShortWrite) {
 		t.Fatalf("short Send error = %v, want io.ErrShortWrite", err)
 	}
+	if code, ok := errs.CodeOf(err); !ok || code != ErrCodeSenderOpen || !strings.Contains(err.Error(), "write transmit frame") {
+		t.Fatalf("short Send error = %v, code = %v, want sender-open and write context", err, code)
+	}
 
-	syscallErr := errors.New("sendto failed")
+	syscallErr := unix.ENOBUFS
 	sock = &fakeWriteSocket{writeN: 0, writeErr: syscallErr}
 	sender = newLinuxSender(sock)
-	if err := sender.Send(context.Background(), []byte{1}); !errors.Is(err, syscallErr) {
+	err = sender.Send(context.Background(), []byte{1})
+	if !errors.Is(err, syscallErr) {
 		t.Fatalf("syscall Send error = %v, want %v", err, syscallErr)
+	}
+	if code, ok := errs.CodeOf(err); !ok || code != ErrCodeSenderOpen || !strings.Contains(err.Error(), "write transmit frame") {
+		t.Fatalf("syscall Send error = %v, code = %v, want sender-open and write context", err, code)
 	}
 }
 
