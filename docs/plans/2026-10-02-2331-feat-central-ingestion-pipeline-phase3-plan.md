@@ -84,6 +84,11 @@ in-house migrator. This phase adds:
   statement per `docs/conventions/dependencies.md` with verdict `keep` and
   `approved: 2026-10-12`, then changes `go.mod`
   (decided by the user, 2026-10-12).
+- `device_dim` is a plain table with no dictionary over it. Reads that
+  enrich rows join it at read time, and no dictionary source or credential
+  appears in any DDL. This replaces U3's dictionary and its stop on a
+  credential-free source, since no ClickHouse doc states one
+  (decided by the user, 2026-10-13).
 
 ## Requirements
 
@@ -203,18 +208,3 @@ Waves: U1 U2 U3 | U4 | U5 | U6
 - The replicated lab cluster the stop condition would need does not exist.
   U6 runs one node, and replication behaviour stays unmeasured until the
   deployment phase builds the cluster.
-- Parked by drive: U3 stopped on its own rule, because no ClickHouse doc
-  states a credential-free local dictionary source. The CLICKHOUSE source
-  page defines `user` and `password`, does not say what an omitted pair
-  means, and for Cloud requires both
-  (https://clickhouse.com/docs/sql-reference/statements/create/dictionary/sources/clickhouse,
-  fetched 2026-10-12). U1 and U2 passed on `parked/ingest-p3-implement`.
-  Options: drop the `device_dim` dictionary and join a plain `device_dim`
-  table at read time (no credential anywhere, at a join cost on reads that
-  enrich) | probe `SOURCE(CLICKHOUSE(TABLE ...))` without `USER` on the
-  lab's 26.8 image and adopt it if it works (evidence from a server, not a
-  doc, and Cloud would still refuse it) | allow a named collection or
-  server-side credential for the source (keeps the dictionary, but a
-  credential lives in server config). Recommended: the plain table,
-  because it removes the credential question without new server
-  configuration.
