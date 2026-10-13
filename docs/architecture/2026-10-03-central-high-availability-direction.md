@@ -104,6 +104,16 @@ key. This amends one sentence of the device service record, which describes
 leaf nodes behind a TLS-terminating ingress. Termination is incompatible with
 the pin.
 
+Landed 2026-10-13: `ServiceListeners.edge` in
+`spec/proto/flowseer/store/device/v1/service_config.proto`, required, with
+`EdgeEnrollmentPolicy.central_url` naming it. One module in
+`src/services/device/internal/host` binds both HTTP listeners before serving
+either and shuts them down within one grace. The operator `TenantService`
+and `TenantAdminService`, added after this record, stay on the API listener.
+Validation accepts a port of 0 for `edge` and `bus`, which leaves edges
+dialing a port nothing serves, so the fixed port is the operator's to
+choose.
+
 ## Alternatives
 
 - **A FlowSeer hub service that embeds `nats-server`.** Account minting would
