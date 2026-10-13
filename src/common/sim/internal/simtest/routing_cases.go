@@ -243,16 +243,16 @@ func caseTroubleshootingNeighborResolutionPending() Case {
 	}
 }
 
-func executeTroubleshootingNeighborResolutionPending(routerMAC, hostMAC, learnedMAC netaddr.MAC, source, destination netip.Addr) (ExecutionResult, error) {
+func neighborResolutionCaseSpec(routerMAC netaddr.MAC) (vswitch.ConstructionSpec, error) {
 	ports, err := port.NewBuilder().
 		Add(port.Port{Name: "in", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
 		Add(port.Port{Name: "out", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
 		Build()
 	if err != nil {
-		return ExecutionResult{}, err
+		return vswitch.ConstructionSpec{}, err
 	}
 
-	spec := vswitch.ConstructionSpec{
+	return vswitch.ConstructionSpec{
 		Config: vswitch.Config{
 			Ports: ports,
 			Routing: &routing.Config{VRFs: map[string]routing.VRF{
@@ -265,6 +265,13 @@ func executeTroubleshootingNeighborResolutionPending(routerMAC, hostMAC, learned
 				},
 			}},
 		},
+	}, nil
+}
+
+func executeTroubleshootingNeighborResolutionPending(routerMAC, hostMAC, learnedMAC netaddr.MAC, source, destination netip.Addr) (ExecutionResult, error) {
+	spec, err := neighborResolutionCaseSpec(routerMAC)
+	if err != nil {
+		return ExecutionResult{}, err
 	}
 
 	sw, err := vswitch.NewWithSpec(spec)
