@@ -79,3 +79,64 @@ func TestValidateTenant(t *testing.T) {
 		})
 	}
 }
+
+func TestSetFromReturnsTheAdmittedSetAndFromContextFindsNoSingleTenant(t *testing.T) {
+	const first, second = "018f6c42-2b28-7654-a321-0123456789ab", "018f6c42-2b28-7654-a321-0123456789ac"
+	ctx := tenant.WithSet(context.Background(), []string{first, second})
+
+	got, err := tenant.SetFrom(ctx)
+	if err != nil {
+		t.Fatalf("SetFrom: %v", err)
+	}
+	if len(got) != 2 || got[0] != first || got[1] != second {
+		t.Errorf("SetFrom = %v, want [%s %s]", got, first, second)
+	}
+	if _, err := tenant.FromContext(ctx); err == nil {
+		t.Error("FromContext found a single tenant on a context that holds a set, want ErrCodeNoTenant")
+	}
+}
+
+func TestSetFromTreatsASingleTenantAsASetOfOne(t *testing.T) {
+	const only = "018f6c42-2b28-7654-a321-0123456789ab"
+
+	got, err := tenant.SetFrom(tenant.WithTenant(context.Background(), only))
+
+	if err != nil || len(got) != 1 || got[0] != only {
+		t.Errorf("SetFrom = %v, %v, want [%s]", got, err, only)
+	}
+}
+
+func TestSetFromRefusesAContextWithoutTenants(t *testing.T) {
+	for name, ctx := range map[string]context.Context{
+		"no tenant":     context.Background(),
+		"an empty set":  tenant.WithSet(context.Background(), nil),
+		"an empty list": tenant.WithSet(context.Background(), []string{}),
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := tenant.SetFrom(ctx)
+
+			code, ok := errs.CodeOf(err)
+			if !ok || code != tenant.ErrCodeNoTenant {
+				t.Errorf("SetFrom code = %v (err %v), want %v", code, err, tenant.ErrCodeNoTenant)
+			}
+		})
+	}
+}
+
+func TestTheSetIsCopiedOnTheWayInAndOut(t *testing.T) {
+	const first, second = "018f6c42-2b28-7654-a321-0123456789ab", "018f6c42-2b28-7654-a321-0123456789ac"
+	input := []string{first, second}
+	ctx := tenant.WithSet(context.Background(), input)
+	input[0] = "changed-after-store"
+
+	got, err := tenant.SetFrom(ctx)
+	if err != nil || got[0] != first {
+		t.Fatalf("SetFrom = %v, %v, want the first tenant unchanged", got, err)
+	}
+	got[1] = "changed-after-read"
+	again, _ := tenant.SetFrom(ctx)
+
+	if again[1] != second {
+		t.Errorf("a caller changed the stored set to %v", again)
+	}
+}

@@ -271,6 +271,10 @@ type central struct {
 	// configuration. Zero leaves the block out, which refuses every open.
 	rawWindowAllowance uint64
 
+	// history is a history section for the configuration, in prototext. Empty
+	// leaves it out, which runs central with no history store.
+	history string
+
 	// client is built on each start and reused across calls. A fresh
 	// http.Transport per call keeps its own idle pool with no
 	// IdleConnTimeout, and the status polls run at 50ms for minutes, so a
@@ -543,10 +547,11 @@ authentication {
 }
 %s
 %s
+%s
 `, filepath.Join(c.dir, "central-state"), c.registry, filepath.Join(c.dir, "credentials"),
 		c.apiPort, c.busPort, c.baseURL(), audience, c.busPort, captureSweepLine(c.captureSweep),
 		platformAdminBlock,
-		c.issuer.URL(), audience, caPath, authzBlock, rawWindowBlock(c.rawWindowAllowance))
+		c.issuer.URL(), audience, caPath, authzBlock, rawWindowBlock(c.rawWindowAllowance), c.history)
 
 	cfg, err := centralhost.LoadConfig(writeFile(c.t, filepath.Join(c.configDir, "central.textproto"), []byte(body)))
 	if err != nil {

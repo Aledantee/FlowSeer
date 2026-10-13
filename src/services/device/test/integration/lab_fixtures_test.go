@@ -306,6 +306,43 @@ func TestTheLabOpenFGARequiresAKeyAndTLS(t *testing.T) {
 	}
 }
 
+func TestTheLabClickHouseRunsThePinnedImageBehindItsProfile(t *testing.T) {
+	t.Parallel()
+
+	var compose struct {
+		Services map[string]struct {
+			Image    string   `yaml:"image"`
+			Profiles []string `yaml:"profiles"`
+			Ports    []string `yaml:"ports"`
+		} `yaml:"services"`
+	}
+	if err := yaml.Unmarshal(labFixture(t, "compose.yaml"), &compose); err != nil {
+		t.Fatalf("unmarshal compose.yaml: %v", err)
+	}
+	ch, ok := compose.Services["clickhouse"]
+	if !ok {
+		t.Fatal("missing clickhouse service in compose.yaml")
+	}
+	if ch.Image != clickHouseImage {
+		t.Errorf("clickhouse image: got %q, want %q", ch.Image, clickHouseImage)
+	}
+	// The container refuses to start without its admin password, which the
+	// README writes after the plain `docker compose up`, so the service stays
+	// out of that command.
+	if !slices.Contains(ch.Profiles, "history") {
+		t.Errorf("clickhouse profiles = %q, want history", ch.Profiles)
+	}
+
+	cfg := &storev1.DeviceServiceConfig{}
+	if err := prototext.Unmarshal(labFixture(t, "central.textproto"), cfg); err != nil {
+		t.Fatalf("unmarshal central.textproto: %v", err)
+	}
+	endpoints := cfg.GetHistory().GetEndpoints()
+	if len(endpoints) != 1 || !slices.Contains(ch.Ports, "127.0.0.1:"+strings.TrimPrefix(endpoints[0], "127.0.0.1:")+":9000") {
+		t.Errorf("history endpoints %q do not match the compose ports %q", endpoints, ch.Ports)
+	}
+}
+
 func TestTheLabIssuerMatchesCentral(t *testing.T) {
 	t.Parallel()
 

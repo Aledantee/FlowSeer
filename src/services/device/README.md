@@ -132,6 +132,9 @@ tenant identifier in the `X-FlowSeer-Tenant` header. Calls are checked against
 OpenFGA (`internal/authz`, `internal/authz/openfga`) per the service options.
 `TenantService` uses the platform rule and needs no tenant header. Both identity
 services use the operator interceptor chain (`internal/host/serve.go`).
+`HistoryService` is the one method that reads several tenants: the header may
+list up to 25, comma-separated, and the caller needs `viewer` on each. Every
+other method refuses a list and a header sent on more than one line.
 
 Bootstrap starts with configured platform subjects. For an issuer `I` and
 subject `P`, configure `platform_admin.subjects: "P"` and the platform
@@ -224,12 +227,14 @@ digest an edge pins. That digest is what every edge is provisioned with, so the
 pair is persisted: a service that generated a fresh key each start would refuse
 every edge in the field.
 
-Eight modules run under the service runtime: the bus hub, the telemetry
+Nine modules run under the service runtime: the bus hub, the telemetry
 forwarder, intake, the journal's read sweeper, the Connect listener, the drift
-poll, the capture artifact sweeper, and the relationship projector
-(`internal/projector`). They are supervised `RestForOne` with the hub first.
-That is not a default: the seven modules after it hold resources the hub owns,
-so a hub that is rebuilt must take them with it.
+poll, the capture artifact sweeper, the relationship projector
+(`internal/projector`), and the history sink (`internal/historysink`), which
+runs only when the configuration has a `history` section. They are supervised
+`RestForOne` with the hub first. That is not a default: the eight modules after
+it hold resources the hub owns, so a hub that is rebuilt must take them with it.
+The sink is last, so its own failures restart nothing else.
 
 ## Remote packet capture
 
@@ -320,6 +325,10 @@ authorized open. Edge enforcement and the intake path are described in the
 | `internal/registry` | the operator-written device registry, read once at start |
 | `internal/edgestore` | the edge records and the setup-key index |
 | `internal/intake` | validation and republishing of edge ingestion records into central streams |
+| `internal/history` | the ClickHouse pools, the schema migrator, and the device dimension mirror |
+| `internal/historysink` | the consumer that inserts central syslog records into ClickHouse |
+| `internal/historyquery` | the history read statements, scoped by the admitted tenant set |
+| `internal/historyapi` | `HistoryService`: the operator's read of stored syslog history |
 | `internal/credential` | the mounted credential files |
 | `internal/edge` | the assertion verifier |
 | `internal/edgeapi` | `EdgeService`, `EdgeAdminService`, and the assertion middleware |

@@ -652,7 +652,32 @@ func buildSyntheticMethod(t *testing.T, name string, rule *authzv1.Rule) protore
 	return file.Services().Get(0).Methods().Get(0)
 }
 
+// multiTenantProbe records what the handler of a multi-tenant method finds on
+// its context.
+type multiTenantProbe struct {
+	mu        sync.Mutex
+	calls     int
+	set       []string
+	singleErr error
+}
+
+func (p *multiTenantProbe) record(ctx context.Context) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.calls++
+	p.set, _ = tenant.SetFrom(ctx)
+	_, p.singleErr = tenant.FromContext(ctx)
+}
+
+func (p *multiTenantProbe) snapshot() (calls int, set []string, singleErr error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.calls, slices.Clone(p.set), p.singleErr
+}
+
 type testEnv struct {
+	multiTenantCli   *connect.Client[edgev1.GetEdgeRequest, edgev1.GetEdgeResponse]
+	multiTenant      *multiTenantProbe
 	server           *httptest.Server
 	checker          *fakeChecker
 	handlers         *testHandlers
@@ -786,11 +811,35 @@ func setupTestEnv(t *testing.T) *testEnv {
 		connect.WithInterceptors(authnInterceptor, authzInterceptor),
 	))
 
+	multiRule := authzv1.Rule_builder{
+		Mode:        authzv1.RuleMode_RULE_MODE_TENANT.Enum(),
+		Relation:    proto.String("viewer"),
+		ObjectType:  proto.String("tenant"),
+		MultiTenant: proto.Bool(true),
+	}.Build()
+	if err := protovalidate.Validate(multiRule); err != nil {
+		t.Fatalf("multi-tenant rule fails protovalidate: %v", err)
+	}
+	multiMD := buildSyntheticMethod(t, "MultiTenantMethod", multiRule)
+	multiProc := "/" + string(multiMD.Parent().FullName()) + "/" + string(multiMD.Name())
+	multiProbe := &multiTenantProbe{}
+	mux.Handle(multiProc, connect.NewUnaryHandler(
+		multiProc,
+		func(ctx context.Context, _ *connect.Request[edgev1.GetEdgeRequest]) (*connect.Response[edgev1.GetEdgeResponse], error) {
+			multiProbe.record(ctx)
+			return validResponse(t, edgev1.GetEdgeResponse_builder{Edge: validEdgeRecord(t)}.Build()), nil
+		},
+		connect.WithSchema(multiMD),
+		connect.WithInterceptors(authnInterceptor, outerInterceptor, authzInterceptor),
+	))
+
 	server := httptest.NewServer(mux)
 	t.Cleanup(server.Close)
 
 	client := server.Client()
 	return &testEnv{
+		multiTenantCli:   connect.NewClient[edgev1.GetEdgeRequest, edgev1.GetEdgeResponse](client, server.URL+multiProc),
+		multiTenant:      multiProbe,
 		server:           server,
 		checker:          checker,
 		handlers:         handlers,
@@ -1010,6 +1059,126 @@ func TestTenantHeaderValidation(t *testing.T) {
 			t.Error("handler did not run")
 		}
 	})
+}
+
+func multiTenantRequest(t *testing.T, header ...string) *connect.Request[edgev1.GetEdgeRequest] {
+	t.Helper()
+	req := validRequest(t, edgev1.GetEdgeRequest_builder{Edge: edgeRef(t)}.Build())
+	for _, line := range header {
+		req.Header().Add("X-FlowSeer-Tenant", line)
+	}
+	return req
+}
+
+func TestAMultiTenantMethodAdmitsTheListedTenantsAsASetInOneBatch(t *testing.T) {
+	env := setupTestEnv(t)
+
+	_, err := env.multiTenantCli.CallUnary(context.Background(), multiTenantRequest(t, validTenantID+","+validTenantID2))
+	if err != nil {
+		t.Fatalf("call: %v", err)
+	}
+
+	calls, set, singleErr := env.multiTenant.snapshot()
+	if calls != 1 || !slices.Equal(set, []string{validTenantID, validTenantID2}) {
+		t.Errorf("handler ran %d times and saw the set %v, want once with [%s %s]", calls, set, validTenantID, validTenantID2)
+	}
+	if singleErr == nil {
+		t.Error("the handler found a single ambient tenant beside the set")
+	}
+	batches := env.checker.Batches()
+	if len(batches) != 1 || len(batches[0]) != 4 {
+		t.Fatalf("batches = %v, want one batch of 4 queries", batches)
+	}
+	if len(env.checker.Groups()) != 1 {
+		t.Errorf("the checker saw %d separate calls, want the one batch only", len(env.checker.Groups()))
+	}
+}
+
+func TestOneDeniedTenantOfAListFailsTheCallWithNoRows(t *testing.T) {
+	env := setupTestEnv(t)
+	env.checker.SetDeny(func(q authz.Query) bool {
+		return q.Object == "tenant:"+validTenantID2 && q.Relation == "viewer"
+	})
+
+	_, err := env.multiTenantCli.CallUnary(context.Background(), multiTenantRequest(t, validTenantID+","+validTenantID2))
+
+	if connect.CodeOf(err) != connect.CodePermissionDenied {
+		t.Fatalf("code = %v (err %v), want PermissionDenied", connect.CodeOf(err), err)
+	}
+	if got := errCodeOf(t, err); got != authz.ErrCodeDenied.String() {
+		t.Errorf("error code = %q, want %q", got, authz.ErrCodeDenied)
+	}
+	if calls, _, _ := env.multiTenant.snapshot(); calls != 0 {
+		t.Errorf("the handler ran %d times after a denied tenant", calls)
+	}
+}
+
+func TestATwentySixTenantListIsRefusedBeforeAnyCheck(t *testing.T) {
+	env := setupTestEnv(t)
+	ids := make([]string, 26)
+	for i := range ids {
+		ids[i] = testUUID('b', i)
+	}
+
+	_, err := env.multiTenantCli.CallUnary(context.Background(), multiTenantRequest(t, strings.Join(ids, ",")))
+
+	if connect.CodeOf(err) != connect.CodeInvalidArgument {
+		t.Fatalf("code = %v (err %v), want InvalidArgument", connect.CodeOf(err), err)
+	}
+	if got := errCodeOf(t, err); got != authz.ErrCodeTenantList.String() {
+		t.Errorf("error code = %q, want %q", got, authz.ErrCodeTenantList)
+	}
+	if n := len(env.checker.Recorded()); n != 0 {
+		t.Errorf("the checker saw %d queries for a refused list, want 0", n)
+	}
+}
+
+func TestAListWithADuplicateOrAnEmptyItemIsRefused(t *testing.T) {
+	for name, header := range map[string]string{
+		"a duplicate":    validTenantID + "," + validTenantID,
+		"an empty item":  validTenantID + ",," + validTenantID2,
+		"a trailing one": validTenantID + ",",
+	} {
+		t.Run(name, func(t *testing.T) {
+			env := setupTestEnv(t)
+
+			_, err := env.multiTenantCli.CallUnary(context.Background(), multiTenantRequest(t, header))
+
+			if connect.CodeOf(err) != connect.CodeInvalidArgument {
+				t.Errorf("code = %v (err %v), want InvalidArgument", connect.CodeOf(err), err)
+			}
+			if n := len(env.checker.Recorded()); n != 0 {
+				t.Errorf("the checker saw %d queries for a refused list, want 0", n)
+			}
+		})
+	}
+}
+
+func TestASingleTenantMethodRefusesAListAndASecondHeaderLine(t *testing.T) {
+	for name, lines := range map[string][]string{
+		"a comma-separated list": {validTenantID + "," + validTenantID2},
+		"a second header line":   {validTenantID, validTenantID2},
+	} {
+		t.Run(name, func(t *testing.T) {
+			env := setupTestEnv(t)
+			req := validRequest(t, edgev1.GetEdgeRequest_builder{Edge: edgeRef(t)}.Build())
+			for _, line := range lines {
+				req.Header().Add("X-FlowSeer-Tenant", line)
+			}
+
+			_, err := env.edgeCli.GetEdge(context.Background(), req)
+
+			if connect.CodeOf(err) != connect.CodeInvalidArgument {
+				t.Fatalf("code = %v (err %v), want InvalidArgument", connect.CodeOf(err), err)
+			}
+			if n := len(env.checker.Recorded()); n != 0 {
+				t.Errorf("the checker saw %d queries, want 0", n)
+			}
+			if env.handlers.DidRun("GetEdge") {
+				t.Error("the handler ran for a refused tenant header")
+			}
+		})
+	}
 }
 
 func TestMembershipDeniedRefused(t *testing.T) {
