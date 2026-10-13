@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net"
@@ -14,6 +15,7 @@ import (
 	"time"
 
 	identityv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/identity/v1"
+	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/service"
 	"go.aledante.io/FlowSeer/src/common/spawn"
@@ -28,6 +30,8 @@ import (
 	"go.aledante.io/FlowSeer/src/services/device/internal/dispatchapi"
 	"go.aledante.io/FlowSeer/src/services/device/internal/drift"
 	"go.aledante.io/FlowSeer/src/services/device/internal/edgestore"
+	"go.aledante.io/FlowSeer/src/services/device/internal/history"
+	"go.aledante.io/FlowSeer/src/services/device/internal/historysink"
 	"go.aledante.io/FlowSeer/src/services/device/internal/intake"
 	"go.aledante.io/FlowSeer/src/services/device/internal/journal"
 	"go.aledante.io/FlowSeer/src/services/device/internal/projector"
@@ -86,7 +90,7 @@ const (
 // Run assembles the device service and runs it until ctx ends or the runtime
 // stops it.
 //
-// The eight modules are declared in dependency order and supervised
+// The nine modules are declared in dependency order and supervised
 // RestForOne, which is what makes the hub handle safe: see [hubHandle]. The
 // service declares no local message bus — its durability is the hub's
 // JetStream, and a second embedded broker would be a second store to keep.
@@ -186,17 +190,26 @@ func Run(ctx context.Context, cfg *Config, version string, opts Options) error {
 		// resources the hub owns, so a hub that is rebuilt must take them
 		// with it. See hubHandle for what a stale one would do.
 		Strategy: service.RestForOne,
-		Modules: []service.Module{
-			{Name: "hub", Leaf: &service.Leaf{Setup: h.setupHub}},
-			{Name: "forwarder", Gate: h.forwarderGate(), Leaf: &service.Leaf{Setup: h.setupForwarder}},
-			{Name: "intake", Leaf: &service.Leaf{Setup: h.setupIntake}},
-			{Name: "journal", Leaf: &service.Leaf{Setup: h.setupJournal}},
-			{Name: "connect", Leaf: &service.Leaf{Setup: h.setupConnect}},
-			{Name: "drift", Leaf: &service.Leaf{Setup: h.setupDrift}},
-			{Name: "capture_sweeper", Leaf: &service.Leaf{Setup: h.setupCaptureSweeper}},
-			{Name: "projector", Leaf: &service.Leaf{Setup: h.setupProjector}},
-		},
+		Modules:  h.modules(),
 	})
+}
+
+// modules declares the service's modules in dependency order. The history sink
+// is last: it only reads from the hub, and RestForOne restarts a module with
+// the ones declared after it, so a sink that keeps failing restarts nothing
+// else.
+func (h *assembly) modules() []service.Module {
+	return []service.Module{
+		{Name: "hub", Leaf: &service.Leaf{Setup: h.setupHub}},
+		{Name: "forwarder", Gate: h.forwarderGate(), Leaf: &service.Leaf{Setup: h.setupForwarder}},
+		{Name: "intake", Leaf: &service.Leaf{Setup: h.setupIntake}},
+		{Name: "journal", Leaf: &service.Leaf{Setup: h.setupJournal}},
+		{Name: "connect", Leaf: &service.Leaf{Setup: h.setupConnect}},
+		{Name: "drift", Leaf: &service.Leaf{Setup: h.setupDrift}},
+		{Name: "capture_sweeper", Leaf: &service.Leaf{Setup: h.setupCaptureSweeper}},
+		{Name: "projector", Leaf: &service.Leaf{Setup: h.setupProjector}},
+		{Name: "history_sink", Gate: service.FixedGate(h.cfg.History() != nil), Leaf: &service.Leaf{Setup: h.setupHistorySink}},
+	}
 }
 
 // Options are what a caller embedding this service in its own process can
@@ -739,4 +752,128 @@ func (h *assembly) setupProjector(ctx context.Context) (service.Attempt, error) 
 		return service.Attempt{}, err
 	}
 	return service.Attempt{Runner: resources.projector.Run}, nil
+}
+
+// setupHistorySink moves the central syslog records into ClickHouse. It opens
+// the store without connecting, so a ClickHouse that is down at start leaves
+// the other modules running and the sink waiting.
+func (h *assembly) setupHistorySink(ctx context.Context) (service.Attempt, error) {
+	resources, err := h.hub.await(ctx)
+	if err != nil {
+		return service.Attempt{}, err
+	}
+	store, err := history.Open(historyConfig(h.cfg.History()))
+	if err != nil {
+		return service.Attempt{}, err
+	}
+	sink, err := historysink.Start(ctx, historysink.Config{
+		JetStream: resources.hub.JetStream(),
+		Inserter:  historysink.NewInserter(store.Writer(), h.cfg.History().GetDatabase()),
+		Retention: func(ctx context.Context, tenantID string) (identityv1.RetentionClass, error) {
+			record, err := resources.tenants.Get(ctx, tenantID)
+			if err != nil {
+				return identityv1.RetentionClass_RETENTION_CLASS_UNSPECIFIED, err
+			}
+			return record.GetConfig().GetRetentionClass(), nil
+		},
+		Location:      h.deviceLocation,
+		Mirror:        func(ctx context.Context) error { return h.mirrorDevices(ctx, resources, store) },
+		Logger:        service.Logger(ctx),
+		MeterProvider: service.MeterProvider(ctx),
+	})
+	if err != nil {
+		_ = store.Close()
+		return service.Attempt{}, err
+	}
+	// See setupHub: the Runner is not guaranteed to run.
+	if err := ctx.Err(); err != nil {
+		_ = store.Close()
+		return service.Attempt{}, err
+	}
+
+	return service.Attempt{Runner: func(ctx context.Context) error {
+		defer func() { _ = store.Close() }()
+		return sink.Run(ctx)
+	}}, nil
+}
+
+// deviceLocation is the UUID of the location the registry places a device in,
+// or empty when the device is unknown or unplaced.
+func (h *assembly) deviceLocation(deviceID string) string {
+	device, ok := h.registry.Device(deviceID)
+	if !ok {
+		return ""
+	}
+	return device.GetConfig().GetLocation().GetLocation().GetId()
+}
+
+// mirrorDevices copies the registry's devices into the history store under the
+// tenant of the registry's edge.
+func (h *assembly) mirrorDevices(ctx context.Context, resources *busResources, store *history.Store) error {
+	edgeID := h.registry.EdgeID()
+	tenantID, err := resources.edgeTenant(ctx, edgeID)
+	if err != nil {
+		return err
+	}
+	ids, err := h.registry.Devices(ctx, edgeID)
+	if err != nil {
+		return err
+	}
+	devices := make([]history.Device, 0, len(ids))
+	for _, id := range ids {
+		device, ok := h.registry.Device(id)
+		if !ok {
+			continue
+		}
+		devices = append(devices, history.Device{
+			ID:         id,
+			Name:       device.GetConfig().GetName(),
+			LocationID: device.GetConfig().GetLocation().GetLocation().GetId(),
+		})
+	}
+	return store.MirrorDevices(ctx, tenantID, devices)
+}
+
+// historyConfig translates the configured history section.
+func historyConfig(msg *storev1.HistoryStore) history.Config {
+	user := func(u *storev1.HistoryUser) history.User {
+		return history.User{Name: u.GetName(), PasswordFile: u.GetPasswordFile()}
+	}
+	return history.Config{
+		Endpoints: msg.GetEndpoints(),
+		Database:  msg.GetDatabase(),
+		Cluster:   msg.GetCluster(),
+		Admin:     user(msg.GetAdmin()),
+		Writer:    user(msg.GetWriter()),
+		Reader:    user(msg.GetReader()),
+		Analyst:   user(msg.GetAnalyst()),
+		CAFile:    msg.GetCaFile(),
+	}
+}
+
+// MigrateHistory applies the history schema the configuration names and
+// reports each step it applied to out. It is the one place schema is created:
+// the service itself never migrates. It returns an error for a configuration
+// without a history section.
+func MigrateHistory(ctx context.Context, cfg *Config, out io.Writer) error {
+	if cfg.History() == nil {
+		return errs.New().Code(ErrCodeStart).Msg("the configuration has no history section to migrate")
+	}
+	store, err := history.Open(historyConfig(cfg.History()))
+	if err != nil {
+		return err
+	}
+	defer func() { _ = store.Close() }()
+
+	applied, err := history.Migrate(ctx, store)
+	for _, step := range applied {
+		_, _ = fmt.Fprintf(out, "applied step %d: %s\n", step.Number, step.Name)
+	}
+	if err != nil {
+		return err
+	}
+	if len(applied) == 0 {
+		_, _ = fmt.Fprintln(out, "history schema is current")
+	}
+	return nil
 }

@@ -24,6 +24,7 @@ import (
 
 	"buf.build/go/protovalidate"
 	connect "connectrpc.com/connect"
+	"github.com/nats-io/nats.go/jetstream"
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -1929,4 +1930,97 @@ func waitForHost(t *testing.T, what string, condition func() bool) {
 		time.Sleep(10 * time.Millisecond)
 	}
 	t.Fatalf("timed out waiting for %s", what)
+}
+
+// historyConfigText is a history section whose ClickHouse is at endpoint, with
+// the four password files it names written under a temporary directory.
+func historyConfigText(t *testing.T, endpoint string) string {
+	t.Helper()
+	dir := t.TempDir()
+	user := func(role, name string) string {
+		path := filepath.Join(dir, role+".password")
+		if err := os.WriteFile(path, []byte(role+"-secret\n"), 0o600); err != nil {
+			t.Fatalf("write %s password: %v", role, err)
+		}
+		return fmt.Sprintf("  %s {\n    name: %q\n    password_file: %q\n  }\n", role, name, path)
+	}
+	return fmt.Sprintf("history {\n  endpoints: %q\n  database: \"flowseer\"\n", endpoint) +
+		user("admin", "flowseer_admin") + user("writer", "flowseer_writer") +
+		user("reader", "flowseer_reader") + user("analyst", "flowseer_analyst") + "}\n"
+}
+
+func historySinkConsumerInfo(hub *edgebus.Hub) (*jetstream.ConsumerInfo, error) {
+	consumer, err := hub.JetStream().Consumer(context.Background(), edgebus.IngestStream(edgebus.IngestRecordTypeSyslog), "history_sink")
+	if err != nil {
+		return nil, err
+	}
+	return consumer.Info(context.Background())
+}
+
+func unlistedDeviceStatusRequest() *devicev1.GetDeviceAccessStatusRequest {
+	local := &inventoryv1.DeviceLocalRef{}
+	local.SetId(testUnlistedDeviceID)
+	device := &inventoryv1.DeviceGlobalRef{}
+	device.SetDevice(local)
+	msg := &devicev1.GetDeviceAccessStatusRequest{}
+	msg.SetDevice(device)
+	return msg
+}
+
+func TestWithClickHouseUnreachableTheSinkWaitsAndTheOtherModulesStayUp(t *testing.T) {
+	svc := startTestServiceWithConfig(t, historyConfigText(t, "127.0.0.1:1"), nil)
+	waitForHost(t, "the history sink consumer", func() bool {
+		_, err := historySinkConsumerInfo(svc.Hub)
+		return err == nil
+	})
+	data, err := proto.Marshal(validIngestRecord(t))
+	if err != nil {
+		t.Fatalf("marshal ingest record: %v", err)
+	}
+	subject := edgebus.CentralIngestSubject(edgebus.DefaultTenant, edgebus.IngestRecordTypeSyslog, testDeviceID)
+	if _, err := svc.Hub.JetStream().Publish(context.Background(), subject, data); err != nil {
+		t.Fatalf("publish a central ingest record: %v", err)
+	}
+
+	waitForHost(t, "the sink to take the record", func() bool {
+		info, err := historySinkConsumerInfo(svc.Hub)
+		return err == nil && info.Delivered.Stream >= 1
+	})
+	info, err := historySinkConsumerInfo(svc.Hub)
+	if err != nil {
+		t.Fatalf("consumer info: %v", err)
+	}
+	if info.AckFloor.Stream != 0 {
+		t.Errorf("ack floor = %d, want 0: the record must stay unacknowledged while ClickHouse is unreachable", info.AckFloor.Stream)
+	}
+
+	client := devicev1connect.NewDeviceServiceClient(serviceClient(), svc.Base)
+	if _, err := callWhenServing(t, client, unlistedDeviceStatusRequest()); connect.CodeOf(err) != connect.CodePermissionDenied {
+		t.Errorf("with the sink waiting, the api answered %v, want the authorization refusal it gives an unlisted device", err)
+	}
+}
+
+func TestMigrateHistoryNeedsAHistorySectionAndStopsWhenTheServerIsUnreachable(t *testing.T) {
+	bare, err := host.LoadConfig(writeConfig(t, validConfig))
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	var out bytes.Buffer
+	err = host.MigrateHistory(context.Background(), bare, &out)
+	if code, _ := errs.CodeOf(err); code != host.ErrCodeStart {
+		t.Errorf("a configuration without a history section gave %v, want the %v code", err, host.ErrCodeStart)
+	}
+
+	withHistory, err := host.LoadConfig(writeConfig(t, validConfig+historyConfigText(t, "127.0.0.1:1")))
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	out.Reset()
+	err = host.MigrateHistory(context.Background(), withHistory, &out)
+	if code, _ := errs.CodeOf(err); code.String() != "history/migrate" {
+		t.Errorf("an unreachable server gave %v, want the history/migrate code", err)
+	}
+	if out.Len() != 0 {
+		t.Errorf("output %q, want nothing when no step applied", out.String())
+	}
 }

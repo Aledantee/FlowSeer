@@ -93,7 +93,9 @@ Central never creates schema. The lab has no device container image, so the migr
 go run ../../src/services/device/cmd/device --config central.textproto -migrate-history
 ```
 
-The compose service has no `cluster` in `central.textproto`, so the migrator creates plain engines on the one node. A deployment with a cluster names it in the `history` block.
+The command prints one line per step it applied, and `history schema is current` on a second run. The compose service has no `cluster` in `central.textproto`, so the migrator creates plain engines on the one node. A deployment with a cluster names it in the `history` block.
+
+With the `history` block present, central starts the `history_sink` module, which follows the syslog ingest stream and inserts into ClickHouse. A ClickHouse that is down does not stop central: the records stay in the stream and the sink inserts them when the server returns.
 
 5. Provision the tenant record and alice's admin role. Start central first.
 
