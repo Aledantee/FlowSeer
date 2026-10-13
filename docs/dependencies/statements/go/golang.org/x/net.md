@@ -6,7 +6,7 @@ required_by:
   - src/edge/netpen/go.mod
 criteria: deploy
 verdict: keep
-approved: 2026-10-01
+approved: 2026-10-13
 ---
 
 ## Why it is required
