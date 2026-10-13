@@ -5,7 +5,7 @@ record of what an operator attempted and completed.
 
 ## Boundaries
 
-Imports: model/capture, model/edge, model/identity
+Imports: model/capture, model/edge, model/identity, model/rawwindow
 
 Imported by: nothing FlowSeer-owned
 

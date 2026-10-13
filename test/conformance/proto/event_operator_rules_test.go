@@ -12,6 +12,7 @@ import (
 	capturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/capture/v1"
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	identityv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/identity/v1"
+	rawwindowv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/rawwindow/v1"
 )
 
 const (
@@ -228,6 +229,47 @@ func TestOperatorActionCompletedRules(t *testing.T) {
 	}
 
 	runValidationCases(t, tests)
+}
+
+func TestOperatorActionRawWindowObject(t *testing.T) {
+	withObject := func(action operatorv1.OperatorAction, object *operatorv1.OperatorActionRawWindow) operatorv1.OperatorActionEvent_builder {
+		b := validOperatorActionEvent()
+		b.Edge = nil
+		b.Action = action.Enum()
+		b.RawWindow = object
+		return b
+	}
+	opened := operatorv1.OperatorActionRawWindow_builder{
+		Ref:    rawWindowGlobalRef(),
+		Config: validRawWindowConfig().Build(),
+	}.Build()
+	closedUnknown := operatorv1.OperatorActionRawWindow_builder{Ref: rawWindowGlobalRef()}.Build()
+	noRef := operatorv1.OperatorActionRawWindow_builder{Config: validRawWindowConfig().Build()}.Build()
+	badConfig := operatorv1.OperatorActionRawWindow_builder{
+		Ref: rawWindowGlobalRef(),
+		Config: func() *rawwindowv1.RawWindowConfig {
+			b := validRawWindowConfig()
+			b.MaxBytes = proto.Uint64(0)
+			return b.Build()
+		}(),
+	}.Build()
+
+	runFieldCases(t, []fieldCase{
+		{name: "open action with its configuration", message: withObject(operatorv1.OperatorAction_OPERATOR_ACTION_RAW_WINDOW_OPEN, opened).Build()},
+		{name: "close action of a window not loaded", message: withObject(operatorv1.OperatorAction_OPERATOR_ACTION_RAW_WINDOW_CLOSE, closedUnknown).Build()},
+		{
+			name:      "raw window object without a ref",
+			message:   withObject(operatorv1.OperatorAction_OPERATOR_ACTION_RAW_WINDOW_OPEN, noRef).Build(),
+			wantField: "raw_window.ref",
+			wantText:  "value is required",
+		},
+		{
+			name:      "raw window object with an unbounded budget",
+			message:   withObject(operatorv1.OperatorAction_OPERATOR_ACTION_RAW_WINDOW_OPEN, badConfig).Build(),
+			wantField: "raw_window.config.max_bytes",
+			wantText:  "greater than 0",
+		},
+	})
 }
 
 func TestOperatorActionNewObjectArms(t *testing.T) {

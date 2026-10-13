@@ -109,9 +109,15 @@ so overlapping lanes on the synthetic pool never share session state.
 
 ```bash
 uv run tools/scripts/run.py tune bench --lane <name> --cli <claude|codex|agy|omp> \
-  --model <id> [--effort <level>] \
+  --model <id> [--effort <level>] [--transcript] [--budget <usd>] \
   --brief <brief file> --dir <worktree> --out <json>
 ```
+
+`--transcript` runs `claude` with `--output-format stream-json --verbose` and
+adds `result_text`, `skills_listed`, and `skills_invoked` (the `Skill` tool
+calls in order) to the result. `--budget` passes `--max-budget-usd` to
+`claude` and works with or without `--transcript`. Both exit 2 on any other
+CLI, as `--effort` does on `agy`.
 
 A lane runs at one level, the model's recommended start, and a second
 level runs only as `SKILL.md` step 3b or step 4 allows. `agy` takes
@@ -176,7 +182,8 @@ swap is not read as a clean run:
   requested model still answers the rest; a partial reroute is the silent
   downgrade worth catching, and requiring every turn to be foreign would miss
   it (Opus 5.5 answered the sensitive task partly as Opus 4.8).
-- `denied_tools`: the tools Claude's `permission_denials` names. It is
+- `denied_tools`: the tools Claude's `permission_denials` names, filled on
+  the `json` path and on the `--transcript` path alike. It is
   read beside the transcript, not graded, because this repository's hooks
   deny edits too and a repo guard is not the model declining.
 - `refused`: true on Claude's `stop_reason: refusal`, or on Agy's filter reply

@@ -433,6 +433,7 @@ class Verification:
         self.proto_deleted = False
         self.proto = False
         self.buf_module = False
+        self.lint_module = False
         self.hook_tooling = False
         self.mib = False
         self.service_otel_integration = False
@@ -557,6 +558,8 @@ class Verification:
         for entry in sorted((entry for entry in entries if entry.endswith("/go.mod")), key=treestate.sort_key):
             if entry == "./tools/buf/go.mod":
                 self.buf_module = True
+            elif entry == "./tools/golangci-lint/go.mod":
+                self.lint_module = True
             else:
                 self.add_module(dirname(entry))
         for entry in sorted(entries, key=treestate.sort_key):
@@ -597,6 +600,10 @@ class Verification:
             # The tool module stays out of the generic Go selection. The
             # `tools/buf/*` arm below routes these files to the protobuf gates.
             pass
+        elif matches(path, "tools/golangci-lint/go.mod", "tools/golangci-lint/go.sum"):
+            # The lint tool module holds no packages to build or test. A new
+            # linter applies to every module, so run_gates asks for --full.
+            self.lint_module = True
         elif matches(path, *GO_MODULE_FILES):
             self.add_module(self.nearest_module(path))
         elif matches(path, *PROTO_FILES):
@@ -743,7 +750,7 @@ class Verification:
         if self.go_files:
             tools += ["gofumpt", "goimports"]
         if self.modules:
-            tools += ["go", "golangci-lint"]
+            tools += ["go"]
         if self.proto or self.mib:
             tools.append("go")
         if self.hook_tooling:
@@ -764,7 +771,7 @@ class Verification:
         if not missing:
             return
         say(f"required tools are not on PATH: {' '.join(missing)}")
-        if any(tool in missing for tool in ("gofumpt", "goimports", "golangci-lint")):
+        if any(tool in missing for tool in ("gofumpt", "goimports")):
             say(GOPATH_HINT)
         raise Stop(1)
 
@@ -911,7 +918,15 @@ class Verification:
         # golangci-lint takes a machine-wide file lock and by default dies with
         # `parallel golangci-lint is running` when another instance holds it,
         # which reads as a red gate. Serial runners wait for the lock instead.
-        return ["golangci-lint", "run", "--allow-serial-runners", "--config", f"{self.root}/.golangci.yml", *packages]
+        #
+        # golangci-lint is pinned in its own module, like buf, so the version
+        # that lints is the one tools/golangci-lint/go.sum holds, never whatever
+        # sits on PATH. Its golang.org/x/tools decides which export-data
+        # versions it reads, so a Go release that bumps that version needs a
+        # linter bump there. go tool builds it with the toolchain the linted
+        # module selects, which is why the tool module's go line stays at 1.27.
+        lint = ["go", "tool", f"-modfile={self.root}/tools/golangci-lint/go.mod", "golangci-lint"]
+        return [*lint, "run", "--allow-serial-runners", "--config", f"{self.root}/.golangci.yml", *packages]
 
     def changed_packages(self, module: str) -> list[str]:
         packages = []
@@ -1177,6 +1192,9 @@ class Verification:
         if not self.full and ".golangci.yml" in self.paths:
             say(".golangci.yml changed; run with --full to lint every Go module under the new configuration.")
             raise Stop(2)
+        if not self.full and self.lint_module:
+            say("tools/golangci-lint changed; run with --full to lint every Go module with the new linter.")
+            raise Stop(2)
 
         self.search_gopath()
         self.check_tools()
@@ -1206,7 +1224,8 @@ class Verification:
             self.check_format()
         if self.modules:
             self.need_tool("go")
-            self.need_tool("golangci-lint")
+            if self.lint_module:
+                self.run(["go", "-C", "tools/golangci-lint", "mod", "verify"])
             for module in self.modules:
                 self.check_module(module)
         self.check_repository_wide()

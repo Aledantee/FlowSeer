@@ -34,11 +34,11 @@ enter the control-plane dependency graph. Test it separately:
 go -C src/edge/netpen test -race ./...
 ```
 
-Go and protobuf changes also use golangci-lint v2 and the pinned Buf CLI. Run the command for
+Go and protobuf changes also use the pinned golangci-lint and Buf CLI. Run the command for
 the area you changed:
 
 ```bash
-golangci-lint run
+go tool -modfile=tools/golangci-lint/go.mod golangci-lint run
 go tool -modfile=tools/buf/go.mod buf lint
 ```
 

@@ -17,10 +17,12 @@ import (
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/device/v1/devicev1connect"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1/edgev1connect"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/identity/v1/identityv1connect"
+	ingestapiv1connect "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/ingest/v1/ingestv1connect"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1/attachv1connect"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/audit/v1/auditv1connect"
 	captureedgev1connect "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/capture/v1/capturev1connect"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1/dispatchv1connect"
+	ingestedgev1connect "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/ingest/v1/ingestv1connect"
 	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/tenant"
@@ -37,6 +39,7 @@ import (
 	"go.aledante.io/FlowSeer/src/services/device/internal/identityapi"
 	"go.aledante.io/FlowSeer/src/services/device/internal/journal"
 	"go.aledante.io/FlowSeer/src/services/device/internal/projector"
+	"go.aledante.io/FlowSeer/src/services/device/internal/rawwindowapi"
 	"go.aledante.io/FlowSeer/src/services/device/internal/registry"
 	"go.aledante.io/FlowSeer/src/services/device/internal/telemetry"
 )
@@ -101,9 +104,20 @@ func panicError(p any) error {
 		Attr("panic", fmt.Sprintf("%T", p)).Msg("handler panicked"))
 }
 
-// mux builds the served surface: the edge-facing services behind the
-// assertion middleware, and the operator-facing ones enforcing authentication,
-// validation, relationship authorization, and action trail recording.
+// servedMuxes is what the host serves, one mux per listener.
+type servedMuxes struct {
+	// edge holds the procedures an edge calls.
+	edge *http.ServeMux
+	// api holds the procedures an operator calls.
+	api *http.ServeMux
+}
+
+// mux builds the two served surfaces: the edge mux, whose services sit behind
+// the assertion middleware, and the API mux, whose services enforce
+// authentication, validation, relationship authorization, and action trail
+// recording. Each is served on its own listener, so a deployment can expose
+// the edge mux without exposing the operator one, and a procedure mounted on
+// one mux answers 404 on the other.
 //
 // Which side a service sits on is decided by who calls it. An edge signs every
 // call with the key central registered at enrollment, so EdgeService,
@@ -120,7 +134,7 @@ func panicError(p any) error {
 // of a capture, which no body-hashing middleware can read, so it authenticates
 // from the stream's own assertions instead. Both are bounded where the
 // middleware's limit would have been.
-func (h *assembly) mux(ctx context.Context, resources *busResources, log *slog.Logger, view *telemetry.View) (http.Handler, error) {
+func (h *assembly) mux(ctx context.Context, resources *busResources, log *slog.Logger, view *telemetry.View) (*servedMuxes, error) {
 	access, err := openAccessStore(ctx, resources.hub)
 	if err != nil {
 		return nil, err
@@ -260,17 +274,30 @@ func (h *assembly) mux(ctx context.Context, resources *busResources, log *slog.L
 			FullPayload:  access.FullPayloadActive,
 		},
 	)
-	mux := http.NewServeMux()
+	rawWindowEdgeService := rawwindowapi.NewEdgeService(resources.rawWindows, rawwindowapi.EdgeServiceConfig{
+		EdgeTenant:     resources.edgeTenant,
+		EdgeEnrollment: resources.edgeEnrollment,
+		Logger:         log,
+	})
+	rawWindowOperatorService := rawwindowapi.NewOperatorService(resources.rawWindows, rawwindowapi.OperatorServiceConfig{
+		EdgeTenant:   resources.edgeTenant,
+		FullPayload:  access.FullPayloadActive,
+		Registry:     h.registry,
+		Allowance:    h.cfg.RawWindowEdgeAllowanceBytes,
+		NotifyChange: rawWindowEdgeService.NotifyChange,
+	})
+	edgeMux := http.NewServeMux()
+	apiMux := http.NewServeMux()
 	tenantPath, tenantHandler := identityv1connect.NewTenantServiceHandler(
 		identityapi.NewTenantService(resources.tenants, resources.projector), operatorInterceptors, recoverPanic,
 	)
-	mux.Handle(tenantPath, tenantHandler)
+	apiMux.Handle(tenantPath, tenantHandler)
 	tenantAdminPath, tenantAdminHandler := identityv1connect.NewTenantAdminServiceHandler(
 		identityapi.NewAdminService(resources.tenants, access, issuerURLs, time.Now, resources.projector, log), operatorInterceptors, recoverPanic,
 	)
-	mux.Handle(tenantAdminPath, tenantAdminHandler)
+	apiMux.Handle(tenantAdminPath, tenantAdminHandler)
 	edgePath, edgeHandler := attachv1connect.NewEdgeServiceHandler(edgeService, edgeInterceptors, recoverPanic)
-	mux.Handle(edgePath, middleware.Wrap(edgeHandler))
+	edgeMux.Handle(edgePath, middleware.Wrap(edgeHandler))
 	// Enroll is the one edge call made before central holds a key to verify
 	// it with, so it sits in front of the middleware. It carries its own
 	// proof: the setup key, and a signature by the key being registered.
@@ -279,22 +306,27 @@ func (h *assembly) mux(ctx context.Context, resources *busResources, log *slog.L
 	// served in front of that middleware because an edge has no identity to
 	// sign with yet — which makes it the one procedure an unauthenticated
 	// caller can reach, and the one the bound exists for.
-	mux.Handle(attachv1connect.EdgeServiceEnrollProcedure, http.MaxBytesHandler(edgeHandler, maxEdgeBody))
+	edgeMux.Handle(attachv1connect.EdgeServiceEnrollProcedure, http.MaxBytesHandler(edgeHandler, maxEdgeBody))
 
 	dispatchPath, dispatchHandler := dispatchv1connect.NewDispatchServiceHandler(resources.dispatch, edgeInterceptors, recoverPanic)
-	mux.Handle(dispatchPath, middleware.Wrap(dispatchHandler))
+	edgeMux.Handle(dispatchPath, middleware.Wrap(dispatchHandler))
 
 	auditPath, auditHandler := auditv1connect.NewAuditServiceHandler(auditService, edgeInterceptors, recoverPanic)
-	mux.Handle(auditPath, middleware.Wrap(auditHandler))
+	edgeMux.Handle(auditPath, middleware.Wrap(auditHandler))
 
 	adminPath, adminHandler := edgev1connect.NewEdgeAdminServiceHandler(adminService, operatorInterceptors, recoverPanic)
-	mux.Handle(adminPath, adminHandler)
+	apiMux.Handle(adminPath, adminHandler)
 
 	devicePath, deviceHandler := devicev1connect.NewDeviceServiceHandler(deviceService, operatorInterceptors, recoverPanic)
-	mux.Handle(devicePath, deviceHandler)
+	apiMux.Handle(devicePath, deviceHandler)
 
 	capturePath, captureHandler := capturev1connect.NewCaptureServiceHandler(captureOperatorService, operatorInterceptors, recoverPanic)
-	mux.Handle(capturePath, captureHandler)
+	apiMux.Handle(capturePath, captureHandler)
+
+	rawWindowPath, rawWindowHandler := ingestapiv1connect.NewRawWindowServiceHandler(rawWindowOperatorService, operatorInterceptors, recoverPanic)
+	apiMux.Handle(rawWindowPath, rawWindowHandler)
+	rawWindowEdgePath, rawWindowEdgeHandler := ingestedgev1connect.NewRawWindowEdgeServiceHandler(rawWindowEdgeService, edgeInterceptors, recoverPanic)
+	edgeMux.Handle(rawWindowEdgePath, middleware.Wrap(rawWindowEdgeHandler))
 
 	// Every message on the upload stream is bounded, in place of the body
 	// limit the assertion middleware applies to a unary edge call. The
@@ -303,23 +335,24 @@ func (h *assembly) mux(ctx context.Context, resources *busResources, log *slog.L
 	captureEdgePath, captureEdgeHandler := captureedgev1connect.NewCaptureEdgeServiceHandler(
 		captureEdgeService, edgeInterceptors, recoverPanic, connect.WithReadMaxBytes(maxCaptureChunk),
 	)
-	mux.Handle(captureEdgePath, middleware.Wrap(captureEdgeHandler))
+	edgeMux.Handle(captureEdgePath, middleware.Wrap(captureEdgeHandler))
 	// UploadCapture carries its assertions as messages rather than headers,
 	// so it is served in front of the middleware and authenticates itself
 	// from the stream's first message. That leaves it the second procedure an
 	// unauthenticated caller can reach, and the read bound above is what that
 	// costs. The handler also needs the read deadline that enforces its
 	// assertion window, which only this layer can hand it.
-	mux.Handle(
+	edgeMux.Handle(
 		captureedgev1connect.CaptureEdgeServiceUploadCaptureProcedure,
 		captureapi.WithUploadReadDeadline(captureEdgeHandler),
 	)
 
-	return mux, nil
+	return &servedMuxes{edge: edgeMux, api: apiMux}, nil
 }
 
-// serverTLS is the configuration both listeners serve, so an edge pins one
-// digest for the API and the bus alike.
+// serverTLS is the configuration the API and edge listeners serve, and the
+// certificate the bus serves too, so an edge pins one digest for the edge
+// listener and the bus alike and an operator sees the same one on the API.
 func (h *assembly) serverTLS() *tls.Config {
 	return &tls.Config{
 		MinVersion:   tls.VersionTLS12,

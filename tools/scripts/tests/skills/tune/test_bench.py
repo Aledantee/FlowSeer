@@ -30,11 +30,12 @@ class BenchTest(unittest.TestCase):
         self.calls = []
         self.expect_cleared = False
 
-    def run_bench(self, cli="omp", model="synthetic/hf:test", env_extra=None, effort=""):
+    def run_bench(self, cli="omp", model="synthetic/hf:test", env_extra=None, effort="", extra_args=()):
         argv = ["--lane", "l1", "--cli", cli, "--model", model,
                 "--brief", str(self.brief), "--dir", str(self.worktree), "--out", str(self.out)]
         if effort:
             argv += ["--effort", effort]
+        argv += extra_args
         env = os.environ.copy()
         env.update(env_extra or {})
 
@@ -175,6 +176,82 @@ class BenchTest(unittest.TestCase):
         proc = self.run_bench(cli="claude", model="claude-opus-5-5")
         self.assertEqual(proc.returncode, 0, proc.stderr)
         self.assertFalse(json.loads(self.out.read_text())["refused"])
+
+    def _write_claude_stream(self, events):
+        self.payload = "".join(json.dumps(e) + "\n" for e in events).encode()
+
+    def _stream(self, denials=()):
+        return [
+            {"type": "system", "subtype": "hook_started"},
+            {"type": "system", "subtype": "init", "skills": ["prose", "plan"]},
+            {"type": "assistant", "message": {"content": [
+                {"type": "tool_use", "name": "Skill", "input": {"skill": "prose"}}]}},
+            {"type": "assistant", "message": {"content": [
+                {"type": "tool_use", "name": "Bash", "input": {"command": "ls"}},
+                {"type": "text", "text": "OK"}]}},
+            {"type": "rate_limit_event"},
+            {"type": "result", "subtype": "success", "result": "OK",
+             "total_cost_usd": 0.0047, "stop_reason": "end_turn",
+             "usage": {"input_tokens": 4, "output_tokens": 53},
+             "modelUsage": {"claude-haiku-5-5": {}},
+             "permission_denials": list(denials)},
+        ]
+
+    def test_claude_transcript_reports_skills_and_result(self):
+        self._write_claude_stream(self._stream())
+        proc = self.run_bench(cli="claude", model="claude-haiku-5-5", extra_args=["--transcript"])
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        result = json.loads(self.out.read_text())
+        self.assertEqual(result["skills_listed"], ["prose", "plan"])
+        self.assertEqual(result["skills_invoked"], ["prose"])
+        self.assertEqual(result["result_text"], "OK")
+        self.assertEqual(result["cost_usd_reported"], 0.0047)
+        self.assertEqual(result["usage"]["output"], 53)
+        self.assertEqual(result["served_model"], ["claude-haiku-5-5"])
+        args = self.calls[-1][0]
+        self.assertIn("stream-json", args)
+        self.assertIn("--verbose", args)
+
+    def test_claude_json_path_has_no_transcript_keys(self):
+        self._write_claude({
+            "stop_reason": "end_turn", "total_cost_usd": 0.1, "result": "OK",
+            "usage": {"input_tokens": 10, "output_tokens": 20},
+            "modelUsage": {"claude-opus-5-5": {}},
+        })
+        proc = self.run_bench(cli="claude", model="claude-opus-5-5")
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        result = json.loads(self.out.read_text())
+        self.assertEqual(result["cost_usd_reported"], 0.1)
+        for key in ("result_text", "skills_listed", "skills_invoked"):
+            self.assertNotIn(key, result)
+
+    def test_budget_reaches_claude_as_max_budget_usd(self):
+        self._write_claude_stream(self._stream())
+        proc = self.run_bench(cli="claude", model="claude-haiku-5-5", extra_args=["--budget", "2"])
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        args = self.calls[-1][0]
+        self.assertEqual(args[args.index("--max-budget-usd") + 1], "2")
+        self.assertIn("json", args)
+        self.assertNotIn("--verbose", args)
+
+    def test_budget_on_another_cli_exits_2(self):
+        proc = self.run_bench(cli="omp", extra_args=["--budget", "2"])
+        self.assertEqual(proc.returncode, 2)
+        self.assertIn("--budget", proc.stderr)
+
+    def test_transcript_on_another_cli_exits_2(self):
+        proc = self.run_bench(cli="omp", extra_args=["--transcript"])
+        self.assertEqual(proc.returncode, 2)
+        self.assertIn("--transcript", proc.stderr)
+
+    def test_claude_transcript_denial_is_recorded_not_refused(self):
+        denial = {"tool_name": "Bash", "tool_use_id": "t1", "tool_input": {}}
+        self._write_claude_stream(self._stream(denials=[denial]))
+        proc = self.run_bench(cli="claude", model="claude-haiku-5-5", extra_args=["--transcript"])
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        result = json.loads(self.out.read_text())
+        self.assertEqual(result["denied_tools"], ["Bash"])
+        self.assertFalse(result["refused"])
 
     def test_agy_filter_refusal_detected(self):
         # Google's filter returns status SUCCESS, exit 0, zero usage, with the

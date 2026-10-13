@@ -13,7 +13,6 @@
   "landed": null,
   "phases": [
     "docs/plans/2026-10-02-2331-feat-central-ingestion-pipeline-phase3-plan.md",
-    "docs/plans/2026-10-02-2331-feat-central-ingestion-pipeline-phase4-plan.md",
     "docs/plans/2026-10-02-2331-feat-central-ingestion-pipeline-phase5-plan.md"
   ],
   "retired": [
@@ -31,6 +30,14 @@
       "landed": {
         "first": "f94b04ea",
         "last": "4e0070b5"
+      }
+    },
+    {
+      "plan": "docs/plans/2026-10-02-2331-feat-central-ingestion-pipeline-phase4-plan.md",
+      "status": "implemented",
+      "landed": {
+        "first": "cbb95275",
+        "last": "e4c53700"
       }
     }
   ]

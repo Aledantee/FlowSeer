@@ -26,7 +26,7 @@ PASSED = "FlowSeer verification passed."
 USAGE_OPTIONS = "[--full] [--print-selection] [--base REF] [-- PATH...]"
 USAGE_LAST = "--print-selection reports the selected gates without running them or writing a receipt."
 WEB_TOOLS = ("vue-tsc", "vite", "eslint", "stylelint", "prettier", "vitest")
-STUB_NAMES = ("go", "gofumpt", "goimports", "golangci-lint", "docker", "node", *WEB_TOOLS)
+STUB_NAMES = ("go", "gofumpt", "goimports", "docker", "node", *WEB_TOOLS)
 
 # The verifier starts git and requires uv to start script suites.
 # The go stub needs chmod, cp, dirname, and mkdir. Keeping only these on PATH
@@ -60,6 +60,9 @@ esac
 @PRELUDE@
 if [ -n "$FLOWSEER_FAKE_FAIL" ] && [ "$1" = "$FLOWSEER_FAKE_FAIL" ]; then
   exit "${FLOWSEER_FAKE_FAIL_CODE:-1}"
+fi
+if [ -n "$FLOWSEER_FAKE_TERM" ] && [ "$1" = "$FLOWSEER_FAKE_TERM" ]; then
+  kill -TERM $$
 fi
 out=
 previous=

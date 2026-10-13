@@ -111,6 +111,7 @@ func TestTheGeneratedCertificateNamesWhatTheDeploymentBinds(t *testing.T) {
 		`state_dir: "/var/lib/flowseer/device"`, `state_dir: "`+t.TempDir()+`"`,
 		`api: "0.0.0.0:8443"`, `api: "central.example.test:8443"`,
 		`bus: "0.0.0.0:8444"`, `bus: "10.0.0.7:8444"`,
+		`edge: "0.0.0.0:8442"`, `edge: "edge.example.test:8442"`,
 	).Replace(validConfig)
 	cfg, err := host.LoadConfig(writeConfig(t, body))
 	if err != nil {
@@ -124,6 +125,9 @@ func TestTheGeneratedCertificateNamesWhatTheDeploymentBinds(t *testing.T) {
 	leaf := certificate.TLS.Leaf
 	if err := leaf.VerifyHostname("central.example.test"); err != nil {
 		t.Errorf("the api host is not named: %v", err)
+	}
+	if err := leaf.VerifyHostname("edge.example.test"); err != nil {
+		t.Errorf("the edge host is not named: %v", err)
 	}
 	if err := leaf.VerifyHostname("10.0.0.7"); err != nil {
 		t.Errorf("the bus address is not named: %v", err)

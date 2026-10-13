@@ -5,7 +5,7 @@
 // root package that imports a binding package compiles only that one.
 module go.aledante.io/FlowSeer/generated/go/yang
 
-go 1.27
+go 1.27.2
 
 require go.aledante.io/FlowSeer v0.0.0-00010101000000-000000000000
 

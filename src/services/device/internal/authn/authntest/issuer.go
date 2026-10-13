@@ -21,11 +21,13 @@ import (
 	"testing"
 )
 
-// Issuer is a TLS-backed OIDC test issuer.
+// Issuer is a TLS-backed OIDC test issuer. Its private keys stay
+// unexported: callers sign through Sign and SignEC, so no other package
+// holds the key material.
 type Issuer struct {
 	Server *httptest.Server
-	RSAKey *rsa.PrivateKey
-	ECKey  *ecdsa.PrivateKey
+	rsaKey *rsa.PrivateKey
+	ecKey  *ecdsa.PrivateKey
 	RSAKID string
 	ECKID  string
 
@@ -76,6 +78,18 @@ func mustRSASign(priv *rsa.PrivateKey, digest []byte) []byte {
 	return sig
 }
 
+// mustECDSASign returns the fixed-width r||s signature JWS ES256 uses.
+func mustECDSASign(priv *ecdsa.PrivateKey, digest []byte) []byte {
+	r, s, err := ecdsa.Sign(rand.Reader, priv, digest)
+	if err != nil {
+		panic(err)
+	}
+	sig := make([]byte, 64)
+	r.FillBytes(sig[:32])
+	s.FillBytes(sig[32:])
+	return sig
+}
+
 // New creates and starts a new TLS OIDC test issuer, registering server cleanup
 // on the provided testing.TB.
 func New(t testing.TB) *Issuer {
@@ -85,8 +99,8 @@ func New(t testing.TB) *Issuer {
 	ecKey := mustGenerateECDSAKey()
 
 	iss := &Issuer{
-		RSAKey: rsaKey,
-		ECKey:  ecKey,
+		rsaKey: rsaKey,
+		ecKey:  ecKey,
 		RSAKID: "test-rsa-key-1",
 		ECKID:  "test-ec-key-1",
 	}
@@ -138,8 +152,8 @@ func New(t testing.TB) *Issuer {
 					"kid": iss.RSAKID,
 					"use": "sig",
 					"alg": "RS256",
-					"n":   base64.RawURLEncoding.EncodeToString(iss.RSAKey.N.Bytes()),
-					"e":   base64.RawURLEncoding.EncodeToString(big.NewInt(int64(iss.RSAKey.E)).Bytes()),
+					"n":   base64.RawURLEncoding.EncodeToString(iss.rsaKey.N.Bytes()),
+					"e":   base64.RawURLEncoding.EncodeToString(big.NewInt(int64(iss.rsaKey.E)).Bytes()),
 				},
 				{
 					"kty": "EC",
@@ -147,8 +161,8 @@ func New(t testing.TB) *Issuer {
 					"kid": iss.ECKID,
 					"use": "sig",
 					"alg": "ES256",
-					"x":   base64.RawURLEncoding.EncodeToString(iss.ECKey.X.FillBytes(make([]byte, 32))),
-					"y":   base64.RawURLEncoding.EncodeToString(iss.ECKey.Y.FillBytes(make([]byte, 32))),
+					"x":   base64.RawURLEncoding.EncodeToString(iss.ecKey.X.FillBytes(make([]byte, 32))),
+					"y":   base64.RawURLEncoding.EncodeToString(iss.ecKey.Y.FillBytes(make([]byte, 32))),
 				},
 			},
 		})
@@ -210,7 +224,18 @@ func (iss *Issuer) SetKeyResponse(statusCode int, contentType string, body []byt
 
 // Sign signs the given claims map as a JWT using the issuer's RSA key and key ID.
 func (iss *Issuer) Sign(claims map[string]any) string {
-	return iss.SignWithKey(iss.RSAKey, iss.RSAKID, claims)
+	return iss.SignWithKey(iss.rsaKey, iss.RSAKID, claims)
+}
+
+// SignEC signs the given claims map as an ES256 JWT using the issuer's
+// ECDSA key and key ID.
+func (iss *Issuer) SignEC(claims map[string]any) string {
+	header := map[string]any{"alg": "ES256", "typ": "JWT", "kid": iss.ECKID}
+	hJSON := mustMarshalJSON(header)
+	cJSON := mustMarshalJSON(claims)
+	signingInput := base64.RawURLEncoding.EncodeToString(hJSON) + "." + base64.RawURLEncoding.EncodeToString(cJSON)
+	digest := sha256.Sum256([]byte(signingInput))
+	return signingInput + "." + base64.RawURLEncoding.EncodeToString(mustECDSASign(iss.ecKey, digest[:]))
 }
 
 // SignWithKey signs the given claims map as a JWT using the specified RSA key and key ID.

@@ -902,7 +902,8 @@ The two streams reserve 80 MiB of the central account's 1 GiB beside the
 audit stream's 256 MiB, the syslog ingest stream's 256 MiB, and the evidence
 stream's 64 MiB
 (`github.com/nats-io/nats-server/v2@v2.15.0/server/jetstream.go:2603-2607`). The
-new `access` bucket (`AccessBucket`) makes five key-value buckets, and with no
+new `access` bucket (`AccessBucket`) made five key-value buckets (the 2026-10-12
+`raw-windows` bucket makes six), and with no
 byte limit of their own they share the 368 MiB the streams leave.
 
 A call admitted to no tenant has no tenant to name in the subject. Only
@@ -1036,6 +1037,25 @@ identity in the device service while it remains the only operator-RPC host.
 It also confirms that the access source owns tenant-wide grants only. Direct
 resource grants remain reserved in the model until a design owns their
 resource lifecycle.
+
+### 2026-10-12: raw window rules
+
+Landed 2026-10-12: `api/ingest/v1` and `src/services/device/internal/rawwindowapi`.
+The [Raw Window Control direction](2026-10-08-raw-window-control-direction.md)
+holds the design.
+
+`OpenRawWindow` declares a request-mode rule for `edge#capture` on the request's
+edge. The handler then requires `tenant#full_payload` and a fresh active member
+grant, the combination full-payload capture already uses, so an expired grant
+refuses the open while its projected relationship remains. `GetRawWindow` and
+`CloseRawWindow` use loaded mode for `edge#capture`: they name only the window
+id, load the window by ambient tenant, and check the stored owning edge, so a
+caller cannot choose the edge that is checked. No relation is added to the
+model. Open and close enter the operator action trail as `RAW_WINDOW_OPEN` and
+`RAW_WINDOW_CLOSE`, an unavailable attempt publisher refuses the call before a
+window exists, and the principal is stamped from the admitted context.
+The edge-facing `RawWindowEdgeService` is authorized as the asserting edge,
+like `CaptureEdgeService`.
 
 ## Open questions
 

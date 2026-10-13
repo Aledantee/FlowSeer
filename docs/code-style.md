@@ -505,8 +505,10 @@ spec/          # protobuf, MIB, and YANG sources of truth
 ## Toolchain & enforcement
 
 `gofumpt` (a stricter gofmt) owns formatting; `goimports` semantics (grouped stdlib /
-external / `go.aledante.io` imports) are enforced through it. `golangci-lint` v2 is
-the single lint entry point, configured in the repo-root `.golangci.yml` — that file
+external / `go.aledante.io` imports) are enforced through it. `golangci-lint` v2,
+pinned in `tools/golangci-lint/go.mod` and run as
+`go tool -modfile=tools/golangci-lint/go.mod golangci-lint`, is the single lint
+entry point, configured in the repo-root `.golangci.yml` — that file
 is the source of truth for which linters run and how; the important ones:
 
 - `govet`, `staticcheck` — correctness and modern idioms
@@ -517,7 +519,8 @@ is the source of truth for which linters run and how; the important ones:
 
 **The merge gate**; all must pass:
 
-1. `golangci-lint run` (includes the formatter check via `golangci-lint fmt --diff`)
+1. `go tool -modfile=tools/golangci-lint/go.mod golangci-lint run` (includes the
+   formatter check via `golangci-lint fmt --diff`)
 2. `go build ./...`
 3. `go vet ./...`
 4. `go test -race ./...`
@@ -585,7 +588,8 @@ non-negotiable and checkable. (See sources below for the empirical basis.)
 **Correctness**
 - Before calling a library function, confirm it exists in the module's pinned
   version. If unsure, say so in your reply rather than guessing an API.
-- Run `golangci-lint run` and `go test -race ./...` on the packages you touched
+- Run `go tool -modfile=tools/golangci-lint/go.mod golangci-lint run` and
+  `go test -race ./...` on the packages you touched
   before declaring work done.
 
 ## Sources

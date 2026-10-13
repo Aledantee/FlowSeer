@@ -246,6 +246,13 @@ class ExitPathTest(support.VerifierCase):
         self.write(".golangci.yml", 'version: "2"\n')
         self.assertEqual(self.select("--", ".golangci.yml"), OFF)
 
+    @across
+    def test_lint_tool_module_asks_for_full(self):
+        # A new linter applies to every module, as a new configuration does.
+        self.write("tools/golangci-lint/go.mod", "module example.invalid/lint\n\ngo 1.27\n")
+        result = self.verify("--", "tools/golangci-lint/go.mod")
+        self.failed(result, 2, "tools/golangci-lint changed; run with --full to lint every Go module with the new linter.")
+
 
 class VerdictTest(support.VerifierCase):
     """A run that checks nothing, or fails, says so in its last line."""

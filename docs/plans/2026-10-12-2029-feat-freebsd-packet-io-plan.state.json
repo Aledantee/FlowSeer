@@ -11,6 +11,10 @@
   "parent": null,
   "after": [],
   "landed": null,
-  "phases": [],
+  "phases": [
+    "docs/plans/2026-10-12-2029-feat-freebsd-packet-io-phase1-plan.md",
+    "docs/plans/2026-10-12-2029-feat-freebsd-packet-io-phase2-plan.md",
+    "docs/plans/2026-10-12-2029-feat-freebsd-packet-io-phase3-plan.md"
+  ],
   "retired": []
 }

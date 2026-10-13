@@ -2,12 +2,15 @@ package identity
 
 import (
 	"crypto/ed25519"
+	"math"
 	"os"
 	"path/filepath"
 
+	"buf.build/go/protovalidate"
 	"google.golang.org/protobuf/encoding/prototext"
 
 	attachv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1"
+	agentv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/agent/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
@@ -129,6 +132,51 @@ func (s *Store) SaveEnrollment(response *attachv1.EnrollResponse) error {
 		return errs.From(err).Code(ErrCodeState).Msg("encode the enrollment answer")
 	}
 	return s.writeAtomically(s.enrollmentPath(), body)
+}
+
+func (s *Store) bootPath() string { return filepath.Join(s.dir, "raw-window-epoch.textproto") }
+
+// AdvanceBootGeneration durably increments the raw window boot generation and
+// returns the new value. A missing file starts the count at one.
+//
+// It returns only once the new value is renamed into place and the directory
+// entry is flushed. Central fences a window control on the generation, so a
+// process that collected under a value a crash could take back would be
+// indistinguishable from a delayed message of an earlier run. On any error the
+// caller must not collect: the value may or may not be on disk. A file that
+// does not parse, fails its schema rules, or holds the largest counter is an
+// error too, since guessing a larger number would make the next start disagree
+// with central about which process is newer.
+func (s *Store) AdvanceBootGeneration() (uint64, error) {
+	var current uint64
+	body, err := os.ReadFile(s.bootPath())
+	switch {
+	case os.IsNotExist(err):
+	case err != nil:
+		return 0, errs.From(err).Code(ErrCodeState).Attr("path", s.bootPath()).Msg("read the raw window boot generation")
+	default:
+		persisted := &agentv1.RawWindowEpoch{}
+		if err := prototext.Unmarshal(body, persisted); err != nil {
+			return 0, errs.From(err).Code(ErrCodeState).Attr("path", s.bootPath()).Msg("parse the raw window boot generation")
+		}
+		if err := protovalidate.Validate(persisted); err != nil {
+			return 0, errs.From(err).Code(ErrCodeState).Attr("path", s.bootPath()).Msg("the raw window boot generation fails its schema rules")
+		}
+		current = persisted.GetBootGeneration()
+	}
+	if current == math.MaxUint64 {
+		return 0, errs.New().Code(ErrCodeState).Attr("path", s.bootPath()).Msg("the raw window boot generation cannot advance past its largest value")
+	}
+
+	next := current + 1
+	encoded, err := prototext.MarshalOptions{Multiline: true}.Marshal(agentv1.RawWindowEpoch_builder{BootGeneration: new(next)}.Build())
+	if err != nil {
+		return 0, errs.From(err).Code(ErrCodeState).Msg("encode the raw window boot generation")
+	}
+	if err := s.writeAtomically(s.bootPath(), encoded); err != nil {
+		return 0, err
+	}
+	return next, nil
 }
 
 // writeAtomically writes through a temporary file in the same directory and

@@ -1,0 +1,11 @@
+{
+  "skill": "review",
+  "query": "Review this branch's work since {EVAL_PARENT}. Do not ask questions. Where you would ask, state the question and its options, then stop.",
+  "budget_usd": 3,
+  "expected_behavior": [
+    "The report names src/common/pump/merge.go as the file holding the defect.",
+    "The report names Data() or Wait as the call a forwarder stays blocked on.",
+    "The recorded review verdict is not accept, since a deadlock is a behavior finding that holds the verdict.",
+    "No tracked file changed, since a review reports and does not edit."
+  ]
+}

@@ -11,14 +11,24 @@ import sys
 import time
 
 
+def json_line(line: str):
+    try:
+        return json.loads(line)
+    except json.JSONDecodeError:
+        return None
+
+
 def parse_result(cli: str, raw: Path, lane: str, model: str, effort: str,
-                 wall: int, code: int) -> dict:
+                 wall: int, code: int, transcript: bool = False) -> dict:
     usage = {"input": 0, "output": 0, "cache_read": 0, "reasoning": 0}
     cost = error = None
     # Tool denials can come from repository hooks, so they remain separate
     # from provider refusals when grading a lane.
     served, refused, refuse_reason, denied = set(), False, None, None
     refusal_text = re.compile(r"could not be submitted|sensitive words|prohibited|I can't help|I cannot help|I won't", re.I)
+    # Keys only a --transcript lane carries, so the json path's output keeps
+    # exactly its earlier keys.
+    extra = {}
 
     def add(k, v):
         usage[k] += int(v or 0)
@@ -33,7 +43,26 @@ def parse_result(cli: str, raw: Path, lane: str, model: str, effort: str,
     else:
         if cli == "claude":
             try:
-                d = json.loads(text)
+                if transcript:
+                    # The stream's `result` event carries the fields the json
+                    # output carries, so both paths share the parsing below.
+                    events = [e for e in map(json_line, text.splitlines()) if isinstance(e, dict)]
+                    d = next((e for e in reversed(events) if e.get("type") == "result"), None)
+                    if d is None:
+                        raise json.JSONDecodeError("no result event", text, 0)
+                    extra["result_text"] = d.get("result")
+                    for e in events:
+                        if e.get("type") == "system" and e.get("subtype") == "init":
+                            extra["skills_listed"] = e.get("skills")
+                    extra["skills_invoked"] = [
+                        b["input"]["skill"]
+                        for e in events if e.get("type") == "assistant"
+                        for b in (e.get("message") or {}).get("content") or []
+                        if isinstance(b, dict) and b.get("type") == "tool_use"
+                        and b.get("name") == "Skill" and isinstance(b.get("input"), dict)
+                        and "skill" in b["input"]]
+                else:
+                    d = json.loads(text)
                 u = d.get("usage", {})
                 add("input", u.get("input_tokens"))
                 add("output", u.get("output_tokens"))
@@ -48,8 +77,8 @@ def parse_result(cli: str, raw: Path, lane: str, model: str, effort: str,
                         served.add(mu["canonicalModel"])
                 if d.get("stop_reason") == "refusal" or d.get("subtype") == "refusal":
                     refused, refuse_reason = True, "stop_reason=refusal"
-                # Whether a hook's deny lands in `permission_denials` is
-                # unverified, so a denial is recorded, not graded as a refusal.
+                # A denial is recorded, never graded as a refusal: this
+                # repository's own hooks deny edits too.
                 if d.get("permission_denials"):
                     denied = sorted({p.get("tool_name", "?") for p in d["permission_denials"]})
             except json.JSONDecodeError:
@@ -140,6 +169,7 @@ def parse_result(cli: str, raw: Path, lane: str, model: str, effort: str,
               "served_model": served_list or None, "served_foreign": served_foreign,
               "downgraded": downgraded, "refused": refused, "refuse_reason": refuse_reason,
               "denied_tools": denied}
+    result.update(extra)
     if error is not None:
         result["error"] = error
     return result
@@ -150,6 +180,8 @@ def main(argv: list[str]) -> int:
     for name in ("lane", "cli", "model", "brief", "dir", "out"):
         parser.add_argument("--" + name, required=True)
     parser.add_argument("--effort", default="")
+    parser.add_argument("--transcript", action="store_true")
+    parser.add_argument("--budget", default="")
     args = parser.parse_args(argv)
     for name in ("lane", "cli", "model", "brief", "dir", "out"):
         if not getattr(args, name):
@@ -158,6 +190,12 @@ def main(argv: list[str]) -> int:
         parser.error("unknown cli " + args.cli)
     if args.effort and args.cli == "agy":
         parser.error("--effort cannot be applied on agy; agy takes the level in the model id")
+    # Same rule for the claude-only flags: a lane that silently ignored them
+    # would look like a measured run.
+    if args.transcript and args.cli != "claude":
+        parser.error(f"--transcript cannot be applied on {args.cli}; only claude streams a transcript")
+    if args.budget and args.cli != "claude":
+        parser.error(f"--budget cannot be applied on {args.cli}; only claude takes --max-budget-usd")
     directory = Path(args.dir).resolve()
     # A directory that cannot be entered stops the command before it touches
     # an artifact, so an earlier lane's evidence survives a mistyped --dir.
@@ -180,7 +218,13 @@ def main(argv: list[str]) -> int:
             command = ["claude", "-p", prompt, "--model", args.model]
             if args.effort:
                 command += ["--effort", args.effort]
-            command += ["--output-format", "json", "--dangerously-skip-permissions"]
+            if args.budget:
+                command += ["--max-budget-usd", args.budget]
+            if args.transcript:
+                command += ["--output-format", "stream-json", "--verbose"]
+            else:
+                command += ["--output-format", "json"]
+            command += ["--dangerously-skip-permissions"]
         elif args.cli == "codex":
             command = ["codex", "exec", "--json", "--skip-git-repo-check",
                        "--dangerously-bypass-approvals-and-sandbox", "-c",
@@ -208,7 +252,7 @@ def main(argv: list[str]) -> int:
                 stderr.write(str(error).encode("utf-8"))
                 code = 127
         result = parse_result(args.cli, raw, args.lane, args.model, args.effort,
-                              int(time.time()) - start, code)
+                              int(time.time()) - start, code, args.transcript)
         rendered = json.dumps(result, indent=1)
         out.write_text(rendered, encoding="utf-8")
         print(rendered)
