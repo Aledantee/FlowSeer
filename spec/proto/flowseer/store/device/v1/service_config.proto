@@ -228,8 +228,9 @@ enum LogLevel {
   LOG_LEVEL_ERROR = 4;
 }
 
-// The two addresses the service binds: one for the APIs, one for the leaf
-// nodes its edges attach with.
+// The three addresses the service binds: one for the operator APIs, one for
+// the services an edge calls, and one for the leaf nodes its edges attach
+// with.
 message ServiceListeners {
   option (buf.validate.message).cel = {
     id: "service_listeners.key_accompanies_certificate"
@@ -237,18 +238,23 @@ message ServiceListeners {
     expression: "has(this.certificate_file) == has(this.private_key_file)"
   };
 
-  // host:port for the Connect APIs. Must be present, and must carry a port:
+  // host:port for the operator Connect APIs: TenantService,
+  // TenantAdminService, EdgeAdminService, DeviceService, CaptureService, and
+  // RawWindowService.
+  // The services an edge calls are on the edge listener, not here. Must be
+  // present, and must carry a port:
   // an address with none is read as "pick a free one", which is right for a
   // test and makes a typo indistinguishable from it. A host of 0.0.0.0 or ::
   // binds every interface; a port of 0 asks the kernel for one, and the
   // service logs and reports the address it actually bound, so a caller that
   // wrote 0 can find out which port it got.
   //
-  // The bus field below cannot take 0 for a reason that does not apply here,
-  // and the two are worth reading together: the API can take a port it did
-  // not choose because nothing else has to know it in advance, while the bus
-  // cannot because an edge dials the cluster_urls this same file names. Each
-  // listener has exactly the half the other lacks, which is why they differ.
+  // The bus and edge fields below must name a fixed port for a reason that
+  // does not apply here. An edge dials the cluster_urls and central_url this
+  // same file names, so a port of 0 there leaves edges dialing a port nothing
+  // serves. The pattern accepts :0 and nothing else refuses it, so the fixed
+  // port is the operator's to choose. The API alone can take a port it did not
+  // choose because nothing else has to know it in advance.
   string api = 1 [
     (buf.validate.field).required = true,
     (buf.validate.field).string.min_len = 3,
@@ -256,9 +262,9 @@ message ServiceListeners {
     (buf.validate.field).string.pattern = "^.+:[0-9]{1,5}$"
   ];
   // host:port for the bus's WebSocket listener. Must be present and must
-  // carry a port, for the same reason api does — and more sharply, since an
-  // edge dials the cluster_urls this same file names and a bus on an
-  // unpredictable port matches none of them. It serves the same certificate
+  // carry a port. Use a fixed port, not 0: an edge dials the cluster_urls this
+  // same file names, and validation accepts :0 but a bus on a port the kernel
+  // picked matches none of them. It serves the same certificate
   // the API does, so an edge pins one digest for both.
   string bus = 2 [
     (buf.validate.field).required = true,
@@ -273,6 +279,19 @@ message ServiceListeners {
   string certificate_file = 3 [(buf.validate.field).string.max_len = 4096];
   // The private key for certificate_file. Present exactly when it is.
   string private_key_file = 4 [(buf.validate.field).string.max_len = 4096];
+  // host:port for the services an edge calls: EdgeService, including Enroll,
+  // DispatchService, AuditService, CaptureEdgeService, and
+  // RawWindowEdgeService.
+  // EdgeEnrollmentPolicy.central_url names this listener. Must be present and
+  // must carry a port. Use a fixed port, not 0: an edge dials central_url, and
+  // validation accepts :0 but an edge listener on a port the kernel picked
+  // matches nothing an edge was told. It serves the same certificate as api and bus.
+  string edge = 5 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 3,
+    (buf.validate.field).string.max_len = 256,
+    (buf.validate.field).string.pattern = "^.+:[0-9]{1,5}$"
+  ];
 }
 
 // What an edge is told when it enrolls, and what it must prove to be heard
@@ -285,7 +304,8 @@ message ServiceListeners {
 // two messages are not duplicates of each other and must not be kept in step
 // by hand — one produces the other.
 message EdgeEnrollmentPolicy {
-  // The base URL an edge dials this deployment at. Must be present.
+  // The base URL an edge dials this deployment at. It names the edge
+  // listener, not the operator API listener. Must be present.
   string central_url = 1 [
     (buf.validate.field).required = true,
     (buf.validate.field).string.uri = true,

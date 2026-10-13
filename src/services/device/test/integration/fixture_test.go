@@ -261,6 +261,7 @@ type central struct {
 	configDir string
 	registry  string
 	apiPort   int
+	edgePort  int
 	busPort   int
 
 	// captureSweep overrides the retention sweep cadence when set. Zero leaves
@@ -425,6 +426,7 @@ func newCentral(t *testing.T, dir, registryPath string) *central {
 		configDir:   dir,
 		registry:    registryPath,
 		apiPort:     freePort(t),
+		edgePort:    freePort(t),
 		busPort:     freePort(t),
 		issuer:      iss,
 		token:       token,
@@ -435,7 +437,12 @@ func newCentral(t *testing.T, dir, registryPath string) *central {
 	return c
 }
 
+// baseURL is the API listener, which serves the operator procedures.
 func (c *central) baseURL() string { return fmt.Sprintf("https://127.0.0.1:%d", c.apiPort) }
+
+// edgeURL is the edge listener, which serves what an edge calls and is the
+// address central_url names. An agent is started with this one.
+func (c *central) edgeURL() string { return fmt.Sprintf("https://127.0.0.1:%d", c.edgePort) }
 
 // captureSweepLine renders the capture_sweep interval entry, or nothing when
 // the cadence is left at zero so the host takes its own default.
@@ -523,6 +530,7 @@ credential_root: %q
 listeners {
   api: "127.0.0.1:%d"
   bus: "127.0.0.1:%d"
+  edge: "127.0.0.1:%d"
 }
 edges {
   central_url: %q
@@ -544,7 +552,7 @@ authentication {
 %s
 %s
 `, filepath.Join(c.dir, "central-state"), c.registry, filepath.Join(c.dir, "credentials"),
-		c.apiPort, c.busPort, c.baseURL(), audience, c.busPort, captureSweepLine(c.captureSweep),
+		c.apiPort, c.busPort, c.edgePort, c.edgeURL(), audience, c.busPort, captureSweepLine(c.captureSweep),
 		platformAdminBlock,
 		c.issuer.URL(), audience, caPath, authzBlock, rawWindowBlock(c.rawWindowAllowance))
 
@@ -659,7 +667,7 @@ func (c *central) tenantAdmin() identityv1connect.TenantAdminServiceClient {
 }
 
 func (c *central) edgeCaptures() captureedgev1connect.CaptureEdgeServiceClient {
-	return captureedgev1connect.NewCaptureEdgeServiceClient(c.client, c.baseURL())
+	return captureedgev1connect.NewCaptureEdgeServiceClient(c.client, c.edgeURL())
 }
 
 func deviceRef() *inventoryv1.DeviceGlobalRef {

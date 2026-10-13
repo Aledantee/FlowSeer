@@ -68,7 +68,7 @@ type deployment struct {
 func (d *deployment) restartAgent(t *testing.T) {
 	t.Helper()
 	d.agent.shutdown()
-	d.agent = startAgent(t, d.dir, d.provisioning, d.central.baseURL(), d.device, d.clock)
+	d.agent = startAgent(t, d.dir, d.provisioning, d.central.edgeURL(), d.device, d.clock)
 }
 
 // assemble brings up the whole thing: central, an edge created through the
@@ -109,7 +109,7 @@ func assemble(t *testing.T) *deployment {
 
 	device := newFakeDevice("as found")
 	clock := newTestClock()
-	a := startAgent(t, dir, provisioning, c.baseURL(), device, clock)
+	a := startAgent(t, dir, provisioning, c.edgeURL(), device, clock)
 
 	return &deployment{
 		central: c, agent: a, device: device, clock: clock, edgeID: edgeID,
@@ -974,7 +974,7 @@ func TestMultiTenantIsolationAndEdgeBusPartitioning(t *testing.T) {
 		Signature: ed25519.Sign(privKey, payloadWire),
 	}.Build()
 
-	edgeAttachClient := attachv1connect.NewEdgeServiceClient(c.client, c.baseURL())
+	edgeAttachClient := attachv1connect.NewEdgeServiceClient(c.client, c.edgeURL())
 	if _, err := edgeAttachClient.Enroll(ctx, connect.NewRequest(attachv1.EnrollRequest_builder{
 		SetupKey: proto.String(setupKey),
 		Proof:    proof,

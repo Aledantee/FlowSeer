@@ -124,8 +124,22 @@ central detecting itself.
 
 ## Deployment
 
+The service binds three addresses, and one certificate answers on all of them.
+`listeners.api` serves the operator procedures, `listeners.edge` serves the
+procedures an edge calls, and `listeners.bus` takes the leaf nodes. A procedure
+mounted on one HTTP listener answers 404 on the other, so a deployment can put
+the edge address on the internet and keep the API address on a private network
+(`internal/host/serve.go`). `edges.central_url` names the edge address: it is
+the value `EdgeProvisioning.central_url` carries to an agent. The Connect module
+binds both HTTP addresses before it serves either, so an edge address already in
+use fails the start and leaves the API address free.
+
+An edge pins the digest of the certificate's public key, and a proxy that
+terminates TLS in front of the edge address presents its own certificate and
+breaks that pin. Put only a TLS passthrough in front of it.
+
 The operator surface (`DeviceService`, `EdgeAdminService`, `CaptureService`,
-`TenantService`, and `TenantAdminService`)
+`RawWindowService`, `TenantService`, and `TenantAdminService`)
 enforces authentication and authorization on every call. Each request carries a
 bearer token verified against configured OIDC issuers (`internal/authn`) and a
 tenant identifier in the `X-FlowSeer-Tenant` header. Calls are checked against
@@ -205,7 +219,7 @@ trail pollution by unverified callers. A full-payload expiry refusal after
 admission records a denied completion.
 
 The edge-facing services (`EdgeService`, `DispatchService`, `AuditService`,
-`CaptureEdgeService`) are verified: every call carries a fresh assertion signed
+`CaptureEdgeService`, `RawWindowEdgeService`) are verified: every call carries a fresh assertion signed
 by the key central registered at enrollment, checked against the request body
 and the invoked procedure before Connect decodes anything.
 
@@ -225,7 +239,7 @@ pair is persisted: a service that generated a fresh key each start would refuse
 every edge in the field.
 
 Eight modules run under the service runtime: the bus hub, the telemetry
-forwarder, intake, the journal's read sweeper, the Connect listener, the drift
+forwarder, intake, the journal's read sweeper, the Connect module (both HTTP listeners), the drift
 poll, the capture artifact sweeper, and the relationship projector
 (`internal/projector`). They are supervised `RestForOne` with the hub first.
 That is not a default: the seven modules after it hold resources the hub owns,

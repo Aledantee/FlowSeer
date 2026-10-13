@@ -2,6 +2,7 @@ package host_test
 
 import (
 	"errors"
+	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -23,6 +24,7 @@ credential_root: "/etc/flowseer/credentials"
 listeners {
   api: "0.0.0.0:8443"
   bus: "0.0.0.0:8444"
+  edge: "0.0.0.0:8442"
 }
 edges {
   central_url: "https://central.example.test"
@@ -32,7 +34,7 @@ edges {
 `
 
 // validConfig is the shortest file that starts a service: the three paths, the
-// two listeners, what an edge is told, and the required authentication and
+// three listeners, what an edge is told, and the required authentication and
 // authorization sections. Everything else has a default.
 const validConfig = baseConfig + `
 authentication {
@@ -69,6 +71,9 @@ func TestLoadConfigReadsTheDeployment(t *testing.T) {
 	}
 	if got := cfg.APIAddress(); got != "0.0.0.0:8443" {
 		t.Errorf("APIAddress = %q", got)
+	}
+	if got := cfg.EdgeAddress(); got != "0.0.0.0:8442" {
+		t.Errorf("EdgeAddress = %q", got)
 	}
 	if got := cfg.AssertionAudience(); got != "flowseer-device-central" {
 		t.Errorf("AssertionAudience = %q", got)
@@ -164,6 +169,7 @@ func TestLoadConfigRefusals(t *testing.T) {
 			body: strings.Replace(validConfig, `listeners {
   api: "0.0.0.0:8443"
   bus: "0.0.0.0:8444"
+  edge: "0.0.0.0:8442"
 }`, "", 1),
 			code: host.ErrCodeConfigInvalid,
 		},
@@ -179,9 +185,11 @@ func TestLoadConfigRefusals(t *testing.T) {
 			body: strings.Replace(validConfig, `listeners {
   api: "0.0.0.0:8443"
   bus: "0.0.0.0:8444"
+  edge: "0.0.0.0:8442"
 }`, `listeners {
   api: "0.0.0.0:8443"
   bus: "0.0.0.0:8444"
+  edge: "0.0.0.0:8442"
   certificate_file: "/tls.crt"
 }`, 1),
 			code: host.ErrCodeConfigInvalid,
@@ -224,6 +232,23 @@ func TestLoadConfigRefusals(t *testing.T) {
 				t.Fatalf("error = %v, want code %v", err, tc.code)
 			}
 		})
+	}
+}
+
+// An edge dials central_url, which names the edge listener, so a file that
+// leaves the listener out would start a service no edge was told how to reach.
+// The refusal names the field so the operator knows which line to add.
+func TestAFileWithoutAnEdgeListenerIsRefused(t *testing.T) {
+	body := strings.Replace(validConfig, "  edge: \"0.0.0.0:8442\"\n", "", 1)
+	if body == validConfig {
+		t.Fatal("the fixture no longer names an edge listener; this test is not exercising what it names")
+	}
+	_, err := host.LoadConfig(writeConfig(t, body))
+	if code, _ := errs.CodeOf(err); code != host.ErrCodeConfigInvalid {
+		t.Fatalf("error = %v, want code %v", err, host.ErrCodeConfigInvalid)
+	}
+	if !strings.Contains(fmt.Sprint(err, errs.Attributes(err)), "listeners.edge") {
+		t.Fatalf("error = %v, want it to name listeners.edge", err)
 	}
 }
 
@@ -317,6 +342,7 @@ func TestAListenerWithoutAPortIsRefused(t *testing.T) {
 	}{
 		{"bus with no port", `bus: "0.0.0.0:8444"`, `bus: "central.example.test"`, true},
 		{"api with no port", `api: "0.0.0.0:8443"`, `api: "central.example.test"`, true},
+		{"edge with no port", `edge: "0.0.0.0:8442"`, `edge: "central.example.test"`, true},
 		{"a port of zero is still a port", `api: "0.0.0.0:8443"`, `api: "0.0.0.0:0"`, false},
 		{"ipv6 keeps its brackets", `api: "0.0.0.0:8443"`, `api: "[::1]:8443"`, false},
 	} {

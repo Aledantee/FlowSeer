@@ -92,7 +92,7 @@ func assembleRawWindow(t *testing.T) *rawWindowDeployment {
 		provision:  created.Msg.GetProvisioning(),
 	}
 	d.agentOpts = agentOptions{device: newFakeDevice("as found"), syslogAddress: d.syslogAddr}
-	d.agent = startAgentWithOptions(t, dir, d.provision, c.baseURL(), d.agentOpts)
+	d.agent = startAgentWithOptions(t, dir, d.provision, c.edgeURL(), d.agentOpts)
 	return d
 }
 
@@ -391,7 +391,7 @@ func TestRawWindowCloseOwedAcrossAnAgentRestartEndsWithANewEpoch(t *testing.T) {
 		t.Fatalf("a window closed while its edge was down reads %v, want it still owed", got)
 	}
 
-	d.agent = startAgentWithOptions(t, d.dir, d.provision, d.central.baseURL(), d.agentOpts)
+	d.agent = startAgentWithOptions(t, d.dir, d.provision, d.central.edgeURL(), d.agentOpts)
 	ended := d.waitLifecycle(t, id, rawwindowv1.RawWindowLifecycle_RAW_WINDOW_LIFECYCLE_TERMINAL)
 	if reason := ended.GetState().GetStopReason(); reason != rawwindowv1.RawWindowStopReason_RAW_WINDOW_STOP_REASON_EDGE_RESTART &&
 		reason != rawwindowv1.RawWindowStopReason_RAW_WINDOW_STOP_REASON_OPERATOR {

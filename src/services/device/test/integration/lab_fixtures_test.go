@@ -126,8 +126,21 @@ func TestTheLabProvisioningPlaceholdersAreRefused(t *testing.T) {
 func TestTheLabCentralConfigLoads(t *testing.T) {
 	t.Parallel()
 
-	if _, err := host.LoadConfig(labFixturePath("central.textproto")); err != nil {
+	cfg, err := host.LoadConfig(labFixturePath("central.textproto"))
+	if err != nil {
 		t.Fatalf("host.LoadConfig(deploy/lab/central.textproto): %v", err)
+	}
+
+	// An edge dials central_url, so it must name the edge listener and not
+	// the API one, and the README's sample provisioning shows the same value.
+	if want := "https://" + cfg.EdgeAddress(); cfg.CentralURL() != want {
+		t.Errorf("central_url = %q, want %q, the edge listener", cfg.CentralURL(), want)
+	}
+	if cfg.EdgeAddress() == cfg.APIAddress() {
+		t.Errorf("the lab file serves the edge and API listeners on one address %q", cfg.EdgeAddress())
+	}
+	if want := `"centralUrl": "` + cfg.CentralURL() + `"`; !strings.Contains(labScript(t, "README.md"), want) {
+		t.Errorf("deploy/lab/README.md provisioning sample lacks %s", want)
 	}
 }
 

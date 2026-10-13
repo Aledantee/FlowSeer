@@ -13,7 +13,7 @@
 # file unedited refuses it at load with a validation error naming the field —
 # rather than starting and failing later somewhere less obvious.
 
-central_url: "https://central.example.invalid:8443"
+central_url: "https://central.example.invalid:8446"
 
 # Refused by the schema: a real key is fse1_ then 26 and 52 lowercase base32
 # characters.

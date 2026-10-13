@@ -83,7 +83,7 @@ a host-key pin. The credential material itself lives in the mounted files
 ## The service configuration
 
 `DeviceServiceConfig` is what one deployment of the service is: the directory
-it owns, the files it reads, the two addresses it binds, what an edge is told
+it owns, the files it reads, the three addresses it binds, what an edge is told
 when it enrolls, the configured platform administrators, and where telemetry
 goes. `PlatformAdmin.subjects` names one to sixteen distinct subject values.
 The projector enrolls each matching principal at startup. Every interval is
@@ -97,9 +97,10 @@ credential_root: "/etc/flowseer/credentials"
 listeners {
   api: "0.0.0.0:8443"
   bus: "0.0.0.0:8444"
+  edge: "0.0.0.0:8445"
 }
 edges {
-  central_url: "https://central.example.test"
+  central_url: "https://central.example.test:8445"
   assertion_audience: "flowseer-device-central"
   cluster_urls: "wss://central.example.test:8444"
 }
@@ -120,7 +121,10 @@ telemetry { endpoint: "https://collector.example.test" }
 
 That file names no certificate, so the service generates a self-signed pair
 into `state_dir` on first start, creating the directory if it is not there,
-and prints the digest an edge pins. A deployment with its own chain names
+and prints the digest an edge pins. The `api` listener serves the operator
+services, `edge` serves the services an edge calls, and `bus` takes the leaf
+nodes. `edge` and `bus` need a fixed port because an edge dials the
+`central_url` and `cluster_urls` this file names. A deployment with its own chain names
 `certificate_file` and `private_key_file` instead, and the two are named
 together or not at all.
 
