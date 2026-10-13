@@ -104,6 +104,22 @@ configuration whose `central_budget_bytes` is below `HubConfig.CentralStreamByte
 Why: Requirement 7 names the sum, and the hub's own arithmetic keeps one owner.
 Cost if wrong: one function in `src/modules/edgebus/hub.go`.
 
+Ruled: `schema_steps` and `user_tenants` live in a second database named
+`<database>_control`, and no pool sets a default database. Why: a row policy
+on the history database must not apply to the table the policy reads, and a
+pool whose default database does not exist yet cannot connect to run the
+migrator. Cost if wrong: one SQL step and its grants.
+
+Ruled: each of the three service users gets a profile (`svc_writer` pins the
+ingestion workload), the analyst's memory limits are absolute (8 GiB a query,
+12 GiB a user), the grants run `ON CLUSTER` with the rest of the access
+entities, and the two views run `DEFINER = CURRENT_USER SQL SECURITY DEFINER`.
+Why: the research gives memory limits as shares of RAM and names no host size,
+grants are per node like users, and without the definer the writer needs
+`SELECT` on `syslog` (`TestAnInsertAsTheWriterFeedsTheLocationTableAndTheDailyCounts`
+fails with "Not enough privileges" when the clause is removed). Cost if wrong:
+one SQL step.
+
 ## Requirements
 
 Tenant ids below are `a1…` for `018f0000-0000-7000-8000-0000000000a1`, device
@@ -170,7 +186,7 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- spec/proto/flo
 ### U3. History store package
 Files: go.mod, go.sum, docs/dependencies/statements/go/github.com/ClickHouse/clickhouse-go/v2.md, src/services/device/internal/history/
 After: none
-Change: the statement for clickhouse-go v2.48.0 follows `docs/conventions/dependencies.md:13-37` (criteria `deploy`, `approved: 2026-10-12`), written before `go.mod` changes. `history.Open(ctx, Config)` returns a `*Store` with writer and reader pools and never fails on an unreachable server. `history.Migrate(ctx, *Store)` applies embedded, numbered SQL steps with the admin user, records each in `schema_steps`, skips a recorded step, and refuses to run when `schema_steps` holds a step newer than its own. With a cluster name every table uses a `Replicated*` engine and every user, profile, row policy, resource, and workload is created `ON CLUSTER`. The steps create `syslog` (events pattern, `(tenant_id, device_id, ts, record_id)`, `PARTITION BY (retention_class, toMonday(ts))`, `UInt8` severity and facility with a presence mask, raw `message` bytes, structured data as parallel arrays, a `text` index on the message, a vendor tag column, `location_id`, `site_id`, `software_version`), `syslog_by_location` ordered `(tenant_id, location_id, ts, device_id, record_id)` and fed by a view, `syslog_daily` counts, `device_dim` as a plain table, `user_tenants`, the three workloads under a CPU resource, the `svc_reader` profile (`max_execution_time` 30 s, `max_rows_to_read` 10,000,000, `max_memory_usage` 2 GiB, `max_threads` 8, all `CONST`) and the `analyst` profile from [11](../research/clickhouse-history-store/11-olap.md), section 5, and one analyst row policy per table in the `IN (SELECT …)` form. TTLs follow the record's retention table. No dictionary and no dictionary source exist. `history.MirrorDevices(ctx, tenant, devices)` upserts `device_dim`.
+Change: the statement for clickhouse-go v2.48.0 follows `docs/conventions/dependencies.md:13-37` (criteria `deploy`, `approved: 2026-10-12`), written before `go.mod` changes. `history.Open(Config)` takes no context, since it connects to nothing, and returns a `*Store` with writer, reader, and admin pools. It never fails on an unreachable server. `history.Migrate(ctx, *Store)` returns the steps it applied and applies embedded, numbered SQL steps with the admin user, records each in `schema_steps`, skips a recorded step, and refuses to run when `schema_steps` holds a step newer than its own. With a cluster name every table uses a `Replicated*` engine and every user, profile, row policy, resource, and workload is created `ON CLUSTER`. The steps create `syslog` (events pattern, `(tenant_id, device_id, ts, record_id)`, `PARTITION BY (retention_class, toMonday(ts))`, `UInt8` severity and facility with a presence mask, raw `message` bytes, structured data as parallel arrays, a `text` index on the message, a vendor tag column, `location_id`, `site_id`, `software_version`), `syslog_by_location` ordered `(tenant_id, location_id, ts, device_id, record_id)` and fed by a view, `syslog_daily` counts, `device_dim` as a plain table, `user_tenants`, the three workloads under a CPU resource, the `svc_reader` profile (`max_execution_time` 30 s, `max_rows_to_read` 10,000,000, `max_memory_usage` 2 GiB, `max_threads` 8, all `CONST`) the `svc_writer` profile, and the `analyst` profile from [11](../research/clickhouse-history-store/11-olap.md), section 5, and one analyst row policy per table in the `IN (SELECT …)` form. TTLs follow the record's retention table. No dictionary and no dictionary source exist. `(*Store).MirrorDevices(ctx, tenant, devices)` upserts `device_dim`.
 Tests: `history/migrate_test.go` with a fake executor covers step order, skipping, refusing a newer schema, and stopping on a failed step. `history/test/integration/` (tag `history_integration`, its own image constant checked equal to U2's) covers Requirement 6, asserts every table has an analyst row policy, and asserts the device-scope read's `EXPLAIN indexes = 1` selects one key range.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- go.mod go.sum docs/dependencies src/services/device/internal/history`
 
