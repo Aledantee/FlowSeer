@@ -141,7 +141,7 @@ func TestVerifierAcceptedTokens(t *testing.T) {
 	}
 
 	// RSA token
-	rsaTok := signRSAToken(t, srv.RSAKey, srv.RSAKID, acceptedClaims)
+	rsaTok := signRSAToken(t, srv.RSAKey(), srv.RSAKID, acceptedClaims)
 	p, err := verifier.Verify(context.Background(), rsaTok)
 	if err != nil {
 		t.Fatalf("verify accepted RSA token: %v", err)
@@ -158,7 +158,7 @@ func TestVerifierAcceptedTokens(t *testing.T) {
 	}
 
 	// ECDSA token
-	ecTok := signECDSAToken(t, srv.ECKey, srv.ECKID, acceptedClaims)
+	ecTok := signECDSAToken(t, srv.ECKey(), srv.ECKID, acceptedClaims)
 	pEC, err := verifier.Verify(context.Background(), ecTok)
 	if err != nil {
 		t.Fatalf("verify accepted ECDSA token: %v", err)
@@ -212,7 +212,7 @@ func TestVerifierRefusalCases(t *testing.T) {
 			makeTok: func() string {
 				c := baseClaims()
 				c["aud"] = "other"
-				return signRSAToken(t, srv.RSAKey, srv.RSAKID, c)
+				return signRSAToken(t, srv.RSAKey(), srv.RSAKID, c)
 			},
 			wantCode: authn.ErrCodeTokenInvalid,
 		},
@@ -221,7 +221,7 @@ func TestVerifierRefusalCases(t *testing.T) {
 			makeTok: func() string {
 				c := baseClaims()
 				c["iss"] = "https://unknown.issuer.example.com"
-				return signRSAToken(t, srv.RSAKey, srv.RSAKID, c)
+				return signRSAToken(t, srv.RSAKey(), srv.RSAKID, c)
 			},
 			wantCode: authn.ErrCodeTokenInvalid,
 		},
@@ -247,7 +247,7 @@ func TestVerifierRefusalCases(t *testing.T) {
 			makeTok: func() string {
 				c := baseClaims()
 				delete(c, "sub")
-				return signRSAToken(t, srv.RSAKey, srv.RSAKID, c)
+				return signRSAToken(t, srv.RSAKey(), srv.RSAKID, c)
 			},
 			wantCode: authn.ErrCodeTokenInvalid,
 		},
@@ -256,7 +256,7 @@ func TestVerifierRefusalCases(t *testing.T) {
 			makeTok: func() string {
 				c := baseClaims()
 				c["sub"] = ""
-				return signRSAToken(t, srv.RSAKey, srv.RSAKID, c)
+				return signRSAToken(t, srv.RSAKey(), srv.RSAKID, c)
 			},
 			wantCode: authn.ErrCodeTokenInvalid,
 		},
@@ -265,7 +265,7 @@ func TestVerifierRefusalCases(t *testing.T) {
 			makeTok: func() string {
 				c := baseClaims()
 				c["sub"] = "u1\x00extra"
-				return signRSAToken(t, srv.RSAKey, srv.RSAKID, c)
+				return signRSAToken(t, srv.RSAKey(), srv.RSAKID, c)
 			},
 			wantCode: authn.ErrCodeTokenInvalid,
 		},
@@ -274,7 +274,7 @@ func TestVerifierRefusalCases(t *testing.T) {
 			makeTok: func() string {
 				c := baseClaims()
 				c["exp"] = now.Add(-10 * time.Minute).Unix()
-				return signRSAToken(t, srv.RSAKey, srv.RSAKID, c)
+				return signRSAToken(t, srv.RSAKey(), srv.RSAKID, c)
 			},
 			wantCode: authn.ErrCodeTokenExpired,
 		},
@@ -283,7 +283,7 @@ func TestVerifierRefusalCases(t *testing.T) {
 			makeTok: func() string {
 				c := baseClaims()
 				delete(c, "exp")
-				return signRSAToken(t, srv.RSAKey, srv.RSAKID, c)
+				return signRSAToken(t, srv.RSAKey(), srv.RSAKID, c)
 			},
 			wantCode: authn.ErrCodeTokenExpired,
 		},
@@ -397,7 +397,7 @@ func TestVerifierOrganizationsAndPlatform(t *testing.T) {
 	}
 
 	// String claim: "acme" -> [tenant-A]
-	tok := signRSAToken(t, srv.RSAKey, srv.RSAKID, baseClaims("acme"))
+	tok := signRSAToken(t, srv.RSAKey(), srv.RSAKID, baseClaims("acme"))
 	p, err := verifier.Verify(context.Background(), tok)
 	if err != nil {
 		t.Fatalf("verify string org: %v", err)
@@ -410,7 +410,7 @@ func TestVerifierOrganizationsAndPlatform(t *testing.T) {
 	}
 
 	// Array claim: ["acme", "globex"] -> [tenant-A, tenant-B]
-	tok = signRSAToken(t, srv.RSAKey, srv.RSAKID, baseClaims([]string{"acme", "globex"}))
+	tok = signRSAToken(t, srv.RSAKey(), srv.RSAKID, baseClaims([]string{"acme", "globex"}))
 	p, err = verifier.Verify(context.Background(), tok)
 	if err != nil {
 		t.Fatalf("verify array org: %v", err)
@@ -420,7 +420,7 @@ func TestVerifierOrganizationsAndPlatform(t *testing.T) {
 	}
 
 	// Object claim: {"acme": {}, "globex": {"roles": []}} -> [tenant-A, tenant-B]
-	tok = signRSAToken(t, srv.RSAKey, srv.RSAKID, baseClaims(map[string]any{"acme": true, "globex": 123}))
+	tok = signRSAToken(t, srv.RSAKey(), srv.RSAKID, baseClaims(map[string]any{"acme": true, "globex": 123}))
 	p, err = verifier.Verify(context.Background(), tok)
 	if err != nil {
 		t.Fatalf("verify object org: %v", err)
@@ -430,7 +430,7 @@ func TestVerifierOrganizationsAndPlatform(t *testing.T) {
 	}
 
 	// Binding under different claim name ("groups") yields none
-	tok = signRSAToken(t, srv.RSAKey, srv.RSAKID, baseClaims("other-claim"))
+	tok = signRSAToken(t, srv.RSAKey(), srv.RSAKID, baseClaims("other-claim"))
 	p, err = verifier.Verify(context.Background(), tok)
 	if err != nil {
 		t.Fatalf("verify mismatched claim name: %v", err)
@@ -441,7 +441,7 @@ func TestVerifierOrganizationsAndPlatform(t *testing.T) {
 
 	// Store error yields Unavailable with authn/unavailable
 	failStore.Store(true)
-	tok = signRSAToken(t, srv.RSAKey, srv.RSAKID, baseClaims("acme"))
+	tok = signRSAToken(t, srv.RSAKey(), srv.RSAKID, baseClaims("acme"))
 	_, err = verifier.Verify(context.Background(), tok)
 	if err == nil {
 		t.Fatal("expected error on store failure, got nil")
@@ -453,7 +453,7 @@ func TestVerifierOrganizationsAndPlatform(t *testing.T) {
 	failStore.Store(false)
 
 	// Number as claim yields authn/token-invalid
-	tok = signRSAToken(t, srv.RSAKey, srv.RSAKID, baseClaims(42))
+	tok = signRSAToken(t, srv.RSAKey(), srv.RSAKID, baseClaims(42))
 	_, err = verifier.Verify(context.Background(), tok)
 	if err == nil {
 		t.Fatal("expected error for numeric org claim")
@@ -464,7 +464,7 @@ func TestVerifierOrganizationsAndPlatform(t *testing.T) {
 	}
 
 	// Null organization claim yields authn/token-invalid
-	tokNull := signRSAToken(t, srv.RSAKey, srv.RSAKID, map[string]any{
+	tokNull := signRSAToken(t, srv.RSAKey(), srv.RSAKID, map[string]any{
 		"iss":          srv.Server.URL,
 		"aud":          "flowseer-device",
 		"sub":          "u1",
@@ -482,7 +482,7 @@ func TestVerifierOrganizationsAndPlatform(t *testing.T) {
 	}
 
 	// Array claim holding non-string item yields authn/token-invalid
-	tokNonStr := signRSAToken(t, srv.RSAKey, srv.RSAKID, baseClaims([]any{"acme", 123}))
+	tokNonStr := signRSAToken(t, srv.RSAKey(), srv.RSAKID, baseClaims([]any{"acme", 123}))
 	_, err = verifier.Verify(context.Background(), tokNonStr)
 	if err == nil {
 		t.Fatal("expected error for non-string item in org array")
@@ -497,7 +497,7 @@ func TestVerifierOrganizationsAndPlatform(t *testing.T) {
 	for i := 0; i < 100; i++ {
 		hundredOrgs = append(hundredOrgs, fmt.Sprintf("org-%d", i))
 	}
-	tok = signRSAToken(t, srv.RSAKey, srv.RSAKID, baseClaims(hundredOrgs))
+	tok = signRSAToken(t, srv.RSAKey(), srv.RSAKID, baseClaims(hundredOrgs))
 	_, err = verifier.Verify(context.Background(), tok)
 	if err == nil {
 		t.Fatal("expected error for 100 org claim values")
@@ -508,7 +508,7 @@ func TestVerifierOrganizationsAndPlatform(t *testing.T) {
 	}
 
 	// Platform flag set and unset by one field
-	tokPlatform := signRSAToken(t, srv.RSAKey, srv.RSAKID, baseClaims("platform-ops"))
+	tokPlatform := signRSAToken(t, srv.RSAKey(), srv.RSAKID, baseClaims("platform-ops"))
 	pPlat, err := verifier.Verify(context.Background(), tokPlatform)
 	if err != nil {
 		t.Fatalf("verify platform token: %v", err)
@@ -517,7 +517,7 @@ func TestVerifierOrganizationsAndPlatform(t *testing.T) {
 		t.Fatal("expected Platform true for platform-ops claim")
 	}
 
-	tokNonPlatform := signRSAToken(t, srv.RSAKey, srv.RSAKID, baseClaims("acme"))
+	tokNonPlatform := signRSAToken(t, srv.RSAKey(), srv.RSAKID, baseClaims("acme"))
 	pNonPlat, err := verifier.Verify(context.Background(), tokNonPlatform)
 	if err != nil {
 		t.Fatalf("verify non-platform token: %v", err)
@@ -556,7 +556,7 @@ func TestVerifierOrganizationsAndPlatform(t *testing.T) {
 		"org":    "acme",
 		"groups": []string{"platform-ops"},
 	}
-	tokDiff := signRSAToken(t, srv.RSAKey, srv.RSAKID, diffClaims)
+	tokDiff := signRSAToken(t, srv.RSAKey(), srv.RSAKID, diffClaims)
 	pDiff, err := platDiffVerifier.Verify(context.Background(), tokDiff)
 	if err != nil {
 		t.Fatalf("verify platform claim differing: %v", err)
@@ -579,7 +579,7 @@ func TestVerifierOrganizationsAndPlatform(t *testing.T) {
 	for _, tc := range platformClaimRefusals {
 		claims := cloneMap(diffClaims)
 		claims["groups"] = tc.claim
-		_, err := platDiffVerifier.Verify(context.Background(), signRSAToken(t, srv.RSAKey, srv.RSAKID, claims))
+		_, err := platDiffVerifier.Verify(context.Background(), signRSAToken(t, srv.RSAKey(), srv.RSAKID, claims))
 		if err == nil {
 			t.Fatalf("platform claim %s: expected error, got nil", tc.name)
 		}
@@ -611,7 +611,7 @@ func TestVerifierOrganizationsAndPlatform(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewVerifier other platform issuer: %v", err)
 	}
-	tokOtherIssuer := signRSAToken(t, srv.RSAKey, srv.RSAKID, baseClaims("platform-ops"))
+	tokOtherIssuer := signRSAToken(t, srv.RSAKey(), srv.RSAKID, baseClaims("platform-ops"))
 	pOtherIssuer, err := otherIssuerVerifier.Verify(context.Background(), tokOtherIssuer)
 	if err != nil {
 		t.Fatalf("verify other platform issuer: %v", err)
@@ -685,7 +685,7 @@ func TestVerifierReplayTransportAndKeyOutage(t *testing.T) {
 		"exp": now.Add(time.Hour).Unix(),
 		"iat": now.Unix(),
 	}
-	tokWrongAud := signRSAToken(t, srv.RSAKey, srv.RSAKID, wrongAudClaims)
+	tokWrongAud := signRSAToken(t, srv.RSAKey(), srv.RSAKID, wrongAudClaims)
 	_, err = verifier.Verify(context.Background(), tokWrongAud)
 	if err == nil {
 		t.Fatal("expected error for wrong audience token")
@@ -793,7 +793,7 @@ func TestVerifierDiscoveryFailureRecoveryAndTimeout(t *testing.T) {
 		"exp": now.Add(time.Hour).Unix(),
 		"iat": now.Unix(),
 	}
-	tok := signRSAToken(t, srv.RSAKey, srv.RSAKID, claims)
+	tok := signRSAToken(t, srv.RSAKey(), srv.RSAKID, claims)
 
 	// Discovery that fails returns Unavailable.
 	srv.DiscoveryErr.Store(true)
@@ -846,7 +846,7 @@ func TestVerifierDiscoveryFailureRecoveryAndTimeout(t *testing.T) {
 		t.Fatalf("NewVerifier hanging: %v", err)
 	}
 
-	hangingTok := signRSAToken(t, srv.RSAKey, srv.RSAKID, map[string]any{
+	hangingTok := signRSAToken(t, srv.RSAKey(), srv.RSAKID, map[string]any{
 		"iss": hangingServer.URL,
 		"aud": "aud",
 		"sub": "u1",
@@ -899,7 +899,7 @@ func (p *panicOnceTransport) RoundTrip(req *http.Request) (*http.Response, error
 func TestVerifierDiscoveryPanicReleasesWaiters(t *testing.T) {
 	srv := authntest.New(t)
 	now := time.Now().Truncate(time.Second)
-	tok := signRSAToken(t, srv.RSAKey, srv.RSAKID, map[string]any{
+	tok := signRSAToken(t, srv.RSAKey(), srv.RSAKID, map[string]any{
 		"iss": srv.Server.URL,
 		"aud": "flowseer-device",
 		"sub": "u1",
@@ -951,7 +951,7 @@ func TestVerifierDiscoveryClockPanicLeavesNoLockHeld(t *testing.T) {
 	srv := authntest.New(t)
 	now := time.Now().Truncate(time.Second)
 	clock := newSettableClock(now)
-	tok := signRSAToken(t, srv.RSAKey, srv.RSAKID, map[string]any{
+	tok := signRSAToken(t, srv.RSAKey(), srv.RSAKID, map[string]any{
 		"iss": srv.Server.URL,
 		"aud": "flowseer-device",
 		"sub": "u1",
@@ -1020,7 +1020,7 @@ func (c *contextValueTransport) RoundTrip(req *http.Request) (*http.Response, er
 func TestVerifierDiscoveryDoesNotInheritRequestScope(t *testing.T) {
 	srv := authntest.New(t)
 	now := time.Now().Truncate(time.Second)
-	tok := signRSAToken(t, srv.RSAKey, srv.RSAKID, map[string]any{
+	tok := signRSAToken(t, srv.RSAKey(), srv.RSAKID, map[string]any{
 		"iss": srv.Server.URL,
 		"aud": "flowseer-device",
 		"sub": "u1",
@@ -1071,7 +1071,7 @@ func TestVerifierEndedContextReturnsBare(t *testing.T) {
 		"sub": "u1",
 		"exp": now.Add(time.Hour).Unix(),
 	}
-	tok := signRSAToken(t, srv.RSAKey, srv.RSAKID, claims)
+	tok := signRSAToken(t, srv.RSAKey(), srv.RSAKID, claims)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -1193,7 +1193,7 @@ func TestVerifierConcurrentDiscoverySingleFlight(t *testing.T) {
 		"sub": "u1",
 		"exp": now.Add(time.Hour).Unix(),
 	}
-	tok := signRSAToken(t, srv.RSAKey, srv.RSAKID, claims)
+	tok := signRSAToken(t, srv.RSAKey(), srv.RSAKID, claims)
 
 	const concurrency = 10
 	errCh := make(chan error, concurrency)
@@ -1226,7 +1226,7 @@ func TestVerifierInjectedClockDecidesExpiry(t *testing.T) {
 		"sub": "u1",
 		"exp": tokenExp.Unix(),
 	}
-	tok := signRSAToken(t, srv.RSAKey, srv.RSAKID, claims)
+	tok := signRSAToken(t, srv.RSAKey(), srv.RSAKID, claims)
 
 	injectedClock := func() time.Time {
 		return realNow.Add(time.Hour)

@@ -149,11 +149,12 @@ type testService struct {
 	WaitStopped func() error
 	Issuer      *authntest.Issuer
 	Engine      *authztest.Engine
-	Token       string
 	PrincipalID string
 	StateDir    string
 	Dir         string
 	Hub         *edgebus.Hub
+
+	token string
 }
 
 type panickingCheckEngine struct {
@@ -358,11 +359,11 @@ authorization {
 		WaitStopped: waitStopped,
 		Issuer:      iss,
 		Engine:      engine,
-		Token:       token,
 		PrincipalID: principalID,
 		StateDir:    stateDir,
 		Dir:         dir,
 		Hub:         h,
+		token:       token,
 	}
 }
 
@@ -883,7 +884,7 @@ func TestOperatorRPCEnforcementOrder(t *testing.T) {
 			Edge: edgev1.EdgeLocalRef_builder{Id: proto.String(testEdgeID)}.Build(),
 		}.Build(),
 	}.Build())
-	req2.Header().Set("Authorization", "Bearer "+svc.Token)
+	req2.Header().Set("Authorization", "Bearer "+svc.token)
 	req2.Header().Set("X-FlowSeer-Tenant", tenantB)
 	_, err2 := client.GetEdge(context.Background(), req2)
 	if got := connect.CodeOf(err2); got != connect.CodePermissionDenied {
@@ -901,7 +902,7 @@ func TestOperatorRPCEnforcementOrder(t *testing.T) {
 	svc.Engine.Grant("user:"+svc.PrincipalID, "view", "edge")
 
 	req3 := connect.NewRequest(&apiedgev1.GetEdgeRequest{})
-	req3.Header().Set("Authorization", "Bearer "+svc.Token)
+	req3.Header().Set("Authorization", "Bearer "+svc.token)
 	req3.Header().Set("X-FlowSeer-Tenant", tenantA)
 	_, err3 := client.GetEdge(context.Background(), req3)
 	if got := connect.CodeOf(err3); got != connect.CodeInvalidArgument {

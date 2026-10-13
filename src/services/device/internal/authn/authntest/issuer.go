@@ -24,8 +24,6 @@ import (
 // Issuer is a TLS-backed OIDC test issuer.
 type Issuer struct {
 	Server *httptest.Server
-	RSAKey *rsa.PrivateKey
-	ECKey  *ecdsa.PrivateKey
 	RSAKID string
 	ECKID  string
 
@@ -34,9 +32,19 @@ type Issuer struct {
 	DiscoveryErr        atomic.Bool
 	KeysErr             atomic.Bool
 
+	rsaKey *rsa.PrivateKey
+	ecKey  *ecdsa.PrivateKey
+
 	mu            sync.Mutex
 	customKeyResp *customResponse
 }
+
+// RSAKey returns the issuer's RSA signing key. It is a method rather than a
+// field so the key is not an exported field that renders key material.
+func (iss *Issuer) RSAKey() *rsa.PrivateKey { return iss.rsaKey }
+
+// ECKey returns the issuer's ECDSA signing key, for the same reason as RSAKey.
+func (iss *Issuer) ECKey() *ecdsa.PrivateKey { return iss.ecKey }
 
 type customResponse struct {
 	statusCode  int
@@ -85,10 +93,10 @@ func New(t testing.TB) *Issuer {
 	ecKey := mustGenerateECDSAKey()
 
 	iss := &Issuer{
-		RSAKey: rsaKey,
-		ECKey:  ecKey,
 		RSAKID: "test-rsa-key-1",
 		ECKID:  "test-ec-key-1",
+		rsaKey: rsaKey,
+		ecKey:  ecKey,
 	}
 
 	mux := http.NewServeMux()
@@ -138,8 +146,8 @@ func New(t testing.TB) *Issuer {
 					"kid": iss.RSAKID,
 					"use": "sig",
 					"alg": "RS256",
-					"n":   base64.RawURLEncoding.EncodeToString(iss.RSAKey.N.Bytes()),
-					"e":   base64.RawURLEncoding.EncodeToString(big.NewInt(int64(iss.RSAKey.E)).Bytes()),
+					"n":   base64.RawURLEncoding.EncodeToString(iss.rsaKey.N.Bytes()),
+					"e":   base64.RawURLEncoding.EncodeToString(big.NewInt(int64(iss.rsaKey.E)).Bytes()),
 				},
 				{
 					"kty": "EC",
@@ -147,8 +155,8 @@ func New(t testing.TB) *Issuer {
 					"kid": iss.ECKID,
 					"use": "sig",
 					"alg": "ES256",
-					"x":   base64.RawURLEncoding.EncodeToString(iss.ECKey.X.FillBytes(make([]byte, 32))),
-					"y":   base64.RawURLEncoding.EncodeToString(iss.ECKey.Y.FillBytes(make([]byte, 32))),
+					"x":   base64.RawURLEncoding.EncodeToString(iss.ecKey.X.FillBytes(make([]byte, 32))),
+					"y":   base64.RawURLEncoding.EncodeToString(iss.ecKey.Y.FillBytes(make([]byte, 32))),
 				},
 			},
 		})
@@ -210,7 +218,7 @@ func (iss *Issuer) SetKeyResponse(statusCode int, contentType string, body []byt
 
 // Sign signs the given claims map as a JWT using the issuer's RSA key and key ID.
 func (iss *Issuer) Sign(claims map[string]any) string {
-	return iss.SignWithKey(iss.RSAKey, iss.RSAKID, claims)
+	return iss.SignWithKey(iss.rsaKey, iss.RSAKID, claims)
 }
 
 // SignWithKey signs the given claims map as a JWT using the specified RSA key and key ID.
