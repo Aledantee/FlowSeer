@@ -4,7 +4,7 @@
   "readiness": "implementation-ready",
   "review": "accept after fixes",
   "review_rounds": 1,
-  "compound": null,
+  "compound": "docs/solutions/conventions/prove-a-body-property-by-execution-not-by-ast-reading.md, docs/solutions/conventions/a-size-reason-belongs-to-one-declaration-head.md, docs/solutions/architecture-patterns/drain-accepted-capture-frames-before-freezing-observations.md",
   "outcome": {
     "units": 22,
     "from": "2026-10-10T20:15:06Z",
