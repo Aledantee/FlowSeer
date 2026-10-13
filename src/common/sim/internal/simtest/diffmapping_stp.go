@@ -51,6 +51,21 @@ func stpDiffMapping() (diffMapping, error) {
 
 func stpDiffExpectation(path string, hits *int) ([]changeRecord, error) {
 	switch path {
+	case "stp.Config.Priority", "stp.Config.Address", "stp.Config.HelloTime", "stp.Config.MaxAge", "stp.Config.ForwardDelay", "stp.Config.TxHoldCount", "stp.Config.PriorityPresent":
+		return stpBridgeExpectation(path, hits)
+	case "stp.Config.Ports[1/1/1].Priority", "stp.Config.Ports[1/1/1].PathCost", "stp.Config.Ports[1/1/1].AdminEdge", "stp.Config.Ports[1/1/1].AutoEdge", "stp.Config.Ports[1/1/1].PointToPoint", "stp.Config.Ports[1/1/1].BPDUGuard", "stp.Config.Ports[1/1/1].RestrictedRole", "stp.Config.Ports[1/1/1].RestrictedTCN", "stp.Config.Ports[1/1/1].LoopGuard", "stp.Config.Ports[1/1/1].PriorityPresent", "stp.Config.Ports[1/1/1].@key":
+		return stpPortsExpectation(path, hits)
+	case "stp.Config.MST.Name", "stp.Config.MST.Revision", "stp.Config.MST.MaxHops", "stp.Config.MST.Instances[1].Priority", "stp.Config.MST.Instances[1].PriorityPresent", "stp.Config.MST.Instances[1].VLANs[0]", "stp.Config.MST.Instances[1].Ports[1/1/1].Priority", "stp.Config.MST.Instances[1].Ports[1/1/1].PriorityPresent", "stp.Config.MST.Instances[1].Ports[1/1/1].PathCost", "stp.Config.MST.@present", "stp.Config.MST.Instances[1].@key", "stp.Config.MST.Instances[1].Ports[1/1/1].@key":
+		return stpMSTExpectation(path, hits)
+	case "stp.Config.PVST.Trees[10].Ports[1/1/1].Priority", "stp.Config.PVST.Trees[10].Ports[1/1/1].PriorityPresent", "stp.Config.PVST.Trees[10].Ports[1/1/1].PathCost", "stp.Config.PVST.Trees[10].Priority", "stp.Config.PVST.Trees[10].PriorityPresent", "stp.Config.PVST.@present", "stp.Config.PVST.Trees[10].@key", "stp.Config.PVST.Trees[10].Ports[1/1/1].@key":
+		return stpPVSTExpectation(path, hits)
+	default:
+		return nil, errs.Msgf("no independent expectation for %s", path)
+	}
+}
+
+func stpBridgeExpectation(path string, hits *int) ([]changeRecord, error) {
+	switch path {
 	case "stp.Config.Priority":
 		*hits++
 		return []changeRecord{
@@ -88,6 +103,13 @@ func stpDiffExpectation(path string, hits *int) ([]changeRecord, error) {
 			{"stp", "bridge", "", "priority", &[2]string{"stp.priority", "0"}, &[2]string{"stp.priority", "32768"}},
 			{"stp", "pvst_tree", "1", "priority", &[2]string{"stp.priority", "0"}, &[2]string{"stp.priority", "32768"}},
 		}, nil
+	default:
+		return nil, errs.Msgf("no independent expectation for %s", path)
+	}
+}
+
+func stpPortsExpectation(path string, hits *int) ([]changeRecord, error) {
+	switch path {
 	case "stp.Config.Ports[1/1/1].Priority":
 		*hits++
 		return []changeRecord{
@@ -138,6 +160,19 @@ func stpDiffExpectation(path string, hits *int) ([]changeRecord, error) {
 		return []changeRecord{
 			{"stp", "port", "1/1/1", "priority", &[2]string{"stp.port_priority", "0"}, &[2]string{"stp.port_priority", "128"}},
 		}, nil
+	case "stp.Config.Ports[1/1/1].@key":
+		*hits++
+		return []changeRecord{
+			{"stp", "port", "1/1/1", "", &[2]string{"stp.port", "priority=0,path_cost=20000,admin_edge=true,auto_edge=true,point_to_point=\"ForceTrue\",bpdu_guard=true,restricted_role=true,restricted_tcn=true,loop_guard=true"}, nil},
+			{"stp", "port", "1/1/2", "", nil, &[2]string{"stp.port", "priority=0,path_cost=20000,admin_edge=true,auto_edge=true,point_to_point=\"ForceTrue\",bpdu_guard=true,restricted_role=true,restricted_tcn=true,loop_guard=true"}},
+		}, nil
+	default:
+		return nil, errs.Msgf("no independent expectation for %s", path)
+	}
+}
+
+func stpMSTExpectation(path string, hits *int) ([]changeRecord, error) {
+	switch path {
 	case "stp.Config.MST.Name":
 		*hits++
 		return []changeRecord{
@@ -184,6 +219,30 @@ func stpDiffExpectation(path string, hits *int) ([]changeRecord, error) {
 		return []changeRecord{
 			{"stp", "mst_instance_port", "\"1\"/\"1/1/1\"", "path_cost", &[2]string{"stp.path_cost", "20000"}, &[2]string{"stp.path_cost", "20001"}},
 		}, nil
+	case "stp.Config.MST.@present":
+		*hits++
+		return []changeRecord{
+			{"stp", "bridge", "", "mst.presence", &[2]string{"stp.bool", "true"}, &[2]string{"stp.bool", "false"}},
+		}, nil
+	case "stp.Config.MST.Instances[1].@key":
+		*hits++
+		return []changeRecord{
+			{"stp", "mst_instance", "1", "", &[2]string{"stp.mst.instance", "priority=0,vlans=[10],ports=[1/1/1:{priority=128,path_cost=20000}]"}, nil},
+			{"stp", "mst_instance", "2", "", nil, &[2]string{"stp.mst.instance", "priority=0,vlans=[10],ports=[1/1/1:{priority=128,path_cost=20000}]"}},
+		}, nil
+	case "stp.Config.MST.Instances[1].Ports[1/1/1].@key":
+		*hits++
+		return []changeRecord{
+			{"stp", "mst_instance_port", "\"1\"/\"1/1/1\"", "", &[2]string{"stp.mst.instance_port", "priority=128,path_cost=20000"}, nil},
+			{"stp", "mst_instance_port", "\"1\"/\"1/1/2\"", "", nil, &[2]string{"stp.mst.instance_port", "priority=128,path_cost=20000"}},
+		}, nil
+	default:
+		return nil, errs.Msgf("no independent expectation for %s", path)
+	}
+}
+
+func stpPVSTExpectation(path string, hits *int) ([]changeRecord, error) {
+	switch path {
 	case "stp.Config.PVST.Trees[10].Ports[1/1/1].Priority":
 		*hits++
 		return []changeRecord{
@@ -209,33 +268,10 @@ func stpDiffExpectation(path string, hits *int) ([]changeRecord, error) {
 		return []changeRecord{
 			{"stp", "pvst_tree", "10", "priority", &[2]string{"stp.priority", "8192"}, &[2]string{"stp.priority", "0"}},
 		}, nil
-	case "stp.Config.Ports[1/1/1].@key":
-		*hits++
-		return []changeRecord{
-			{"stp", "port", "1/1/1", "", &[2]string{"stp.port", "priority=0,path_cost=20000,admin_edge=true,auto_edge=true,point_to_point=\"ForceTrue\",bpdu_guard=true,restricted_role=true,restricted_tcn=true,loop_guard=true"}, nil},
-			{"stp", "port", "1/1/2", "", nil, &[2]string{"stp.port", "priority=0,path_cost=20000,admin_edge=true,auto_edge=true,point_to_point=\"ForceTrue\",bpdu_guard=true,restricted_role=true,restricted_tcn=true,loop_guard=true"}},
-		}, nil
-	case "stp.Config.MST.@present":
-		*hits++
-		return []changeRecord{
-			{"stp", "bridge", "", "mst.presence", &[2]string{"stp.bool", "true"}, &[2]string{"stp.bool", "false"}},
-		}, nil
 	case "stp.Config.PVST.@present":
 		*hits++
 		return []changeRecord{
 			{"stp", "bridge", "", "pvst.presence", &[2]string{"stp.bool", "true"}, &[2]string{"stp.bool", "false"}},
-		}, nil
-	case "stp.Config.MST.Instances[1].@key":
-		*hits++
-		return []changeRecord{
-			{"stp", "mst_instance", "1", "", &[2]string{"stp.mst.instance", "priority=0,vlans=[10],ports=[1/1/1:{priority=128,path_cost=20000}]"}, nil},
-			{"stp", "mst_instance", "2", "", nil, &[2]string{"stp.mst.instance", "priority=0,vlans=[10],ports=[1/1/1:{priority=128,path_cost=20000}]"}},
-		}, nil
-	case "stp.Config.MST.Instances[1].Ports[1/1/1].@key":
-		*hits++
-		return []changeRecord{
-			{"stp", "mst_instance_port", "\"1\"/\"1/1/1\"", "", &[2]string{"stp.mst.instance_port", "priority=128,path_cost=20000"}, nil},
-			{"stp", "mst_instance_port", "\"1\"/\"1/1/2\"", "", nil, &[2]string{"stp.mst.instance_port", "priority=128,path_cost=20000"}},
 		}, nil
 	case "stp.Config.PVST.Trees[10].@key":
 		*hits++
