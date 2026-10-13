@@ -31,10 +31,30 @@ import (
 // has returned. Asserting that Run returns proves nothing: it returns
 // either way, which is the defect.
 func TestShutdownCutsAConnectionThatOutlastsTheGrace(t *testing.T) {
+	shutdownCutsAnActiveConnection(t,
+		func(svc *testService) string { return svc.Base },
+		"/flowseer.api.device.v1.DeviceService/GetDeviceAccessStatus")
+}
+
+// TestShutdownCutsAnEdgeConnectionThatOutlastsTheGrace is the same pin on the
+// edge listener, which has its own server and so its own shutdown. An edge
+// holds the longest-lived connections the service has, so it is the listener
+// where a handler left running matters most.
+func TestShutdownCutsAnEdgeConnectionThatOutlastsTheGrace(t *testing.T) {
+	shutdownCutsAnActiveConnection(t,
+		func(svc *testService) string { return svc.EdgeBase },
+		"/flowseer.edge.attach.v1.EdgeService/Heartbeat")
+}
+
+// shutdownCutsAnActiveConnection holds a connection active on the listener
+// listener names, stops the service, and asserts the connection ends with it.
+func shutdownCutsAnActiveConnection(t *testing.T, listener func(*testService) string, procedure string) {
+	t.Helper()
 	if testing.Short() {
 		t.Skip("starts a whole service and waits out the shutdown grace")
 	}
-	base, stop, waitStopped := runningServiceWithControl(t)
+	svc := startTestService(t, nil)
+	base, stop, waitStopped := listener(svc), svc.Stop, svc.WaitStopped
 	address := strings.TrimPrefix(base, "https://")
 
 	// Wait for the API to be serving before holding a connection on it.
@@ -55,7 +75,7 @@ func TestShutdownCutsAConnectionThatOutlastsTheGrace(t *testing.T) {
 	// A body that is declared and never finishes arriving. The handler
 	// blocks reading it, so this connection is active — not idle — for as
 	// long as the test leaves it that way.
-	request := "POST /flowseer.api.device.v1.DeviceService/GetDeviceAccessStatus HTTP/1.1\r\n" +
+	request := "POST " + procedure + " HTTP/1.1\r\n" +
 		"Host: " + address + "\r\n" +
 		"Content-Type: application/proto\r\n" +
 		"Content-Length: 1048576\r\n" +

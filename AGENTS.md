@@ -181,7 +181,8 @@ authority: `go test -race ./...` enforces the same invariants.
 - `README.md` is the human entry point; `docs/README.md` maps the documentation
   system of record.
 - `GOALS.md` — what the project is being built to do, one line per decided
-  goal with the record that states it; `next` reads it when no plan is open.
+  goal with the record that states it; `next` orders open plans by its
+  Priority list and reads its goals when no plan is open.
 - `CONCEPTS.md` — shared domain vocabulary (entities, named processes, status
   concepts); relevant when orienting to the codebase or discussing domain terms.
 - `.golangci.yml` — lint & format gate (`golangci-lint run`; gofumpt + goimports).

@@ -1,6 +1,6 @@
 module go.aledante.io/FlowSeer/src/protocol/syslog/bench
 
-go 1.27
+go 1.27.2
 
 replace go.aledante.io/FlowSeer => ../../../..
 

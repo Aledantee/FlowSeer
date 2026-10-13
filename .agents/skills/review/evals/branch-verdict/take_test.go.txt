@@ -1,0 +1,19 @@
+package pump
+
+import (
+	"context"
+	"slices"
+	"testing"
+)
+
+func TestTakeReturnsEverythingWhenSourceIsShort(t *testing.T) {
+	t.Parallel()
+	p := New[int](context.Background(), 4)
+	t.Cleanup(p.Cancel)
+	p.Send(1)
+	p.Send(2)
+	p.CloseData()
+	if got := Take(context.Background(), p, 5); !slices.Equal(got, []int{1, 2}) {
+		t.Fatalf("Take() = %v, want [1 2]", got)
+	}
+}

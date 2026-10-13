@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"net/netip"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -397,6 +398,74 @@ func TestMapRecord_PeerAddressNormalization(t *testing.T) {
 
 // newSourceParser returns a parser configured as the source's receiver
 // configures its own.
+func TestWindowEvidenceNamesSortedDistinctRefsAndNoSuppressionCount(t *testing.T) {
+	t.Parallel()
+
+	const (
+		first  = "0192e6a0-0000-7000-8000-000000000a01"
+		second = "0192e6a0-0000-7000-8000-000000000a02"
+		third  = "0192e6a0-0000-7000-8000-000000000a03"
+	)
+	evidence := syslogsource.WindowEvidence([]byte("<34>raw"), []string{third, first, second, first})
+
+	var got []string
+	for _, ref := range evidence.GetWindows() {
+		got = append(got, ref.GetId())
+	}
+	if want := []string{first, second, third}; !slices.Equal(got, want) {
+		t.Errorf("window refs = %v, want the sorted distinct %v", got, want)
+	}
+	if evidence.GetReason() != ingestv1.RawReason_RAW_REASON_WINDOW {
+		t.Errorf("reason = %v, want WINDOW", evidence.GetReason())
+	}
+	if evidence.HasSuppressedSinceLast() {
+		t.Errorf("suppressed_since_last = %d, want it absent for window evidence", evidence.GetSuppressedSinceLast())
+	}
+	if !bytes.Equal(evidence.GetData(), []byte("<34>raw")) {
+		t.Errorf("data = %q, want the original payload", evidence.GetData())
+	}
+
+	syslogRec, prov, _ := syslogsource.MapRecord(syslog.Record{Observation: syslog.Observation{
+		ReceivedAt: time.Date(2026, 10, 3, 10, 0, 0, 0, time.UTC),
+		Peer:       netip.MustParseAddrPort("192.0.2.1:514"),
+	}}, testDeviceEntry(), testEdgeRef())
+	envelope := syslogsource.BuildEnvelope("0192e6a0-0000-7000-8000-000000000042", prov, syslogRec, evidence)
+	if err := protovalidate.Validate(envelope); err != nil {
+		t.Errorf("envelope with window evidence fails its schema rules: %v", err)
+	}
+}
+
+func TestParseFailureEvidenceCarriesTheSuppressionCountAndNoWindows(t *testing.T) {
+	t.Parallel()
+
+	evidence := syslogsource.ParseFailureEvidence([]byte("garbage"), 7)
+
+	if evidence.GetReason() != ingestv1.RawReason_RAW_REASON_PARSE_FAILURE {
+		t.Errorf("reason = %v, want PARSE_FAILURE", evidence.GetReason())
+	}
+	if !evidence.HasSuppressedSinceLast() || evidence.GetSuppressedSinceLast() != 7 {
+		t.Errorf("suppressed_since_last = %d (present %t), want 7", evidence.GetSuppressedSinceLast(), evidence.HasSuppressedSinceLast())
+	}
+	if len(evidence.GetWindows()) != 0 {
+		t.Errorf("window refs = %v, want none for a parse failure", evidence.GetWindows())
+	}
+}
+
+func TestBuildEnvelopeWithNilRawAttachesNoEvidence(t *testing.T) {
+	t.Parallel()
+
+	syslogRec, prov, _ := syslogsource.MapRecord(syslog.Record{Observation: syslog.Observation{
+		ReceivedAt: time.Date(2026, 10, 3, 10, 0, 0, 0, time.UTC),
+		Peer:       netip.MustParseAddrPort("192.0.2.1:514"),
+	}}, testDeviceEntry(), testEdgeRef())
+
+	envelope := syslogsource.BuildEnvelope("0192e6a0-0000-7000-8000-000000000042", prov, syslogRec, nil)
+
+	if envelope.HasRaw() {
+		t.Errorf("raw = %v, want none", envelope.GetRaw())
+	}
+}
+
 func newSourceParser(tb testing.TB) *syslog.Parser {
 	tb.Helper()
 	opts := syslogsource.ReceiverOptions()
@@ -418,7 +487,11 @@ func buildValidEnvelope(tb testing.TB, rec syslog.Record) (*ingestv1.IngestRecor
 	if rec.Raw != nil {
 		rawData = *rec.Raw
 	}
-	envelope := syslogsource.BuildEnvelope("0192e6a0-0000-7000-8000-000000000042", prov, syslogRec, rawData, isFailure, 0)
+	var evidence *ingestv1.RawEvidence
+	if isFailure {
+		evidence = syslogsource.ParseFailureEvidence(rawData, 0)
+	}
+	envelope := syslogsource.BuildEnvelope("0192e6a0-0000-7000-8000-000000000042", prov, syslogRec, evidence)
 	if err := protovalidate.Validate(envelope); err != nil {
 		tb.Fatalf("protovalidate: %v", err)
 	}

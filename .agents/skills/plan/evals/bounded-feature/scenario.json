@@ -1,0 +1,15 @@
+{
+  "skill": "plan",
+  "query": "Plan a small change to the errs package in src/common/errs: let an error carry an optional retry-after hint, so a caller that sees Retryable(err) can also ask how long to wait. It needs a Builder method, a lookup function beside Retryable that follows the same outermost-wins rule, tests, and a mention in the package README. Do not ask questions. Where you would ask, state the question and its options, then stop.",
+  "budget_usd": 3,
+  "expected_behavior": [
+    "Exactly one new docs/plans/*-plan.md exists with artifact_contract: flowseer-plan/v2 in its frontmatter.",
+    "A .state.json beside the plan records status planned.",
+    "The plan has a ### U1. unit heading.",
+    "Every unit carries a Files: line and an After: line.",
+    "The plan has a Waves: line.",
+    "verify check-prose reports the plan clean.",
+    "next plan-queue lists the plan as ready or replan.",
+    "Every changed path is under docs/plans/."
+  ]
+}

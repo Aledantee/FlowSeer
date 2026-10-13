@@ -18,6 +18,7 @@ import (
 	_ "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/device/v1"
 	_ "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
 	_ "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/identity/v1"
+	_ "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/ingest/v1"
 	authzv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/authz/v1"
 )
 

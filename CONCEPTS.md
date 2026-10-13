@@ -68,7 +68,11 @@ The envelope carrying observation data from an edge or centrally hosted adapter 
 
 ### Raw Evidence
 
-The raw bytes of an unparsed datagram, or of any record in an open raw window, attached to an ingest record with the reason and a count of failures suppressed since the last kept failure.
+The raw bytes of an unparsed datagram, or of any record a [raw window](#raw-window) paid for, attached to an ingest record with the reason. Parse-failure evidence carries a count of failures suppressed since the last kept failure. Window evidence names the sorted window ids and carries no count.
+
+### Raw Window
+
+A bounded period in which one edge's adapter keeps the original bytes of the records a selector matches. The selector is a device, an integration, or an edge-local source key. A window has an explicit expiry of at most one hour, a byte budget shared by every device it matches, and a lifecycle of pending, active, or terminal with a typed stop reason. Central records it and the edge enforces it, so expiry and budget act without central connectivity.
 
 ### Syslog Record
 

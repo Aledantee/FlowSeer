@@ -30,3 +30,70 @@ Suggested change: <smallest edit to the skill, agent, or hook>.
 Skill or agent: `.agents/skills/drive/SKILL.md`, step 2, and `.agents/skills/delegate/SKILL.md`, Orca worker waits.
 What happened: the coordinator ended its turn while terminal waits ran. The workers completed, but no coordinator turn resumed to read their reports or start the next stages. The user had to request continuation. The allowed turn boundary was followed as written.
 Suggested change: require Codex to remain in its polling turn unless an installed continuation mechanism is verified to restart the coordinator. A running shell wait alone does not establish that mechanism.
+
+## 2026-10-12 implement: the per-unit verifier run checks whitespace against the unit's own commit
+Skill or agent: `.claude/skills/implement/SKILL.md`, step 2.5, and
+`references/workers.md` (the wave's verifier run after the merge).
+What happened: the step was followed as written. Each unit committed, then
+ran `verify-change.sh -- <paths>`, whose base defaults to `HEAD`
+(`verify-change.sh:44`), so its `git diff --check "$base"` gate saw an
+empty diff. Three committed patch files with "space before tab in indent"
+and a trailing blank line passed every per-unit and per-wave run, and only
+the Finish run with `--base main` failed, two rounds before it passed.
+Suggested change: have step 2.5 and the wave run pass `--base <the unit's
+ledger base>` (the `base` the ledger records at `in_progress`), or have the
+verifier's whitespace gate diff from the merge base with `main` when no
+base is given.
+
+## 2026-10-12 next: a phase that waits on another parent's phase reads as ready to re-plan
+Skill or agent: `.claude/skills/next/SKILL.md`, step 1, and `plan record
+after` (`tools/scripts/lib/plans.py:217`).
+What happened: the step was followed and still produced the wrong result.
+`next plan-queue` put Deployment, Phase 1 in `replan` because its state
+holds `after: []`. Its parent plan says no phase is written ready until the
+central high availability plan lands, and central still embeds NATS and
+keeps its certificate under `state_dir`, so the phase cannot be planned yet.
+Recording the dependency with `plan record after` failed: "after names
+docs/plans/2026-10-03-1533-feat-central-high-availability-phase3-plan.md,
+which is neither in the phases nor in the retired list of
+docs/plans/2026-10-03-1533-feat-deployment-plan.md". Deployment, Phase 3
+(waits on edge high availability) has the same shape.
+Suggested change: let `after` name a phase or plan of another parent, and
+have `next plan-queue` read an unfinished one as `waiting`. Failing that, a
+state field such as `blocked_by: <plan>` that `next` reads the same way.
+
+## 2026-10-13 review: a drive without Orca spends the review stage's one worker on the reviewer
+Skill or agent: `.claude/skills/review/SKILL.md`, step 6, and
+`.claude/skills/drive/SKILL.md` (the review stage brief).
+What happened: the review stage ran with a budget of one sub-worker and
+spent it on the independent reviewer. The review skill does not let the
+coordinator make fixes itself, so the fix loop did not run until the drive
+coordinator re-sent the stage. The steps were followed as written.
+Suggested change: have `drive` give the review stage a budget of two
+workers when Orca is unreachable (one reviewer, one fixer), or say in
+`review` step 6 that a fixer is not counted against a reviewer-only budget.
+
+## 2026-10-13 verify-change: a full run takes about 40 minutes and blocks every land that touches go.mod
+Skill or agent: `.claude/skills/verify-change/scripts/verify-change.sh`
+(`--full`), and `.claude/skills/land/SKILL.md`, step 5.
+What happened: the step was followed as written. A change to any `go.mod`
+leaves the `<Bash mutation; verify with --full>` marker, and `land` then
+needs a `--full` run. One such run on this machine took 40 minutes from
+start to receipt. Its race tests summed to 1054 seconds over 251
+packages, and the five slowest were:
+`src/protocol/smi/differential` (166 s),
+`src/services/device/test/integration` (159 s),
+`src/common/service/test/integration` (115 s), `src/modules/edgebus`
+(85 s), and `src/services/device/internal/captureapi` (76 s). When two
+verifier runs overlap on one machine, the NATS-backed suites
+(`edgebus`, `intake`, `host`, `syslogsource`) time out at 10 to 30
+seconds and pass when run alone with `-p 1`, so a red run then costs a
+second full run.
+Suggested change: profile where the 40 minutes go (gates run one after
+another, and the web gates run before the Go gates), then pick the
+cheapest of: run independent gates in parallel, move the slowest
+integration and differential suites behind a tag that only `--full` on
+the merge gate sets, and let a `go.mod` change whose module graph does not
+change outside `tools/` skip the full race run. Separately, raise the
+NATS suites' wait deadlines or hold a machine-wide lock for the race run
+so that two runs never overlap.

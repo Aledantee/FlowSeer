@@ -8,6 +8,8 @@ import (
 	"io"
 	"net"
 	"net/netip"
+	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -19,11 +21,16 @@ import (
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	attachv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1"
+	edgeingestv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/ingest/v1"
 	ingestv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/ingest/v1"
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
+	identityv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/identity/v1"
+	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
 	policyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/policy/v1"
+	rawwindowv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/rawwindow/v1"
 	addrv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/addr/v1"
 	netlogv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/log/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
@@ -31,10 +38,14 @@ import (
 	"go.aledante.io/FlowSeer/src/common/service"
 	"go.aledante.io/FlowSeer/src/common/spawn"
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/lanehost"
+	"go.aledante.io/FlowSeer/src/edge/agent/internal/rawwindow"
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/syslogsource"
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
 	"go.aledante.io/FlowSeer/src/protocol/syslog"
 )
+
+// testIntegrationID is the integration every listed fixture device belongs to.
+const testIntegrationID = "0192e6a0-0000-7000-8000-0000000000c1"
 
 func startHub(t *testing.T, dir string) *edgebus.Hub {
 	t.Helper()
@@ -85,9 +96,10 @@ func listedAt(t *testing.T, address, deviceID string) *attachv1.ListedDevice {
 	t.Helper()
 	octets := netip.MustParseAddr(address).As4()
 	return attachv1.ListedDevice_builder{
-		DeviceId:  proto.String(deviceID),
-		BindingId: proto.String(testBindingID),
-		Ip:        addrv1.IpAddress_builder{V4: addrv1.Ipv4Address_builder{Octets: octets[:]}.Build()}.Build(),
+		DeviceId:      proto.String(deviceID),
+		BindingId:     proto.String(testBindingID),
+		IntegrationId: proto.String(testIntegrationID),
+		Ip:            addrv1.IpAddress_builder{V4: addrv1.Ipv4Address_builder{Octets: octets[:]}.Build()}.Build(),
 		AccessPolicy: policyv1.AccessPolicyHandle_builder{
 			Key: proto.String("icx7150-lab"), Version: proto.Uint64(3),
 		}.Build(),
@@ -103,7 +115,9 @@ func seedListing(t *testing.T, index *lanehost.DeviceIndex, rows ...*attachv1.Li
 			t.Fatalf("listed device %s: %v", row.GetDeviceId(), err)
 		}
 	}
-	index.ApplyListing(rows)
+	if err := index.ApplyListing(rows); err != nil {
+		t.Fatalf("apply listing: %v", err)
+	}
 }
 
 func waitFor(t *testing.T, what string, timeout time.Duration, cond func() bool) {
@@ -1026,6 +1040,407 @@ func TestSource_RawPolicySuppressionAndMetrics(t *testing.T) {
 	suppressed, ok := readMetricSum(reader, "flowseer.edge.syslog.raw.suppressed")
 	if !ok || suppressed != 2 {
 		t.Errorf("raw.suppressed metric = %d (ok=%t), want 2", suppressed, ok)
+	}
+}
+
+const (
+	windowBootGeneration = 3
+	windowEpoch          = "0192e6a0-0000-7000-8000-0000000000f2"
+	windowOne            = "0192e6a0-0000-7000-8000-000000000a01"
+	windowTwo            = "0192e6a0-0000-7000-8000-000000000a02"
+	windowThree          = "0192e6a0-0000-7000-8000-000000000a03"
+	otherIntegrationID   = "0192e6a0-0000-7000-8000-0000000000c2"
+)
+
+// refusingPublisherStub captures what it accepts and refuses the first
+// refuse attempts, the way a full edge buffer does.
+type refusingPublisherStub struct {
+	capturingPublisherStub
+	refuse int
+
+	attemptsMu sync.Mutex // guards attempts
+	attempts   int
+}
+
+func (s *refusingPublisherStub) Publish(ctx context.Context, subject string, data []byte, msgID string) error {
+	s.attemptsMu.Lock()
+	s.attempts++
+	refused := s.attempts <= s.refuse
+	s.attemptsMu.Unlock()
+	if refused {
+		return errors.New("buffer temporarily refused")
+	}
+	return s.capturingPublisherStub.Publish(ctx, subject, data, msgID)
+}
+
+func newWindowController(t *testing.T) *rawwindow.Controller {
+	t.Helper()
+	ctrl, err := rawwindow.NewController(rawwindow.Config{
+		BootGeneration: windowBootGeneration,
+		Epoch:          windowEpoch,
+		Sources:        []string{syslogsource.SourceKey},
+	})
+	if err != nil {
+		t.Fatalf("NewController: %v", err)
+	}
+	return ctrl
+}
+
+func windowSelectorForTestDevice() *rawwindowv1.RawWindowSelector {
+	return rawwindowv1.RawWindowSelector_builder{
+		Device: inventoryv1.DeviceGlobalRef_builder{
+			Device: inventoryv1.DeviceLocalRef_builder{Id: proto.String(testDeviceID)}.Build(),
+		}.Build(),
+	}.Build()
+}
+
+func windowSelectorForIntegration(id string) *rawwindowv1.RawWindowSelector {
+	return rawwindowv1.RawWindowSelector_builder{
+		Integration: inventoryv1.IntegrationGlobalRef_builder{
+			Integration: inventoryv1.IntegrationLocalRef_builder{Id: proto.String(id)}.Build(),
+		}.Build(),
+	}.Build()
+}
+
+func windowSelectorForSource(key string) *rawwindowv1.RawWindowSelector {
+	return rawwindowv1.RawWindowSelector_builder{
+		Source: rawwindowv1.RawWindowSource_builder{Key: proto.String(key)}.Build(),
+	}.Build()
+}
+
+// openWindow installs a window the way central's start control does.
+func openWindow(t *testing.T, ctrl *rawwindow.Controller, id string, revision uint64, selector *rawwindowv1.RawWindowSelector, maxBytes uint64) {
+	t.Helper()
+	ref := rawwindowv1.RawWindowGlobalRef_builder{
+		Edge:      testEdgeRef(),
+		RawWindow: rawwindowv1.RawWindowLocalRef_builder{Id: proto.String(id)}.Build(),
+	}.Build()
+	control := edgeingestv1.RawWindowControl_builder{
+		BootGeneration: proto.Uint64(windowBootGeneration),
+		ProcessEpoch:   proto.String(windowEpoch),
+		Ref:            ref,
+		Revision:       proto.Uint64(revision),
+		Open: rawwindowv1.RawWindowConfig_builder{
+			Ref:       ref,
+			Selector:  selector,
+			ExpiresAt: timestamppb.New(time.Now().Add(30 * time.Minute)),
+			MaxBytes:  proto.Uint64(maxBytes),
+			Authorization: rawwindowv1.RawWindowAuthorization_builder{
+				RequestedBy: identityv1.OperatorRef_builder{
+					Issuer:  proto.String("https://idp.example.com"),
+					Subject: proto.String("operator-1"),
+				}.Build(),
+				Reason: proto.String("intermittent parse failure"),
+			}.Build(),
+		}.Build(),
+	}.Build()
+	if err := protovalidate.Validate(control); err != nil {
+		t.Fatalf("control fails its schema rules: %v", err)
+	}
+	if err := ctrl.Apply(control); err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+}
+
+// windowReport returns the controller's current report for a window.
+func windowReport(t *testing.T, ctrl *rawwindow.Controller, id string) *rawwindowv1.RawWindowState {
+	t.Helper()
+	for _, r := range ctrl.PendingReports(100) {
+		if r.Message.GetState().GetRef().GetRawWindow().GetId() == id {
+			return r.Message.GetState()
+		}
+	}
+	t.Fatalf("no pending report for window %s", id)
+	return nil
+}
+
+type windowSource struct {
+	src  *syslogsource.Source
+	conn net.Conn
+	read *sdkmetric.ManualReader
+}
+
+// startWindowSource runs a source over a loopback UDP listener and returns it
+// with a connected sender.
+func startWindowSource(t *testing.T, index *lanehost.DeviceIndex, pub syslogsource.Publisher, ctrl *rawwindow.Controller, policy *syslogsource.RawPolicy) *windowSource {
+	t.Helper()
+	reader := sdkmetric.NewManualReader()
+	mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	src, err := syslogsource.Listen(ctx, syslogsource.Config{
+		Listeners:      []syslog.ListenConfig{{Transport: syslog.UDP, Address: "127.0.0.1:0"}},
+		Index:          index,
+		Publisher:      pub,
+		EdgeRef:        testEdgeRef(),
+		Policy:         policy,
+		Windows:        ctrl,
+		Meter:          mp.Meter("test"),
+		InitialBackoff: time.Millisecond,
+		MaxBackoff:     5 * time.Millisecond,
+	})
+	if err != nil {
+		t.Fatalf("Listen: %v", err)
+	}
+	t.Cleanup(func() { _ = src.Close() })
+	spawn.Go(ctx, "syslog-source-runner", func() { _ = src.Run(ctx) })
+
+	conn, err := net.Dial("udp", src.Receiver().Addresses()[0].Address)
+	if err != nil {
+		t.Fatalf("Dial UDP: %v", err)
+	}
+	t.Cleanup(func() { _ = conn.Close() })
+	return &windowSource{src: src, conn: conn, read: reader}
+}
+
+func (w *windowSource) send(t *testing.T, payload []byte) {
+	t.Helper()
+	if _, err := w.conn.Write(payload); err != nil {
+		t.Fatalf("write UDP: %v", err)
+	}
+}
+
+func windowIDs(evidence *ingestv1.RawEvidence) []string {
+	var ids []string
+	for _, ref := range evidence.GetWindows() {
+		ids = append(ids, ref.GetId())
+	}
+	return ids
+}
+
+const completeSyslogPayload = "<34>1 2026-10-03T10:00:00Z sw1 app 123 ID42 - window record"
+
+// TestSource_AWindowKeepsThePayloadOfAListedDeviceThatWasNeverOnboarded lists a
+// device in the index with no lane behind it, as one whose onboarding failed
+// is, and proves a window still matches it.
+func TestSource_AWindowKeepsThePayloadOfAListedDeviceThatWasNeverOnboarded(t *testing.T) {
+	t.Parallel()
+
+	index := lanehost.NewDeviceIndex()
+	seedListing(t, index, listedAt(t, "127.0.0.1", testDeviceID))
+	ctrl := newWindowController(t)
+	openWindow(t, ctrl, windowOne, 1, windowSelectorForTestDevice(), 4096)
+	pub := &capturingPublisherStub{}
+	src := startWindowSource(t, index, pub, ctrl, nil)
+
+	src.send(t, []byte(completeSyslogPayload))
+
+	waitFor(t, "the published record", 5*time.Second, func() bool { return pub.count() == 1 })
+	raw := pub.recordAt(0).GetRaw()
+	if raw.GetReason() != ingestv1.RawReason_RAW_REASON_WINDOW {
+		t.Fatalf("raw reason = %v, want WINDOW", raw.GetReason())
+	}
+	if got := windowIDs(raw); !slices.Equal(got, []string{windowOne}) {
+		t.Errorf("window refs = %v, want [%s]", got, windowOne)
+	}
+	if !bytes.Equal(raw.GetData(), []byte(completeSyslogPayload)) {
+		t.Errorf("raw data = %q, want the original payload", raw.GetData())
+	}
+	if raw.HasSuppressedSinceLast() {
+		t.Errorf("suppressed_since_last = %d, want it absent for a window", raw.GetSuppressedSinceLast())
+	}
+	if used := windowReport(t, ctrl, windowOne).GetUsage().GetSelectedBytes(); used != uint64(len(completeSyslogPayload)) {
+		t.Errorf("window debited %d bytes, want %d", used, len(completeSyslogPayload))
+	}
+}
+
+// TestSource_ARecordMatchingMoreWindowsThanTheSchemaAllowsIsStillPublished
+// holds seventeen windows on one device, which an edge with a slow clock can,
+// and proves the record is published naming sixteen of them. Seventeen refs
+// fail envelope validation and would end Run.
+func TestSource_ARecordMatchingMoreWindowsThanTheSchemaAllowsIsStillPublished(t *testing.T) {
+	t.Parallel()
+
+	index := lanehost.NewDeviceIndex()
+	seedListing(t, index, listedAt(t, "127.0.0.1", testDeviceID))
+	ctrl := newWindowController(t)
+	for i := range rawwindow.MaxWindowsPerRecord + 1 {
+		openWindow(t, ctrl, fmt.Sprintf("0192e6a0-0000-7000-8000-0000000001%02d", i), uint64(i+1), windowSelectorForTestDevice(), 4096)
+	}
+	pub := &capturingPublisherStub{}
+	src := startWindowSource(t, index, pub, ctrl, nil)
+
+	src.send(t, []byte(completeSyslogPayload))
+
+	waitFor(t, "the published record", 5*time.Second, func() bool { return pub.count() == 1 })
+	if got := len(windowIDs(pub.recordAt(0).GetRaw())); got != rawwindow.MaxWindowsPerRecord {
+		t.Errorf("record names %d windows, want %d", got, rawwindow.MaxWindowsPerRecord)
+	}
+}
+
+// TestSource_AWindowRecordWinsOverTheParseFailurePolicyAndSparesItsAllowance
+// sends three parse failures. The first is kept by a window that ends with it,
+// so the policy must still keep the second, which is its whole per-minute
+// allowance, and suppress the third. A window that spent the allowance would
+// leave the second suppressed.
+func TestSource_AWindowRecordWinsOverTheParseFailurePolicyAndSparesItsAllowance(t *testing.T) {
+	t.Parallel()
+
+	failure := []byte("parse failure payload")
+	index := lanehost.NewDeviceIndex()
+	seedListing(t, index, listedAt(t, "127.0.0.1", testDeviceID))
+	ctrl := newWindowController(t)
+	openWindow(t, ctrl, windowOne, 1, windowSelectorForTestDevice(), uint64(len(failure)))
+	pub := &capturingPublisherStub{}
+	src := startWindowSource(t, index, pub, ctrl, syslogsource.NewRawPolicy(1, 1000, nil))
+
+	for i, wantCount := range []int{1, 2, 3} {
+		src.send(t, failure)
+		waitFor(t, "failure "+strconv.Itoa(i+1), 5*time.Second, func() bool { return pub.count() == wantCount })
+	}
+
+	first, second, third := pub.recordAt(0).GetRaw(), pub.recordAt(1).GetRaw(), pub.recordAt(2).GetRaw()
+	if first.GetReason() != ingestv1.RawReason_RAW_REASON_WINDOW || first.HasSuppressedSinceLast() {
+		t.Errorf("first failure raw = %v, want window evidence with no suppression count", first)
+	}
+	if second.GetReason() != ingestv1.RawReason_RAW_REASON_PARSE_FAILURE || second.GetSuppressedSinceLast() != 0 {
+		t.Errorf("second failure raw = %v, want the policy's first kept sample with 0 suppressed", second)
+	}
+	if third != nil {
+		t.Errorf("third failure raw = %v, want it suppressed by the policy", third)
+	}
+	if state := windowReport(t, ctrl, windowOne); state.GetStopReason() != rawwindowv1.RawWindowStopReason_RAW_WINDOW_STOP_REASON_BYTE_BUDGET {
+		t.Errorf("window stop reason = %v, want the byte budget", state.GetStopReason())
+	}
+
+	waitFor(t, "raw metrics", 5*time.Second, func() bool {
+		windowed, ok := readMetricSum(src.read, "flowseer.edge.syslog.raw.windowed")
+		kept, _ := readMetricSum(src.read, "flowseer.edge.syslog.raw.kept")
+		suppressed, _ := readMetricSum(src.read, "flowseer.edge.syslog.raw.suppressed")
+		return ok && windowed == 1 && kept == 1 && suppressed == 1
+	})
+}
+
+func TestSource_AnUnresolvedSenderRetainsNothingDuringASourceWindow(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		rows       func(t *testing.T) []*attachv1.ListedDevice
+		wantReason string
+	}{
+		{
+			name: "ambiguous sender",
+			rows: func(t *testing.T) []*attachv1.ListedDevice {
+				return []*attachv1.ListedDevice{
+					listedAt(t, "127.0.0.1", testDeviceID),
+					listedAt(t, "127.0.0.1", "0192e6a0-0000-7000-8000-0000000000d2"),
+				}
+			},
+			wantReason: "ambiguous_source",
+		},
+		{
+			name: "sender no listed device claims",
+			rows: func(t *testing.T) []*attachv1.ListedDevice {
+				return []*attachv1.ListedDevice{listedAt(t, "192.0.2.50", testDeviceID)}
+			},
+			wantReason: "unknown_source",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			index := lanehost.NewDeviceIndex()
+			seedListing(t, index, tt.rows(t)...)
+			ctrl := newWindowController(t)
+			openWindow(t, ctrl, windowOne, 1, windowSelectorForSource(syslogsource.SourceKey), 4096)
+			pub := &capturingPublisherStub{}
+			src := startWindowSource(t, index, pub, ctrl, nil)
+
+			src.send(t, []byte(completeSyslogPayload))
+
+			waitFor(t, "the drop to be counted", 5*time.Second, func() bool {
+				dropped, ok := readMetricSum(src.read, "flowseer.edge.syslog.dropped")
+				return ok && dropped == 1
+			})
+			if got := pub.count(); got != 0 {
+				t.Errorf("published %d records for a %s, want none", got, tt.name)
+			}
+			if used := windowReport(t, ctrl, windowOne).GetUsage().GetSelectedBytes(); used != 0 {
+				t.Errorf("window was charged %d bytes for an unresolved sender", used)
+			}
+		})
+	}
+}
+
+func TestSource_AnEmptyDatagramIsKeptWithoutDebit(t *testing.T) {
+	t.Parallel()
+
+	index := lanehost.NewDeviceIndex()
+	seedListing(t, index, listedAt(t, "127.0.0.1", testDeviceID))
+	ctrl := newWindowController(t)
+	openWindow(t, ctrl, windowOne, 1, windowSelectorForTestDevice(), 10)
+	pub := &capturingPublisherStub{}
+	src := startWindowSource(t, index, pub, ctrl, nil)
+
+	src.send(t, nil)
+
+	waitFor(t, "the empty datagram's record", 5*time.Second, func() bool { return pub.count() == 1 })
+	raw := pub.recordAt(0).GetRaw()
+	if raw.GetReason() != ingestv1.RawReason_RAW_REASON_WINDOW || len(raw.GetData()) != 0 {
+		t.Errorf("raw = %v, want empty window evidence", raw)
+	}
+	usage := windowReport(t, ctrl, windowOne).GetUsage()
+	if usage.GetSelectedBytes() != 0 || usage.GetSelectedRecords() != 1 {
+		t.Errorf("usage = %v, want 0 bytes in 1 record", usage)
+	}
+}
+
+// TestSource_ARefusedPublishRetriedIsChargedOnce refuses the buffer twice. The
+// payload is more than half the budget, so a second debit would end the window
+// before the record is published and the published evidence would name none.
+func TestSource_ARefusedPublishRetriedIsChargedOnce(t *testing.T) {
+	t.Parallel()
+
+	index := lanehost.NewDeviceIndex()
+	seedListing(t, index, listedAt(t, "127.0.0.1", testDeviceID))
+	ctrl := newWindowController(t)
+	budget := uint64(len(completeSyslogPayload)) + 10
+	openWindow(t, ctrl, windowOne, 1, windowSelectorForTestDevice(), budget)
+	pub := &refusingPublisherStub{refuse: 2}
+	src := startWindowSource(t, index, pub, ctrl, nil)
+
+	src.send(t, []byte(completeSyslogPayload))
+
+	waitFor(t, "the retried publish", 5*time.Second, func() bool { return pub.count() == 1 })
+	if got := windowIDs(pub.recordAt(0).GetRaw()); !slices.Equal(got, []string{windowOne}) {
+		t.Errorf("window refs = %v, want [%s]", got, windowOne)
+	}
+	state := windowReport(t, ctrl, windowOne)
+	if state.GetUsage().GetSelectedBytes() != uint64(len(completeSyslogPayload)) || state.GetUsage().GetSelectedRecords() != 1 {
+		t.Errorf("usage = %v, want one record charged once after two refused publishes", state.GetUsage())
+	}
+	if state.GetLifecycle() != rawwindowv1.RawWindowLifecycle_RAW_WINDOW_LIFECYCLE_ACTIVE {
+		t.Errorf("lifecycle = %v, want the window still active after one charge", state.GetLifecycle())
+	}
+}
+
+func TestSource_WindowScopesChooseByIntegrationAndSource(t *testing.T) {
+	t.Parallel()
+
+	index := lanehost.NewDeviceIndex()
+	seedListing(t, index, listedAt(t, "127.0.0.1", testDeviceID))
+	ctrl := newWindowController(t)
+	openWindow(t, ctrl, windowThree, 3, windowSelectorForSource(syslogsource.SourceKey), 4096)
+	openWindow(t, ctrl, windowOne, 1, windowSelectorForIntegration(testIntegrationID), 4096)
+	openWindow(t, ctrl, windowTwo, 2, windowSelectorForIntegration(otherIntegrationID), 4096)
+	const otherWindow = "0192e6a0-0000-7000-8000-000000000a04"
+	openWindow(t, ctrl, otherWindow, 4, windowSelectorForSource("netflow"), 4096)
+	pub := &capturingPublisherStub{}
+	src := startWindowSource(t, index, pub, ctrl, nil)
+
+	src.send(t, []byte(completeSyslogPayload))
+
+	waitFor(t, "the published record", 5*time.Second, func() bool { return pub.count() == 1 })
+	if got, want := windowIDs(pub.recordAt(0).GetRaw()), []string{windowOne, windowThree}; !slices.Equal(got, want) {
+		t.Errorf("window refs = %v, want the sorted matching windows %v", got, want)
+	}
+	for _, id := range []string{windowTwo, otherWindow} {
+		if used := windowReport(t, ctrl, id).GetUsage().GetSelectedBytes(); used != 0 {
+			t.Errorf("window %s was charged %d bytes, want 0", id, used)
+		}
 	}
 }
 

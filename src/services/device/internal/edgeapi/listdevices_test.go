@@ -67,6 +67,9 @@ func TestListDevicesCarriesEverythingTheEdgeCannotOtherwiseLearn(t *testing.T) {
 	if got.GetBindingId() != testBindingID {
 		t.Errorf("binding_id = %q, want %q", got.GetBindingId(), testBindingID)
 	}
+	if got.GetIntegrationId() != testIntegrationID {
+		t.Errorf("integration_id = %q, want the registry's integration %q", got.GetIntegrationId(), testIntegrationID)
+	}
 	if octets := got.GetIp().GetV4().GetOctets(); !bytes.Equal(octets, []byte{172, 16, 0, 6}) {
 		t.Errorf("ip = %v, want the registry's management address", octets)
 	}

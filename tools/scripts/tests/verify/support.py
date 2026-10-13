@@ -26,7 +26,7 @@ PASSED = "FlowSeer verification passed."
 USAGE_OPTIONS = "[--full] [--print-selection] [--base REF] [-- PATH...]"
 USAGE_LAST = "--print-selection reports the selected gates without running them or writing a receipt."
 WEB_TOOLS = ("vue-tsc", "vite", "eslint", "stylelint", "prettier", "vitest")
-STUB_NAMES = ("go", "gofumpt", "goimports", "golangci-lint", "docker", "node", *WEB_TOOLS)
+STUB_NAMES = ("go", "gofumpt", "goimports", "docker", "node", *WEB_TOOLS)
 
 # The verifier starts git and requires uv to start script suites.
 # The go stub needs chmod, cp, dirname, and mkdir. Keeping only these on PATH
@@ -46,7 +46,7 @@ name=${0##*/}
 # `list` and `env` go to the real go, unlogged: they are how the verifier
 # selects, not a gate. `build -o` leaves an executable that logs itself, and
 # `buf generate -o` copies the generated trees, so the drift gate compares
-# equal trees.
+# equal trees. golangci-lint runs through `go tool`, so this stub covers it.
 GO_STUB = """\
 #!/bin/sh
 case "$1" in
@@ -58,6 +58,9 @@ case "$1" in
     ;;
 esac
 @PRELUDE@
+if [ -n "$FLOWSEER_FAKE_TERM_ON_ARGS" ]; then
+  case "$*" in *"$FLOWSEER_FAKE_TERM_ON_ARGS"*) kill -TERM $$ ;; esac
+fi
 if [ -n "$FLOWSEER_FAKE_FAIL" ] && [ "$1" = "$FLOWSEER_FAKE_FAIL" ]; then
   exit "${FLOWSEER_FAKE_FAIL_CODE:-1}"
 fi

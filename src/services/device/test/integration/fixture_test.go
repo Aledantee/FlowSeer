@@ -169,6 +169,14 @@ func writeCredentials(t *testing.T, root string) {
 // once at start, which is why that costs a restart.
 func writeRegistry(t *testing.T, path, edgeID string, horizon time.Duration) string {
 	t.Helper()
+	return writeRegistryAt(t, path, edgeID, horizon, []byte{172, 16, 0, 6})
+}
+
+// writeRegistryAt is writeRegistry for a device that answers at the given IPv4
+// address. A test that sends syslog from the loopback needs the device listed
+// there, since the agent resolves a sender by its source address.
+func writeRegistryAt(t *testing.T, path, edgeID string, horizon time.Duration, address []byte) string {
+	t.Helper()
 	handle := policyv1.AccessPolicyHandle_builder{Key: proto.String(fixturePolicyKey), Version: proto.Uint64(1)}.Build()
 	device := storev1.RegistryDevice_builder{
 		Config: inventoryv1.DeviceConfig_builder{
@@ -178,7 +186,7 @@ func writeRegistry(t *testing.T, path, edgeID string, horizon time.Duration) str
 			AccessPolicy:   handle,
 		}.Build(),
 		Binding:           inventoryv1.BindingGlobalRef_builder{Binding: inventoryv1.BindingLocalRef_builder{Id: proto.String(fixtureBindingID)}.Build()}.Build(),
-		Ip:                addrv1.IpAddress_builder{V4: addrv1.Ipv4Address_builder{Octets: []byte{172, 16, 0, 6}}.Build()}.Build(),
+		Ip:                addrv1.IpAddress_builder{V4: addrv1.Ipv4Address_builder{Octets: address}.Build()}.Build(),
 		ManagedInterfaces: []string{fixtureInterface},
 	}.Build()
 	if horizon > 0 {
@@ -253,11 +261,16 @@ type central struct {
 	configDir string
 	registry  string
 	apiPort   int
+	edgePort  int
 	busPort   int
 
 	// captureSweep overrides the retention sweep cadence when set. Zero leaves
 	// the field out so the host applies its one-minute default.
 	captureSweep time.Duration
+
+	// rawWindowAllowance is the per-edge byte allowance written into the
+	// configuration. Zero leaves the block out, which refuses every open.
+	rawWindowAllowance uint64
 
 	// client is built on each start and reused across calls. A fresh
 	// http.Transport per call keeps its own idle pool with no
@@ -413,6 +426,7 @@ func newCentral(t *testing.T, dir, registryPath string) *central {
 		configDir:   dir,
 		registry:    registryPath,
 		apiPort:     freePort(t),
+		edgePort:    freePort(t),
 		busPort:     freePort(t),
 		issuer:      iss,
 		token:       token,
@@ -423,7 +437,12 @@ func newCentral(t *testing.T, dir, registryPath string) *central {
 	return c
 }
 
+// baseURL is the API listener, which serves the operator procedures.
 func (c *central) baseURL() string { return fmt.Sprintf("https://127.0.0.1:%d", c.apiPort) }
+
+// edgeURL is the edge listener, which serves what an edge calls and is the
+// address central_url names. An agent is started with this one.
+func (c *central) edgeURL() string { return fmt.Sprintf("https://127.0.0.1:%d", c.edgePort) }
 
 // captureSweepLine renders the capture_sweep interval entry, or nothing when
 // the cadence is left at zero so the host takes its own default.
@@ -432,6 +451,14 @@ func captureSweepLine(d time.Duration) string {
 		return ""
 	}
 	return fmt.Sprintf("\n  capture_sweep { nanos: %d }", d.Nanoseconds())
+}
+
+// rawWindowBlock renders the raw window allowance, or nothing when it is zero.
+func rawWindowBlock(allowance uint64) string {
+	if allowance == 0 {
+		return ""
+	}
+	return fmt.Sprintf("raw_windows {\n  edge_allowance_bytes: %d\n}", allowance)
 }
 
 func (c *central) startWithTenant(tenant string) {
@@ -503,6 +530,7 @@ credential_root: %q
 listeners {
   api: "127.0.0.1:%d"
   bus: "127.0.0.1:%d"
+  edge: "127.0.0.1:%d"
 }
 edges {
   central_url: %q
@@ -522,10 +550,11 @@ authentication {
   ca_file: %q
 }
 %s
+%s
 `, filepath.Join(c.dir, "central-state"), c.registry, filepath.Join(c.dir, "credentials"),
-		c.apiPort, c.busPort, c.baseURL(), audience, c.busPort, captureSweepLine(c.captureSweep),
+		c.apiPort, c.busPort, c.edgePort, c.edgeURL(), audience, c.busPort, captureSweepLine(c.captureSweep),
 		platformAdminBlock,
-		c.issuer.URL(), audience, caPath, authzBlock)
+		c.issuer.URL(), audience, caPath, authzBlock, rawWindowBlock(c.rawWindowAllowance))
 
 	cfg, err := centralhost.LoadConfig(writeFile(c.t, filepath.Join(c.configDir, "central.textproto"), []byte(body)))
 	if err != nil {
@@ -638,7 +667,7 @@ func (c *central) tenantAdmin() identityv1connect.TenantAdminServiceClient {
 }
 
 func (c *central) edgeCaptures() captureedgev1connect.CaptureEdgeServiceClient {
-	return captureedgev1connect.NewCaptureEdgeServiceClient(c.client, c.baseURL())
+	return captureedgev1connect.NewCaptureEdgeServiceClient(c.client, c.edgeURL())
 }
 
 func deviceRef() *inventoryv1.DeviceGlobalRef {

@@ -1,6 +1,6 @@
 module go.aledante.io/FlowSeer
 
-go 1.27
+go 1.27.2
 
 // The generated YANG bindings are a nested module so `./...` here does
 // not compile all of them; a package that imports one binding package
@@ -39,7 +39,7 @@ require (
 	go.opentelemetry.io/proto/otlp v1.11.0
 	golang.org/x/crypto v0.57.0
 	golang.org/x/mod v0.41.0
-	golang.org/x/net v0.59.0
+	golang.org/x/net v0.60.0
 	golang.org/x/sys v0.48.0
 	golang.org/x/tools v0.50.0
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260928230214-8a89bd6388cc

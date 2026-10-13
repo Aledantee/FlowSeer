@@ -8,7 +8,7 @@ GUARD_BUILD = ".\tgo build -o <build>/check-guarantees ./tools/check-guarantees"
 BUF = ".\tgo tool -modfile=<root>/tools/buf/go.mod buf"
 WEB = ["vue-tsc --noEmit", "vite build", "eslint .", "stylelint src/**/*.{css,vue}", "prettier --check .", "vitest run"]
 REPOSITORY_WIDE = ".\tgo test -race ./src/common/errs ./test/conformance/..."
-GOLANGCI = ".\tgolangci-lint run --allow-serial-runners --config <root>/.golangci.yml ."
+GOLANGCI = ".\tgo tool -modfile=<root>/tools/golangci-lint/go.mod golangci-lint run --allow-serial-runners --config <root>/.golangci.yml ."
 CORPUS = ".\tgo test -count=1 -tags=smi_corpus_full -run TestCorpus ./src/protocol/smi/"
 DIFFERENTIAL = ".\tgo test -C src/protocol/smi/differential -count=1 ./..."
 
@@ -239,9 +239,9 @@ class FixTest(support.VerifierCase):
     @across
     def test_tools_under_gopath_bin_are_found(self):
         elsewhere = support.Stubs(self.parent / "elsewhere", self.stubs.log)
-        elsewhere.add_defaults(skip=("gofumpt", "goimports", "golangci-lint"))
+        elsewhere.add_defaults(skip=("gofumpt", "goimports"))
         onpath = support.Stubs(self.gopath / "bin", self.stubs.log)
-        for name in ("gofumpt", "goimports", "golangci-lint"):
+        for name in ("gofumpt", "goimports"):
             onpath.add(name)
         self.populate_go()
         path = support.minimal_path(self.parent / "essential", *support.ESSENTIAL_TOOLS, "python3")
@@ -263,7 +263,7 @@ class FixTest(support.VerifierCase):
         result = self.fails("--", "a.go", "uv.toml", code=1, env=env)
         self.assertEqual(
             result.stderr.split("\n")[:-1],
-            ["required tools are not on PATH: gofumpt goimports golangci-lint", hint, support.verdict(1)],
+            ["required tools are not on PATH: gofumpt goimports", hint, support.verdict(1)],
         )
         self.assertEqual((result.stdout, self.calls()), ("", []))
         # The hook tooling needs neither jq, shellcheck, nor python3, so a run that names it passes.
@@ -299,8 +299,8 @@ class ExitPathTest(support.VerifierCase):
     @across
     def test_a_gate_killed_by_term_reports_exit_143(self):
         self.populate_go()
-        self.stubs.add("golangci-lint", "kill -TERM $$")
-        self.fails("--", "a.go", code=143, gate="golangci-lint run")
+        env = self.stubs.env(self.env, FLOWSEER_FAKE_TERM_ON_ARGS="golangci-lint run")
+        self.fails("--", "a.go", code=143, gate="go tool", env=env)
 
     @across
     def test_failing_directory_listing_skips_lint_and_passes(self):

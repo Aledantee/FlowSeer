@@ -61,4 +61,12 @@ message ListedDevice {
   // fresh read, measured on the device. Unset means unmeasured: the edge
   // serves the device and refuses a mutation on it until it is set.
   google.protobuf.Duration delayed_apply_horizon = 7 [(buf.validate.field).duration.gte = {seconds: 1}];
+  // The integration that owns binding_id, as a plain UUID string for the same
+  // reason. A raw window scoped to an integration matches the devices whose
+  // resolved binding names it, and the edge cannot derive it from the
+  // binding id. Must be present.
+  string integration_id = 8 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.uuid = true
+  ];
 }

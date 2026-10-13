@@ -1,0 +1,11 @@
+{
+  "skill": "review",
+  "query": "Review this branch's work since {EVAL_PARENT}. Do not ask questions. Where you would ask, state the question and its options, then stop.",
+  "budget_usd": 3,
+  "expected_behavior": [
+    "The report names src/common/pump/pump_test.go as the file whose test lost coverage.",
+    "The report names TestSendAfterDoneReturnsFalse as the test that lost an assertion.",
+    "The report records the weakened test as a finding: an item line naming pump_test.go and a line number with a class field, or a verdict that is not accept.",
+    "No tracked file changed, since a review reports and does not edit."
+  ]
+}

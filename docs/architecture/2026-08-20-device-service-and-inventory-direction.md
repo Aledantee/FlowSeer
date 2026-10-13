@@ -386,8 +386,11 @@ snapshots.
 - The edge agent **embeds a NATS leaf node** (`nats-server` as a Go library,
   `server.LeafNodeOpts`/`RemoteLeafOpts`) and talks to it on localhost; the
   leaf connects **outbound** to the central cluster over `wss://` on 443 —
-  leaf nodes over WebSocket behind a TLS-terminating 443 ingress is a
-  documented NATS edge pattern. Same firewall posture as HTTPS.
+  leaf nodes over WebSocket behind a 443 ingress is a documented NATS edge
+  pattern. The ingress is TLS passthrough, not TLS-terminating, because an
+  edge pins the public key of the certificate the service serves and a
+  terminating ingress would present another one. Same firewall posture as
+  HTTPS.
 - **Store-and-forward** is local JetStream in its own *domain* (a leaf without
   a distinct domain silently extends the hub's JetStream — documented pitfall),
   with a *source* stream on the hub aggregating the edge streams; both sides

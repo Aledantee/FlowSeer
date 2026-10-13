@@ -17,7 +17,7 @@ belongs beside its triad in `model/inventory`.
 
 ## Boundaries
 
-Imports: model/access, model/capture, model/edge, model/identity, model/inventory, net/addr, net/log
+Imports: model/access, model/capture, model/edge, model/identity, model/inventory, model/rawwindow, net/addr, net/log
 
 Imported by: edge/audit, integration/ingest
 

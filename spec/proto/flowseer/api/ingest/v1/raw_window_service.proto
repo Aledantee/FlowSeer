@@ -1,0 +1,93 @@
+edition = "2024";
+
+// The service an operator calls to open, read, and close a raw window on an
+// edge. Authorized as the operator; an edge never calls it.
+package flowseer.api.ingest.v1;
+
+import "flowseer/model/edge/v1/edge.proto";
+import "flowseer/model/rawwindow/v1/raw_window.proto";
+import "google/protobuf/timestamp.proto";
+import option "buf/validate/validate.proto";
+import option "flowseer/authz/v1/rule.proto";
+
+service RawWindowService {
+  // Opens a raw window on an edge. The window is pending until the edge
+  // confirms it.
+  rpc OpenRawWindow(OpenRawWindowRequest) returns (OpenRawWindowResponse) {
+    option (flowseer.authz.v1.rule) = {
+      mode: RULE_MODE_REQUEST
+      object_type: "edge"
+      relation: "capture"
+      object_id_path: "edge.edge.id"
+    };
+  }
+  // Returns a raw window with its pending, active, or terminal state.
+  rpc GetRawWindow(GetRawWindowRequest) returns (GetRawWindowResponse) {
+    option (flowseer.authz.v1.rule) = {
+      mode: RULE_MODE_LOADED
+      object_type: "edge"
+      relation: "capture"
+    };
+  }
+  // Closes a raw window. Closing a window that already ended succeeds and
+  // changes nothing.
+  rpc CloseRawWindow(CloseRawWindowRequest) returns (CloseRawWindowResponse) {
+    option (flowseer.authz.v1.rule) = {
+      mode: RULE_MODE_LOADED
+      object_type: "edge"
+      relation: "capture"
+    };
+  }
+}
+
+message OpenRawWindowRequest {
+  // The edge whose adapters keep the bytes. Must be present.
+  flowseer.model.edge.v1.EdgeGlobalRef edge = 1 [(buf.validate.field).required = true];
+  // The records the window keeps bytes for. Must be present.
+  flowseer.model.rawwindow.v1.RawWindowSelector selector = 2 [(buf.validate.field).required = true];
+  // When collection ends. Must be present and in the future. The service
+  // refuses an expiry more than one hour after it admits the window.
+  google.protobuf.Timestamp expires_at = 3 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).timestamp.gt_now = true
+  ];
+  // Original payload octets the window may select across every device it
+  // matches. Must be present and positive. The edge's configured aggregate
+  // allowance bounds the sum of its windows' budgets.
+  uint64 max_bytes = 4 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).uint64.gt = 0
+  ];
+  // Why the window is requested. Must be present. A requested_by value is
+  // replaced with the authenticated caller.
+  flowseer.model.rawwindow.v1.RawWindowAuthorization authorization = 5 [(buf.validate.field).required = true];
+}
+
+message OpenRawWindowResponse {
+  // The window as recorded, pending until the edge confirms it. Must be
+  // present.
+  flowseer.model.rawwindow.v1.RawWindowRecord window = 1 [(buf.validate.field).required = true];
+}
+
+message GetRawWindowRequest {
+  // The window to read. Its edge is taken from the stored window. Must be
+  // present.
+  flowseer.model.rawwindow.v1.RawWindowLocalRef raw_window = 1 [(buf.validate.field).required = true];
+}
+
+message GetRawWindowResponse {
+  // Must be present.
+  flowseer.model.rawwindow.v1.RawWindowRecord window = 1 [(buf.validate.field).required = true];
+}
+
+message CloseRawWindowRequest {
+  // The window to close. Its edge is taken from the stored window. Must be
+  // present.
+  flowseer.model.rawwindow.v1.RawWindowLocalRef raw_window = 1 [(buf.validate.field).required = true];
+}
+
+message CloseRawWindowResponse {
+  // The window after the close was recorded. It stays pending or active
+  // until the edge reports the end. Must be present.
+  flowseer.model.rawwindow.v1.RawWindowRecord window = 1 [(buf.validate.field).required = true];
+}

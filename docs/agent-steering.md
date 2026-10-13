@@ -380,6 +380,19 @@ is a judgment. The script prints the names and `next` step 2 makes the
 comparison, because a pattern match on names would flag plans that nobody
 is working.
 
+Above the computed order sits the Priority list in `GOALS.md`, which the
+owner sets and changes there. A plan that serves an earlier priority goes
+ahead of one that serves none, across the `in-progress`, `unchecked`, `replan`, and `ready` groups, so a ready
+monitoring plan can outrank in-progress work that serves no priority. The
+owner chose focus over the Kanban rule for those areas. Finished work
+waiting to land keeps its place, because it gates every plan the branch
+carries past `main`. Whether a plan serves an area
+such as monitoring is read from its Goal, a judgment the script does not
+make, so `next` step 1 applies the list after the script prints. The
+shared-file rule still holds across tiers, lifting the plans a line
+depends on into its tier, since starting on a file
+another plan is about to change costs more than any priority gains.
+
 ### `plan`
 
 Promote lasting decisions out of the plan, from the plan. A plan under
@@ -852,6 +865,24 @@ runtime's registrations but cannot say whether a rule in `AGENTS.md` has
 an enforcer at all, or whether a hook added for Claude was also registered
 for Codex.
 
+Measure a skill edit before it grows the skill. SWE-Skills-Bench found no
+pass-rate gain from 39 of 49 public skills, and Vercel found skills never
+fired in 56% of eval cases, so a longer skill is not evidence of a better
+one. Anthropic's best practices ask for evaluations first: three scenarios,
+a baseline without the skill, and a comparison against it. A skill's
+scenarios live in its `evals/` directory, and `uv run tools/scripts/run.py
+steer skill-eval` runs them headless in throwaway worktrees for the edited
+skill, the skill at a ref, and no skill. It grades each lane with
+mechanical checks, never a judge model, since a judge shares the beliefs
+of the model it grades. It also records whether the skill fired, because a
+skill that never loads measures nothing. `steer` applies an edit that adds
+lines to a skill with scenarios unless the edited skill passes a check in
+fewer of three reruns than the previous one, and proposes cuts when the
+baseline without the skill does as well. A
+skill without scenarios is still edited and reported unmeasured, since
+requiring a scenario set first would stall the queue.
+`steer/references/skill-evals.md` holds the procedure and the cost limits.
+
 Leave policy surfaces to people. Earlier tooling edited `AGENTS.md`,
 `CLAUDE.md`, and `CONCEPTS.md` after a chat consent. `compound` proposes
 vocabulary and never edits an instruction file.
@@ -1312,7 +1343,9 @@ Sources checked on 2026-09-05 for the project skills:
 
 - [Anthropic, “Skill authoring best practices”](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices):
   500-line body ceiling, description as the selection signal, context as a
-  shared budget.
+  shared budget. Checked again on 2026-10-12 for evaluations built first:
+  three scenarios, a baseline measured without the skill, and a comparison
+  against it.
 - [Anthropic, “Extend Claude with skills”](https://code.claude.com/docs/en/skills)
   and [“Create plugins”](https://code.claude.com/docs/en/plugins): the 1%
   listing budget, `/skill-doctor`, and `.claude/` for project-specific work
