@@ -348,3 +348,8 @@ network and run unsandboxed. `git status --short` after them shows no
   `golang.org/x/term`, held by the ruling of 2026-10-01 until the netpen
   command-line client is cut. The Definition of done item on dates stays
   open until that ruling.
+
+## Review gaps
+
+- frontend/web/pnpm-workspace.yaml:13: the comment says undici-types 6.21.0 "predates its package's provenance"; fails: registry metadata shows 6.13.0 to 6.19.2 (2024-04-12 to 2024-06-18) carry provenance attestations and 6.19.8 onward do not, so 6.21.0 is a true trust downgrade, and the 2026-10-14 Decision's wording undersells that; class: convention
+- frontend/web/pnpm-workspace.yaml:12: deleting `trustPolicy: no-downgrade` (or `blockExoticSubdeps`, `strictDepBuilds`) passes every repository test and the verifier; fails: a later edit loosening the settings goes unseen until a person reads the file; class: gap
