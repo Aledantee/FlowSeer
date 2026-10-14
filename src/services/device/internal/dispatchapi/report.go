@@ -10,8 +10,8 @@ import (
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
 	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/fsconv"
 	"go.aledante.io/FlowSeer/src/services/device/internal/journal"
-	"go.aledante.io/FlowSeer/src/services/device/internal/telemetry"
 )
 
 // ErrCodeReport is a report central could not classify or apply.
@@ -101,7 +101,7 @@ func (s *Service) applyResult(ctx context.Context, tenantID, deviceID string, re
 		rep, ok := mutationReport(result)
 		if !ok {
 			s.log.WarnContext(ctx, "ignoring a mutation result at an unhandled phase",
-				slog.String("flowseer.tenant.id", tenantID), slog.String("flowseer.device.id", deviceID), slog.Uint64("flowseer.device.sequence", seq), slog.String("flowseer.device.phase", result.GetPhaseReached().String()))
+				fsconv.TenantID(tenantID), fsconv.DeviceID(deviceID), fsconv.DeviceSequence(seq), slog.String("flowseer.device.phase", result.GetPhaseReached().String()))
 			return nil
 		}
 		return s.cfg.Journal.ApplyReport(ctx, tenantID, deviceID, rep)
@@ -213,10 +213,10 @@ func (s *Service) applyRefused(ctx context.Context, tenantID, deviceID string, r
 			// The registry could not say whether it still lists the device;
 			// leave the row owed rather than disposing on a transient failure.
 			s.log.WarnContext(ctx, "could not classify an execute refusal; leaving the row owed",
-				slog.String("flowseer.tenant.id", tenantID),
-				slog.String("flowseer.device.id", deviceID),
+				fsconv.TenantID(tenantID),
+				fsconv.DeviceID(deviceID),
 				slog.String("flowseer.edge.refusal.code", refused.GetCode()),
-				slog.String("error.type", telemetry.ErrorType(err)))
+				fsconv.ErrorType(err))
 			return nil
 		}
 		if terminal {
@@ -336,7 +336,7 @@ func (s *Service) rejectDispatch(ctx context.Context, tenantID, deviceID string,
 	}
 	if s.cfg.Audit == nil {
 		s.log.WarnContext(ctx, "central rejected a dispatch with no audit emitter wired; the reason is not recorded",
-			slog.String("flowseer.tenant.id", tenantID), slog.String("flowseer.device.id", deviceID), slog.Uint64("flowseer.device.sequence", sequence), slog.String("flowseer.edge.refusal.code", code))
+			fsconv.TenantID(tenantID), fsconv.DeviceID(deviceID), fsconv.DeviceSequence(sequence), slog.String("flowseer.edge.refusal.code", code))
 		return nil
 	}
 	return s.cfg.Audit.DispatchRejected(ctx, tenantID, device, state, from, code)

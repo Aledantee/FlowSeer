@@ -556,7 +556,7 @@ func TestCreateRoleReturnsStoredRoleAndLogsProjectionFailure(t *testing.T) {
 		t.Fatalf("stored role = %v, %v", stored, err)
 	}
 	wantCalls(t, f.projector, "tenant:"+tenantA, "tenant:"+tenantA)
-	if strings.Count(logs.String(), "role projection failed") != 2 || strings.Contains(logs.String(), "private engine diagnostic") || !strings.Contains(logs.String(), `"error.type":"unknown"`) {
+	if strings.Count(logs.String(), "role projection failed") != 2 || strings.Contains(logs.String(), "private engine diagnostic") || !strings.Contains(logs.String(), `"error.type":"_OTHER"`) {
 		t.Fatalf("projection diagnostics = %s", logs.String())
 	}
 }

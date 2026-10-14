@@ -28,6 +28,7 @@ import (
 
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/fsconv"
 	"go.aledante.io/FlowSeer/src/services/device/internal/edge"
 )
 
@@ -125,9 +126,9 @@ func (m *Middleware) Wrap(next http.Handler) http.Handler {
 			// it proceed unauthenticated.
 			code, _ := errs.CodeOf(err)
 			m.log.InfoContext(r.Context(), "edge assertion rejected",
-				slog.String("otel.event.name", "flowseer.edge.assertion.rejected"),
+				fsconv.EventName("flowseer.edge.assertion.rejected"),
 				slog.String("flowseer.rpc.procedure", r.URL.Path),
-				slog.String("error.type", string(code)))
+				fsconv.ErrorTypeString(string(code)))
 			status := http.StatusUnauthorized
 			if errs.Retryable(err) {
 				status = http.StatusServiceUnavailable

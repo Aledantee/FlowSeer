@@ -27,6 +27,7 @@ import (
 	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
 	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/fsconv"
 	"go.aledante.io/FlowSeer/src/common/tenant"
 	"go.aledante.io/FlowSeer/src/services/device/internal/journal"
 	"go.aledante.io/FlowSeer/src/services/device/internal/telemetry"
@@ -162,21 +163,21 @@ func (p *Poller) Pass(ctx context.Context) {
 	edgeID := p.cfg.Resolver.EdgeID()
 	devices, err := p.cfg.Resolver.Devices(ctx, edgeID)
 	if err != nil {
-		p.log.ErrorContext(ctx, "drift poll could not name the devices to poll", slog.String("flowseer.edge.id", edgeID), slog.String("error.type", telemetry.ErrorType(err)))
+		p.log.ErrorContext(ctx, "drift poll could not name the devices to poll", fsconv.EdgeID(edgeID), fsconv.ErrorType(err))
 		return
 	}
 	tenantID, err := p.cfg.EdgeTenant(ctx, edgeID)
 	if err != nil {
-		p.log.WarnContext(ctx, "drift poll skipped edge with unresolvable tenant", slog.String("flowseer.edge.id", edgeID), slog.String("error.type", telemetry.ErrorType(err)))
+		p.log.WarnContext(ctx, "drift poll skipped edge with unresolvable tenant", fsconv.EdgeID(edgeID), fsconv.ErrorType(err))
 		return
 	}
 	if err := tenant.Validate(tenantID); err != nil {
-		p.log.WarnContext(ctx, "drift poll skipped edge with invalid tenant", slog.String("flowseer.edge.id", edgeID), slog.String("flowseer.tenant.id", tenantID), slog.String("error.type", telemetry.ErrorType(err)))
+		p.log.WarnContext(ctx, "drift poll skipped edge with invalid tenant", fsconv.EdgeID(edgeID), fsconv.TenantID(tenantID), fsconv.ErrorType(err))
 		return
 	}
 	for _, deviceID := range devices {
 		if err := p.pollDevice(ctx, tenantID, deviceID); err != nil {
-			p.log.ErrorContext(ctx, "drift poll skipped a device", slog.String("flowseer.tenant.id", tenantID), slog.String("flowseer.device.id", deviceID), slog.String("error.type", telemetry.ErrorType(err)))
+			p.log.ErrorContext(ctx, "drift poll skipped a device", fsconv.TenantID(tenantID), fsconv.DeviceID(deviceID), fsconv.ErrorType(err))
 		}
 	}
 }
@@ -270,9 +271,9 @@ func (p *Poller) judge(ctx context.Context, tenantID, deviceID string, entry *st
 		// the pass after that admits normally. An alarm nothing can clear
 		// would be noise; this one is cleared by the system's next action.
 		p.log.WarnContext(ctx, "drift detected but not acted on",
-			slog.String("flowseer.tenant.id", tenantID),
-			slog.String("flowseer.device.id", deviceID), slog.String("flowseer.device.interface", iface),
-			slog.String("flowseer.device.drift.outcome", string(telemetry.DriftOutcomeNoEpoch)))
+			fsconv.TenantID(tenantID),
+			fsconv.DeviceID(deviceID), slog.String(telemetry.InterfaceKey, iface),
+			slog.String(telemetry.DriftOutcomeKey, string(telemetry.DriftOutcomeNoEpoch)))
 		p.report(ctx, deviceID, entry, iface, expected, observed.GetDescription(), telemetry.DriftOutcomeNoEpoch)
 		return nil
 	}

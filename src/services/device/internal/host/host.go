@@ -17,6 +17,7 @@ import (
 	identityv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/identity/v1"
 	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/fsconv"
 	"go.aledante.io/FlowSeer/src/common/service"
 	"go.aledante.io/FlowSeer/src/common/spawn"
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
@@ -809,7 +810,7 @@ func (h *assembly) setupCaptureSweeper(ctx context.Context) (service.Attempt, er
 				if err != nil {
 					service.Logger(ctx).ErrorContext(ctx, "capture sweeper could not purge every expired artifact",
 						slog.Int("flowseer.capture.artifacts.purged", removed),
-						slog.String("error.type", telemetry.ErrorType(err)))
+						fsconv.ErrorType(err))
 					continue
 				}
 				if removed > 0 {

@@ -11,6 +11,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/fsconv"
 
 	captureedgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/capture/v1"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/capture/v1/capturev1connect"
@@ -20,7 +21,6 @@ import (
 	"go.aledante.io/FlowSeer/src/common/tenant"
 	"go.aledante.io/FlowSeer/src/services/device/internal/connecterr"
 	"go.aledante.io/FlowSeer/src/services/device/internal/edgeapi"
-	"go.aledante.io/FlowSeer/src/services/device/internal/telemetry"
 )
 
 const (
@@ -670,8 +670,8 @@ func (s *EdgeService) UploadCapture(
 			// on every chunk, and one line per chunk would bury the rest.
 			droppedReported = true
 			s.log.WarnContext(ctx, "live capture tail fell behind and lost a chunk",
-				slog.String("flowseer.capture.session.id", sessionID),
-				slog.Uint64("flowseer.capture.chunk.first_sequence", chunk.GetFirstSequence()),
+				fsconv.CaptureSessionID(sessionID),
+				fsconv.CaptureChunkFirstSequence(chunk.GetFirstSequence()),
 				slog.Int("flowseer.capture.tail.dropped_subscribers", dropped))
 		}
 
@@ -709,7 +709,7 @@ func (s *EdgeService) UploadCapture(
 			}
 			if disagreed {
 				s.log.WarnContext(ctx, "capture stop reason disagrees with operator cancellation",
-					slog.String("flowseer.capture.session.id", sessionID),
+					fsconv.CaptureSessionID(sessionID),
 					slog.String("flowseer.capture.stop.reported_reason", chunk.GetStopReason().String()))
 			}
 
@@ -760,7 +760,7 @@ func (s *EdgeService) deadlineExtender(ctx context.Context) func() {
 		if err := set(time.Now().Add(s.assertionWindow)); err != nil {
 			unsupported = true
 			s.log.WarnContext(ctx, "capture upload stream could not take a read deadline",
-				slog.String("error.type", telemetry.ErrorType(err)))
+				fsconv.ErrorType(err))
 		}
 	}
 }
@@ -794,9 +794,9 @@ func (s *EdgeService) failStream(ctx context.Context, tenantID, sessionID, reaso
 		return nil
 	}); err != nil {
 		s.log.ErrorContext(ctx, "capture session could not be marked failed",
-			slog.String("flowseer.capture.session.id", sessionID),
+			fsconv.CaptureSessionID(sessionID),
 			slog.String("flowseer.capture.stop.reason", reason),
-			slog.String("error.type", telemetry.ErrorType(err)))
+			fsconv.ErrorType(err))
 		return
 	}
 
@@ -804,7 +804,7 @@ func (s *EdgeService) failStream(ctx context.Context, tenantID, sessionID, reaso
 		return
 	}
 	s.log.WarnContext(ctx, "capture session failed",
-		slog.String("flowseer.capture.session.id", sessionID),
+		fsconv.CaptureSessionID(sessionID),
 		slog.String("flowseer.capture.stop.reason", reason))
 	// The tails watching this session end with it; only the final-chunk path
 	// closes them otherwise, and this stream will not reach it.

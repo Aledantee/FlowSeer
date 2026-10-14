@@ -12,10 +12,10 @@ import (
 	edgeingestv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/ingest/v1"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/ingest/v1/ingestv1connect"
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/fsconv"
 	"go.aledante.io/FlowSeer/src/common/tenant"
 	"go.aledante.io/FlowSeer/src/services/device/internal/connecterr"
 	"go.aledante.io/FlowSeer/src/services/device/internal/edgeapi"
-	"go.aledante.io/FlowSeer/src/services/device/internal/telemetry"
 )
 
 const (
@@ -147,14 +147,14 @@ func (s *EdgeService) Subscribe(
 	}
 	if ended > 0 {
 		s.log.InfoContext(ctx, "raw windows ended by edge restart",
-			slog.String("otel.event.name", "flowseer.raw_window.restart.ended"),
-			slog.String("flowseer.tenant.id", tenantID),
-			slog.String("flowseer.edge.id", edgeID),
+			fsconv.EventName("flowseer.raw_window.restart.ended"),
+			fsconv.TenantID(tenantID),
+			fsconv.EdgeID(edgeID),
 			slog.Int("flowseer.raw_window.ended", ended))
 	}
 	s.log.DebugContext(ctx, "raw window subscription established",
-		slog.String("flowseer.tenant.id", tenantID),
-		slog.String("flowseer.edge.id", edgeID),
+		fsconv.TenantID(tenantID),
+		fsconv.EdgeID(edgeID),
 		slog.Uint64("flowseer.raw_window.boot_generation", generation))
 
 	// Wake the streams of the process this one replaced, so they close now and
@@ -180,9 +180,9 @@ func (s *EdgeService) Subscribe(
 			}
 			if code == ErrCodeSuperseded {
 				s.log.InfoContext(ctx, "raw window subscription superseded",
-					slog.String("otel.event.name", "flowseer.raw_window.subscription.superseded"),
-					slog.String("flowseer.tenant.id", tenantID),
-					slog.String("flowseer.edge.id", edgeID),
+					fsconv.EventName("flowseer.raw_window.subscription.superseded"),
+					fsconv.TenantID(tenantID),
+					fsconv.EdgeID(edgeID),
 					slog.Uint64("flowseer.raw_window.boot_generation", generation))
 			}
 			return connectErr(err)
@@ -242,9 +242,9 @@ func (s *EdgeService) Report(
 
 	if err := s.store.Report(ctx, tenantID, edgeID, req.Msg.GetBootGeneration(), req.Msg.GetProcessEpoch(), req.Msg.GetReports()); err != nil {
 		s.log.DebugContext(ctx, "raw window report refused",
-			slog.String("flowseer.tenant.id", tenantID),
-			slog.String("flowseer.edge.id", edgeID),
-			slog.String("error.type", telemetry.ErrorType(err)))
+			fsconv.TenantID(tenantID),
+			fsconv.EdgeID(edgeID),
+			fsconv.ErrorType(err))
 		return nil, connectErr(err)
 	}
 	return connect.NewResponse(edgeingestv1.ReportResponse_builder{}.Build()), nil
