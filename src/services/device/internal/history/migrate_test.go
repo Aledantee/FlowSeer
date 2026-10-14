@@ -70,6 +70,53 @@ func TestMigrateAppliesStepsInOrderAndRecordsEach(t *testing.T) {
 	}
 }
 
+func TestMigrateRecordsAStepWhoseStatementRendersBlankAndDoesNotExecuteIt(t *testing.T) {
+	ex := &fakeExecutor{}
+	steps := []step{
+		{number: 1, name: "first", statements: []string{"CREATE TABLE one"}},
+		{number: 2, name: "single_node_only", statements: []string{"{{if not .OnCluster}}ALTER TABLE one{{end}}"}},
+	}
+	data := newTemplateData(Config{Database: "flowseer", Cluster: "c", Writer: User{Name: "w"}, Reader: User{Name: "r"}, Analyst: User{Name: "a"}})
+
+	done, err := migrate(context.Background(), ex, data, nil, nil, steps)
+	if err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+
+	if !reflect.DeepEqual(ex.statements, []string{"CREATE TABLE one"}) {
+		t.Errorf("statements = %q, want only the first step's", ex.statements)
+	}
+	if !reflect.DeepEqual(ex.recorded, []int{1, 2}) || len(done) != 2 {
+		t.Errorf("recorded = %v, applied = %v, want both steps", ex.recorded, done)
+	}
+}
+
+func TestStepEightAltersTheSingleNodeTableAndRendersNothingOnACluster(t *testing.T) {
+	_, steps, err := loadSteps(sqlFiles)
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	st := steps[7]
+	if st.name != "syslog_dedup_window" || len(st.statements) != 1 {
+		t.Fatalf("step 8 = %+v, want one statement named syslog_dedup_window", st)
+	}
+
+	single, err := render(st.statements[0], newTemplateData(testConfig(t, "")))
+	if err != nil {
+		t.Fatalf("render single node: %v", err)
+	}
+	if !strings.Contains(single, "MODIFY SETTING non_replicated_deduplication_window = 1000") {
+		t.Errorf("single node statement = %q, want the window setting", single)
+	}
+	cluster, err := render(st.statements[0], newTemplateData(testConfig(t, "c")))
+	if err != nil {
+		t.Fatalf("render cluster: %v", err)
+	}
+	if strings.TrimSpace(cluster) != "" {
+		t.Errorf("cluster statement = %q, want blank", cluster)
+	}
+}
+
 func TestMigrateSkipsRecordedStepsButStillRunsBootstrapAndUsers(t *testing.T) {
 	ex := &fakeExecutor{recordedSteps: []int{1, 2}}
 
@@ -147,8 +194,8 @@ func TestLoadStepsReadsTheEmbeddedFilesInOrder(t *testing.T) {
 	if len(bootstrap) != 3 {
 		t.Errorf("bootstrap holds %d statements, want 3", len(bootstrap))
 	}
-	if len(steps) != 7 {
-		t.Fatalf("steps = %d, want 7", len(steps))
+	if len(steps) != 8 {
+		t.Fatalf("steps = %d, want 8", len(steps))
 	}
 	for i, st := range steps {
 		if st.number != i+1 || len(st.statements) == 0 {

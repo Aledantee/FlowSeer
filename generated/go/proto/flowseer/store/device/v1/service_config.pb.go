@@ -513,8 +513,9 @@ type DeviceServiceConfig_builder struct {
 	// refuses every open instead of choosing an allowance.
 	RawWindows *RawWindowLimits
 	// The ClickHouse history store. Unset runs the service without one: the
-	// history sink and the history read are off, and records stay in the ingest
-	// streams until they age out.
+	// history sink and the history read are off, nothing resolves the typed
+	// ingest records, so the typed streams fill to their bound and intake is
+	// refused.
 	History *HistoryStore
 	// Bounds for the typed ingest streams. Unset takes the defaults in
 	// src/modules/edgebus.
@@ -1026,12 +1027,12 @@ func (b0 HistoryUser_builder) Build() *HistoryUser {
 }
 
 // Bounds for the typed ingest streams in the central account. Central sizes
-// them from the fleet: stored bytes per message, times the retention, the
-// number of devices, and the messages per device per minute
-// (src/modules/edgebus/README.md).
+// them from the fleet: stored bytes per message, times the fleet's records per
+// second, times the horizon a history outage may last plus the cleanup
+// interval (src/modules/edgebus/README.md). The horizon is a capacity target.
+// A full stream refuses new records and removes none.
 type IngestStreams struct {
 	state                         protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_MaxAge             *durationpb.Duration   `protobuf:"bytes,1,opt,name=max_age,json=maxAge"`
 	xxx_hidden_MaxBytesPerType    int64                  `protobuf:"varint,2,opt,name=max_bytes_per_type,json=maxBytesPerType"`
 	xxx_hidden_CentralBudgetBytes int64                  `protobuf:"varint,3,opt,name=central_budget_bytes,json=centralBudgetBytes"`
 	XXX_raceDetectHookData        protoimpl.RaceDetectHookData
@@ -1065,13 +1066,6 @@ func (x *IngestStreams) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-func (x *IngestStreams) GetMaxAge() *durationpb.Duration {
-	if x != nil {
-		return x.xxx_hidden_MaxAge
-	}
-	return nil
-}
-
 func (x *IngestStreams) GetMaxBytesPerType() int64 {
 	if x != nil {
 		return x.xxx_hidden_MaxBytesPerType
@@ -1086,61 +1080,43 @@ func (x *IngestStreams) GetCentralBudgetBytes() int64 {
 	return 0
 }
 
-func (x *IngestStreams) SetMaxAge(v *durationpb.Duration) {
-	x.xxx_hidden_MaxAge = v
-}
-
 func (x *IngestStreams) SetMaxBytesPerType(v int64) {
 	x.xxx_hidden_MaxBytesPerType = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 3)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 2)
 }
 
 func (x *IngestStreams) SetCentralBudgetBytes(v int64) {
 	x.xxx_hidden_CentralBudgetBytes = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 3)
-}
-
-func (x *IngestStreams) HasMaxAge() bool {
-	if x == nil {
-		return false
-	}
-	return x.xxx_hidden_MaxAge != nil
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 2)
 }
 
 func (x *IngestStreams) HasMaxBytesPerType() bool {
 	if x == nil {
 		return false
 	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
 }
 
 func (x *IngestStreams) HasCentralBudgetBytes() bool {
 	if x == nil {
 		return false
 	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
-}
-
-func (x *IngestStreams) ClearMaxAge() {
-	x.xxx_hidden_MaxAge = nil
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
 }
 
 func (x *IngestStreams) ClearMaxBytesPerType() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
 	x.xxx_hidden_MaxBytesPerType = 0
 }
 
 func (x *IngestStreams) ClearCentralBudgetBytes() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
 	x.xxx_hidden_CentralBudgetBytes = 0
 }
 
 type IngestStreams_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// How long a stream keeps a record. The window a history outage may last
-	// before records are lost. Unset means 72 hours.
-	MaxAge *durationpb.Duration
 	// The byte bound of each typed ingest stream. Unset means 256 MiB.
 	MaxBytesPerType *int64
 	// The disk reservation of the whole central account, which holds the ingest
@@ -1153,13 +1129,12 @@ func (b0 IngestStreams_builder) Build() *IngestStreams {
 	m0 := &IngestStreams{}
 	b, x := &b0, m0
 	_, _ = b, x
-	x.xxx_hidden_MaxAge = b.MaxAge
 	if b.MaxBytesPerType != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 3)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 2)
 		x.xxx_hidden_MaxBytesPerType = *b.MaxBytesPerType
 	}
 	if b.CentralBudgetBytes != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 3)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 2)
 		x.xxx_hidden_CentralBudgetBytes = *b.CentralBudgetBytes
 	}
 	return m0
@@ -2644,10 +2619,8 @@ const file_flowseer_store_device_v1_service_config_proto_rawDesc = "" +
 	"\aca_file\x18\b \x01(\tB\f\xbaH\tr\a\x18\x80 2\x02^/R\x06caFile\"\x80\x01\n" +
 	"\vHistoryUser\x12;\n" +
 	"\x04name\x18\x01 \x01(\tB'\xbaH$\xc8\x01\x01r\x1f2\x1d^[A-Za-z_][A-Za-z0-9_]{0,63}$R\x04name\x124\n" +
-	"\rpassword_file\x18\x02 \x01(\tB\x0f\xbaH\f\xc8\x01\x01r\a\x18\x80 2\x02^/R\fpasswordFile\"\xc0\x01\n" +
-	"\rIngestStreams\x12>\n" +
-	"\amax_age\x18\x01 \x01(\v2\x19.google.protobuf.DurationB\n" +
-	"\xbaH\a\xaa\x01\x042\x02\b\x01R\x06maxAge\x124\n" +
+	"\rpassword_file\x18\x02 \x01(\tB\x0f\xbaH\f\xc8\x01\x01r\a\x18\x80 2\x02^/R\fpasswordFile\"\x80\x01\n" +
+	"\rIngestStreams\x124\n" +
 	"\x12max_bytes_per_type\x18\x02 \x01(\x03B\a\xbaH\x04\"\x02 \x00R\x0fmaxBytesPerType\x129\n" +
 	"\x14central_budget_bytes\x18\x03 \x01(\x03B\a\xbaH\x04\"\x02 \x00R\x12centralBudgetBytes\"\xad\x01\n" +
 	"\n" +
@@ -2759,24 +2732,23 @@ var file_flowseer_store_device_v1_service_config_proto_depIdxs = []int32{
 	4,  // 12: flowseer.store.device.v1.HistoryStore.writer:type_name -> flowseer.store.device.v1.HistoryUser
 	4,  // 13: flowseer.store.device.v1.HistoryStore.reader:type_name -> flowseer.store.device.v1.HistoryUser
 	4,  // 14: flowseer.store.device.v1.HistoryStore.analyst:type_name -> flowseer.store.device.v1.HistoryUser
-	15, // 15: flowseer.store.device.v1.IngestStreams.max_age:type_name -> google.protobuf.Duration
-	6,  // 16: flowseer.store.device.v1.OperatorAuthentication.issuers:type_name -> flowseer.store.device.v1.OidcIssuer
-	15, // 17: flowseer.store.device.v1.EdgeEnrollmentPolicy.assertion_clock_skew:type_name -> google.protobuf.Duration
-	14, // 18: flowseer.store.device.v1.ServiceTelemetry.headers:type_name -> flowseer.store.device.v1.ServiceTelemetry.HeadersEntry
-	15, // 19: flowseer.store.device.v1.ServiceIntervals.drift:type_name -> google.protobuf.Duration
-	15, // 20: flowseer.store.device.v1.ServiceIntervals.drift_read_deadline:type_name -> google.protobuf.Duration
-	15, // 21: flowseer.store.device.v1.ServiceIntervals.dispatch_resend:type_name -> google.protobuf.Duration
-	15, // 22: flowseer.store.device.v1.ServiceIntervals.read_sweep:type_name -> google.protobuf.Duration
-	15, // 23: flowseer.store.device.v1.ServiceIntervals.submission_pulse:type_name -> google.protobuf.Duration
-	15, // 24: flowseer.store.device.v1.ServiceIntervals.edge_stale_after:type_name -> google.protobuf.Duration
-	15, // 25: flowseer.store.device.v1.ServiceIntervals.edge_dormant_after:type_name -> google.protobuf.Duration
-	15, // 26: flowseer.store.device.v1.ServiceIntervals.capture_sweep:type_name -> google.protobuf.Duration
-	15, // 27: flowseer.store.device.v1.ServiceIntervals.relationship_reconcile:type_name -> google.protobuf.Duration
-	28, // [28:28] is the sub-list for method output_type
-	28, // [28:28] is the sub-list for method input_type
-	28, // [28:28] is the sub-list for extension type_name
-	28, // [28:28] is the sub-list for extension extendee
-	0,  // [0:28] is the sub-list for field type_name
+	6,  // 15: flowseer.store.device.v1.OperatorAuthentication.issuers:type_name -> flowseer.store.device.v1.OidcIssuer
+	15, // 16: flowseer.store.device.v1.EdgeEnrollmentPolicy.assertion_clock_skew:type_name -> google.protobuf.Duration
+	14, // 17: flowseer.store.device.v1.ServiceTelemetry.headers:type_name -> flowseer.store.device.v1.ServiceTelemetry.HeadersEntry
+	15, // 18: flowseer.store.device.v1.ServiceIntervals.drift:type_name -> google.protobuf.Duration
+	15, // 19: flowseer.store.device.v1.ServiceIntervals.drift_read_deadline:type_name -> google.protobuf.Duration
+	15, // 20: flowseer.store.device.v1.ServiceIntervals.dispatch_resend:type_name -> google.protobuf.Duration
+	15, // 21: flowseer.store.device.v1.ServiceIntervals.read_sweep:type_name -> google.protobuf.Duration
+	15, // 22: flowseer.store.device.v1.ServiceIntervals.submission_pulse:type_name -> google.protobuf.Duration
+	15, // 23: flowseer.store.device.v1.ServiceIntervals.edge_stale_after:type_name -> google.protobuf.Duration
+	15, // 24: flowseer.store.device.v1.ServiceIntervals.edge_dormant_after:type_name -> google.protobuf.Duration
+	15, // 25: flowseer.store.device.v1.ServiceIntervals.capture_sweep:type_name -> google.protobuf.Duration
+	15, // 26: flowseer.store.device.v1.ServiceIntervals.relationship_reconcile:type_name -> google.protobuf.Duration
+	27, // [27:27] is the sub-list for method output_type
+	27, // [27:27] is the sub-list for method input_type
+	27, // [27:27] is the sub-list for extension type_name
+	27, // [27:27] is the sub-list for extension extendee
+	0,  // [0:27] is the sub-list for field type_name
 }
 
 func init() { file_flowseer_store_device_v1_service_config_proto_init() }

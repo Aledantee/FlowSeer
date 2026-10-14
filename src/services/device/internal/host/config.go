@@ -84,7 +84,6 @@ func parseConfig(data []byte, path string) (*Config, error) {
 // named none. Zero is passed through for the same reason Intervals does: the
 // hub holds the defaults.
 type IngestStreams struct {
-	MaxAge             time.Duration
 	MaxBytesPerType    int64
 	CentralBudgetBytes int64
 }
@@ -93,7 +92,6 @@ type IngestStreams struct {
 func (c *Config) IngestStreams() IngestStreams {
 	s := c.msg.GetIngestStreams()
 	return IngestStreams{
-		MaxAge:             s.GetMaxAge().AsDuration(),
 		MaxBytesPerType:    s.GetMaxBytesPerType(),
 		CentralBudgetBytes: s.GetCentralBudgetBytes(),
 	}
@@ -101,7 +99,6 @@ func (c *Config) IngestStreams() IngestStreams {
 
 // apply sets the bounds on a hub configuration.
 func (s IngestStreams) apply(cfg edgebus.HubConfig) edgebus.HubConfig {
-	cfg.IngestMaxAge = s.MaxAge
 	cfg.IngestMaxBytes = s.MaxBytesPerType
 	cfg.CentralBudgetBytes = s.CentralBudgetBytes
 	return cfg

@@ -84,8 +84,9 @@ message DeviceServiceConfig {
   // refuses every open instead of choosing an allowance.
   RawWindowLimits raw_windows = 13;
   // The ClickHouse history store. Unset runs the service without one: the
-  // history sink and the history read are off, and records stay in the ingest
-  // streams until they age out.
+  // history sink and the history read are off, nothing resolves the typed
+  // ingest records, so the typed streams fill to their bound and intake is
+  // refused.
   HistoryStore history = 14;
   // Bounds for the typed ingest streams. Unset takes the defaults in
   // src/modules/edgebus.
@@ -161,13 +162,11 @@ message HistoryUser {
 }
 
 // Bounds for the typed ingest streams in the central account. Central sizes
-// them from the fleet: stored bytes per message, times the retention, the
-// number of devices, and the messages per device per minute
-// (src/modules/edgebus/README.md).
+// them from the fleet: stored bytes per message, times the fleet's records per
+// second, times the horizon a history outage may last plus the cleanup
+// interval (src/modules/edgebus/README.md). The horizon is a capacity target.
+// A full stream refuses new records and removes none.
 message IngestStreams {
-  // How long a stream keeps a record. The window a history outage may last
-  // before records are lost. Unset means 72 hours.
-  google.protobuf.Duration max_age = 1 [(buf.validate.field).duration.gte = {seconds: 1}];
   // The byte bound of each typed ingest stream. Unset means 256 MiB.
   int64 max_bytes_per_type = 2 [(buf.validate.field).int64.gt = 0];
   // The disk reservation of the whole central account, which holds the ingest

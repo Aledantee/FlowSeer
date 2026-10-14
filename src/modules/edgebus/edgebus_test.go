@@ -398,13 +398,14 @@ func TestCentralIngestStreamsExistWithTheirLimits(t *testing.T) {
 		subject  string
 		maxBytes int64
 		maxAge   time.Duration
+		discard  jetstream.DiscardPolicy
 	}{
 		{
 			name:     "typed",
 			stream:   "FLOWSEER_INGEST_SYSLOG",
 			subject:  "flowseer.*.ingest.syslog.*",
 			maxBytes: 256 << 20,
-			maxAge:   72 * time.Hour,
+			discard:  jetstream.DiscardNew,
 		},
 		{
 			name:     "evidence",
@@ -412,6 +413,7 @@ func TestCentralIngestStreamsExistWithTheirLimits(t *testing.T) {
 			subject:  "flowseer.*.evidence.>",
 			maxBytes: 64 << 20,
 			maxAge:   24 * time.Hour,
+			discard:  jetstream.DiscardOld,
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -432,8 +434,8 @@ func TestCentralIngestStreamsExistWithTheirLimits(t *testing.T) {
 			if info.Config.MaxBytes != test.maxBytes {
 				t.Errorf("max bytes = %d, want %d", info.Config.MaxBytes, test.maxBytes)
 			}
-			if info.Config.Discard != jetstream.DiscardOld {
-				t.Errorf("discard = %q, want discard old", info.Config.Discard)
+			if info.Config.Discard != test.discard {
+				t.Errorf("discard = %q, want %q", info.Config.Discard, test.discard)
 			}
 			if info.Config.Duplicates != 10*time.Minute {
 				t.Errorf("duplicate window = %s, want 10m", info.Config.Duplicates)
@@ -480,7 +482,6 @@ func TestCentralIngestDuplicateWindowDoesNotExceedMaxAge(t *testing.T) {
 		StateDir:             t.TempDir(),
 		FsyncPolicy:          service.BusFsyncPeriodic,
 		AuditDuplicateWindow: 30 * time.Minute,
-		IngestMaxAge:         time.Minute,
 		EvidenceMaxAge:       2 * time.Minute,
 	})
 	if err != nil {
@@ -493,9 +494,6 @@ func TestCentralIngestDuplicateWindowDoesNotExceedMaxAge(t *testing.T) {
 		want time.Duration
 		get  func(context.Context) (jetstream.Stream, error)
 	}{
-		{name: "typed", want: time.Minute, get: func(ctx context.Context) (jetstream.Stream, error) {
-			return hub.JetStream().Stream(ctx, edgebus.IngestStream(edgebus.IngestRecordTypeSyslog))
-		}},
 		{name: "evidence", want: 2 * time.Minute, get: func(ctx context.Context) (jetstream.Stream, error) {
 			return hub.JetStream().Stream(ctx, edgebus.EvidenceStream)
 		}},

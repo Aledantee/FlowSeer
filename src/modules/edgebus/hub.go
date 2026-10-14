@@ -80,14 +80,14 @@ type HubConfig struct {
 	// records per subject. Zero means 1,000.
 	OperatorReadMaxPerSubject int64
 	// AuditDuplicateWindow is the requested duplicate window for the audit,
-	// operator action, operator read, typed ingest, and evidence streams; typed ingest and
-	// evidence cap it at their configured maximum age. A re-delivered record
+	// operator action, operator read, typed ingest, and evidence streams.
+	// Evidence caps it at its configured maximum age. A re-delivered record
 	// inside the window is stored once. Zero means ten minutes.
 	AuditDuplicateWindow time.Duration
-	// IngestMaxBytes and IngestMaxAge bound each typed ingest stream. Zero
-	// means 256 MiB and 72 hours.
+	// IngestMaxBytes bounds each typed ingest stream. Zero means 256 MiB. A
+	// full stream refuses new records and removes none: only
+	// [CleanIngest] removes a record, once every member resolved it.
 	IngestMaxBytes int64
-	IngestMaxAge   time.Duration
 	// EvidenceMaxBytes and EvidenceMaxAge bound the raw evidence stream. Zero
 	// means 64 MiB and 24 hours.
 	EvidenceMaxBytes int64
@@ -157,7 +157,6 @@ const (
 	defaultOperatorReadStreamBytes   = 16 << 20
 	defaultOperatorReadMaxPerSubj    = 1000
 	defaultIngestStreamBytes         = 256 << 20
-	defaultIngestStreamMaxAge        = 72 * time.Hour
 	defaultEvidenceBytes             = 64 << 20
 	defaultEvidenceMaxAge            = 24 * time.Hour
 	// defaultCentralBudget reserves the central account's disk for the
@@ -481,23 +480,22 @@ func (h *Hub) createStores(ctx context.Context) error {
 	if ingestBytes <= 0 {
 		ingestBytes = defaultIngestStreamBytes
 	}
-	ingestAge := h.cfg.IngestMaxAge
-	if ingestAge <= 0 {
-		ingestAge = defaultIngestStreamMaxAge
-	}
-	ingestDuplicates := min(window, ingestAge)
 	for _, recordType := range IngestRecordTypes() {
 		if _, err := h.centralJS.CreateOrUpdateStream(ctx, jetstream.StreamConfig{
 			Name:       IngestStream(recordType),
 			Subjects:   []string{"flowseer.*.ingest." + recordType + ".*"},
 			Storage:    jetstream.FileStorage,
 			Retention:  jetstream.LimitsPolicy,
-			Discard:    jetstream.DiscardOld,
+			Discard:    jetstream.DiscardNew,
 			MaxBytes:   ingestBytes,
-			MaxAge:     ingestAge,
-			Duplicates: ingestDuplicates,
+			Duplicates: window,
 		}); err != nil {
 			return errs.From(err).Code(ErrCodeHub).Attr("record_type", recordType).Msg("create ingest stream")
+		}
+		for _, name := range IngestConsumers(recordType) {
+			if _, err := EnsureIngestConsumer(ctx, h.centralJS, recordType, name); err != nil {
+				return err
+			}
 		}
 	}
 

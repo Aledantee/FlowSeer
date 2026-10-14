@@ -1,13 +1,14 @@
 // Package historysink moves syslog records from the central ingest stream into
-// the history store. It follows the stream with a durable consumer, maps each
-// record to a row, inserts batches synchronously, and acknowledges a record
-// only after the store holds it.
+// the history store. It follows the stream with the hub's member consumer, maps
+// each record to a row, inserts batches synchronously, acknowledges a record
+// only after the store holds it, and asks the hub to remove what every member
+// resolved.
 package historysink
 
 import (
 	"context"
+	"errors"
 	"log/slog"
-	"math"
 	"strings"
 	"sync"
 	"time"
@@ -29,25 +30,31 @@ import (
 var ErrCodeStart = errs.NewCode("historysink/start")
 
 const (
-	consumerName    = "history_sink"
-	maxAckPending   = 10000
-	ackWait         = 2 * time.Minute
-	insertTimeout   = 30 * time.Second
-	logInterval     = 10 * time.Second
-	discardInterval = 10 * time.Second
+	// consumerName is the member the hub creates with the stream. Its config
+	// belongs to [edgebus.IngestConsumerConfig], and the sink never changes it.
+	consumerName  = "history_sink"
+	insertTimeout = 30 * time.Second
+	logInterval   = 10 * time.Second
+
+	// retainGrace is added to twice the retry delay to bound how long a held
+	// batch waits for its members to return.
+	retainGrace = 10 * time.Second
 
 	defaultMaxBatch      = 10000
 	defaultFlushInterval = time.Second
 	defaultRetryDelay    = 5 * time.Second
+	defaultCleanInterval = 5 * time.Second
 
 	reasonRecord   = "record"
 	reasonRejected = "rejected"
 	reasonStore    = "store"
 	reasonConsumer = "consumer"
 	reasonMirror   = "mirror"
+	reasonMember   = "member"
 
 	errorRejected = "rejected"
 	errorStore    = "store"
+	errorCleanup  = "cleanup"
 )
 
 // Config wires the sink to the central JetStream account and the store.
@@ -75,6 +82,9 @@ type Config struct {
 	// redelivered, and the pause before the next fetch. Zero means five
 	// seconds.
 	RetryDelay time.Duration
+	// CleanInterval is how often the sink asks the hub to remove the records
+	// every member resolved. Zero means five seconds.
+	CleanInterval time.Duration
 	// Logger receives retry and refusal warnings. Nil discards them.
 	Logger *slog.Logger
 	// MeterProvider backs the sink's instruments. Nil records nothing.
@@ -85,20 +95,24 @@ type Config struct {
 // calls [Sink.Run].
 type Sink struct {
 	cfg      Config
-	stream   jetstream.Stream
 	consumer jetstream.Consumer
 	logger   *slog.Logger
 	metrics  *sinkMetrics
+	gauges   *streamGauges
 
 	classes  map[string]uint8
 	mirrored bool
+
+	batches  []*retained
+	retained map[uint64]*retained
 
 	logMu      sync.Mutex // guards lastLogged
 	lastLogged map[string]time.Time
 }
 
-// Start attaches the durable consumer to the ingest stream. It does not touch
-// the store, so a sink starts while ClickHouse is down.
+// Start binds the member consumer the hub created with the ingest stream. A
+// member that is missing is created again with the member's config. It does not
+// touch the store, so a sink starts while ClickHouse is down.
 func Start(ctx context.Context, cfg Config) (*Sink, error) {
 	if cfg.JetStream == nil || cfg.Inserter == nil || cfg.Retention == nil {
 		return nil, errs.New().Code(ErrCodeStart).Msg("the history sink needs a JetStream account, an inserter, and a retention lookup")
@@ -112,6 +126,9 @@ func Start(ctx context.Context, cfg Config) (*Sink, error) {
 	if cfg.RetryDelay <= 0 {
 		cfg.RetryDelay = defaultRetryDelay
 	}
+	if cfg.CleanInterval <= 0 {
+		cfg.CleanInterval = defaultCleanInterval
+	}
 	logger := cfg.Logger
 	if logger == nil {
 		logger = slog.New(slog.DiscardHandler)
@@ -120,47 +137,70 @@ func Start(ctx context.Context, cfg Config) (*Sink, error) {
 	if provider == nil {
 		provider = metricnoop.NewMeterProvider()
 	}
-	metrics, err := newMetrics(provider)
+	gauges := &streamGauges{}
+	metrics, err := newMetrics(provider, gauges)
 	if err != nil {
 		return nil, errs.From(err).Code(ErrCodeStart).Msg("build the history sink instruments")
 	}
 
-	stream, err := cfg.JetStream.Stream(ctx, edgebus.IngestStream(edgebus.IngestRecordTypeSyslog))
-	if err != nil {
-		return nil, errs.From(err).Code(ErrCodeStart).Msg("open the syslog ingest stream")
+	s := &Sink{
+		cfg: cfg, logger: logger, metrics: metrics, gauges: gauges,
+		classes: map[string]uint8{}, retained: map[uint64]*retained{}, lastLogged: map[string]time.Time{},
 	}
-	consumer, err := stream.CreateOrUpdateConsumer(ctx, jetstream.ConsumerConfig{
-		Durable:       consumerName,
-		AckPolicy:     jetstream.AckExplicitPolicy,
-		AckWait:       ackWait,
-		MaxDeliver:    -1,
-		MaxAckPending: maxAckPending,
-	})
-	if err != nil {
-		return nil, errs.From(err).Code(ErrCodeStart).Msg("create the history sink consumer")
+	if err := s.bind(ctx); err != nil {
+		return nil, err
 	}
-	return &Sink{
-		cfg: cfg, stream: stream, consumer: consumer, logger: logger, metrics: metrics,
-		classes: map[string]uint8{}, lastLogged: map[string]time.Time{},
-	}, nil
+	return s, nil
+}
+
+// bind looks up the member. A member the server reports missing is created
+// again with [edgebus.IngestConsumerConfig] and starts at the first stored
+// record, so the stream offers every stored record once more and the insert
+// token window and the read-time deduplication absorb the ones the store
+// already holds. Cleanup refuses while a member is missing, so nothing was
+// purged meanwhile. A member with another config is bound as it is: cleanup
+// fails on it and the operator repairs it.
+func (s *Sink) bind(ctx context.Context) error {
+	stream, err := s.cfg.JetStream.Stream(ctx, edgebus.IngestStream(edgebus.IngestRecordTypeSyslog))
+	if err != nil {
+		return errs.From(err).Code(ErrCodeStart).Msg("open the syslog ingest stream")
+	}
+	consumer, err := stream.Consumer(ctx, consumerName)
+	if errors.Is(err, jetstream.ErrConsumerNotFound) {
+		consumer, err = edgebus.EnsureIngestConsumer(ctx, s.cfg.JetStream, edgebus.IngestRecordTypeSyslog, consumerName)
+		if err == nil {
+			s.warn("history consumer was missing and has been created again", reasonMember)
+		}
+	}
+	if err != nil {
+		return errs.From(err).Code(ErrCodeStart).Msg("bind the history sink consumer")
+	}
+	s.consumer = consumer
+	return nil
 }
 
 // Run follows the stream until ctx ends and returns nil. A store that is down
 // or refusing never ends it: records the store did not take stay in the stream
-// and are tried again after the retry delay.
+// and are tried again after the retry delay. Every clean interval it asks the
+// hub to remove the records every member resolved.
 func (s *Sink) Run(ctx context.Context) error {
-	var lastDiscardPoll time.Time
+	defer s.releaseRetained()
+	var lastClean time.Time
 	for ctx.Err() == nil {
-		if time.Since(lastDiscardPoll) >= discardInterval {
-			s.pollDiscarded(ctx)
-			lastDiscardPoll = time.Now()
+		if time.Since(lastClean) >= s.cfg.CleanInterval {
+			s.clean(ctx)
+			lastClean = time.Now()
 		}
+		s.settleRetained(ctx, time.Now())
 		s.mirror(ctx)
 
 		msgs, err := s.fetch()
 		if err != nil {
 			if ctx.Err() == nil {
 				s.warn("consumer error", reasonConsumer)
+				if err := s.bind(ctx); err != nil && ctx.Err() == nil {
+					s.warn("consumer bind failed", reasonConsumer)
+				}
 				sleep(ctx, s.cfg.RetryDelay)
 			}
 			continue
@@ -207,8 +247,9 @@ type pending struct {
 	sequence uint64
 }
 
-// process maps and inserts one fetched batch. It reports whether the store or
-// a lookup failed, so the caller pauses before the next fetch.
+// process maps and inserts one fetched batch. A delivery of a member of a held
+// batch joins that batch and is not mapped again. It reports whether the store
+// or a lookup failed, so the caller pauses before the next fetch.
 func (s *Sink) process(ctx context.Context, msgs []jetstream.Msg) (failed bool) {
 	now := time.Now()
 	batch := make([]pending, 0, len(msgs))
@@ -220,6 +261,13 @@ func (s *Sink) process(ctx context.Context, msgs []jetstream.Msg) (failed bool) 
 		}
 		age := max(now.Sub(meta.Timestamp), 0)
 		s.metrics.age.Record(ctx, age.Seconds())
+		if meta.NumDelivered > 1 {
+			s.metrics.redelivered.Add(ctx, 1)
+		}
+		if r := s.retained[meta.Sequence.Stream]; r != nil {
+			r.arrive(meta.Sequence.Stream, msg)
+			continue
+		}
 
 		row, err := s.row(ctx, msg)
 		if err != nil {
@@ -234,6 +282,9 @@ func (s *Sink) process(ctx context.Context, msgs []jetstream.Msg) (failed bool) 
 		batch = append(batch, pending{msg: msg, row: row, sequence: meta.Sequence.Stream})
 	}
 	if len(batch) > 0 && s.insert(ctx, batch) {
+		failed = true
+	}
+	if s.settleRetained(ctx, now) {
 		failed = true
 	}
 	return failed
@@ -285,8 +336,10 @@ func (s *Sink) class(ctx context.Context, tenantID string) (uint8, error) {
 }
 
 // insert writes the batch and acknowledges what the store took. A rejection
-// splits the batch to isolate the record that causes it. It reports whether a
-// transient failure left records unacknowledged.
+// splits the batch to isolate the record that causes it. A transient failure
+// naks the batch and holds its members, since the store may have applied the
+// block before the connection broke. It reports whether a transient failure
+// left records unacknowledged.
 func (s *Sink) insert(ctx context.Context, batch []pending) (failed bool) {
 	rows := make([]Row, len(batch))
 	sequences := make([]uint64, len(batch))
@@ -320,6 +373,7 @@ func (s *Sink) insert(ctx context.Context, batch []pending) (failed bool) {
 		return s.insert(ctx, batch[half:])
 	default:
 		s.nakAll(ctx, batch)
+		s.retain(batch, time.Now())
 		if s.allow(reasonStore) {
 			s.logger.Warn("insert retry scheduled",
 				slog.String(string(semconv.ErrorTypeKey), errorStore),
@@ -359,24 +413,6 @@ func (s *Sink) refuse(ctx context.Context, msg jetstream.Msg, reason string) {
 	_ = msg.Term()
 	s.metrics.refused.Add(ctx, 1, metric.WithAttributes(attribute.String("flowseer.history.reason", reason)))
 	s.warn("record refused", reason)
-}
-
-// pollDiscarded samples how many records the stream removed before the
-// consumer acknowledged them.
-func (s *Sink) pollDiscarded(ctx context.Context) {
-	streamInfo, err := s.stream.Info(ctx)
-	if err != nil {
-		return
-	}
-	consumerInfo, err := s.consumer.Info(ctx)
-	if err != nil {
-		return
-	}
-	var gap uint64
-	if first := streamInfo.State.FirstSeq; first > 0 && first-1 > consumerInfo.AckFloor.Stream {
-		gap = first - 1 - consumerInfo.AckFloor.Stream
-	}
-	s.metrics.discarded.Store(int64(min(gap, math.MaxInt64)))
 }
 
 // allow rate-limits a warning: it reports whether key last logged at least

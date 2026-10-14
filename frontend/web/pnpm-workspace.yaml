@@ -7,3 +7,17 @@ allowBuilds:
 # A version waits 14 days after publication before it may be resolved
 # (docs/conventions/dependencies.md, "Change a pin"). The unit is minutes.
 minimumReleaseAge: 20160
+# A version may not resolve when an earlier release carried stronger publish
+# trust evidence (trusted publisher or provenance).
+trustPolicy: no-downgrade
+# The undici-types 6.x line stopped publishing provenance after 6.19.2, and
+# 6.21.0 arrives through @types/node. Approved by a person on 2026-10-14.
+# Remove it when @types/node moves to a release whose undici-types carries provenance.
+trustPolicyExclude:
+  - 'undici-types@6.21.0'
+# Transitive dependencies must come from the registry, not git or tarball URLs.
+# This is the pnpm 11 default, written out so a changed default cannot loosen it.
+blockExoticSubdeps: true
+# A dependency build script without an allowBuilds entry fails the install.
+# This is the pnpm 11 default, written out so a changed default cannot loosen it.
+strictDepBuilds: true

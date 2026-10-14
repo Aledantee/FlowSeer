@@ -167,9 +167,13 @@ No ClickHouse mechanism stores a late redelivery exactly once
 section 3). The store therefore relies on three layers in order: shapes that
 a repeat does not change (raw counters, `min`, `max`, bitmaps), a
 `ReplacingMergeTree` key that collapses a repeat at merge, and `FINAL` or
-`LIMIT 1 BY record_id` in reads that list or count rows. Each batch also
-carries an `insert_deduplication_token` that hashes the batch's stream
-sequences, so an in-window retry of the same batch is exact. A token built
+`LIMIT 1 BY tenant_id, record_id` in reads that list or count rows. The pair
+keeps one tenant's repeat from hiding another tenant's record that shares a
+`record_id`, and a page token carries the tenant for the same reason. Each
+batch also carries an `insert_deduplication_token` that hashes the batch's
+stream sequences, so an in-window retry of the same batch is exact. On a
+single node the table needs `non_replicated_deduplication_window` for that,
+which the eighth migration step sets. A token built
 from a range would drop a later batch with the same ends and different
 members, which two central replicas sharing a consumer produce. Counts kept
 in a summing rollup, such as syslog's daily counts, over-count a redelivery
@@ -179,12 +183,14 @@ past the window, and their readers say so.
 
 The sink batches per table, inserts with `async_insert = 0`, and acknowledges
 JetStream after one replica confirms. A replication lag alert bounds the
-window in which a node loss could lose acknowledged rows. The central ingest
-streams keep records for 72 hours, with their byte limit and the CENTRAL
-account budget sized from the measured bytes per record, so a ClickHouse
-outage over a weekend loses nothing at the planning rate. Above it the
-streams discard their oldest records, and a discard counter makes that
-visible. (decided by the user, 2026-10-08)
+window in which a node loss could lose acknowledged rows. A central ingest
+stream refuses a new record at its byte bound and removes nothing until the
+sink resolved it, so a ClickHouse outage of any length keeps every accepted
+record. The byte bound and the CENTRAL account budget are sized from the
+measured bytes per record, the fleet's record rate, and a horizon that is a
+capacity target and not a retention. The sink terminates only a record
+ClickHouse rejects or one it cannot map, and it retries a transient failure
+with the same batch members and token. (decided by the user, 2026-10-13)
 
 Why: `insert_quorum = 2` would stop every insert while one replica is down,
 and the [deployment record](2026-10-03-deployment-direction.md) runs
@@ -290,8 +296,9 @@ samples, ten times the rows and about nine times the devices
 - The ingestion record's open questions on tenant isolation, query limits,
   and retention are answered here, and its stores table gains the five
   patterns.
-- The central ingest streams grow from 24 to 72 hours of retention, and the
-  CENTRAL account budget grows with them.
+- The central ingest streams are bounded by bytes with no age. They refuse a
+  record at the bound and keep every record the sink has not resolved, and the
+  CENTRAL account budget grows with the horizon the byte bound is sized for.
 - Audit trails and entity transitions move to ClickHouse as events tables.
   JetStream stays their transport.
 - The query package takes an authorized tenant set, not one tenant, so the
