@@ -185,10 +185,7 @@ and let central cut one node off.
 ### The agent runs on Linux and FreeBSD
 
 FreeBSD is a deployment target, and CARP is the mechanism named for the
-address there. The agent does not build for it today: `GOOS=freebsd go build ./src/edge/agent/cmd/agent`
-fails in `src/common/service`, whose store lock is built for Linux, macOS,
-and Windows only (`storelock_posix.go`, `storelock_windows.go`). Local
-capture is Linux-only as well, because it uses `AF_PACKET`
+address there. Local capture is Linux-only as well, because it uses `AF_PACKET`
 (`src/modules/capture/rawsocket/local_other.go`).
 
 ## Alternatives

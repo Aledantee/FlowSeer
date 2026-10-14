@@ -86,8 +86,7 @@ proposed and awaiting acceptance. The ones the user settled:
    heartbeat.
 9. The agent builds for FreeBSD. Example:
    `CGO_ENABLED=0 GOOS=freebsd GOARCH=amd64 go build ./src/edge/agent/cmd/agent`
-   exits 0. It fails today in `src/common/service`, whose store lock has no
-   FreeBSD file.
+   exits 0.
 
 ## Out of scope
 
