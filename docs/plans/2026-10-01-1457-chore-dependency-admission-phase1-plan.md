@@ -323,3 +323,18 @@ network and run unsandboxed. `git status --short` after them shows no
 ## Open questions
 
 - Whether OSV matches Go pseudo-versions sent without the `v` (U2 measures).
+- Mismatch, 2026-10-14: the state file reads `planned`, but U1, U2, and U5
+  are on `main` (`tools/deps/`, `docs/dependencies/`,
+  `test/conformance/dependencies/`) with the review accepted in `327cfae6`.
+  U3 is on `main` except its `AGENTS.md` entry, which waits for this
+  phase's close. U4 is partly on `main`: `8b7c3ecd` added
+  `minimumReleaseAge: 20160` to `frontend/web/pnpm-workspace.yaml`, and
+  `trustPolicy`, `blockExoticSubdeps`, and `strictDepBuilds` are missing.
+  Commit `723cd2ca` on `Aledantee/depadm-p1-u4` conflicts with that line,
+  so the remaining settings are written over the current file and the
+  branch is not merged.
+- Four statements carry no `approved` date: `charm.land/bubbletea/v2`,
+  `charm.land/bubbles/v2`, `charm.land/lipgloss/v2`, and
+  `golang.org/x/term`, held by the ruling of 2026-10-01 until the netpen
+  command-line client is cut. The Definition of done item on dates stays
+  open until that ruling.
