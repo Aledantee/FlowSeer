@@ -47,18 +47,14 @@ verifier runs overlap on one machine, the NATS-backed suites (`edgebus`,
 alone with `-p 1`.
 Suggested change: the verifier prints a gate line with the time into the
 run and a table of gate durations (`tools/scripts/verify/change.py`,
-`report_timings`), so the next `--full` run says where the 40 minutes go.
-The optimization is a design choice. The options are to run independent
-gates (web, Go modules, protobuf) in parallel, to move the slowest
-integration and differential suites behind a tag that only a merge gate
-sets, to let a `go.mod` change confined to `tools/` skip the full race
-run, to rerun a failed package alone with `-p 1` once before declaring
-the gate red and say so in the output, and to hold a machine-wide lock so
-two race runs never overlap.
-Question for the user: which of these does the next `--full` run's
-duration table decide, and which are wanted regardless? Recommended:
-read one duration table first, then choose, since the gates' own time
-and the overlap are different problems.
+`report_timings`), reruns a failed race package alone once (`run_race`),
+and no longer holds the full-run marker for a `go.mod` under `tools/`
+(`clear_marker`). The user decided on 2026-10-14 to read one duration
+table from a `--full` run before choosing among the rest: running
+independent gates (web, Go modules, protobuf) in parallel, moving the
+slowest integration and differential suites behind a tag that only a
+merge gate sets, or holding a machine-wide lock so two race runs never
+overlap. Quote that table here when the next `--full` run lands.
 
 ## 2026-10-14 verify-change: one argument holding several space-separated paths passes without clearing their marker lines
 Skill or agent: `tools/scripts/verify/change.py`, `collect_paths` and

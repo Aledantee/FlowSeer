@@ -1267,7 +1267,14 @@ because a unit commits and then verifies its paths, and a diff from
 `HEAD` after the commit is empty. Each gate prints its number and the
 time into the run, and the run prints a table of gate durations, because
 a full run takes about forty minutes and its log otherwise says nothing
-about where the time went. `--full` bounds `go test -p` because a gate that fails for reasons
+about where the time went. A failed race package reruns alone once
+(`test_a_failed_race_package_is_rerun_alone_once`) for the reason the
+`-p` bound gives: the NATS-backed suites time out when two race runs
+share the host and pass alone, and a red run that costs a second full
+run teaches its readers to discount the gate. A `go.mod` under `tools/`
+no longer holds the full-run marker, since a tool module reaches no
+package the tree imports and the linter module refuses a targeted run on
+its own. `--full` bounds `go test -p` because a gate that fails for reasons
 the diff cannot cause teaches its readers to discount it. Three more
 failures of that kind live in the verifier rather than in prose: the lint
 gate passes `--allow-serial-runners`, because `golangci-lint` holds one
