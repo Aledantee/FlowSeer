@@ -79,12 +79,12 @@ history {
 }
 
 # Sized for 1,000 devices sending one syslog message a minute and a 72 hour
-# outage of the history store: 571 stored bytes per message
-# (src/modules/edgebus/README.md) gives about 2.3 GiB, rounded up to 2.5 GiB.
+# horizon: the history store may be down that long before a full stream
+# refuses intake. 571 stored bytes per message (src/modules/edgebus/README.md)
+# gives about 2.3 GiB, rounded up to 2.5 GiB.
 # The account budget is that stream plus the audit, operator, and evidence
 # streams (256 + 64 + 16 + 64 MiB), rounded up to 3 GiB.
 ingest_streams {
-  max_age { seconds: 259200 }
   max_bytes_per_type: 2684354560
   central_budget_bytes: 3221225472
 }
