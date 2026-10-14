@@ -153,8 +153,12 @@ class CheckPlanStateTest(unittest.TestCase):
             "landed is set with parent null": (PLAIN, {"status": "implemented", "landed": landed}),
             "status is implemented with parent set and landed null": (FIRST, {**phase, "status": "implemented"}),
             "phases or retired is non-empty with parent set": (FIRST, {**phase, "retired": retired}),
-            f"after names {PLAIN}, which is neither": (PHASE, {**phase, "after": [PLAIN]}),
+            "after names docs/plans/2026-01-09-gone-plan.md, which is neither": (
+                PHASE,
+                {**phase, "after": ["docs/plans/2026-01-09-gone-plan.md"]},
+            ),
             f"after names {PHASE}, which is neither": (PHASE, {**phase, "after": [PHASE]}),
+            f"after names {PARENT}, a parent": (PHASE, {**phase, "after": [PARENT]}),
             "the stored status must not be 'implemented'": (PARENT, {"status": "implemented", "phases": [FIRST, PHASE]}),
             "the stored status must not be 'partially-implemented'": (
                 PARENT,
@@ -178,6 +182,13 @@ class CheckPlanStateTest(unittest.TestCase):
                 self.check()
                 self.put(plan, **fields)
                 self.assertIn(rule, self.check(code=1).stderr)
+
+    def test_after_may_name_a_plan_outside_the_parent(self):
+        self.put(PARENT, phases=[FIRST, PHASE])
+        self.put(FIRST, parent=PARENT)
+        self.put(PHASE, parent=PARENT, after=[FIRST, PLAIN])
+        self.put(PLAIN)
+        self.check()
 
     def test_check_rejects_a_phase_with_phases_of_its_own(self):
         self.put(PARENT, phases=[FIRST])

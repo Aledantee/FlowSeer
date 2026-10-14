@@ -112,10 +112,27 @@ def check_phase_ancestry(plan: str) -> None:
             f"phase {plan!r} is retired on the integration branch as {entry.get('status')}: "
             "this worktree would implement it a second time",
         )
-    retired = {entry["plan"]: entry["landed"] for entry in parent["retired"]}
+    # A prerequisite is a phase of this or another parent, or a plan with no
+    # parent. A retired phase lives on in its own parent's list, so every
+    # parent's list is read; a plan with no parent never carries a range,
+    # and counts once it is finished as `next` and `drive` read it.
+    _, raw = plans.read_tree(root)
+    retired = {
+        entry["plan"]: entry["landed"]
+        for held in raw.values()
+        if isinstance(held, dict) and not plans.shape_faults(held)
+        for entry in held["retired"]
+    }
     for prerequisite in state["after"]:
         if (root / plans.state_path(prerequisite)).is_file():
-            landed = stored(prerequisite, root)["landed"]
+            before = stored(prerequisite, root)
+            if before["parent"] is None:
+                expect(
+                    plans.finished(prerequisite, root),
+                    f"plan {prerequisite} is not finished, and plan {plan!r} runs after it",
+                )
+                continue
+            landed = before["landed"]
         else:
             landed = retired.get(prerequisite)
         expect(

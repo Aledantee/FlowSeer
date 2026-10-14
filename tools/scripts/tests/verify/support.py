@@ -64,6 +64,17 @@ fi
 if [ -n "$FLOWSEER_FAKE_FAIL" ] && [ "$1" = "$FLOWSEER_FAKE_FAIL" ]; then
   exit "${FLOWSEER_FAKE_FAIL_CODE:-1}"
 fi
+if [ "$1" = test ] && [ -n "$FLOWSEER_FAKE_FLAKY_PACKAGE" ]; then
+  case " $* " in
+    *" -p 1 "*) ;;
+    *" $FLOWSEER_FAKE_FLAKY_PACKAGE "*) printf 'FAIL\t%s\t1.0s\n' "$FLOWSEER_FAKE_FLAKY_PACKAGE"; exit 1 ;;
+  esac
+fi
+if [ "$1" = test ] && [ -n "$FLOWSEER_FAKE_BROKEN_PACKAGE" ]; then
+  case " $* " in
+    *" $FLOWSEER_FAKE_BROKEN_PACKAGE "*) printf 'FAIL\t%s\t1.0s\n' "$FLOWSEER_FAKE_BROKEN_PACKAGE"; exit 1 ;;
+  esac
+fi
 out=
 previous=
 for arg do

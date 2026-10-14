@@ -33,6 +33,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import traceback
 from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
@@ -186,6 +187,53 @@ def spawn(
     return exit_status(done.returncode), done.stdout or b""
 
 
+def spawn_tee(command: Sequence[str], *, cwd: str | None = None) -> tuple[int, str]:
+    """Run command, pass its output through line by line, and return it too.
+
+    The race gate reads its own output afterwards for the packages that
+    failed, and a reader tailing the log still sees each package as it
+    finishes.
+    """
+    sys.stdout.flush()
+    sys.stderr.flush()
+    if cwd is not None and not os.path.isdir(cwd):
+        say(f"cd: {cwd}: No such file or directory")
+        return 1, ""
+    try:
+        child = subprocess.Popen(list(command), cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    except FileNotFoundError:
+        say(f"{command[0]}: command not found")
+        return 127, ""
+    except OSError as error:
+        say(f"{command[0]}: {error.strerror or error}")
+        return 126, ""
+    chunks: list[bytes] = []
+    assert child.stdout is not None
+    for line in child.stdout:
+        chunks.append(line)
+        sys.stdout.buffer.write(line)
+        sys.stdout.buffer.flush()
+    return exit_status(child.wait()), decode(b"".join(chunks))
+
+
+def failed_packages(output: str) -> list[str] | None:
+    """The packages a `go test` run reported as FAIL, or None when one did not build.
+
+    `go test` prints `FAIL<TAB>pkg<TAB>time` for a package whose tests
+    failed and `FAIL<TAB>pkg [build failed]` for one that did not compile.
+    A rerun cannot help the second kind.
+    """
+    packages: list[str] = []
+    for line in output.splitlines():
+        found = re.match(r"FAIL\t(\S+)(\t|$| \[)", line)
+        if found is None:
+            continue
+        if line.endswith("]"):
+            return None
+        packages.append(found.group(1))
+    return packages
+
+
 def git(*args: str, quiet: bool = False) -> tuple[int, bytes]:
     return spawn(["git", *args], capture=True, quiet=quiet)
 
@@ -230,7 +278,7 @@ def gate_label(command: Sequence[str]) -> str:
     quote. A `run.py` command is named by its group and command, so the label
     carries neither the checkout's path nor the launcher's flags.
     """
-    label = command[0]
+    label = os.path.basename(command[0]) if command[0].startswith("/") else command[0]
     if label == "uv":
         for index, word in enumerate(command):
             if fnmatch.fnmatchcase(word, "*/run.py"):
@@ -243,6 +291,16 @@ def gate_label(command: Sequence[str]) -> str:
             continue
         return f"{label} {word}"
     return label
+
+
+def clock(seconds: float) -> str:
+    """Format a duration as m:ss, with hours once there are any."""
+    whole = int(seconds)
+    hours, rest = divmod(whole, 3600)
+    minutes, secs = divmod(rest, 60)
+    if hours:
+        return f"{hours}:{minutes:02d}:{secs:02d}"
+    return f"{minutes}:{secs:02d}"
 
 
 def matches(path: str, *patterns: str) -> bool:
@@ -425,6 +483,8 @@ class Verification:
         self.root = ""
         self.root_physical = ""
         self.gate = ""
+        self.started = time.monotonic()
+        self.timings: list[tuple[str, float]] = []
         self.build_dir = ""
         self.go_files: list[str] = []
         self.markdown_files: list[str] = []
@@ -780,25 +840,46 @@ class Verification:
             say(f"required tool is not on PATH: {tool}")
             raise Stop(1)
 
-    def run(self, command: Sequence[str], *, cwd: str | None = None) -> None:
-        """Print and start a gate. A failure ends the run with the gate's status and leaves its name for the verdict."""
-        out(quoted_line(command))
-        self.gate = gate_label(command)
-        code, _ = spawn(command, cwd=cwd)
+    def begin_gate(self, label: str) -> float:
+        """Name the gate running now and say where the run stands.
+
+        A full run takes long enough that a reader tails its log, so each
+        gate opens with its number and the time since the run started.
+        """
+        self.gate = label
+        out(f"-- gate {len(self.timings) + 1}: {label}, {clock(time.monotonic() - self.started)} into the run --")
+        return time.monotonic()
+
+    def end_gate(self, started: float, code: int) -> None:
+        self.timings.append((self.gate, time.monotonic() - started))
         if code != 0:
             raise Stop(code)
         self.gate = ""
 
+    def run(self, command: Sequence[str], *, cwd: str | None = None) -> None:
+        """Print and start a gate. A failure ends the run with the gate's status and leaves its name for the verdict."""
+        started = self.begin_gate(gate_label(command))
+        out(quoted_line(command))
+        code, _ = spawn(command, cwd=cwd)
+        self.end_gate(started, code)
+
     def run_check(self, name: str, main: Callable[[list[str]], int], argv: list[str]) -> None:
         """Run a check of this package in this process under the label `run.py verify <name>`."""
+        started = self.begin_gate(f"run.py verify {name}")
         out(quoted_line(["run.py", "verify", name, *argv]))
-        self.gate = f"run.py verify {name}"
         sys.stdout.flush()
         sys.stderr.flush()
         code = read_exit(main, argv)
-        if code != 0:
-            raise Stop(code)
-        self.gate = ""
+        self.end_gate(started, code)
+
+    def report_timings(self) -> None:
+        """Print every gate's duration, slowest first, so a slow run says where its time went."""
+        if not self.timings:
+            return
+        total = time.monotonic() - self.started
+        out(f"Gate durations ({len(self.timings)} gates, {clock(total)} in all):")
+        for label, seconds in sorted(self.timings, key=lambda timing: timing[1], reverse=True):
+            out(f"  {clock(seconds):>8}  {label}")
 
     def report_test_changes(self) -> None:
         """Print what check-test-integrity found. It reports and does not fail.
@@ -834,6 +915,7 @@ class Verification:
     def check_format(self) -> None:
         self.need_tool("gofumpt")
         self.need_tool("goimports")
+        started = self.begin_gate("gofumpt/goimports -d")
         failed = False
         for tool in ("gofumpt", "goimports"):
             code, printed = spawn([tool, "-d", *self.go_files], capture=True)
@@ -843,9 +925,8 @@ class Verification:
                 failed = True
         if failed:
             say("Go formatting differs; run gofumpt and goimports.")
-            # These two run outside `run`, so the gate is named here for the verdict line.
-            self.gate = "gofumpt/goimports -d"
-            raise Stop(1)
+        # The two tools run outside `run`, so the gate's name and time are recorded here.
+        self.end_gate(started, 1 if failed else 0)
 
     def vet_tagged(self, packages: Sequence[str], directory: str | None) -> None:
         """Vet the targets once per build tag found in their directories.
@@ -896,7 +977,7 @@ class Verification:
             # the code. Half the CPUs, at least two, keeps the timeouts honest.
             cpus = online_cpus()
             race = ["-p", str(max(cpus // 2, 2))]
-        self.run(["go", "test", "-race", *race, *targets], cwd=module)
+        self.run_race(["go", "test", "-race", *race, *targets], cwd=module)
         # Package directories without generated output keep the lint bounded
         # by hand-written code, since generated findings are excluded by configuration.
         module_dir = os.path.normpath(os.path.join(self.root, module))
@@ -913,6 +994,31 @@ class Verification:
                 lint_packages.append("./" + directory.removeprefix(f"{module_dir}/"))
         if lint_packages:
             self.run(self.lint_command(lint_packages), cwd=module)
+
+    def run_race(self, command: list[str], *, cwd: str) -> None:
+        """Run the race gate, and rerun the packages that failed alone, once.
+
+        Suites that start listeners or a message bus time out when another
+        race run shares the host and pass alone. One rerun with one package
+        at a time separates that from a failing test: a package that fails
+        twice fails the gate, and the output says which happened.
+        """
+        started = self.begin_gate(gate_label(command))
+        out(quoted_line(command))
+        code, output = spawn_tee(command, cwd=cwd)
+        if code != 0:
+            packages = failed_packages(output)
+            if packages:
+                noun = "package" if len(packages) == 1 else "packages"
+                out(f"Retrying {len(packages)} {noun} alone, one at a time, since a suite can time out under load: {' '.join(packages)}")
+                retry = ["go", "test", "-race", "-count=1", "-p", "1", *packages]
+                out(quoted_line(retry))
+                code, _ = spawn(retry, cwd=cwd)
+                if code == 0:
+                    out("The retry alone passed, so the first failure came from load on this host, not from the change.")
+                else:
+                    out("The retry alone failed too.")
+        self.end_gate(started, code)
 
     def lint_command(self, packages: Sequence[str]) -> list[str]:
         # golangci-lint takes a machine-wide file lock and by default dies with
@@ -964,8 +1070,9 @@ class Verification:
 
     def check_repository_wide(self) -> None:
         # Some packages hold checks over repository-wide namespaces: error code
-        # uniqueness in src/common/errs, and under test/conformance/ the schema
-        # layering and message rules, the panic placement and goroutine
+        # uniqueness in src/common/errs, raw secret fields across src/ in
+        # src/common/internal/secretguard, and under test/conformance/ the
+        # schema layering and message rules, the panic placement and goroutine
         # boundary, and the forbidden module imports. A change that violates one
         # of them touches none of the packages, so the importer fixpoint never
         # selects them and a targeted run would pass what --full refuses. They
@@ -977,7 +1084,7 @@ class Verification:
             return
         if self.modules:
             out("== Repository-wide gates ==")
-            self.run(["go", "test", "-race", "./src/common/errs", "./test/conformance/..."])
+            self.run(["go", "test", "-race", "./src/common/errs", "./src/common/internal/secretguard", "./test/conformance/..."])
         elif self.web:
             # test/conformance/a11y reads the web tests and stories, so a change
             # that touches only frontend/web/ selects no Go module and would
@@ -1076,13 +1183,11 @@ class Verification:
 
     def run_suite(self) -> None:
         command = ["uv", "run", "tools/scripts/run.py", "test"]
-        self.gate = gate_label(command)
+        started = self.begin_gate(gate_label(command))
         code, captured = spawn(command, capture=True, merge=True)
         text = quoted_line(command) + "\n" + decode(captured)
         out(text.rstrip("\n"))
-        if code != 0:
-            raise Stop(1)
-        self.gate = ""
+        self.end_gate(started, 1 if code != 0 else 0)
         if not SUITE_RAN.search(text):
             say("tools/scripts tests ran zero tests.")
             self.gate = "uv run tools/scripts/run.py test"
@@ -1123,7 +1228,10 @@ class Verification:
                 verified = verified or identical
             if MODULE_WIDE.search(marked):
                 module_wide += 1
-                if identical:
+                # A module under tools/ (buf, golangci-lint) holds a tool, not a
+                # package the tree imports, so its go.mod reaches nothing a path
+                # does not name; a linter change refuses a targeted run on its own.
+                if identical or marked.startswith("tools/"):
                     module_wide_base += 1
             if not verified:
                 remaining.append(marked)
@@ -1242,9 +1350,9 @@ class Verification:
         if self.service_otel_integration:
             self.run_check("service-otel-integration", service_otel_integration.main, [])
         if self.full:
-            self.run(["git", "diff", "--check"])
+            self.run(["git", "diff", "--check", self.whitespace_base()])
         else:
-            self.run(["git", "diff", "--check", self.base, "--", *self.paths])
+            self.run(["git", "diff", "--check", self.whitespace_base(), "--", *self.paths])
 
         # Before the dirty marker is cleared and the receipt is written, because
         # those two are what every downstream consumer reads. A run that exits
@@ -1255,11 +1363,32 @@ class Verification:
             say(f"  paths: {' '.join(self.paths) if self.paths else '<none>'}")
             raise Stop(2)
 
+        # Before the marker report, whose lines a reader takes as the remedy
+        # and expects to run up to the verdict.
+        self.report_timings()
         git_dir = self.git_dir()
         self.clear_marker(f"{git_dir}/{MARKER_NAME}")
         self.rewrite_tree_state(git_dir)
         self.write_receipt(git_dir)
         out("FlowSeer verification passed.")
+
+    def whitespace_base(self) -> str:
+        """The commit the whitespace gate diffs from.
+
+        A unit commits, then verifies its paths, and the default base is
+        HEAD, so the diff the gate reads is empty and a committed trailing
+        space passes every per-unit run until a `--base main` run at the
+        end. Without an explicit base the gate diffs from where the branch
+        left main, which holds every commit of the branch and the working
+        tree. On main itself, or without a main, that is HEAD as before.
+        """
+        if self.base_given:
+            return self.base
+        for candidate in ("main", "master"):
+            code, printed = git("merge-base", candidate, "HEAD", quiet=True)
+            if code == 0:
+                return line_text(printed)
+        return self.base
 
     def cleanup(self) -> None:
         if self.build_dir:
@@ -1314,5 +1443,6 @@ def main(argv: list[str]) -> int:
     finally:
         verification.cleanup()
         if status != 0:
+            verification.report_timings()
             verification.report(status)
     return status

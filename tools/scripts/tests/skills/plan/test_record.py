@@ -346,6 +346,48 @@ class PlanRecordTest(unittest.TestCase):
         )
         self.assertEqual(checked.returncode, 0, checked.stdout + checked.stderr)
 
+    def test_retire_of_a_plan_with_no_parent_drops_it_from_the_after_lists_that_name_it(self):
+        self.phases()
+        self.record("init", PLAIN)
+        self.record("after", PHASE, FIRST, PLAIN)
+        self.record("abandon", PLAIN)
+        self.commit("plain abandoned")
+        refused = self.record("retire", PLAIN, code=1)
+        self.assertIn(f"{PHASE} runs after {PLAIN}, which retiring {PLAIN} leaves unfinished", refused.stderr)
+        self.assertTrue((self.root / PLAIN).exists())
+        self.assertEqual(self.state(PHASE)["after"], [FIRST, PLAIN])
+        self.record("replan", PLAIN)
+        self.record("implemented", PLAIN, *RUN)
+        self.commit("plain done")
+        self.record("retire", PLAIN)
+        self.assertFalse((self.root / PLAIN).exists())
+        self.assertEqual(self.state(PHASE)["after"], [FIRST])
+
+    def test_retire_of_a_parent_drops_its_landed_entries_from_other_parents_phases(self):
+        self.phases()
+        self.land(FIRST, self.on_work)
+        self.record("review", FIRST, "accept")
+        self.record("compound", FIRST, "no lesson")
+        self.commit("first done")
+        self.record("retire", FIRST)
+        self.record("abandon", PHASE)
+        self.commit("phase abandoned")
+        self.record("retire", PHASE)
+        other_parent = "docs/plans/2026-01-05-other-parent-plan.md"
+        other_phase = "docs/plans/2026-01-06-other-phase-plan.md"
+        for plan in (other_parent, other_phase):
+            (self.root / plan).write_text("# Plan\n", encoding="utf-8")
+        self.record("init", other_parent)
+        self.record("init", other_phase, "--parent", other_parent, "--after", FIRST, PHASE)
+        self.commit("other family")
+        refused = self.record("retire", PARENT, code=1)
+        self.assertIn(f"{other_phase} runs after {PHASE}, which retiring {PARENT} leaves unfinished", refused.stderr)
+        self.record("after", other_phase, FIRST)
+        self.commit("other phase re-planned")
+        self.record("retire", PARENT)
+        self.assertFalse((self.root / PARENT).exists())
+        self.assertEqual(self.state(other_phase)["after"], [])
+
     def test_retire_refuses_a_plan_with_work_left(self):
         self.record("init", PLAIN)
         self.commit("state")
