@@ -110,7 +110,9 @@ func assembleHistory(t *testing.T) *historyDeployment {
 	return d
 }
 
-// ingested is how many records the central syslog ingest stream holds.
+// ingested is how many records the central syslog ingest stream accepted. It
+// reads the last sequence, since cleanup removes resolved records and lowers
+// the stored count.
 func (d *historyDeployment) ingested(t *testing.T) uint64 {
 	t.Helper()
 	d.central.mu.Lock()
@@ -124,7 +126,7 @@ func (d *historyDeployment) ingested(t *testing.T) uint64 {
 	if err != nil {
 		t.Fatalf("ingest stream info: %v", err)
 	}
-	return info.State.Msgs
+	return info.State.LastSeq
 }
 
 // send writes syslog messages to the agent's listener, one datagram each, and
