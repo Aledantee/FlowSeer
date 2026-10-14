@@ -1,6 +1,7 @@
 package crossbuild
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -72,7 +73,20 @@ func TestCrossBuild(t *testing.T) {
 func runVet(t *testing.T, dir, arch, tags string, targets []string) {
 	t.Helper()
 
-	args := []string{"vet"}
+	watchInputs(t, dir, arch, tags, targets)
+
+	out, err := goCommand(dir, arch, tags, "vet", targets).CombinedOutput()
+	if err != nil {
+		if len(out) > 0 {
+			t.Fatalf("go vet:\n%s", out)
+		}
+		t.Fatalf("go vet: %v", err)
+	}
+}
+
+// goCommand returns a go command for FreeBSD on arch, run in dir.
+func goCommand(dir, arch, tags, verb string, targets []string, flags ...string) *exec.Cmd {
+	args := append([]string{verb}, flags...)
 	if tags != "" {
 		args = append(args, "-tags", tags)
 	}
@@ -94,13 +108,67 @@ func runVet(t *testing.T, dir, arch, tags string, targets []string) {
 	)
 	cmd.Env = env
 
-	out, err := cmd.CombinedOutput()
+	return cmd
+}
+
+// watchInputs makes the files go vet reads inputs of the test. go test caches
+// a pass and rechecks only the files the test opened and the directories it
+// read inside the module root, and what a child process reads is not among
+// them.
+// Reading each first-party directory that go list reports, test packages
+// included, puts its entry names, sizes, and modification times into the cache
+// key, and reading go.mod and go.sum covers dependency changes, so an edit
+// reruns the gate. A go list that fails or lists nothing fails the gate, since
+// a skipped gate reads as a pass.
+func watchInputs(t *testing.T, dir, arch, tags string, targets []string) {
+	t.Helper()
+
+	root := repoRoot(t)
+
+	cmd := goCommand(dir, arch, tags, "list", targets, "-deps", "-test", "-f", "{{.Dir}}")
+	out, err := cmd.Output()
 	if err != nil {
-		if len(out) > 0 {
-			t.Fatalf("go vet:\n%s", out)
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) && len(exitErr.Stderr) > 0 {
+			t.Fatalf("go list:\n%s", exitErr.Stderr)
 		}
-		t.Fatalf("go vet: %v", err)
+		t.Fatalf("go list: %v", err)
 	}
+
+	dirs := map[string]bool{}
+	for line := range strings.SplitSeq(string(out), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || !within(root, line) {
+			continue
+		}
+		dirs[line] = true
+	}
+	if len(dirs) == 0 {
+		t.Fatalf("go list found no first-party package under %s; the gate checked nothing", dir)
+	}
+
+	for d := range dirs {
+		if _, err := os.ReadDir(d); err != nil {
+			t.Fatalf("reading directory %q: %v", d, err)
+		}
+	}
+
+	for _, name := range []string{
+		filepath.Join(root, "go.mod"),
+		filepath.Join(root, "go.sum"),
+		filepath.Join(root, "src", "edge", "netpen", "go.mod"),
+		filepath.Join(root, "src", "edge", "netpen", "go.sum"),
+	} {
+		if _, err := os.ReadFile(name); err != nil {
+			t.Fatalf("reading %q: %v", name, err)
+		}
+	}
+}
+
+// within reports whether path is root or lies under it.
+func within(root, path string) bool {
+	rel, err := filepath.Rel(root, path)
+	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }
 
 func repoRoot(t *testing.T) string {
