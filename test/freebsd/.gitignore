@@ -1,0 +1,2 @@
+# Vagrant's per-machine state, including the guest's private SSH key.
+.vagrant/
