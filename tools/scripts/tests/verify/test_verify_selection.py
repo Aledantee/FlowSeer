@@ -174,26 +174,48 @@ class NestedSelectionTest(support.VerifierCase):
         self.assertNotIn("dependent=generated/go/yang", output)
 
     @across
-    def test_verifier_selection_builds_a_generated_nested_module_that_imports_the_changed_root_package(self):
-        """verifier selection builds a generated nested module that imports the changed root package"""
+    def test_verifier_selection_skips_a_generated_nested_module_that_imports_the_changed_root_package(self):
+        """verifier selection skips a generated nested module that imports the changed root package"""
         output = self.select_path("lib/a/a.go")
-        self.assertIn("\ndependent=generated/go/yang mode=build", output)
-        self.assertNotIn("dependent=generated/go/yang mode=build-vet", output)
+        self.assertIn("\nmodule=. mode=full", output)
+        self.assertNotIn("generated/go/yang", output)
         self.assertNotIn("dependent=src/edge/netpen", output)
 
     @across
-    def test_verifier_selection_gives_a_changed_generated_file_its_own_module_build_and_sample_lint_only(self):
-        """verifier selection gives a changed generated file its own module, build and sample lint only"""
+    def test_verifier_selection_gives_a_changed_generated_file_no_gate(self):
+        """verifier selection gives a changed generated file no gate"""
         output = self.select_path("generated/go/yang/v/m/m.go")
-        self.assertIn("\nmodule=generated/go/yang mode=build-sample-lint", output)
-        self.assertNotIn("module=. ", output)
+        self.assertNotIn("module=", output)
         self.assertNotIn("dependent=", output)
 
     @across
-    def test_verifier_selection_builds_every_nested_module_for_a_root_go_mod_change(self):
-        """verifier selection builds every nested module for a root go.mod change"""
+    def test_verifier_selection_checks_a_generated_module_when_its_generator_changes(self):
+        """verifier selection checks a generated module when its generator changes"""
+        self.write("src/protocol/yang/cmd/yanggen/main.go", "package main\n\nfunc main() {}\n")
+        output = self.select_path("src/protocol/yang/cmd/yanggen/main.go")
+        self.assertIn("\nmodule=. mode=full", output)
+        self.assertIn("\nmodule=generated/go/yang mode=build-sample-lint", output)
+
+    @across
+    def test_verifier_selection_leaves_generated_modules_out_of_a_full_run(self):
+        """verifier selection leaves generated modules out of a full run"""
+        output = self.select("--full")
+        self.assertIn("\nmodule=. mode=full", output)
+        self.assertIn("\nmodule=src/edge/netpen mode=full", output)
+        self.assertNotIn("generated/go/yang", output)
+
+    @across
+    def test_verifier_selection_keeps_a_changed_generator_in_a_full_run(self):
+        """verifier selection keeps a changed generator's generated module in a full run"""
+        self.write("src/protocol/yang/cmd/yanggen/main.go", "package main\n\nfunc main() {}\n")
+        output = self.select("--full")
+        self.assertIn("\nmodule=generated/go/yang mode=build-sample-lint", output)
+
+    @across
+    def test_verifier_selection_builds_every_hand_written_nested_module_for_a_root_go_mod_change(self):
+        """verifier selection builds every hand-written nested module for a root go.mod change"""
         output = self.select_path("go.mod")
-        self.assertIn("\ndependent=generated/go/yang mode=build", output)
+        self.assertNotIn("generated/go/yang", output)
         self.assertIn("\ndependent=src/edge/netpen mode=build-vet", output)
 
 

@@ -28,6 +28,12 @@ ROWS = [
         "7 generated nested module, deleted",
         {"generated/go/yang/go.mod": NESTED_MOD},
         "generated/go/yang/v/m.go",
+        OFF,
+    ),
+    (
+        "7 generator of a generated module, deleted",
+        {"generated/go/yang/go.mod": NESTED_MOD},
+        "src/protocol/yang/cmd/yanggen/main.go",
         f"{OFF}\nmodule=generated/go/yang mode=build-sample-lint",
     ),
     ("8 generated root module", {"go.mod": GO_MOD, "generated/go/proto/x.pb.go": "package x\n"}, "generated/go/proto/x.pb.go", OFF),
@@ -223,6 +229,32 @@ class ExitPathTest(support.VerifierCase):
     def test_directories_holding_no_file_are_refused(self):
         (self.root / "empty").mkdir()
         self.failed(self.verify("--", "empty"), 2, "FlowSeer verification found no files under the named paths.")
+
+    @across
+    def test_unsplit_path_list_is_refused(self):
+        self.write("docs/a.md", "# A\n")
+        self.write("docs/b.md", "# B\n")
+        self.failed(
+            self.verify("--", "docs/a.md docs/b.md"),
+            2,
+            "path argument 'docs/a.md docs/b.md' names no file but its words do; pass each path as its own argument.",
+        )
+        self.assertFalse(self.receipt.exists())
+
+    @across
+    def test_unsplit_list_ending_in_a_deleted_path_is_refused(self):
+        self.write("docs/a.md", "# A\n")
+        self.failed(
+            self.verify("--print-selection", "--", "docs/a.md docs/gone.md"),
+            2,
+            "path argument 'docs/a.md docs/gone.md' names no file but its words do; pass each path as its own argument.",
+        )
+
+    @across
+    def test_deleted_path_holding_a_space_under_a_directory_is_kept(self):
+        self.write("docs/a.md", "# A\n")
+        result = self.verify("--print-selection", "--", "docs old.md")
+        self.assertEqual((result.code, result.stderr), (0, ""))
 
     @across
     def test_lint_config_alone_asks_for_full(self):
