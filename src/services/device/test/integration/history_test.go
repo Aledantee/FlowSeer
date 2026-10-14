@@ -104,7 +104,7 @@ func assembleHistory(t *testing.T) *historyDeployment {
 		edgeID:     edgeID,
 		history:    historyv1connect.NewHistoryServiceClient(c.client, c.baseURL()),
 	}
-	d.agent = startAgentWithOptions(t, dir, created.Msg.GetProvisioning(), c.baseURL(),
+	d.agent = startAgentWithOptions(t, dir, created.Msg.GetProvisioning(), c.edgeURL(),
 		agentOptions{device: newFakeDevice("as found"), syslogAddress: d.syslogAddr})
 	d.warmUp(t)
 	return d
