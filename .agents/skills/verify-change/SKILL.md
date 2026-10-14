@@ -40,6 +40,14 @@ uv run tools/scripts/run.py verify change
   rather than linking another worktree's `node_modules`.
 - In the background, make the command the last command of its invocation: a
   trailing `tail` or `echo` reports its own exit code as the gate's.
+- Each gate opens with a `-- gate N: <name>, m:ss into the run --` line.
+  Before the verdict, and on a pass before `Unverified edits remain after
+  this run:`, the run prints `Gate durations`, slowest first. Read the
+  log's tail to see where a long run stands, and quote the table when a
+  run was slow.
+- The whitespace gate diffs from where the branch left `main` unless
+  `--base` is given, so a unit that committed and then verified its paths
+  still fails on a trailing space it committed.
 - For output read by a later command, choose a fresh log in the session
   scratchpad directory and resolve its absolute path before launching the
   verifier. Reuse that exact path when reading it, across sandbox boundaries:

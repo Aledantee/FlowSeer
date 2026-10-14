@@ -93,6 +93,12 @@ lines, so copy their shape exactly. Initialize the state file with:
 uv run tools/scripts/run.py plan record init <plan> [--needs-decisions] [--parent <p> [--after <q>...]]
 ```
 
+`--after` names what must land first: a phase of this parent, a phase of
+another, or a plan with no parent (a deployment phase that waits on the
+high-availability plan). It never names a parent, whose status no reader
+counts as finished. `next` and `drive` hold the phase as `waiting` until
+every named plan is finished.
+
 ```yaml
 ---
 title: <Title> - Plan

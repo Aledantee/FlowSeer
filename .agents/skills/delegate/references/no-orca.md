@@ -54,7 +54,22 @@ report `runtime.reachable: true`.
     refusal), or to accept one `!` command per refused step. The auto-mode
     classifier refuses what a stage needs: the verifier with the sandbox
     disabled, a commit or edit that touches a policy surface, a test
-    mutation, and git in a stage worker's worktree.
+    mutation, and git in a stage worker's worktree. The worktree
+    `isolation: worktree` creates lies outside the sandbox's write
+    allowlist, so every git, test, and verifier command there runs with
+    the sandbox disabled, and the classifier has allowed that for one
+    worker and refused it for the next (observed in a drive on
+    2026-10-13, unverified against the harness documentation).
+  - When the user accepted the `!` commands, the brief says which commands
+    need the bypass (git, `go test`, the verifier, in the worker's
+    worktree) and that a classifier refusal is a blocker quoting the
+    refused command and the worktree path, not a reason to try another
+    form. On that blocker the coordinator hands the user the command to
+    run with `!` in that worktree, then continues the same subagent with
+    `SendMessage`, which the Agent tool describes as resuming it with its
+    context, once it ran. A stage does not stop on the refusal. A
+    subagent that made no change may lose its worktree when it ends
+    (unverified): when the path is gone, start the stage again.
   - After the merge it runs `delegate runlog end --run <run> --head <sha>`, and
     `delegate runlog grade --run <run> --outcome <outcome> --verify <result>` in
     place of `delegate orca-worker grade`. `git worktree remove <path>` takes the

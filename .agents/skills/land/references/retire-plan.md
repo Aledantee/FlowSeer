@@ -56,7 +56,11 @@ git grep -n "<plan file name>" -- ':!docs/plans/<plan file name>' ':!docs/plans/
 Every hit changes in the same commit. State files are left out of the search
 because `retire` in section 4 owns them: it moves a phase from its parent's
 `phases` to `retired`, and a dependent's `after` keeps naming the retired
-phase, whose landed range it still needs. A parent's unit `Files:` line
+phase, whose landed range it still needs. A plan with no parent has no
+such entry, and a parent takes its `retired` entries with it, so `retire`
+removes the plan and its landed entries from every `after` list naming
+them, and refuses while one of them is unfinished until those phases are
+re-planned with `plan record after`. A parent's unit `Files:` line
 naming a retired phase stays as it is. A
 link from a record, a solution, `GOALS.md`, or a README points at the
 record that now holds the decision, or gives the date and scope of the

@@ -2,10 +2,11 @@
 
 These entries complete the closed list in `SKILL.md`.
 
-- `src/common/errs` and every package under `test/conformance/` run once,
+- `src/common/errs`, `src/common/internal/secretguard`, and every package
+  under `test/conformance/` run once,
   from the root, on every targeted run that selects any Go module, nested
   ones included. They hold repository-wide invariants (error-code
-  uniqueness, schema layering and message rules, panic placement, the
+  uniqueness, no raw secret field under `src/`, schema layering and message rules, panic placement, the
   goroutine boundary, forbidden module imports) that no changed package's
   tests can see. A protobuf change also runs `test/conformance/proto`.
 - Packages are vetted once per build tag their files carry, so a tagged

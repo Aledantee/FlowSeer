@@ -29,7 +29,7 @@ them within a priority tier (end of this step):
 | `unchecked` | implemented with a review verdict that is neither an accept nor `rework`, or implemented on this branch with no review or no compound outcome | `review` (from step 1, with step 6 for `fixes needed`), or `compound` |
 | `replan` | readiness `needs-decisions` with prerequisites finished, or an implemented plan whose review reads `rework` or that carries that readiness | `plan`, which ends with `plan record ready` for a planned plan and `plan record replan` for an implemented one, then `implement` |
 | `ready` | planned, implementation-ready, every prerequisite finished | `implement` |
-| `waiting` | a prerequisite phase is not finished: it has no landed range, or a range not on `main` while its review or compound outcome is open or one of its own prerequisites is not finished. The line names it | none yet |
+| `waiting` | a prerequisite (a phase of any parent, or a plan with none, in the phase's `after` list) is not finished: it has no landed range, or a range not on `main` while its review or compound outcome is open or one of its own prerequisites is not finished. The line names it | none yet |
 | `retire` | implemented, superseded, or abandoned on `main` and still on disk | `land/references/retire-plan.md`, or a `steer` sweep for several |
 
 `next plan-queue` computes the group from the state files, the ledger, and the
