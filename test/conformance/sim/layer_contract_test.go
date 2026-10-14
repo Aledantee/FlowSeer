@@ -1,7 +1,7 @@
-// Package conformance enforces layer architecture contracts across
-// packages under src/common/sim/layer.
+// Package conformance enforces layer architecture contracts and the device seam
+// under src/common/sim.
 //
-// The contract is a table of guards, layerGuards. The gate writes the
+// The contracts are tables of guards, layerGuards and deviceGuards. The gate writes the
 // declarations of a layer package as lines of text, one name line and one
 // signature line for a function, and each guard tests one literal against
 // those lines or against the package's imports and type names. A guard
@@ -19,6 +19,7 @@ import (
 	"go/types"
 	"io/fs"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"strconv"
@@ -89,6 +90,65 @@ var layerGuards = []guard{
 	{name: "import_fabric", kind: refuseImport, refuses: importsBelow(simImportPath + "/fabric")},
 }
 
+var deviceGuards = []guard{
+	{name: "device_imports_layer", kind: refuseImport, refuses: importsBelow(simImportPath + "/layer")},
+	{name: "device_imports_fabric", kind: refuseImport, refuses: importsBelow(simImportPath + "/fabric")},
+}
+
+var fabricGuards = []guard{
+	{name: "fabric_imports_layer", kind: refuseImport, refuses: importsBelow(simImportPath + "/layer")},
+	{name: "fabric_imports_device_kind", kind: refuseImport, refuses: func(_, path string) bool { return strings.HasPrefix(path, simImportPath+"/device/") }},
+}
+
+func TestFabricContract(t *testing.T) {
+	root := repoRoot(t)
+	findings, err := checkDir(token.NewFileSet(), root, filepath.Join(root, "src/common/sim/fabric"), fabricGuards, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, finding := range findings {
+		t.Error(finding)
+	}
+}
+
+func layerDependencies(t *testing.T, pkg string) []string {
+	t.Helper()
+	cmd := exec.Command("go", "list", "-deps", pkg)
+	cmd.Dir = repoRoot(t)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("go list: %v: %s", err, out)
+	}
+	var refused []string
+	for _, path := range strings.Fields(string(out)) {
+		if strings.HasPrefix(path, layerImportPrefix) && path != layerImportPrefix+"phy" {
+			refused = append(refused, path)
+		}
+	}
+	return refused
+}
+
+func TestFabricDependsOnPhyAlone(t *testing.T) {
+	if got := layerDependencies(t, "./src/common/sim/fabric"); len(got) != 0 {
+		t.Errorf("fabric depends on %q", got)
+	}
+	if got := layerDependencies(t, "./src/common/sim/assembly"); !slices.Contains(got, layerImportPrefix+"bridge") {
+		t.Errorf("assembly dependencies %q do not report bridge", got)
+	}
+}
+
+// TestDeviceContract checks the seam itself, excluding the device kinds below it.
+func TestDeviceContract(t *testing.T) {
+	root := repoRoot(t)
+	findings, err := checkDir(token.NewFileSet(), root, filepath.Join(root, "src/common/sim/device"), deviceGuards, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, finding := range findings {
+		t.Error(finding)
+	}
+}
+
 func exportedFactType(_, name string) bool {
 	return ast.IsExported(name) && strings.HasSuffix(name, "Fact")
 }
@@ -150,6 +210,19 @@ func TestLayerContract(t *testing.T) {
 // stateless package made stateful, so the findings are the members the
 // stateful rows require and the fixture lacks.
 var refusedFindings = map[string][]string{
+	"fabric_imports_layer": {
+		`test/conformance/sim/testdata/fabric_imports_layer/fixture.go:3: imports "go.aledante.io/FlowSeer/src/common/sim/layer/traffic"`,
+	},
+	"fabric_imports_device_kind": {
+		`test/conformance/sim/testdata/fabric_imports_device_kind/fixture.go:3: imports "go.aledante.io/FlowSeer/src/common/sim/device/vswitch"`,
+	},
+	"device_imports_layer": {
+		`test/conformance/sim/testdata/device_imports_layer/fixture.go:4: imports "go.aledante.io/FlowSeer/src/common/sim/layer"`,
+		`test/conformance/sim/testdata/device_imports_layer/fixture.go:5: imports "go.aledante.io/FlowSeer/src/common/sim/layer/bridge"`,
+	},
+	"device_imports_fabric": {
+		`test/conformance/sim/testdata/device_imports_fabric/fixture.go:3: imports "go.aledante.io/FlowSeer/src/common/sim/fabric"`,
+	},
 	"layer_name": {
 		`test/conformance/sim/testdata/layer_name: missing "const LayerName"`,
 	},
@@ -246,7 +319,14 @@ func TestLayerContractGuardsRefuseTheirFixtures(t *testing.T) {
 	fset := token.NewFileSet()
 
 	named := map[string]bool{"valid": true, "valid_stateless": true}
-	for _, g := range layerGuards {
+	for _, g := range append(append(slices.Clone(layerGuards), deviceGuards...), fabricGuards...) {
+		guards, recursive := layerGuards, true
+		if strings.HasPrefix(g.name, "device_") {
+			guards, recursive = deviceGuards, false
+		}
+		if strings.HasPrefix(g.name, "fabric_") {
+			guards, recursive = fabricGuards, false
+		}
 		for _, name := range fixtureDirs(g.name) {
 			if named[name] {
 				t.Errorf("row %q repeats a fixture directory %q", g.name, name)
@@ -263,7 +343,7 @@ func TestLayerContractGuardsRefuseTheirFixtures(t *testing.T) {
 				}
 				dir := filepath.Join(root, filepath.FromSlash(fixtureRoot), name)
 
-				got, err := checkLayerDir(fset, root, dir, layerGuards)
+				got, err := checkDir(fset, root, dir, guards, recursive)
 				if err != nil {
 					t.Fatalf("checking fixture: %v", err)
 				}
@@ -271,10 +351,10 @@ func TestLayerContractGuardsRefuseTheirFixtures(t *testing.T) {
 					t.Errorf("findings with every row:\ngot  %q\nwant %q", got, want)
 				}
 
-				without := slices.DeleteFunc(slices.Clone(layerGuards), func(other guard) bool {
+				without := slices.DeleteFunc(slices.Clone(guards), func(other guard) bool {
 					return other.name == g.name
 				})
-				got, err = checkLayerDir(fset, root, dir, without)
+				got, err = checkDir(fset, root, dir, without, recursive)
 				if err != nil {
 					t.Fatalf("checking fixture without row %q: %v", g.name, err)
 				}
@@ -409,8 +489,8 @@ type layerFacts struct {
 	// lines holds a name line and, for a function, a signature line for
 	// each declaration of the non-test files in the directory itself.
 	lines map[string]bool
-	// imports and types come from every non-test file outside testdata
-	// under the directory, subdirectories included.
+	// imports and types come from non-test files outside testdata. Recursive
+	// reads include subdirectories, and a device-seam read includes none.
 	imports []sourceValue
 	types   []sourceValue
 }
@@ -423,7 +503,11 @@ type sourceValue struct {
 // checkLayerDir reads the layer package directory at dir by path and returns
 // what guards report. A file that does not parse is an error.
 func checkLayerDir(fset *token.FileSet, root, dir string, guards []guard) ([]string, error) {
-	facts, err := readLayerDir(fset, root, dir)
+	return checkDir(fset, root, dir, guards, true)
+}
+
+func checkDir(fset *token.FileSet, root, dir string, guards []guard, recursive bool) ([]string, error) {
+	facts, err := readLayerDir(fset, root, dir, recursive)
 	if err != nil {
 		return nil, err
 	}
@@ -474,7 +558,7 @@ func checkLayerDir(fset *token.FileSet, root, dir string, guards []guard) ([]str
 	return findings, nil
 }
 
-func readLayerDir(fset *token.FileSet, root, dir string) (layerFacts, error) {
+func readLayerDir(fset *token.FileSet, root, dir string, recursive bool) (layerFacts, error) {
 	facts := layerFacts{dirName: filepath.Base(dir), lines: map[string]bool{}}
 
 	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
@@ -482,7 +566,7 @@ func readLayerDir(fset *token.FileSet, root, dir string) (layerFacts, error) {
 			return err
 		}
 		if d.IsDir() {
-			if d.Name() == "testdata" {
+			if d.Name() == "testdata" || (!recursive && path != dir) {
 				return filepath.SkipDir
 			}
 

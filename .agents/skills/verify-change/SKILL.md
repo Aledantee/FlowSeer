@@ -10,17 +10,19 @@ argument-hint: "[--full | --base REF | -- paths]"
 
 Run the verifier from the worktree root with the Bash sandbox disabled, since
 the Go gates bind loopback listeners and the telemetry tier starts Docker.
+When the active Docker context is Colima, load `references/colima.md`
+before running the service OpenTelemetry tier.
 
 ```bash
-.claude/skills/verify-change/scripts/verify-change.sh
+uv run tools/scripts/run.py verify change
 ```
 
 | Scope | Command |
 | --- | --- |
-| every change on the branch, committed included | `verify-change.sh --base main` |
-| named paths only, ignoring other worktree changes | `verify-change.sh -- <paths>` |
-| all Go modules, protobuf sources, web, and Claude configuration | `verify-change.sh --full` |
-| report the selection without running any gate | `verify-change.sh --print-selection -- <paths>` |
+| every change on the branch, committed included | `verify change --base main` |
+| named paths only, ignoring other worktree changes | `verify change -- <paths>` |
+| all Go modules, protobuf sources, web, and Claude configuration | `verify change --full` |
+| report the selection without running any gate | `verify change --print-selection -- <paths>` |
 
 - Run it on the final tree, after the last edit; `land` compares the
   receipt's `verified_at` with the last commit.
@@ -36,7 +38,7 @@ the Go gates bind loopback listeners and the telemetry tier starts Docker.
   `pnpm --dir frontend/web install --frozen-lockfile`, outside the sandbox
   like the verifier (it reaches the npm registry and the global pnpm store),
   rather than linking another worktree's `node_modules`.
-- In the background, make the script the last command of its invocation: a
+- In the background, make the command the last command of its invocation: a
   trailing `tail` or `echo` reports its own exit code as the gate's.
 - For output read by a later command, choose a fresh log in the session
   scratchpad directory and resolve its absolute path before launching the
@@ -53,7 +55,7 @@ checked in which mode, whether the OpenTelemetry tier would run, whether the
 protobuf gates would run, whether `tools/buf/` is verified with
 `go -C tools/buf mod verify`, and whether the hook tooling gates would run
 (`hook_tooling=true`, which a `tools/scripts/` path, an `.agents/`, `.claude/`,
-or `.codex/` path, `AGENTS.md`, or `tools/hooks/` selects).
+or `.codex/` path, or `AGENTS.md` selects).
 
 ## Read the verdict
 
@@ -94,7 +96,7 @@ before stating what a run covered or explaining why a path selected a gate.
 
 The marker hook records every edit by path: an editor edit from the tool
 call, a Bash write by comparing the content hashes of the dirty paths
-(`tools/hooks/tree-state.sh`) with the listing stored after the previous
+(`uv run tools/scripts/run.py hooks tree-state`) with the listing stored after the previous
 Bash call. A command's text decides nothing. A passing run records its scope
 in the worktree's git metadata, clears the marker lines it verified, and
 rewrites that listing; `land` reads the receipt.

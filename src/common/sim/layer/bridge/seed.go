@@ -14,6 +14,8 @@ import (
 // NormalizeSeeds validates forwarding database seeds against the relay and
 // port configuration, resolves member ports to their logical LAG, and sorts
 // the result by FID and MAC. Two seeds for the same FID and MAC are invalid.
+// Empty origin and lifetime default to Configured and Aging. Other values must
+// name Configured or Observed, and Aging or Static, respectively.
 func NormalizeSeeds(cfg Config, env layer.Env, seeds []Seed) ([]Seed, error) {
 	if len(seeds) == 0 {
 		return nil, nil
@@ -23,6 +25,20 @@ func NormalizeSeeds(cfg Config, env layer.Env, seeds []Seed) ([]Seed, error) {
 	seen := make(map[fdbKey]int, len(seeds))
 	for i, seed := range seeds {
 		prefix := fmt.Sprintf("seeds.%d", i)
+		if seed.Origin == "" {
+			seed.Origin = Configured
+		}
+		if seed.Lifetime == "" {
+			seed.Lifetime = Aging
+		}
+		if seed.Origin != Configured && seed.Origin != Observed {
+			return nil, errs.New().Attr("field", prefix+".origin").Attr("origin", seed.Origin).
+				Msgf("forwarding seed %d has invalid origin %q", i, seed.Origin)
+		}
+		if seed.Lifetime != Aging && seed.Lifetime != Static {
+			return nil, errs.New().Attr("field", prefix+".lifetime").Attr("lifetime", seed.Lifetime).
+				Msgf("forwarding seed %d has invalid lifetime %q", i, seed.Lifetime)
+		}
 		if seed.MAC == (netaddr.MAC{}) || seed.MAC.IsGroup() {
 			return nil, errs.New().
 				Attr("field", prefix+".mac").
@@ -95,7 +111,7 @@ func validateSeedFID(cfg Config, seed Seed, prefix string) error {
 	}
 
 	switchport, ok := cfg.VLAN.Switchports[seed.Port]
-	if !ok || !switchportAdmitsFID(switchport, seed.FID) {
+	if !ok || !SwitchportAdmitsFID(switchport, seed.FID) {
 		return errs.New().
 			Attr("field", prefix+".port").
 			Attr("port", seed.Port).
@@ -106,7 +122,9 @@ func validateSeedFID(cfg Config, seed Seed, prefix string) error {
 	return nil
 }
 
-func switchportAdmitsFID(switchport Switchport, fid vlan.ID) bool {
+// SwitchportAdmitsFID reports whether a seed can name fid on this port,
+// including ingress-only PVID membership and a tunnel.
+func SwitchportAdmitsFID(switchport Switchport, fid vlan.ID) bool {
 	return switchport.PVID != nil && *switchport.PVID == fid ||
 		slices.Contains(switchport.Tagged, fid) ||
 		slices.Contains(switchport.Untagged, fid) ||

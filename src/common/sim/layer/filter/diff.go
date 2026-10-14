@@ -2,10 +2,12 @@ package filter
 
 import (
 	"cmp"
+	"net/netip"
 	"slices"
 	"strconv"
 	"strings"
 
+	"go.aledante.io/FlowSeer/src/common/net/tcp"
 	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
@@ -144,6 +146,17 @@ func Diff(a, b Config) []trace.Change {
 
 	var changes []trace.Change
 
+	changes = diffSets(changes, a, b)
+	changes = diffBindings(changes, a.Bindings, b.Bindings)
+
+	slices.SortStableFunc(changes, func(x, y trace.Change) int {
+		return x.Subject.Compare(y.Subject)
+	})
+
+	return changes
+}
+
+func diffSets(changes []trace.Change, a, b Config) []trace.Change {
 	allSets := make(map[string]struct{})
 	for k := range a.Sets {
 		allSets[k] = struct{}{}
@@ -171,14 +184,10 @@ func Diff(a, b Config) []trace.Change {
 				From:    nil,
 				To:      snapshotSet(setB),
 			})
-			for idx, r := range setB.Rules {
-				ruleKey := r.Name
-				if ruleKey == "" {
-					ruleKey = strconv.Itoa(idx)
-				}
+			for ruleKey, r := range indexRules(setName, setB.Rules) {
 				changes = append(changes, trace.Change{
 					Layer:   LayerName,
-					Subject: trace.Subject{Kind: "rule", Key: trace.CompositeKey(setName, ruleKey)},
+					Subject: trace.Subject{Kind: "rule", Key: ruleKey},
 					Field:   "",
 					From:    nil,
 					To:      SnapshotRule(r),
@@ -195,14 +204,10 @@ func Diff(a, b Config) []trace.Change {
 				From:    snapshotSet(setA),
 				To:      nil,
 			})
-			for idx, r := range setA.Rules {
-				ruleKey := r.Name
-				if ruleKey == "" {
-					ruleKey = strconv.Itoa(idx)
-				}
+			for ruleKey, r := range indexRules(setName, setA.Rules) {
 				changes = append(changes, trace.Change{
 					Layer:   LayerName,
-					Subject: trace.Subject{Kind: "rule", Key: trace.CompositeKey(setName, ruleKey)},
+					Subject: trace.Subject{Kind: "rule", Key: ruleKey},
 					Field:   "",
 					From:    SnapshotRule(r),
 					To:      nil,
@@ -233,16 +238,20 @@ func Diff(a, b Config) []trace.Change {
 		changes = diffRules(changes, setName, setA.Rules, setB.Rules)
 	}
 
+	return changes
+}
+
+func diffBindings(changes []trace.Change, a, b []Binding) []trace.Change {
 	type bindingKey struct {
 		iface string
 		dir   Direction
 	}
-	aBindings := make(map[bindingKey]string, len(a.Bindings))
-	for _, bnd := range a.Bindings {
+	aBindings := make(map[bindingKey]string, len(a))
+	for _, bnd := range a {
 		aBindings[bindingKey{iface: bnd.Interface, dir: bnd.Direction}] = bnd.Set
 	}
-	bBindings := make(map[bindingKey]string, len(b.Bindings))
-	for _, bnd := range b.Bindings {
+	bBindings := make(map[bindingKey]string, len(b))
+	for _, bnd := range b {
 		bBindings[bindingKey{iface: bnd.Interface, dir: bnd.Direction}] = bnd.Set
 	}
 
@@ -302,22 +311,12 @@ func Diff(a, b Config) []trace.Change {
 		}
 	}
 
-	slices.SortFunc(changes, func(x, y trace.Change) int {
-		if c := x.Subject.Compare(y.Subject); c != 0 {
-			return c
-		}
-		if c := cmp.Compare(x.Field, y.Field); c != 0 {
-			return c
-		}
-		return trace.CompareFact(x.To, y.To)
-	})
-
 	return changes
 }
 
 func diffRules(changes []trace.Change, setName string, rulesA, rulesB []Rule) []trace.Change {
-	rulesMapA := indexRules(rulesA)
-	rulesMapB := indexRules(rulesB)
+	rulesMapA := indexRules(setName, rulesA)
+	rulesMapB := indexRules(setName, rulesB)
 
 	allRuleKeys := make(map[string]struct{})
 	for k := range rulesMapA {
@@ -336,7 +335,7 @@ func diffRules(changes []trace.Change, setName string, rulesA, rulesB []Rule) []
 	for _, k := range keys {
 		rA, inA := rulesMapA[k]
 		rB, inB := rulesMapB[k]
-		subject := trace.Subject{Kind: "rule", Key: trace.CompositeKey(setName, k)}
+		subject := trace.Subject{Kind: "rule", Key: k}
 
 		if !inA {
 			changes = append(changes, trace.Change{
@@ -358,21 +357,118 @@ func diffRules(changes []trace.Change, setName string, rulesA, rulesB []Rule) []
 			})
 			continue
 		}
-		if !rA.equal(rB) {
-			changes = append(changes, trace.Change{
-				Layer:   LayerName,
-				Subject: subject,
-				Field:   "",
-				From:    SnapshotRule(rA),
-				To:      SnapshotRule(rB),
-			})
+		add := func(field string, from, to trace.Fact) {
+			if trace.CompareFact(from, to) != 0 {
+				changes = append(changes, trace.Change{Layer: LayerName, Subject: subject, Field: field, From: from, To: to})
+			}
 		}
+		add("action", actionFact(rA.Action), actionFact(rB.Action))
+		var protocolA, protocolB trace.Fact
+		if rA.Match.Protocol != nil {
+			protocolA = protocolFact(*rA.Match.Protocol)
+		}
+		if rB.Match.Protocol != nil {
+			protocolB = protocolFact(*rB.Match.Protocol)
+		}
+		add("match.protocol", protocolA, protocolB)
+		for _, list := range []struct {
+			field string
+			a, b  []netip.Prefix
+		}{
+			{"match.src", rA.Match.Src, rB.Match.Src},
+			{"match.dst", rA.Match.Dst, rB.Match.Dst},
+		} {
+			for _, p := range list.a {
+				if !slices.Contains(list.b, p) {
+					add(list.field+"["+strconv.Quote(p.String())+"]", prefixFact(p), nil)
+				}
+			}
+			for _, p := range list.b {
+				if !slices.Contains(list.a, p) {
+					add(list.field+"["+strconv.Quote(p.String())+"]", nil, prefixFact(p))
+				}
+			}
+		}
+		for _, list := range []struct {
+			field string
+			a, b  []PortRange
+		}{
+			{"match.src_ports", rA.Match.SrcPorts, rB.Match.SrcPorts},
+			{"match.dst_ports", rA.Match.DstPorts, rB.Match.DstPorts},
+		} {
+			for i := 0; i < max(len(list.a), len(list.b)); i++ {
+				var startA, endA, startB, endB trace.Fact
+				if i < len(list.a) {
+					startA, endA = portFact(list.a[i].Start), portFact(list.a[i].End)
+				}
+				if i < len(list.b) {
+					startB, endB = portFact(list.b[i].Start), portFact(list.b[i].End)
+				}
+				field := list.field + "[" + strconv.Itoa(i) + "]"
+				add(field+".start", startA, startB)
+				add(field+".end", endA, endB)
+			}
+		}
+		var typeA, codeA, typeB, codeB trace.Fact
+		if rA.Match.ICMP != nil {
+			typeA = icmpTypeFact(rA.Match.ICMP.Type)
+			if rA.Match.ICMP.Code != nil {
+				codeA = icmpCodeFact(*rA.Match.ICMP.Code)
+			}
+		}
+		if rB.Match.ICMP != nil {
+			typeB = icmpTypeFact(rB.Match.ICMP.Type)
+			if rB.Match.ICMP.Code != nil {
+				codeB = icmpCodeFact(*rB.Match.ICMP.Code)
+			}
+		}
+		add("match.icmp.type", typeA, typeB)
+		add("match.icmp.code", codeA, codeB)
+		var maskA, valueA, maskB, valueB trace.Fact
+		if rA.Match.TCPFlags != nil {
+			maskA, valueA = tcpFlagsFact(rA.Match.TCPFlags.Mask), tcpFlagsFact(rA.Match.TCPFlags.Value)
+		}
+		if rB.Match.TCPFlags != nil {
+			maskB, valueB = tcpFlagsFact(rB.Match.TCPFlags.Mask), tcpFlagsFact(rB.Match.TCPFlags.Value)
+		}
+		add("match.tcp_flags.mask", maskA, maskB)
+		add("match.tcp_flags.value", valueA, valueB)
 	}
 
 	return changes
 }
 
-func indexRules(rules []Rule) map[string]Rule {
+type protocolFact uint8
+
+func (f protocolFact) TypeID() string    { return "filter.protocol" }
+func (f protocolFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
+
+type prefixFact netip.Prefix
+
+func (f prefixFact) TypeID() string    { return "filter.prefix" }
+func (f prefixFact) Canonical() string { return netip.Prefix(f).String() }
+
+type portFact uint16
+
+func (f portFact) TypeID() string    { return "filter.port" }
+func (f portFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
+
+type icmpTypeFact uint8
+
+func (f icmpTypeFact) TypeID() string    { return "filter.icmp_type" }
+func (f icmpTypeFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
+
+type icmpCodeFact uint8
+
+func (f icmpCodeFact) TypeID() string    { return "filter.icmp_code" }
+func (f icmpCodeFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
+
+type tcpFlagsFact tcp.Flags
+
+func (f tcpFlagsFact) TypeID() string    { return "filter.tcp_flags" }
+func (f tcpFlagsFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
+
+func indexRules(setName string, rules []Rule) map[string]Rule {
 	out := make(map[string]Rule, len(rules))
 	seenNames := make(map[string]int, len(rules))
 
@@ -383,9 +479,9 @@ func indexRules(rules []Rule) map[string]Rule {
 	}
 
 	for idx, r := range rules {
-		key := r.Name
-		if key == "" || seenNames[key] > 1 {
-			key = strconv.Itoa(idx)
+		key := trace.CompositeKey(setName, r.Name)
+		if r.Name == "" || seenNames[r.Name] > 1 {
+			key = trace.CompositeKey(setName, "", strconv.Itoa(idx))
 		}
 		out[key] = r
 	}

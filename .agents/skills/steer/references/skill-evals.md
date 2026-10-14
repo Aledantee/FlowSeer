@@ -33,7 +33,7 @@ Read `status` first. Only an `ok` row is a measurement:
 | Status | Meaning | Next |
 | --- | --- | --- |
 | `ok` | graded | compare |
-| `stale` | `setup.sh` failed or left the lane dirty | fix the scenario, rerun |
+| `stale` | `setup.py` failed or left the lane dirty | fix the scenario, rerun |
 | `invalid` | a `none` lane could still load the skill | report it, the row measures nothing |
 | `refused`, `downgraded` | the model declined or another model answered | rerun once, then report |
 | `skipped` | the cost cap was reached | raise `--max-total-usd` or narrow with `--scenario` |
@@ -64,12 +64,13 @@ A scenario is `.agents/skills/<skill>/evals/<scenario>/` with three files:
   every variant, and ends with "Do not ask questions. Where you would ask,
   state the question and its options, then stop." The runner replaces
   `{EVAL_PARENT}` with the fixture commit's parent. A query that uses
-  `{EVAL_PARENT}` needs a `setup.sh`. Without one, a `current` lane that adds
+  `{EVAL_PARENT}` needs a `setup.py`. Without one, a `current` lane that adds
   skill files sits on the runner's lane-only commit, so the parent differs
   across variants.
-- `setup.sh` (optional): runs in the lane and commits the fixture, leaving
+- `setup.py` (optional): a script with inline metadata that the runner
+  starts through `uv run --script`. It runs in the lane and commits the fixture, leaving
   `git status --porcelain` empty. A failing setup makes the row `stale`.
-- `check.sh <lane> <result-text>`: runs in the lane with `EVAL_BASE` set to
+- `check.py <lane> <result-text>`: runs in the lane with `EVAL_BASE` set to
   the fixture commit and prints one `PASS <name>` or `FAIL <name>` per
   check.
 
@@ -94,7 +95,7 @@ reachable as well. Lanes are named `eval-<skill>-<scenario>-<variant>-<n>`,
 and lint lanes use variant `lint` and run 1. Grade a kept lane with:
 
 ```bash
-EVAL_BASE=$(git -C <lane> rev-parse HEAD) <scenario dir>/check.sh <lane> "<text>"
+EVAL_BASE=$(git -C <lane> rev-parse HEAD) uv run --script <scenario dir>/check.py <lane> "<text>"
 ```
 
 A kept lane is never removed, and the next lint stops on its existing

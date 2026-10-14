@@ -8,6 +8,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/lacp"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
+	"go.aledante.io/FlowSeer/src/common/sim/device"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/lag"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
@@ -15,6 +16,7 @@ import (
 )
 
 func TestMarkerResponderAtSwitch(t *testing.T) {
+	callOutputs := make(map[*vswitch.Switch]device.Output)
 	t.Parallel()
 
 	mac := netaddr.MAC{2, 0, 0, 0, 0, 10}
@@ -24,11 +26,11 @@ func TestMarkerResponderAtSwitch(t *testing.T) {
 		Add(port.Port{Name: "1/1/1", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}))
 	sw := mustSwitch(t, vswitch.Config{MAC: mac, Ports: ports, LAG: &lag.Config{LAGs: map[string]lag.LAG{"lag1": {LACP: lag.LACPConfig{Mode: lag.Passive, SystemID: system}}}}})
 	now := time.Unix(1700000000, 0)
-	sw.Start(now)
+	captureOutput(callOutputs, sw, sw.Start(now))
 	if info := sw.MemberInfo("1/1/1"); info.Attached || info.Enabled || info.Status != lag.Expired {
 		t.Fatalf("member = %+v, want Expired, detached and disabled", info)
 	}
-	if emissions := sw.Drain(); len(emissions) != 0 {
+	if emissions := takeEmissions(callOutputs, sw); len(emissions) != 0 {
 		t.Fatalf("passive startup emissions = %+v, want none", emissions)
 	}
 	// The requester fields follow IEEE P802.1AX-REV/D4.54 Figure 6-27 and
@@ -40,13 +42,14 @@ func TestMarkerResponderAtSwitch(t *testing.T) {
 	}
 	request := ethernet.Frame{Dst: lacp.GroupAddress, Src: netaddr.MAC{0xde, 0xad, 0xbe, 0xef, 0, 1}, EtherType: ethernet.EtherTypeSlowProtocols, Payload: payload}
 	before := sw.MemberInfo("1/1/1")
-	if res := sw.Peek(now, "1/1/1", request); res.Outcome != trace.Consumed || len(res.Steps) == 0 || res.Steps[0].RuleID != "lag.marker.respond" {
-		t.Fatalf("Marker Peek = %+v, want Consumed under lag.marker.respond", res)
+	preview := sw.Peek(now, "1/1/1", request)
+	if preview.Outcome != trace.Consumed || len(preview.Steps) == 0 || preview.Steps[0].RuleID != "lag.marker.respond" {
+		t.Fatalf("Marker Peek = %+v, want Consumed under lag.marker.respond", preview)
 	}
-	if emissions := sw.Drain(); len(emissions) != 0 || sw.MemberInfo("1/1/1") != before {
-		t.Fatalf("Marker Peek emissions = %+v, member = %+v, want no mutation", emissions, sw.MemberInfo("1/1/1"))
+	if len(preview.Emissions) != 0 || sw.MemberInfo("1/1/1") != before {
+		t.Fatalf("Marker Peek emissions = %+v, member = %+v, want no mutation", preview.Emissions, sw.MemberInfo("1/1/1"))
 	}
-	res := sw.Forward(now, "1/1/1", request)
+	res := captureOutput(callOutputs, sw, sw.Receive(now, "1/1/1", request))
 	if res.Outcome != trace.Consumed || len(res.Steps) == 0 || res.Steps[0].RuleID != "lag.marker.respond" || len(res.Egress) != 0 {
 		t.Fatalf("Marker result = %+v, want consumed without relay egress", res)
 	}
@@ -56,7 +59,7 @@ func TestMarkerResponderAtSwitch(t *testing.T) {
 	if facts := res.Steps[0].Outputs; len(facts) != 1 || facts[0].TypeID() != "lag.marker_response" || facts[0].Canonical() != "requester=00120004961f506a01020304;response_source=\"02:00:00:00:00:14\"" {
 		t.Fatalf("Marker facts = %+v, want requester transaction and response source", facts)
 	}
-	emissions := sw.Drain()
+	emissions := takeEmissions(callOutputs, sw)
 	if len(emissions) != 1 || emissions[0].Port != "1/1/1" || !emissions[0].Protocol {
 		t.Fatalf("Marker emissions = %+v, want one on 1/1/1", emissions)
 	}
@@ -93,7 +96,7 @@ func TestMarkerResponderAtSwitch(t *testing.T) {
 			if inputs := peek.Steps[0].Inputs; len(inputs) != 1 || inputs[0].TypeID() != "lag.marker_decode" || inputs[0].Canonical() != wantFact.Canonical() {
 				t.Fatalf("refused Marker Peek inputs = %+v, want marker_decode input fact with valid=false and %s", inputs, lag.ReasonUnsupportedLACPDU)
 			}
-			badRes := sw.Forward(now, "1/1/1", bad)
+			badRes := captureOutput(callOutputs, sw, sw.Receive(now, "1/1/1", bad))
 			if badRes.Outcome != trace.Dropped || badRes.Reason != lag.ReasonUnsupportedLACPDU || len(badRes.Steps) == 0 || badRes.Steps[0].RuleID != lag.RuleLACPDUUnsupported {
 				t.Fatalf("refused Marker = %+v, want unsupported-lacpdu drop", badRes)
 			}
@@ -103,7 +106,7 @@ func TestMarkerResponderAtSwitch(t *testing.T) {
 			if got := sw.MemberInfo("1/1/1").BadLACPDUs; got != beforeBad+1 {
 				t.Fatalf("BadLACPDUs = %d, want %d", got, beforeBad+1)
 			}
-			if emissions := sw.Drain(); len(emissions) != 0 {
+			if emissions := takeEmissions(callOutputs, sw); len(emissions) != 0 {
 				t.Fatalf("refused Marker emissions = %+v, want none", emissions)
 			}
 		})
@@ -139,9 +142,9 @@ func TestAdmittedLACPDUTraceInputFact(t *testing.T) {
 	}
 	frame := lacp.Encode(pdu, peerMAC)
 
-	res := sw.Forward(now, "1/1/1", frame)
+	res := sw.Receive(now, "1/1/1", frame)
 	if res.Outcome != trace.Consumed || len(res.Steps) == 0 || res.Steps[0].RuleID != lag.RuleLACPDUAdmit {
-		t.Fatalf("LACPDU Forward = %+v, want Consumed under lag.lacpdu.admit", res)
+		t.Fatalf("LACPDU Receive = %+v, want Consumed under lag.lacpdu.admit", res)
 	}
 	wantFact := lag.LACPDecodeFact(frame, true, "")
 	if inputs := res.Steps[0].Inputs; len(inputs) != 1 || inputs[0].TypeID() != wantFact.TypeID() || inputs[0].Canonical() != wantFact.Canonical() {

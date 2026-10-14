@@ -6,12 +6,12 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
-	"go.aledante.io/FlowSeer/src/common/sim/fabric"
+	"go.aledante.io/FlowSeer/src/common/sim/flow"
 )
 
 func TestAccumulatorCountsGapsDuplicatesReorderingAndLateFrames(t *testing.T) {
 	base := time.Unix(1700000000, 0)
-	accumulator := NewAccumulator(fabric.FlowID(10))
+	accumulator := NewAccumulator(flow.ID(10))
 	for sequence := uint64(0); sequence < 5; sequence++ {
 		accumulator.RecordSend(10, sequence)
 	}
@@ -70,7 +70,7 @@ func TestAccumulatorTracksInterleavedFlowsAndSequenceBoundaries(t *testing.T) {
 		accumulator.RecordSend(2, sequence)
 	}
 	for _, item := range []struct {
-		id       fabric.FlowID
+		id       flow.ID
 		sequence uint64
 	}{{1, 0}, {2, math.MaxUint64}, {1, 2}, {2, 0}, {1, math.MaxUint64}} {
 		recordSignedReceive(t, accumulator, item.id, item.sequence, base, base.Add(time.Microsecond))
@@ -84,7 +84,7 @@ func TestAccumulatorTracksInterleavedFlowsAndSequenceBoundaries(t *testing.T) {
 	}
 }
 
-func recordSignedReceive(t *testing.T, accumulator *Accumulator, flowID fabric.FlowID, sequence uint64, submittedAt, capturedAt time.Time) {
+func recordSignedReceive(t *testing.T, accumulator *Accumulator, flowID flow.ID, sequence uint64, submittedAt, capturedAt time.Time) {
 	t.Helper()
 	frame, err := Sign(ethernet.Frame{Payload: make([]byte, SignatureSize)}, flowID, sequence, submittedAt)
 	if err != nil {

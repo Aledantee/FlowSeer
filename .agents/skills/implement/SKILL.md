@@ -113,11 +113,18 @@ For each unit:
    commit body carries one line per new test: the mutation and the quoted
    `--- FAIL` line it produced, since `review` reads the commits, not this
    conversation. A unit without a test needs a stated reason in the plan.
+   When changing a launcher `drive` uses, load `references/launcher-check.md`
+   and run its live check even when the plan omitted it.
+   When a test cannot be built under the unit's rule, load
+   `references/test-placement.md` before treating it as a blocker.
 4. In the same unit, update the package README, convention doc, solution
    citations, and any test or benchmark name the unit made false.
 5. Check, commit, verify, in that order:
+   A unit explicitly authorized through `drive/references/policy-units.md`
+   stops after focused checks, before its commit. Follow that procedure
+   before continuing the commit and verifier steps below.
    - Run the focused checks (`go test -race ./<pkg>/...`, `go tool -modfile=tools/buf/go.mod buf lint`), never a
-     script under `tools/hooks/` (`delegate`, Write the brief, item 6). Save
+     `run.py hooks` command by hand (`delegate`, Write the brief, item 6). Save
      diagnostics under the log-path rule in `verify-change`, Run it, then grep
      the saved output. A filter drops what it does not match.
    - When the unit adds or removes a name in a repository-wide namespace (an
@@ -133,7 +140,7 @@ For each unit:
      before launch and read that same path after completion:
 
    ```bash
-   .claude/skills/verify-change/scripts/verify-change.sh -- <paths>
+   uv run tools/scripts/run.py verify change -- <paths>
    ```
 
    When a unit leaves the package red until the next unit lands, verify those

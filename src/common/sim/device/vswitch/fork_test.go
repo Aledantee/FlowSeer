@@ -5,41 +5,41 @@ import (
 	"testing"
 	"time"
 
-	"go.aledante.io/FlowSeer/src/common/net/bpdu"
-
 	"go.aledante.io/FlowSeer/src/common/net/arp"
+	"go.aledante.io/FlowSeer/src/common/net/bpdu"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/igmp"
 	"go.aledante.io/FlowSeer/src/common/net/ip"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
+	"go.aledante.io/FlowSeer/src/common/sim/device"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/filter"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/traffic"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
 var switchDeepCopiedProbes = map[string]func(t *testing.T){
-	"bridge":           probeSwitchBridge,
-	"stp":              probeSwitchSTP,
-	"loopprotect":      probeSwitchLoopProtect,
-	"lag":              probeSwitchLAG,
-	"mcast":            probeSwitchMcast,
-	"routing":          probeSwitchRouting,
-	"traffic":          probeSwitchTraffic,
-	"copies":           probeSwitchCopies,
-	"emissions":        probeSwitchEmissions,
-	"portP2P":          probeSwitchPortP2P,
-	"portSpeed":        probeSwitchPortSpeed,
-	"protocolIssues":   probeSwitchProtocolIssues,
-	"seeds":            probeSwitchSeeds,
-	"neighborFailures": probeSwitchNeighborFailures,
-	"retention":        probeSwitchRetention,
+	"bridge":         probeSwitchBridge,
+	"stp":            probeSwitchSTP,
+	"loopprotect":    probeSwitchLoopProtect,
+	"lag":            probeSwitchLAG,
+	"mcast":          probeSwitchMcast,
+	"routing":        probeSwitchRouting,
+	"filter":         probeSwitchFilter,
+	"traffic":        probeSwitchTraffic,
+	"portP2P":        probeSwitchPortP2P,
+	"portSpeed":      probeSwitchPortSpeed,
+	"protocolIssues": probeSwitchProtocolIssues,
+	"heldMirrors":    probeSwitchHeldMirrors,
+	"seeds":          probeSwitchSeeds,
+	"retention":      probeSwitchRetention,
 }
 
 func probeSwitchBridge(t *testing.T) {
 	sw := newTestSwitchForFork(t)
-	fork := sw.Fork()
+	fork := sw.Fork().(*Switch)
 
 	macSrc := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x11}
 	macFork := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x22}
@@ -61,17 +61,19 @@ func probeSwitchBridge(t *testing.T) {
 
 func probeSwitchSTP(t *testing.T) {
 	sw := newTestSwitchForFork(t)
-	fork := sw.Fork()
-
-	sw.LinkChange(time.Unix(2000, 0), "1/1/1", port.Down, PointToPointFalse, 0)
+	fork := sw.Fork().(*Switch)
+	if _, err := sw.LinkChange(time.Unix(2000, 0), "1/1/1", device.Link{State: port.Down, Duplex: device.DuplexHalf, PeerRelays: false, SpeedBPS: 0}); err != nil {
+		t.Fatal(err)
+	}
 	if got := sw.Roles()["1/1/1"].Role; got != bpdu.RoleDisabled {
 		t.Fatalf("source STP port role = %v, want %v", got, bpdu.RoleDisabled)
 	}
 	if fork.Roles()["1/1/1"].Role == bpdu.RoleDisabled {
 		t.Errorf("fork STP port role moved when source changed link")
 	}
-
-	fork.LinkChange(time.Unix(2000, 0), "1/1/2", port.Down, PointToPointFalse, 0)
+	if _, err := fork.LinkChange(time.Unix(2000, 0), "1/1/2", device.Link{State: port.Down, Duplex: device.DuplexHalf, PeerRelays: false, SpeedBPS: 0}); err != nil {
+		t.Fatal(err)
+	}
 	if sw.Roles()["1/1/2"].Role == bpdu.RoleDisabled {
 		t.Errorf("source STP port role moved when fork changed link")
 	}
@@ -79,10 +81,12 @@ func probeSwitchSTP(t *testing.T) {
 
 func probeSwitchLoopProtect(t *testing.T) {
 	sw := newTestSwitchForFork(t)
-	fork := sw.Fork()
+	fork := sw.Fork().(*Switch)
 
 	now := time.Unix(3000, 0)
-	sw.LinkChange(now, "1/1/1", port.Down, PointToPointTrue, 1_000_000_000)
+	if _, err := sw.LinkChange(now, "1/1/1", device.Link{State: port.Down, Duplex: device.DuplexFull, PeerRelays: true, SpeedBPS: 1_000_000_000}); err != nil {
+		t.Fatal(err)
+	}
 	if sw.loopprotect == nil || fork.loopprotect == nil {
 		t.Fatalf("loopprotect nil")
 	}
@@ -93,10 +97,12 @@ func probeSwitchLoopProtect(t *testing.T) {
 
 func probeSwitchLAG(t *testing.T) {
 	sw := newTestSwitchForFork(t)
-	fork := sw.Fork()
+	fork := sw.Fork().(*Switch)
 
 	now := time.Unix(4000, 0)
-	sw.LinkChange(now, "1/1/3", port.Down, PointToPointTrue, 1_000_000_000)
+	if _, err := sw.LinkChange(now, "1/1/3", device.Link{State: port.Down, Duplex: device.DuplexFull, PeerRelays: true, SpeedBPS: 1_000_000_000}); err != nil {
+		t.Fatal(err)
+	}
 	if fork.lag == nil || sw.lag == nil {
 		t.Fatalf("lag nil")
 	}
@@ -107,7 +113,7 @@ func probeSwitchLAG(t *testing.T) {
 
 func probeSwitchMcast(t *testing.T) {
 	sw := newTestSwitchForFork(t)
-	fork := sw.Fork()
+	fork := sw.Fork().(*Switch)
 
 	now := time.Unix(5000, 0)
 	group := netip.MustParseAddr("239.1.1.1")
@@ -133,16 +139,16 @@ func probeSwitchMcast(t *testing.T) {
 		Payload:   payload,
 	}
 
-	sw.Forward(now, "1/1/1", frame)
-	if got := len(sw.Groups(10)); got == 0 {
+	sw.Receive(now, "1/1/1", frame)
+	if got := len(sw.Groups(10, now)); got == 0 {
 		t.Fatal("source group 10 membership count = 0, want at least 1")
 	}
-	if len(fork.Groups(10)) != 0 {
+	if len(fork.Groups(10, now)) != 0 {
 		t.Errorf("fork learned multicast group from source IGMP forward")
 	}
 
-	fork.Forward(now, "1/1/2", frame)
-	for _, g := range sw.Groups(10) {
+	fork.Receive(now, "1/1/2", frame)
+	for _, g := range sw.Groups(10, now) {
 		if g.Port == "1/1/2" {
 			t.Errorf("source learned port 1/1/2 membership from fork")
 		}
@@ -151,7 +157,10 @@ func probeSwitchMcast(t *testing.T) {
 
 func probeSwitchRouting(t *testing.T) {
 	sw := newTestSwitchForFork(t)
-	fork := sw.Fork()
+	if sw.routing == nil {
+		t.Fatal("source routing is nil")
+	}
+	fork := sw.Fork().(*Switch)
 
 	now := time.Unix(6000, 0)
 	frame, err := arp.Encode(arp.Message{
@@ -167,7 +176,7 @@ func probeSwitchRouting(t *testing.T) {
 		t.Fatalf("arp.Encode: %v", err)
 	}
 
-	sw.Forward(now, "1/1/1", frame)
+	sw.Receive(now, "1/1/1", frame)
 	for _, n := range fork.Neighbors() {
 		if n.Addr == netip.MustParseAddr("10.0.10.99") {
 			t.Errorf("fork saw neighbor learned on source")
@@ -177,79 +186,89 @@ func probeSwitchRouting(t *testing.T) {
 
 func probeSwitchTraffic(t *testing.T) {
 	sw := newTestSwitchForFork(t)
-	fork := sw.Fork()
+	if sw.traffic == nil {
+		t.Fatal("source traffic is nil")
+	}
+	fork := sw.Fork().(*Switch)
 
 	now := time.Unix(7000, 0)
-	if !sw.Police(now, "1/1/1", 400) {
+	if sw.Receive(now, "1/1/1", ethernet.Frame{EtherType: ethernet.EtherTypeIPv4, Payload: make([]byte, 400-38)}).Reason == traffic.ReasonPoliced {
 		t.Errorf("police rejected on source")
 	}
-	if !fork.Police(now, "1/1/1", 400) {
+	if fork.Receive(now, "1/1/1", ethernet.Frame{EtherType: ethernet.EtherTypeIPv4, Payload: make([]byte, 400-38)}).Reason == traffic.ReasonPoliced {
 		t.Errorf("police rejected on fork")
 	}
 }
 
-func probeSwitchCopies(t *testing.T) {
+func TestForkKeepsTheFilter(t *testing.T) {
 	sw := newTestSwitchForFork(t)
-	fork := sw.Fork()
-
-	swCopies := sw.Copies()
-	if len(swCopies) == 0 {
-		t.Errorf("source had no copies before clear")
+	frame := forkFilterFrame(t, sw.cfg.MAC)
+	now := time.Unix(1001, 0)
+	fork := sw.Fork().(*Switch)
+	if got := sw.Receive(now, "1/1/1", frame); got.Reason != filter.ReasonFilterDrop {
+		t.Fatalf("source reason = %v, want %v", got.Reason, filter.ReasonFilterDrop)
 	}
-	forkCopies := fork.Copies()
-	if len(forkCopies) == 0 {
-		t.Errorf("fork had no copies before clear")
-	}
-	if len(sw.Copies()) != 0 {
-		t.Errorf("source copies not cleared")
-	}
-	fork.copies = []traffic.Copy{{Port: "1/1/1"}}
-	if len(sw.Copies()) != 0 {
-		t.Errorf("mutating fork copies affected source")
+	if got := fork.Receive(now, "1/1/1", frame); got.Reason != filter.ReasonFilterDrop {
+		t.Fatalf("fork reason = %v, want %v", got.Reason, filter.ReasonFilterDrop)
 	}
 }
 
-func probeSwitchEmissions(t *testing.T) {
+func probeSwitchFilter(t *testing.T) {
 	sw := newTestSwitchForFork(t)
-	fork := sw.Fork()
+	fork := sw.Fork().(*Switch)
+	if sw.filter == nil || fork.filter == nil || sw.filter == fork.filter {
+		t.Fatal("filter must be present and independently cloned")
+	}
+	// The filter has no mutable execution state. Replacement exposes ownership
+	// without reaching into the layer's private configuration.
+	sw.filter = nil
+	if got := fork.Receive(time.Unix(1001, 0), "1/1/1", forkFilterFrame(t, sw.cfg.MAC)); got.Reason != filter.ReasonFilterDrop {
+		t.Fatalf("fork reason after replacing source filter = %v, want %v", got.Reason, filter.ReasonFilterDrop)
+	}
+}
 
-	srcDrained := sw.Drain()
-	if len(srcDrained) == 0 {
-		t.Errorf("source had no emissions")
+func forkFilterFrame(t *testing.T, dst netaddr.MAC) ethernet.Frame {
+	t.Helper()
+	payload, err := (ip.Header{Src: netip.MustParseAddr("10.0.10.51"), Dst: netip.MustParseAddr("10.0.10.2"), HopLimit: 64, Protocol: 17, V4: &ip.V4{}}).Encode([]byte("filter probe"))
+	if err != nil {
+		t.Fatal(err)
 	}
-	forkDrained := fork.Drain()
-	if len(forkDrained) == 0 {
-		t.Errorf("fork emissions drained when source drained")
-	}
+	return ethernet.Frame{Src: netaddr.MAC{0, 0x11, 0x22, 0x33, 0x44, 0x51}, Dst: dst, EtherType: ethernet.EtherTypeIPv4, Payload: payload}
 }
 
 func probeSwitchPortP2P(t *testing.T) {
 	sw := newTestSwitchForFork(t)
-	fork := sw.Fork()
+	fork := sw.Fork().(*Switch)
 
 	now := time.Unix(8000, 0)
-	sw.LinkChange(now, "1/1/1", port.Up, PointToPointFalse, 1_000_000_000)
-	if fork.portP2P["1/1/1"] != PointToPointTrue {
-		t.Errorf("fork portP2P changed when source changed: got %v, want %v", fork.portP2P["1/1/1"], PointToPointTrue)
+	if _, err := sw.LinkChange(now, "1/1/1", device.Link{State: port.Up, Duplex: device.DuplexHalf, PeerRelays: false, SpeedBPS: 1_000_000_000}); err != nil {
+		t.Fatal(err)
 	}
-
-	fork.LinkChange(now, "1/1/1", port.Up, PointToPointTrue, 1_000_000_000)
-	if sw.portP2P["1/1/1"] != PointToPointFalse {
-		t.Errorf("source portP2P changed when fork changed: got %v, want %v", sw.portP2P["1/1/1"], PointToPointFalse)
+	if fork.portP2P["1/1/1"] != pointToPointTrue {
+		t.Errorf("fork portP2P changed when source changed: got %v, want %v", fork.portP2P["1/1/1"], pointToPointTrue)
+	}
+	if _, err := fork.LinkChange(now, "1/1/1", device.Link{State: port.Up, Duplex: device.DuplexFull, PeerRelays: true, SpeedBPS: 1_000_000_000}); err != nil {
+		t.Fatal(err)
+	}
+	if sw.portP2P["1/1/1"] != pointToPointFalse {
+		t.Errorf("source portP2P changed when fork changed: got %v, want %v", sw.portP2P["1/1/1"], pointToPointFalse)
 	}
 }
 
 func probeSwitchPortSpeed(t *testing.T) {
 	sw := newTestSwitchForFork(t)
-	fork := sw.Fork()
+	fork := sw.Fork().(*Switch)
 
 	now := time.Unix(8000, 0)
-	sw.LinkChange(now, "1/1/1", port.Up, PointToPointTrue, 10_000_000_000)
+	if _, err := sw.LinkChange(now, "1/1/1", device.Link{State: port.Up, Duplex: device.DuplexFull, PeerRelays: true, SpeedBPS: 10_000_000_000}); err != nil {
+		t.Fatal(err)
+	}
 	if fork.portSpeed["1/1/1"] != 1_000_000_000 {
 		t.Errorf("fork portSpeed changed when source changed: got %d, want 1000000000", fork.portSpeed["1/1/1"])
 	}
-
-	fork.LinkChange(now, "1/1/1", port.Up, PointToPointTrue, 2_500_000_000)
+	if _, err := fork.LinkChange(now, "1/1/1", device.Link{State: port.Up, Duplex: device.DuplexFull, PeerRelays: true, SpeedBPS: 2_500_000_000}); err != nil {
+		t.Fatal(err)
+	}
 	if sw.portSpeed["1/1/1"] != 10_000_000_000 {
 		t.Errorf("source portSpeed changed when fork changed: got %d, want 10000000000", sw.portSpeed["1/1/1"])
 	}
@@ -257,7 +276,7 @@ func probeSwitchPortSpeed(t *testing.T) {
 
 func probeSwitchProtocolIssues(t *testing.T) {
 	sw := newTestSwitchForFork(t)
-	fork := sw.Fork()
+	fork := sw.Fork().(*Switch)
 
 	sw.protocolIssues["1/1/1"] = analysis.Issue{Code: "source-issue"}
 	if fork.protocolIssues["1/1/1"].Code == "source-issue" {
@@ -270,9 +289,24 @@ func probeSwitchProtocolIssues(t *testing.T) {
 	}
 }
 
+func probeSwitchHeldMirrors(t *testing.T) {
+	sw := newTestSwitchForFork(t)
+	fork := sw.Fork().(*Switch)
+
+	sw.heldMirrors[1].Mirrors[0] = "source-mirror"
+	if fork.heldMirrors[1].Mirrors[0] == "source-mirror" {
+		t.Errorf("fork heldMirrors changed when source mutated")
+	}
+
+	fork.heldMirrors[2] = heldMirror{Silent: true}
+	if _, ok := sw.heldMirrors[2]; ok {
+		t.Errorf("source heldMirrors changed when fork mutated")
+	}
+}
+
 func probeSwitchSeeds(t *testing.T) {
 	sw := newTestSwitchForFork(t)
-	fork := sw.Fork()
+	fork := sw.Fork().(*Switch)
 
 	if len(sw.seeds) == 0 || len(fork.seeds) == 0 {
 		t.Fatalf("seeds must be non-empty on both source and fork")
@@ -291,27 +325,15 @@ func probeSwitchSeeds(t *testing.T) {
 	}
 }
 
-func probeSwitchNeighborFailures(t *testing.T) {
-	sw := newTestSwitchForFork(t)
-	fork := sw.Fork()
-
-	srcFailures := sw.DrainNeighborFailures()
-	if len(srcFailures) == 0 {
-		t.Errorf("source had no neighbor failures")
-	}
-	forkFailures := fork.DrainNeighborFailures()
-	if len(forkFailures) == 0 {
-		t.Errorf("fork neighbor failures drained when source drained")
-	}
-}
-
 func TestForkBackPointerLagMemberRemoved(t *testing.T) {
 	// Member removal on the source switch leaves LAG forwarding on the fork intact.
 	sw := newTestSwitchForFork(t)
-	fork := sw.Fork()
+	fork := sw.Fork().(*Switch)
 
 	now := time.Unix(9000, 0)
-	sw.LinkChange(now, "1/1/3", port.Down, PointToPointTrue, 1_000_000_000)
+	if _, err := sw.LinkChange(now, "1/1/3", device.Link{State: port.Down, Duplex: device.DuplexFull, PeerRelays: true, SpeedBPS: 1_000_000_000}); err != nil {
+		t.Fatal(err)
+	}
 
 	srcMem, ok := sw.ports.Port("1/1/3")
 	if !ok || srcMem.Forwards() {
@@ -324,13 +346,13 @@ func TestForkBackPointerLagMemberRemoved(t *testing.T) {
 		t.Errorf("fork 1/1/3 should still be forwarding")
 	}
 
-	// Forward packet over lag1 on fork
+	// Receive a packet over lag1 on fork
 	frame := ethernet.Frame{
 		Src:       netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55},
 		Dst:       netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x99},
 		EtherType: ethernet.EtherTypeIPv4,
 	}
-	res := fork.Forward(now, "1/1/1", frame)
+	res := fork.Receive(now, "1/1/1", frame)
 	if res.Outcome != trace.Forwarded {
 		t.Errorf("fork forward outcome = %v, want Forwarded", res.Outcome)
 	}
@@ -341,7 +363,7 @@ func probeSwitchRetention(t *testing.T) {
 	sw.retention = Retention{
 		STP: LayerRetention{Kept: false, Difference: "port-state"},
 	}
-	fork := sw.Fork()
+	fork := sw.Fork().(*Switch)
 	if !fork.Retention().STP.Kept {
 		t.Errorf("fork STP kept = false, want true")
 	}

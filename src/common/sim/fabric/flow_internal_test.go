@@ -1,10 +1,22 @@
-package fabric
+package fabric_test
 
 import (
+	"fmt"
+	"maps"
 	"net/netip"
 	"slices"
 	"testing"
 	"time"
+
+	"go.aledante.io/FlowSeer/src/common/sim/flow"
+	"go.aledante.io/FlowSeer/src/common/sim/internal/simtest"
+
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
+	reflectormodel "go.aledante.io/FlowSeer/src/common/sim/device/reflector"
+	"go.aledante.io/FlowSeer/src/common/sim/fabric"
+
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
 
 	"go.aledante.io/FlowSeer/src/common/net/arp"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
@@ -13,11 +25,90 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/filter"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/stp"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/traffic"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
+	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
+
+func injectHeldPair(t *testing.T, retention fabric.JourneyRetention) (*fabric.Fabric, [2]fabric.FrameID, netaddr.MAC) {
+	t.Helper()
+	fab, swMAC, srcMAC := heldPropertyFixture(t)
+	var ids [2]fabric.FrameID
+	for i, addr := range []string{"10.0.20.7", "10.0.20.8"} {
+		fid, err := fab.Inject(fabric.Injection{
+			At: fab.Clock(), Origin: fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
+			Frame: heldPropertyFrame(t, srcMAC, swMAC, netip.MustParseAddr("10.0.10.7"), netip.MustParseAddr(addr), []byte("same payload")),
+			Flow:  21, Retention: retention,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		ids[i] = fid
+	}
+	for range 2 {
+		if _, ok := fab.Step(); !ok {
+			t.Fatal("held frame was not stepped")
+		}
+	}
+	return fab, ids, swMAC
+}
+
+func releaseHeldAddress(t *testing.T, fab *fabric.Fabric, swMAC netaddr.MAC, addr string) {
+	t.Helper()
+	_, err := fab.Inject(fabric.Injection{
+		At: fab.Clock().Add(time.Millisecond), Origin: fabric.Endpoint{Node: "sw1", Port: "1/1/2"},
+		Frame: heldPropertyARPReply(t, netaddr.MAC{0, 0x11, 0x22, 0x33, 0x44, 0x77}, netip.MustParseAddr(addr), swMAC),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	until := fab.Clock().Add(10 * time.Millisecond)
+	for len(fab.Snapshot().Queue) > 0 && !fab.Snapshot().Queue[0].At.After(until) {
+		if _, ok := fab.Step(); !ok {
+			t.Fatal("release did not advance")
+		}
+	}
+}
+
+func TestHeldIsAGauge(t *testing.T) {
+	fab, _, swMAC := injectHeldPair(t, fabric.RetainAggregate)
+	if got := fab.Flows()[21].Held; got != 2 {
+		t.Fatalf("Held = %d, want 2", got)
+	}
+	releaseHeldAddress(t, fab, swMAC, "10.0.20.8")
+	stats := fab.Flows()[21]
+	if stats.Held != 1 || stats.Delivered["h2"] != 1 {
+		t.Fatalf("Held/Delivered = %d/%d, want 1/1", stats.Held, stats.Delivered["h2"])
+	}
+}
+
+func TestReleaseOutOfOrder(t *testing.T) {
+	fab, ids, swMAC := injectHeldPair(t, fabric.RetainJourney)
+	releaseHeldAddress(t, fab, swMAC, "10.0.20.8")
+	var checked int
+	for _, j := range fab.Report() {
+		if j.FrameID == ids[0] {
+			if j.State != fabric.JourneyPending || len(j.Deliveries) != 0 {
+				t.Fatalf("first holder = %+v, want pending without deliveries", j)
+			}
+			checked++
+		}
+		if j.FrameID == ids[1] {
+			if j.State != fabric.JourneyDelivered || len(j.Deliveries) != 1 || j.Deliveries[0].Host != "h2" {
+				t.Fatalf("second holder state/deliveries = %s/%+v, want Delivered/h2", j.State, j.Deliveries)
+			}
+			checked++
+		}
+	}
+	if checked != 2 {
+		t.Fatalf("checked holders = %d, want 2", checked)
+	}
+}
 
 // TestAggregateBroadcastFoldsOnce covers a broadcast aggregate injection on a
 // three-host VLAN: after the run drains, no frame is in flight and the flow
@@ -31,21 +122,21 @@ func TestAggregateBroadcastFoldsOnce(t *testing.T) {
 		Dst:     netaddr.MAC{0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
 		Payload: []byte("broadcast"),
 	}
-	if _, err := fab.Inject(Injection{
+	if _, err := fab.Inject(fabric.Injection{
 		At:        t0.Add(time.Millisecond),
-		Origin:    Endpoint{Node: "h1"},
+		Origin:    fabric.Endpoint{Node: "h1"},
 		Frame:     broadcast,
-		Retention: RetainAggregate,
+		Retention: fabric.RetainAggregate,
 		Flow:      3,
 	}); err != nil {
 		t.Fatalf("Inject: %v", err)
 	}
-	if res := fab.Run(100); res.Stop != StopQueueDrained {
-		t.Fatalf("Run stop = %s, want %s", res.Stop, StopQueueDrained)
+	if res := fab.Run(fabric.RunOptions{Budget: 100, Window: 0}); res.Stop != fabric.StopQueueDrained {
+		t.Fatalf("Run stop = %s, want %s", res.Stop, fabric.StopQueueDrained)
 	}
 
-	if len(fab.inflight) != 0 {
-		t.Errorf("inflight = %+v, want empty after the run drained", fab.inflight)
+	if len((*fabric.ExportFabricInflight(fab))) != 0 {
+		t.Errorf("inflight = %+v, want empty after the run drained", (*fabric.ExportFabricInflight(fab)))
 	}
 	stats := fab.Flows()[3]
 	if stats.Offered != 1 {
@@ -68,25 +159,25 @@ func TestAggregateFreesJourneys(t *testing.T) {
 		Payload: make([]byte, 46),
 	}
 	for range 1000 {
-		if _, err := fab.Inject(Injection{
+		if _, err := fab.Inject(fabric.Injection{
 			At:        t0.Add(time.Millisecond),
-			Origin:    Endpoint{Node: "h1"},
+			Origin:    fabric.Endpoint{Node: "h1"},
 			Frame:     frame,
-			Retention: RetainAggregate,
+			Retention: fabric.RetainAggregate,
 			Flow:      7,
 		}); err != nil {
 			t.Fatalf("Inject: %v", err)
 		}
 	}
-	if res := fab.Run(1_000_000); res.Stop != StopQueueDrained {
-		t.Fatalf("Run stop = %s, want %s", res.Stop, StopQueueDrained)
+	if res := fab.Run(fabric.RunOptions{Budget: 1_000_000, Window: 0}); res.Stop != fabric.StopQueueDrained {
+		t.Fatalf("Run stop = %s, want %s", res.Stop, fabric.StopQueueDrained)
 	}
 
-	if len(fab.journeys) != 0 {
-		t.Errorf("journeys = %d, want only protocol journeys (none here)", len(fab.journeys))
+	if len((*fabric.ExportFabricJourneys(fab))) != 0 {
+		t.Errorf("journeys = %d, want only protocol journeys (none here)", len((*fabric.ExportFabricJourneys(fab))))
 	}
-	if len(fab.entered) != 0 {
-		t.Errorf("entered = %d, want only protocol frames (none here)", len(fab.entered))
+	if len((*fabric.ExportFabricEntered(fab))) != 0 {
+		t.Errorf("entered = %d, want only protocol frames (none here)", len((*fabric.ExportFabricEntered(fab))))
 	}
 	if reported := fab.Report(); len(reported) != 0 {
 		t.Errorf("Report held %d journeys, want none", len(reported))
@@ -104,24 +195,24 @@ func TestFloodedFlowFoldsOnceNotTwice(t *testing.T) {
 		Dst:     netaddr.MAC{0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
 		Payload: []byte("broadcast"),
 	}
-	fid, err := fab.Inject(Injection{
+	fid, err := fab.Inject(fabric.Injection{
 		At:     t0.Add(time.Millisecond),
-		Origin: Endpoint{Node: "h1"},
+		Origin: fabric.Endpoint{Node: "h1"},
 		Frame:  broadcast,
 		Flow:   3,
 	})
 	if err != nil {
 		t.Fatalf("Inject: %v", err)
 	}
-	if res := fab.Run(100); res.Stop != StopQueueDrained {
-		t.Fatalf("Run stop = %s, want %s", res.Stop, StopQueueDrained)
+	if res := fab.Run(fabric.RunOptions{Budget: 100, Window: 0}); res.Stop != fabric.StopQueueDrained {
+		t.Fatalf("Run stop = %s, want %s", res.Stop, fabric.StopQueueDrained)
 	}
 
 	if got := fab.Flows()[3].Offered; got != 1 {
 		t.Fatalf("Offered = %d, want 1", got)
 	}
-	fab.settle(fid)
-	fab.settle(fid)
+	fabric.ExportFabricSettle(fab, fid)
+	fabric.ExportFabricSettle(fab, fid)
 	if got := fab.Flows()[3].Offered; got != 1 {
 		t.Errorf("Offered = %d after two more settles, want 1", got)
 	}
@@ -135,7 +226,7 @@ func TestInflightMatchesContainersAcrossFixtures(t *testing.T) {
 
 	cases := []struct {
 		name string
-		fab  *Fabric
+		fab  *fabric.Fabric
 	}{
 		{"cable-loss", invariantFabric(t, "cable-loss", t0)},
 		{"loop", invariantFabric(t, "loop", t0)},
@@ -149,16 +240,16 @@ func TestInflightMatchesContainersAcrossFixtures(t *testing.T) {
 	}
 }
 
-func driveAndCheckInflight(t *testing.T, fab *Fabric, t0 time.Time) {
+func driveAndCheckInflight(t *testing.T, fab *fabric.Fabric, t0 time.Time) {
 	t.Helper()
 	sawInFlight := 0
 	for _, dst := range []netaddr.MAC{
 		{0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
 		{0x00, 0x11, 0x22, 0x33, 0x44, 0x02},
 	} {
-		if _, err := fab.Inject(Injection{
+		if _, err := fab.Inject(fabric.Injection{
 			At:     t0.Add(time.Millisecond),
-			Origin: Endpoint{Node: "h1"},
+			Origin: fabric.Endpoint{Node: "h1"},
 			Frame:  ethernet.Frame{Src: netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}, Dst: dst, Payload: []byte("x")},
 		}); err != nil {
 			t.Fatalf("Inject: %v", err)
@@ -178,28 +269,28 @@ func driveAndCheckInflight(t *testing.T, fab *Fabric, t0 time.Time) {
 	}
 }
 
-func checkInflightMatchesContainers(t *testing.T, fab *Fabric) int {
+func checkInflightMatchesContainers(t *testing.T, fab *fabric.Fabric) int {
 	t.Helper()
-	want := make(map[FrameID]int)
-	for _, arr := range fab.queue {
-		if arr.Kind == ArrivalFrame {
+	want := make(map[fabric.FrameID]int)
+	for _, arr := range *fabric.ExportFabricQueue(fab) {
+		if arr.Kind == fabric.ArrivalFrame || arr.Kind == fabric.ArrivalHost {
 			want[arr.FrameID]++
 		}
 	}
-	for _, q := range fab.egress {
+	for _, q := range *fabric.ExportFabricEgress(fab) {
 		for pcp := range 8 {
-			for _, item := range q.pending[pcp] {
-				want[item.fid]++
+			for _, item := range fabric.ExportEgressQueuePending(q)[pcp] {
+				want[(*fabric.ExportQueuedFid(&item))]++
 			}
 		}
 	}
 
 	for fid, n := range want {
-		if got := fab.inflight[fid]; got != n {
+		if got := (*fabric.ExportFabricInflight(fab))[fid]; got != n {
 			t.Fatalf("inflight[%d] = %d, want %d held in the queue and egress queues", fid, got, n)
 		}
 	}
-	for fid, got := range fab.inflight {
+	for fid, got := range *fabric.ExportFabricInflight(fab) {
 		if want[fid] != got {
 			t.Fatalf("inflight[%d] = %d with %d in the containers", fid, got, want[fid])
 		}
@@ -211,7 +302,7 @@ func checkInflightMatchesContainers(t *testing.T, fab *Fabric) int {
 // invariantFabric builds a two-switch chain with the named traffic: a cut
 // trunk for the cable-loss case, a second parallel trunk for a loop, a mirror
 // to an analyzer, or a reflector hung off a spare port.
-func invariantFabric(t *testing.T, variant string, t0 time.Time) *Fabric {
+func invariantFabric(t *testing.T, variant string, t0 time.Time) *fabric.Fabric {
 	t.Helper()
 
 	sw1Ports, err := port.NewBuilder().
@@ -244,53 +335,54 @@ func invariantFabric(t *testing.T, variant string, t0 time.Time) *Fabric {
 
 	sw1 := vswitch.Config{Ports: sw1Ports, Bridge: bridgeCfg("1/1/1", "1/1/2", "1/1/3", "1/1/24")}
 	sw2 := vswitch.Config{Ports: sw2Ports, Bridge: bridgeCfg("1/1/1", "1/1/2", "1/1/24")}
-	cables := []Cable{
-		{A: Endpoint{Node: "h1"}, B: Endpoint{Node: "sw1", Port: "1/1/1"}, LengthMeters: 5},
-		{A: Endpoint{Node: "sw1", Port: "1/1/24"}, B: Endpoint{Node: "sw2", Port: "1/1/24"}, LengthMeters: 5, Medium: MultimodeFiber},
-		{A: Endpoint{Node: "sw2", Port: "1/1/1"}, B: Endpoint{Node: "h2"}, LengthMeters: 5},
+	cables := []fabric.Cable{
+		{Cable: cablemodel.Cable{LengthMeters: 5}, A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
+		{Cable: cablemodel.Cable{LengthMeters: 5, Medium: cablemodel.MultimodeFiber}, A: fabric.Endpoint{Node: "sw1", Port: "1/1/24"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/24"}},
+		{Cable: cablemodel.Cable{LengthMeters: 5}, A: fabric.Endpoint{Node: "sw2", Port: "1/1/1"}, B: fabric.Endpoint{Node: "h2"}},
 	}
 
-	hosts := map[string]Host{
+	hosts := map[string]hostmodel.Config{
 		"h1": {Address: netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}},
 		"h2": {Address: netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02}},
 	}
 
 	switch variant {
 	case "cable-loss":
-		cables[1].Fault = Fault{Kind: FaultLoseEveryNth, N: 1}
+		cables[1].Fault = cablemodel.Fault{Kind: cablemodel.FaultLoseEveryNth, N: 1}
 	case "loop":
-		cables = append(cables, Cable{
-			A: Endpoint{Node: "sw1", Port: "1/1/2"}, B: Endpoint{Node: "sw2", Port: "1/1/2"}, LengthMeters: 5, Medium: MultimodeFiber,
+		cables = append(cables, fabric.Cable{
+			Cable: cablemodel.Cable{LengthMeters: 5, Medium: cablemodel.MultimodeFiber},
+			A:     fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/2"},
 		})
 	case "mirror":
-		hosts["an"] = Host{Address: netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x09}, Accept: HostAccept{Promiscuous: true}}
-		cables = append(cables, Cable{A: Endpoint{Node: "sw1", Port: "1/1/3"}, B: Endpoint{Node: "an"}, LengthMeters: 5})
+		hosts["an"] = hostmodel.Config{Address: netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x09}, Accept: hostmodel.Accept{Promiscuous: true}}
+		cables = append(cables, fabric.Cable{Cable: cablemodel.Cable{LengthMeters: 5}, A: fabric.Endpoint{Node: "sw1", Port: "1/1/3"}, B: fabric.Endpoint{Node: "an"}})
 		sw1.Traffic = &traffic.Config{Mirrors: []traffic.Mirror{{Name: "analyzer", SelectAll: true, OutputPort: "1/1/3"}}}
 	case "mirror-reject":
-		hosts["an"] = Host{Address: netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x09}}
-		cables = append(cables, Cable{A: Endpoint{Node: "sw1", Port: "1/1/3"}, B: Endpoint{Node: "an"}, LengthMeters: 5})
+		hosts["an"] = hostmodel.Config{Address: netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x09}}
+		cables = append(cables, fabric.Cable{Cable: cablemodel.Cable{LengthMeters: 5}, A: fabric.Endpoint{Node: "sw1", Port: "1/1/3"}, B: fabric.Endpoint{Node: "an"}})
 		sw1.Traffic = &traffic.Config{Mirrors: []traffic.Mirror{{Name: "analyzer", SelectAll: true, OutputPort: "1/1/3"}}}
 	case "reflector":
-		reflec := Reflector{
+		reflec := reflectormodel.Config{
 			Address: netaddr.MAC{0x02, 0x00, 0x00, 0x00, 0x01, 0xaa},
 			Ports:   map[string]phy.Ethernet{"rp1": {}},
-			Attachments: map[string]Attachment{
+			Attachments: map[string]reflectormodel.Attachment{
 				"a": {Port: "rp1", VLAN: &vid10, Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.9/24")}},
 			},
 		}
-		cables = append(cables, Cable{A: Endpoint{Node: "sw1", Port: "1/1/3"}, B: Endpoint{Node: "reflector", Port: "rp1"}, LengthMeters: 5})
-		cfg := Config{
+		cables = append(cables, fabric.Cable{Cable: cablemodel.Cable{LengthMeters: 5}, A: fabric.Endpoint{Node: "sw1", Port: "1/1/3"}, B: fabric.Endpoint{Node: "reflector", Port: "rp1"}})
+		cfg := assembly.Config{
 			Start:         t0,
 			PhyAssumption: testPhyAssumption(),
 			Switches:      map[string]vswitch.Config{"sw1": sw1, "sw2": sw2},
 			Hosts:         hosts,
-			Reflectors:    map[string]Reflector{"reflector": reflec},
+			Reflectors:    map[string]reflectormodel.Config{"reflector": reflec},
 			Cables:        cables,
 		}
 		return newInvariantFabric(t, cfg)
 	}
 
-	cfg := Config{
+	cfg := assembly.Config{
 		Start:         t0,
 		PhyAssumption: testPhyAssumption(),
 		Switches:      map[string]vswitch.Config{"sw1": sw1, "sw2": sw2},
@@ -300,9 +392,9 @@ func invariantFabric(t *testing.T, variant string, t0 time.Time) *Fabric {
 	return newInvariantFabric(t, cfg)
 }
 
-func newInvariantFabric(t *testing.T, cfg Config) *Fabric {
+func newInvariantFabric(t *testing.T, cfg assembly.Config) *fabric.Fabric {
 	t.Helper()
-	fab, err := New(cfg)
+	fab, err := assembly.New(cfg)
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
@@ -321,17 +413,17 @@ func TestMirrorCopyFoldsIntoCopies(t *testing.T) {
 		Dst:     netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02},
 		Payload: []byte("mirrored"),
 	}
-	if _, err := fab.Inject(Injection{
+	if _, err := fab.Inject(fabric.Injection{
 		At:        t0.Add(time.Millisecond),
-		Origin:    Endpoint{Node: "h1"},
+		Origin:    fabric.Endpoint{Node: "h1"},
 		Frame:     frame,
-		Retention: RetainAggregate,
+		Retention: fabric.RetainAggregate,
 		Flow:      5,
 	}); err != nil {
 		t.Fatalf("Inject: %v", err)
 	}
-	if res := fab.Run(100); res.Stop != StopQueueDrained {
-		t.Fatalf("Run stop = %s, want %s", res.Stop, StopQueueDrained)
+	if res := fab.Run(fabric.RunOptions{Budget: 100, Window: 0}); res.Stop != fabric.StopQueueDrained {
+		t.Fatalf("Run stop = %s, want %s", res.Stop, fabric.StopQueueDrained)
 	}
 
 	stats := fab.Flows()[5]
@@ -355,17 +447,17 @@ func TestMirrorCopyStaysOutOfTheStreamCounters(t *testing.T) {
 
 	t.Run("accepted copy", func(t *testing.T) {
 		fab := invariantFabric(t, "mirror", t0)
-		if _, err := fab.Inject(Injection{
+		if _, err := fab.Inject(fabric.Injection{
 			At:        t0.Add(time.Millisecond),
-			Origin:    Endpoint{Node: "h1"},
+			Origin:    fabric.Endpoint{Node: "h1"},
 			Frame:     frame,
-			Retention: RetainAggregate,
+			Retention: fabric.RetainAggregate,
 			Flow:      5,
 		}); err != nil {
 			t.Fatalf("Inject: %v", err)
 		}
-		if res := fab.Run(100); res.Stop != StopQueueDrained {
-			t.Fatalf("Run stop = %s, want %s", res.Stop, StopQueueDrained)
+		if res := fab.Run(fabric.RunOptions{Budget: 100, Window: 0}); res.Stop != fabric.StopQueueDrained {
+			t.Fatalf("Run stop = %s, want %s", res.Stop, fabric.StopQueueDrained)
 		}
 
 		stats := fab.Flows()[5]
@@ -382,17 +474,17 @@ func TestMirrorCopyStaysOutOfTheStreamCounters(t *testing.T) {
 
 	t.Run("rejected copy", func(t *testing.T) {
 		fab := invariantFabric(t, "mirror-reject", t0)
-		if _, err := fab.Inject(Injection{
+		if _, err := fab.Inject(fabric.Injection{
 			At:        t0.Add(time.Millisecond),
-			Origin:    Endpoint{Node: "h1"},
+			Origin:    fabric.Endpoint{Node: "h1"},
 			Frame:     frame,
-			Retention: RetainAggregate,
+			Retention: fabric.RetainAggregate,
 			Flow:      6,
 		}); err != nil {
 			t.Fatalf("Inject: %v", err)
 		}
-		if res := fab.Run(100); res.Stop != StopQueueDrained {
-			t.Fatalf("Run stop = %s, want %s", res.Stop, StopQueueDrained)
+		if res := fab.Run(fabric.RunOptions{Budget: 100, Window: 0}); res.Stop != fabric.StopQueueDrained {
+			t.Fatalf("Run stop = %s, want %s", res.Stop, fabric.StopQueueDrained)
 		}
 
 		stats := fab.Flows()[6]
@@ -423,10 +515,9 @@ func TestHeldFlowCountsHeld(t *testing.T) {
 	macH2 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x77}
 	addrH2 := netip.MustParseAddr("10.0.20.7")
 
-	cfg := Config{
-		Start:         t0,
-		PhyAssumption: testPhyAssumption(),
-		Switches: map[string]vswitch.Config{"sw1": {
+	cfg := simtest.RoutedFixture(
+		t0,
+		map[string]vswitch.Config{"sw1": {
 			MAC:   swMAC,
 			Ports: ports,
 			Bridge: &bridge.Config{VLAN: &bridge.VLAN{
@@ -437,17 +528,17 @@ func TestHeldFlowCountsHeld(t *testing.T) {
 				},
 			}},
 			Routing: &routing.Config{VRFs: map[string]routing.VRF{routing.DefaultVRF: {
-				NeighborPolicy: routing.NeighborPolicy{ResolutionTimeout: time.Hour},
+				NeighborPolicy: routing.NeighborPolicy{RetransTimer: time.Hour},
 				Interfaces: map[string]routing.Interface{
 					"vlan10": {VLAN: 10, MAC: swMAC, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.10.1/24")}},
 					"vlan20": {VLAN: 20, MAC: swMAC, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.20.1/24")}},
 				},
 			}}},
 		}},
-		Hosts: map[string]Host{
+		map[string]hostmodel.Config{
 			"h1": {
 				Address: macH1,
-				IP: &HostIP{
+				IP: &hostmodel.IP{
 					Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.7/24")},
 					Gateway:   netip.MustParseAddr("10.0.10.1"),
 					Neighbors: map[netip.Addr]netaddr.MAC{netip.MustParseAddr("10.0.10.1"): swMAC},
@@ -455,23 +546,24 @@ func TestHeldFlowCountsHeld(t *testing.T) {
 			},
 			"h2": {Address: macH2},
 		},
-		Cables: []Cable{
-			{A: Endpoint{Node: "h1"}, B: Endpoint{Node: "sw1", Port: "1/1/1"}, LengthMeters: 5},
-			{A: Endpoint{Node: "sw1", Port: "1/1/2"}, B: Endpoint{Node: "h2"}, LengthMeters: 5},
+		[]fabric.Cable{
+			{Cable: cablemodel.Cable{LengthMeters: 5}, A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
+			{Cable: cablemodel.Cable{LengthMeters: 5}, A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "h2"}},
 		},
-	}
+	)
+	cfg.PhyAssumption = testPhyAssumption()
 	fab := newInvariantFabric(t, cfg)
 
-	if _, err := fab.Inject(Injection{
+	if _, err := fab.Inject(fabric.Injection{
 		At:        t0,
-		Origin:    Endpoint{Node: "h1"},
-		Packet:    &Packet{To: addrH2, Protocol: 17, Payload: []byte("ping")},
-		Retention: RetainAggregate,
+		Origin:    fabric.Endpoint{Node: "h1"},
+		Packet:    &fabric.Packet{To: addrH2, Protocol: 17, Payload: []byte("ping")},
+		Retention: fabric.RetainAggregate,
 		Flow:      9,
 	}); err != nil {
 		t.Fatalf("Inject packet: %v", err)
 	}
-	fab.Run(20)
+	fab.Run(fabric.RunOptions{Budget: 5, Window: 0})
 
 	stats := fab.Flows()[9]
 	if stats.Held != 1 {
@@ -520,7 +612,7 @@ func heldPropertyARPReply(t *testing.T, senderMAC netaddr.MAC, senderAddr netip.
 // per VLAN, a host behind each, and nothing configured for the 10.0.20.0/24
 // neighbors, so a frame routed to a 10.0.20.x address is held until an ARP
 // reply observes it.
-func heldPropertyFixture(t *testing.T) (*Fabric, netaddr.MAC, netaddr.MAC) {
+func heldPropertyFixture(t *testing.T) (*fabric.Fabric, netaddr.MAC, netaddr.MAC) {
 	t.Helper()
 
 	ports, err := port.NewBuilder().
@@ -536,10 +628,9 @@ func heldPropertyFixture(t *testing.T) (*Fabric, netaddr.MAC, netaddr.MAC) {
 	macH1 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x11}
 	macH2 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x77}
 
-	cfg := Config{
-		Start:         time.Date(2026, 9, 21, 10, 0, 0, 0, time.UTC),
-		PhyAssumption: testPhyAssumption(),
-		Switches: map[string]vswitch.Config{"sw1": {
+	cfg := simtest.RoutedFixture(
+		time.Date(2026, 9, 21, 10, 0, 0, 0, time.UTC),
+		map[string]vswitch.Config{"sw1": {
 			MAC:   swMAC,
 			Ports: ports,
 			Bridge: &bridge.Config{VLAN: &bridge.VLAN{
@@ -556,21 +647,22 @@ func heldPropertyFixture(t *testing.T) (*Fabric, netaddr.MAC, netaddr.MAC) {
 				},
 			}}},
 		}},
-		Hosts: map[string]Host{
-			"h1": {Address: macH1, IP: &HostIP{
+		map[string]hostmodel.Config{
+			"h1": {Address: macH1, IP: &hostmodel.IP{
 				Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.7/24")},
 				Gateway:   netip.MustParseAddr("10.0.10.1"),
 				Neighbors: map[netip.Addr]netaddr.MAC{netip.MustParseAddr("10.0.10.1"): swMAC},
 			}},
 			"h2": {Address: macH2},
 		},
-		Cables: []Cable{
-			{A: Endpoint{Node: "h1"}, B: Endpoint{Node: "sw1", Port: "1/1/1"}, LengthMeters: 5},
-			{A: Endpoint{Node: "sw1", Port: "1/1/2"}, B: Endpoint{Node: "h2"}, LengthMeters: 5},
+		[]fabric.Cable{
+			{Cable: cablemodel.Cable{LengthMeters: 5}, A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
+			{Cable: cablemodel.Cable{LengthMeters: 5}, A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "h2"}},
 		},
-	}
+	)
+	cfg.PhyAssumption = testPhyAssumption()
 
-	fab, err := New(cfg)
+	fab, err := assembly.New(cfg)
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
@@ -578,14 +670,11 @@ func heldPropertyFixture(t *testing.T) (*Fabric, netaddr.MAC, netaddr.MAC) {
 	return fab, swMAC, macH1
 }
 
-// heldPropertyRun is what one retention of the property fixture produced: the
-// fabric, the mapping from each release journey's FrameID to the FrameID it
-// names as its holder, and the FrameIDs of the held flow frames this run
-// injected.
+// heldPropertyRun records the continued holders that survived retention.
 type heldPropertyRun struct {
-	fab       *Fabric
-	releaseOf map[FrameID]FrameID
-	heldIDs   []FrameID
+	fab       *fabric.Fabric
+	releaseOf map[fabric.FrameID]fabric.FrameID
+	heldIDs   []fabric.FrameID
 }
 
 // runHeldProperty drives the fixture with the flow frames either retained or
@@ -594,8 +683,8 @@ type heldPropertyRun struct {
 // is resolved in turn, while the later ones are still held, so every release
 // happens beside a held frame another retention kept. Four more frames for a
 // fourth address exceed the default neighbor HoldDepth of three, so the oldest
-// is evicted; that address is never resolved, and the default three-second
-// resolution timeout expires the rest. The replies land before that timeout.
+// is evicted; that address is never resolved, and the three unanswered
+// solicitations fail the rest after three seconds. The replies land before that timeout.
 func runHeldProperty(t *testing.T, aggregated bool) heldPropertyRun {
 	t.Helper()
 
@@ -603,15 +692,15 @@ func runHeldProperty(t *testing.T, aggregated bool) heldPropertyRun {
 	t0 := time.Date(2026, 9, 21, 10, 0, 0, 0, time.UTC)
 	saddr := netip.MustParseAddr("10.0.10.7")
 
-	flowRetention := RetainJourney
+	flowRetention := fabric.RetainJourney
 	if aggregated {
-		flowRetention = RetainAggregate
+		flowRetention = fabric.RetainAggregate
 	}
 
-	injectFrame := func(at time.Time, daddr netip.Addr, payload []byte, flow FlowID, retention Retention) FrameID {
-		fid, err := fab.Inject(Injection{
+	injectFrame := func(at time.Time, daddr netip.Addr, payload []byte, flow flow.ID, retention fabric.JourneyRetention) fabric.FrameID {
+		fid, err := fab.Inject(fabric.Injection{
 			At:        at,
-			Origin:    Endpoint{Node: "sw1", Port: "1/1/1"},
+			Origin:    fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
 			Frame:     heldPropertyFrame(t, macH1, swMAC, saddr, daddr, payload),
 			Retention: retention,
 			Flow:      flow,
@@ -623,9 +712,9 @@ func runHeldProperty(t *testing.T, aggregated bool) heldPropertyRun {
 		return fid
 	}
 	injectReply := func(at time.Time, senderMAC netaddr.MAC, senderAddr netip.Addr) {
-		if _, err := fab.Inject(Injection{
+		if _, err := fab.Inject(fabric.Injection{
 			At:     at,
-			Origin: Endpoint{Node: "sw1", Port: "1/1/2"},
+			Origin: fabric.Endpoint{Node: "sw1", Port: "1/1/2"},
 			Frame:  heldPropertyARPReply(t, senderMAC, senderAddr, swMAC),
 		}); err != nil {
 			t.Fatalf("Inject ARP reply for %s: %v", senderAddr, err)
@@ -638,9 +727,9 @@ func runHeldProperty(t *testing.T, aggregated bool) heldPropertyRun {
 	addrD := netip.MustParseAddr("10.0.20.10")
 	macB := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x88}
 
-	heldIDs := []FrameID{
+	heldIDs := []fabric.FrameID{
 		injectFrame(t0.Add(1*time.Millisecond), addrA, []byte("holder-a"), 11, flowRetention),
-		injectFrame(t0.Add(2*time.Millisecond), addrB, []byte("holder-b"), 0, RetainJourney),
+		injectFrame(t0.Add(2*time.Millisecond), addrB, []byte("holder-b"), 0, fabric.RetainJourney),
 		injectFrame(t0.Add(3*time.Millisecond), addrD, []byte("holder-d"), 13, flowRetention),
 	}
 	injectReply(t0.Add(4*time.Millisecond), macB, addrA)
@@ -652,83 +741,387 @@ func runHeldProperty(t *testing.T, aggregated bool) heldPropertyRun {
 		))
 	}
 
-	fab.Run(100)
+	fab.Run(fabric.RunOptions{Budget: 100, Window: 0})
 
-	releaseOf := make(map[FrameID]FrameID)
-	for _, j := range fab.Report() {
-		if j.Origin.Kind == OriginRelease {
-			releaseOf[j.FrameID] = j.Origin.Of
+	releaseOf := make(map[fabric.FrameID]fabric.FrameID)
+	for _, fid := range heldIDs[:3] {
+		if aggregated && fid != heldIDs[1] {
+			continue
+		}
+		for _, j := range fab.Report() {
+			if j.FrameID == fid && j.State == fabric.JourneyRejected {
+				releaseOf[fid] = fid
+			}
 		}
 	}
 
 	return heldPropertyRun{fab: fab, releaseOf: releaseOf, heldIDs: heldIDs}
 }
 
-// TestAggregateRetentionPreservesReleaseAttribution is the property this
-// change must hold: for one fixture, retention does not change which frame a
-// release names. The
-// same fixture runs twice, once with the flow frames retained and once with
-// them aggregated; the two release->holder mappings must match, and the
-// aggregate run must leave no settled aggregate journey or re-entry set behind
-// and no pending journey for the aggregated frames, evicted or timed out holds
-// included. In the retained run the held frames that resolution abandoned stay
-// pending, as they do without aggregation.
 func TestAggregateRetentionPreservesReleaseAttribution(t *testing.T) {
 	retained := runHeldProperty(t, false)
 	aggregated := runHeldProperty(t, true)
-
-	if len(retained.releaseOf) == 0 {
-		t.Fatal("the retained run produced no release journey; the property held vacuously")
+	if len(retained.releaseOf) != 3 || len(aggregated.releaseOf) != 1 || aggregated.releaseOf[aggregated.heldIDs[1]] != aggregated.heldIDs[1] {
+		t.Fatalf("continued holders = %v/%v, want three retained and one non-flow holder", retained.releaseOf, aggregated.releaseOf)
 	}
-	if len(retained.releaseOf) != len(aggregated.releaseOf) {
-		t.Fatalf("release counts differ: retained %d, aggregated %d", len(retained.releaseOf), len(aggregated.releaseOf))
-	}
-	for fid, of := range retained.releaseOf {
-		if got, ok := aggregated.releaseOf[fid]; !ok || got != of {
-			t.Errorf("release %d names %d when retained, got %d (present %v) when aggregated", fid, of, got, ok)
+	for _, run := range []heldPropertyRun{retained, aggregated} {
+		if len(*fabric.ExportFabricHeld(run.fab)) != 0 || fabric.ExportFabricHasPendingJourneys(run.fab) {
+			t.Fatalf("hold exits left keys or pending journeys")
+		}
+		for fid := range *fabric.ExportFabricEntered(run.fab) {
+			if (*fabric.ExportFabricJourneys(run.fab))[fid] == nil {
+				t.Fatalf("entered frame %d has no journey", fid)
+			}
 		}
 	}
-
-	if got := len(aggregated.fab.journeys); got == 0 {
-		t.Errorf("aggregated run kept no protocol or non-flow journey; the fixture lost its non-aggregate frames")
-	}
-	for fid, j := range aggregated.fab.journeys {
-		if j.Injection.Retention == RetainAggregate {
-			t.Errorf("journey %d survived with RetainAggregate retention", fid)
+	for fid, j := range *fabric.ExportFabricJourneys(aggregated.fab) {
+		if j.Injection.Retention == fabric.RetainAggregate || j.Protocol {
+			t.Fatalf("unretained journey %d survived settle", fid)
 		}
 	}
-	for fid := range aggregated.fab.entered {
-		if j := aggregated.fab.journeys[fid]; j == nil {
-			t.Errorf("entered holds %d with no journey", fid)
+	for _, flow := range []flow.ID{11, 13} {
+		if stats := aggregated.fab.Flows()[flow]; stats.Rejected != 1 || stats.Held != 0 {
+			t.Fatalf("flow %d = %+v, want one rejection and no hold", flow, stats)
 		}
 	}
-	if aggregated.fab.hasPendingJourneys() {
-		t.Errorf("aggregated run still has a pending journey: %+v", aggregated.fab.Report())
+	stats := aggregated.fab.Flows()[12]
+	if stats.Drops[routing.ReasonNeighborHoldOverflow] != 1 || stats.Drops[routing.ReasonNeighborMiss] != 3 || stats.Held != 0 {
+		t.Fatalf("evicted/timed out flow = %+v, want one overflow and three misses", stats)
 	}
+}
 
-	releasedHolders := make(map[FrameID]bool, len(aggregated.releaseOf))
-	for _, of := range aggregated.releaseOf {
-		releasedHolders[of] = true
-	}
-	var want []FrameID
-	for _, fid := range aggregated.heldIDs {
-		if !releasedHolders[fid] {
-			want = append(want, fid)
+func TestHoldExits(t *testing.T) {
+	var cases int
+	for _, exit := range []string{"released", "timed out", "overflow", "filtered", "reconfigured"} {
+		for _, retention := range []fabric.JourneyRetention{fabric.RetainJourney, fabric.RetainAggregate} {
+			for _, reverse := range []bool{false, true} {
+				name := fmt.Sprintf("%s/retention=%d/reverse=%t", exit, retention, reverse)
+				t.Run(name, func(t *testing.T) {
+					checkHoldExit(t, exit, retention, reverse)
+					cases++
+				})
+			}
 		}
 	}
-	if got := aggregated.fab.heldAggregates["sw1"]; !slices.Equal(got, want) {
-		t.Errorf("heldAggregates[sw1] = %v, want only the abandoned holds %v: a release claims the holder's placeholder", got, want)
+	if cases != 20 {
+		t.Fatalf("checked cases = %d, want 20", cases)
 	}
-	if got := retained.fab.heldAggregates["sw1"]; len(got) != 0 {
-		t.Errorf("retained run kept placeholders %v, want none: no journey is freed there", got)
+}
+
+func checkHoldExit(t *testing.T, exit string, retention fabric.JourneyRetention, reverse bool) {
+	t.Helper()
+	base, swMAC, srcMAC := heldPropertyFixture(t)
+	cfg := assembly.Spec(base).Config()
+	sw := cfg.Switches["sw1"]
+	sw.STP = &stp.Config{Ports: map[string]stp.Port{"1/1/1": {AdminEdge: true}, "1/1/2": {AdminEdge: true}}}
+	vrf := sw.Routing.VRFs[routing.DefaultVRF]
+	vrf.NeighborPolicy.HoldDepth = 1
+	sw.Routing.VRFs[routing.DefaultVRF] = vrf
+	if exit == "filtered" {
+		sw.Filter = &filter.Config{
+			Sets:     map[string]filter.RuleSet{"refuse": {Default: filter.Drop}},
+			Bindings: []filter.Binding{{Interface: "vlan20", Direction: filter.Out, Set: "refuse"}},
+		}
+	}
+	cfg.Switches["sw1"] = sw
+	if exit == "reconfigured" || exit == "timed out" {
+		second := sw.Clone()
+		second.MAC[5]++
+		secondVRF := second.Routing.VRFs[routing.DefaultVRF]
+		for name, iface := range secondVRF.Interfaces {
+			iface.MAC = second.MAC
+			secondVRF.Interfaces[name] = iface
+		}
+		if exit == "timed out" {
+			if reverse {
+				vrf.NeighborPolicy.RetransTimer = 2 * time.Second
+				sw.Routing.VRFs[routing.DefaultVRF] = vrf
+				cfg.Switches["sw1"] = sw
+				secondVRF.NeighborPolicy.RetransTimer = time.Second
+			} else {
+				secondVRF.NeighborPolicy.RetransTimer = 2 * time.Second
+			}
+		}
+		second.Routing.VRFs[routing.DefaultVRF] = secondVRF
+		cfg.Switches["sw2"] = second
+		cfg.Hosts["h3"] = hostmodel.Config{Address: netaddr.MAC{2, 0, 0, 0, 0, 3}}
+		cfg.Hosts["h4"] = hostmodel.Config{Address: netaddr.MAC{2, 0, 0, 0, 0, 4}}
+		cfg.Cables = append(cfg.Cables,
+			fabric.Cable{A: fabric.Endpoint{Node: "h3"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/1"}},
+			fabric.Cable{A: fabric.Endpoint{Node: "sw2", Port: "1/1/2"}, B: fabric.Endpoint{Node: "h4"}})
+	}
+	fab, err := assembly.New(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	addresses := [2]string{"10.0.20.7", "10.0.20.8"}
+	if reverse && exit != "timed out" && exit != "reconfigured" {
+		addresses[0], addresses[1] = addresses[1], addresses[0]
+	}
+	var ids [2]fabric.FrameID
+	for i, addr := range addresses {
+		offset := i + 1
+		node := "sw1"
+		if (exit == "reconfigured" || exit == "timed out") && i == 1 {
+			node = "sw2"
+		}
+		routerMAC := cfg.Switches[node].MAC
+		ids[i], err = fab.Inject(fabric.Injection{
+			At:        cfg.Start.Add(time.Duration(offset) * time.Millisecond),
+			Origin:    fabric.Endpoint{Node: node, Port: "1/1/1"},
+			Frame:     heldPropertyFrame(t, srcMAC, routerMAC, netip.MustParseAddr("10.0.10.7"), netip.MustParseAddr(addr), []byte(addr)),
+			Retention: retention, Flow: flow.ID(i + 1),
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	var holds int
+	for steps := 0; holds < 2 && steps < 1000; steps++ {
+		_, ok := fab.Step()
+		if !ok {
+			t.Fatal("ended before both holds")
+		}
+		holds = len(*fabric.ExportFabricHeld(fab))
+	}
+	if holds != 2 {
+		t.Fatalf("held frames = %d, want 2 within 1000 steps", holds)
+	}
+	if len(*fabric.ExportFabricHeld(fab)) != 2 {
+		t.Fatalf("held keys = %d, want 2", len(*fabric.ExportFabricHeld(fab)))
+	}
+	var exitOrder []fabric.FrameID
+	ended := make(map[fabric.FrameID]bool)
+	exitTimes := make(map[fabric.FrameID]time.Time)
+	observeExit := func() {
+		for _, fid := range ids {
+			present := false
+			for _, held := range *fabric.ExportFabricHeld(fab) {
+				if held == fid {
+					present = true
+				}
+			}
+			if !present && !ended[fid] {
+				ended[fid] = true
+				exitOrder = append(exitOrder, fid)
+				exitTimes[fid] = fab.Clock()
+			}
+		}
+	}
+	wantReason := trace.Reason("")
+	switch exit {
+	case "released", "filtered":
+		for i, addr := range []string{"10.0.20.7", "10.0.20.8"} {
+			_, err = fab.Inject(fabric.Injection{
+				At:     cfg.Start.Add(time.Duration(10+i) * time.Millisecond),
+				Origin: fabric.Endpoint{Node: "sw1", Port: "1/1/2"},
+				Frame:  heldPropertyARPReply(t, netaddr.MAC{0, 0x11, 0x22, 0x33, 0x44, 0x77}, netip.MustParseAddr(addr), swMAC),
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+		if exit == "filtered" {
+			wantReason = filter.ReasonFilterDrop
+		}
+	case "overflow":
+		wantReason = routing.ReasonNeighborHoldOverflow
+		for i, addr := range []string{"10.0.20.7", "10.0.20.8"} {
+			_, err = fab.Inject(fabric.Injection{
+				At:     cfg.Start.Add(time.Duration(10+i) * time.Millisecond),
+				Origin: fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
+				Frame:  heldPropertyFrame(t, srcMAC, swMAC, netip.MustParseAddr("10.0.10.7"), netip.MustParseAddr(addr), []byte("replacement")),
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+	case "timed out":
+		wantReason = routing.ReasonNeighborMiss
+	case "reconfigured":
+		wantReason = routing.ReasonNeighborMiss
+		nodes := []string{"sw1", "sw2"}
+		if reverse {
+			slices.Reverse(nodes)
+		}
+		cfgClock := fab.Clock()
+		for _, node := range nodes {
+			sw = assembly.Spec(fab).Config().Switches[node]
+			vrf = sw.Routing.VRFs[routing.DefaultVRF]
+			vrf.Routes = append(vrf.Routes, routing.Route{Prefix: netip.MustParsePrefix("10.99.0.0/16"), Interface: "vlan20"})
+			sw.Routing.VRFs[routing.DefaultVRF] = vrf
+			if err := assembly.Configure(fab, node, sw); err != nil {
+				t.Fatal(err)
+			}
+			observeExit()
+		}
+		if len(exitOrder) != 2 {
+			t.Fatalf("reconfigured exit count before step loop = %d, want 2", len(exitOrder))
+		}
+		for _, fid := range ids {
+			if !exitTimes[fid].Equal(cfgClock) {
+				t.Fatalf("reconfigured exit time for frame %d = %v, want configure clock %v", fid, exitTimes[fid], cfgClock)
+			}
+		}
+	}
+	for steps := 0; len(exitOrder) < 2 && steps < 1000; steps++ {
+		if _, ok := fab.Step(); !ok {
+			t.Fatal("ended before both hold exits")
+		}
+		observeExit()
+	}
+	wantOrder := []fabric.FrameID{ids[0], ids[1]}
+	if reverse {
+		slices.Reverse(wantOrder)
+	}
+	if !slices.Equal(exitOrder, wantOrder) {
+		t.Fatalf("hold exit order = %v, want %v", exitOrder, wantOrder)
 	}
 
-	if !retained.fab.hasPendingJourneys() {
-		t.Errorf("retained run has no pending journey, want the held frames resolution abandoned to stay pending")
+	result, err := fab.RunScenario(fabric.Scenario{Name: "hold exits"}, fabric.RunOptions{Budget: 1000, Window: 3})
+	if err != nil {
+		t.Fatal(err)
 	}
-	for _, j := range retained.fab.Report() {
-		if j.State == JourneyPending && !isJourneyHeld(&j) {
-			t.Errorf("retained run has a pending journey %d that no hold explains", j.FrameID)
+	if result.Stop != fabric.StopConverged {
+		t.Fatalf("stop = %s, want Converged", result.Stop)
+	}
+	if len(*fabric.ExportFabricHeld(fab)) != 0 {
+		t.Fatalf("held keys remain: %v", *fabric.ExportFabricHeld(fab))
+	}
+	for i, fid := range ids {
+		stats := fab.Flows()[flow.ID(i+1)]
+		if stats.Held != 0 || stats.Offered != 1 {
+			t.Fatalf("flow %d Held/Offered = %d/%d, want 0/1", i+1, stats.Held, stats.Offered)
+		}
+		if wantReason == "" {
+			if stats.Delivered["h2"] != 1 || stats.Latency.Count != 1 || len(stats.Drops) != 0 {
+				t.Fatalf("flow %d = %+v, want one delivery/sample and no drops", i+1, stats)
+			}
+			if stats.Latency.Min < 8*time.Millisecond {
+				t.Fatalf("flow %d Latency.Min = %v, want at least 8ms hold duration", i+1, stats.Latency.Min)
+			}
+		} else if stats.Drops[wantReason] != 1 || len(stats.Delivered) != 0 || stats.Latency.Count != 0 {
+			t.Fatalf("flow %d = %+v, want exactly one %s drop and no delivery/sample", i+1, stats, wantReason)
+		}
+		var found bool
+		for _, j := range fab.Report() {
+			if j.FrameID != fid {
+				continue
+			}
+			found = true
+			if retention == fabric.RetainAggregate {
+				t.Fatalf("aggregate holder %d survived", fid)
+			}
+			hdr, _, err := ip.Decode(j.Injection.Frame.Payload)
+			if err != nil || hdr.Dst != netip.MustParseAddr(addresses[i]) {
+				t.Fatalf("holder %d destination = %s/%v, want %s", fid, hdr.Dst, err, addresses[i])
+			}
+			if wantReason == "" {
+				if j.State != fabric.JourneyDelivered || len(j.Deliveries) != 1 || j.Deliveries[0].Host != "h2" {
+					t.Fatalf("holder %d = %s/%+v, want Delivered/h2", fid, j.State, j.Deliveries)
+				}
+			} else {
+				var drops int
+				for _, e := range j.Entries {
+					if e.Kind == fabric.EntryDrop && e.Reason == wantReason {
+						drops++
+					}
+				}
+				if j.State != fabric.JourneyDropped || drops != 1 {
+					t.Fatalf("holder %d state/drops = %s/%d, want Dropped/1", fid, j.State, drops)
+				}
+			}
+		}
+		if retention == fabric.RetainJourney && !found {
+			t.Fatalf("holder %d disappeared", fid)
+		}
+	}
+}
+
+// observeJourneys samples live reports before settlement and returns raw step results.
+func observeJourneys(t *testing.T, fab *fabric.Fabric, budget int) ([]fabric.Journey, []fabric.Entry) {
+	t.Helper()
+	seen := make(map[fabric.FrameID]fabric.Journey)
+	var entries []fabric.Entry
+	for i := 0; i <= budget; i++ {
+		for _, j := range fab.Report() {
+			seen[j.FrameID] = j
+		}
+		if i == budget {
+			break
+		}
+		e, ok := fab.Step()
+		if !ok {
+			break
+		}
+		entries = append(entries, e.Entry)
+	}
+	if err := fab.Err(); err != nil {
+		t.Fatal(err)
+	}
+	var journeys []fabric.Journey
+	for _, fid := range slices.Sorted(maps.Keys(seen)) {
+		journeys = append(journeys, seen[fid])
+	}
+	return journeys, entries
+}
+
+func TestReleaseWithMirrorUnderAggregate(t *testing.T) {
+	base, swMAC, srcMAC := heldPropertyFixture(t)
+	cfg := assembly.Spec(base).Config()
+	sw := cfg.Switches["sw1"]
+	builder := port.NewBuilder()
+	for _, p := range sw.Ports.Ports() {
+		builder.Add(p)
+	}
+	builder.Add(port.Port{Name: "mirror", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	var err error
+	sw.Ports, err = builder.Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	sw.Traffic = &traffic.Config{Mirrors: []traffic.Mirror{{Name: "span", SelectDstPorts: []string{"1/1/2"}, OutputPort: "mirror"}}}
+	cfg.Switches["sw1"] = sw
+	cfg.Hosts["analyzer"] = hostmodel.Config{Address: netaddr.MAC{2, 0, 0, 0, 0, 9}, Accept: hostmodel.Accept{Promiscuous: true}}
+	cfg.Cables = append(cfg.Cables, fabric.Cable{A: fabric.Endpoint{Node: "sw1", Port: "mirror"}, B: fabric.Endpoint{Node: "analyzer"}})
+	fab, err := assembly.New(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fab.Inject(fabric.Injection{
+		At: cfg.Start, Origin: fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
+		Frame:     heldPropertyFrame(t, srcMAC, swMAC, netip.MustParseAddr("10.0.10.7"), netip.MustParseAddr("10.0.20.7"), []byte("mirror")),
+		Retention: fabric.RetainAggregate, Flow: 21,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	releaseHeldAddress(t, fab, swMAC, "10.0.20.7")
+	stats := fab.Flows()[21]
+	if stats.Delivered["h2"] != 1 || stats.Copies["span"] != 1 || stats.Latency.Count != 1 || stats.Held != 0 || len(*fabric.ExportFabricHeld(fab)) != 0 {
+		t.Fatalf("released mirror flow = %+v, held=%v, want Delivered=1, Copies=1, Latency.Count=1 and no hold", stats, *fabric.ExportFabricHeld(fab))
+	}
+}
+
+func TestProtocolJourneyFreedAtSettle(t *testing.T) {
+	fab, _, _ := injectHeldPair(t, fabric.RetainJourney)
+	var protocols []fabric.FrameID
+	for _, j := range fab.Report() {
+		if j.Protocol {
+			protocols = append(protocols, j.FrameID)
+		}
+	}
+	if len(protocols) != 2 {
+		t.Fatalf("live protocol journeys = %d, want 2 solicitations", len(protocols))
+	}
+	fab.Run(fabric.RunOptions{Budget: 100, Window: 0})
+	for _, fid := range protocols {
+		if (*fabric.ExportFabricJourneys(fab))[fid] != nil || (*fabric.ExportFabricEntered(fab))[fid] != nil {
+			t.Fatalf("settled protocol %d retained journey or entered set", fid)
+		}
+	}
+	for _, j := range fab.Report() {
+		if j.Protocol {
+			t.Fatalf("protocol journey %d survived settle", j.FrameID)
 		}
 	}
 }

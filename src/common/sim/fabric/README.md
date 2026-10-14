@@ -1,17 +1,18 @@
 # fabric
 
-A Layer 2 network fabric composes virtual switches, hosts, and cables into
-a simulated network. Execution advances synchronously in discrete steps.
-Each step takes the earliest scheduled arrival, forwards it through the
-destination switch, and queues copies onto connected cables.
+The fabric runtime drives built devices over cables in a simulated network.
+[assembly](../assembly/README.md) builds switches, hosts, and reflectors from
+configurations and supplies their configured physical facts. Execution advances synchronously in discrete steps.
+Each step handles one queue event. Host transmissions and stream frames enter
+through that queue, so a future injection cannot charge a host ahead of the clock.
 
 ## Example
 
 The example builds two switches joined by a 300-meter cable with hosts `h1`
 and `h2` in VLAN 10. The trunk uses multimode fiber because 300 m of twisted
 pair is past reach. No port or host states its Ethernet facts and the host
-cables state no medium, so the configuration assumes gigabit copper for them;
-without that assumption every link would be `Unknown` and nothing would move.
+cables state no medium, so the configuration assumes gigabit copper for them.
+Without that assumption every link would be `Unknown` and nothing would move.
 A frame injected at `h1` traverses `sw1`, crosses the cable, traverses `sw2`,
 and delivers to `h2`.
 
@@ -25,10 +26,13 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
-	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
+	"go.aledante.io/FlowSeer/src/common/sim/fabric"
+    "go.aledante.io/FlowSeer/src/common/sim/assembly"
+    "go.aledante.io/FlowSeer/src/common/sim/device/host"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
@@ -85,13 +89,13 @@ func main() {
 	macH1 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}
 	macH2 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02}
 
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Start: time.Unix(1700000000, 0),
 		Switches: map[string]vswitch.Config{
 			"sw1": {Ports: ports1, Bridge: makeBridge()},
 			"sw2": {Ports: ports2, Bridge: makeBridge()},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]host.Config{
 			"h1": {Address: macH1},
 			"h2": {Address: macH2},
 		},
@@ -101,18 +105,17 @@ func main() {
 				B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
 			},
 			{
-				A:            fabric.Endpoint{Node: "sw1", Port: "1/1/24"},
-				B:            fabric.Endpoint{Node: "sw2", Port: "1/1/24"},
-				LengthMeters: 300,
-				Medium:       fabric.MultimodeFiber,
+				Cable: cablemodel.Cable{LengthMeters: 300, Medium: cablemodel.MultimodeFiber},
+				A:     fabric.Endpoint{Node: "sw1", Port: "1/1/24"},
+				B:     fabric.Endpoint{Node: "sw2", Port: "1/1/24"},
 			},
 			{
 				A: fabric.Endpoint{Node: "sw2", Port: "1/1/1"},
 				B: fabric.Endpoint{Node: "h2"},
 			},
 		},
-		PhyAssumption: &fabric.PhyAssumption{
-			Medium: fabric.TwistedPair,
+		PhyAssumption: &cablemodel.PhyAssumption{
+			Medium: cablemodel.TwistedPair,
 			Ethernet: phy.Ethernet{
 				SupportedSpeedsBPS:       []uint64{10_000_000, 100_000_000, 1_000_000_000},
 				AutoNegotiationSupported: phy.CapabilitySupported,
@@ -121,7 +124,7 @@ func main() {
 		},
 	}
 
-	fab, err := fabric.New(cfg)
+	fab, err := assembly.New(cfg)
 	if err != nil {
 		panic(err)
 	}
@@ -141,7 +144,7 @@ func main() {
 		panic(err)
 	}
 
-	res := fab.Run(10)
+	res := fab.Run(fabric.RunOptions{Budget: 10, Window: 0})
 	fmt.Printf("Completed in %d steps\n", res.Steps)
 }
 ```
@@ -168,23 +171,30 @@ if err := fab.AttachStream(fabric.StreamAttachment{
 }); err != nil {
 	panic(err)
 }
-result := fab.Run(10_000)
+result := fab.Run(fabric.RunOptions{Budget: 10_000, Window: 0})
 stats := fab.Flows()[7]
 fmt.Printf("%s: %d frames offered\n", result.Stop, stats.Offered)
 ```
 
-The source reports offsets from its own start. The injection time is
-`Config.Start + StreamAttachment.Start + source offset`. Before each step, the
-run releases pending host injections and pulls stream frames
-due no later than the earliest queued arrival. When the queue is empty, it
-releases the earliest frame to keep the run moving. Eager host injections win
-ties with stream frames; streams at the same time follow attachment order.
-`RunScenario` refuses actions when streams are attached because the action loop
-does not order actions against source frames. A host source ends
-when its origin link is `Down`; an `Unknown` link leaves each frame unresolved.
+The source reports offsets from the consumer epoch. Spec sources include
+`Spec.Start` in that offset. The injection time is
+`Config.Start + StreamAttachment.Start + source offset`. Attachment reads one
+frame and queues its stream event. Each such event introduces that frame and
+reads its successor, which bounds memory by the number of attached sources.
+An `Unknown` link consumes one frame per event. A host source ends when its
+origin link is `Down`. A codec refusal or backward offset ends that source
+with `stream-fault` in its flow metadata and the run issues.
+
+Scenario actions share the queue with attached streams. At equal times, kinds
+run in the order host transmission, action, wake, stream, frame, dequeue.
+Within a kind, sequence, device, and port decide the order (`compareArrival`
+in [queue.go](queue.go)). `PendingWork.Inputs` counts queued host transmissions,
+stream frames, and actions. Every event consumes one step of the run budget.
+`Inject` refuses a time before the clock, including before the first step.
+A past-dated queued event executes at the clock.
 
 Every attached frame belongs to a nonzero flow. The default `RetainJourney`
-keeps its journey in `Report`; choose `RetainAggregate` to fold the outcome into
+keeps its journey in `Report`. Choose `RetainAggregate` to fold the outcome into
 `Flows` and release the settled journey. The fabric owns the source cursor
 after attachment. `Fork` clones that cursor and any peeked frame, so each fork
 continues the remaining stream independently.
@@ -201,7 +211,7 @@ progression across devices and cables:
   (serialization 672 ns at 1 Gbit/s for the 84 wire octets of a 60-octet frame,
   wait 0, latency 0 on a 0 m cable).
 - `Hop`: Evaluates forwarding on `sw1:1/1/1` at `t0 + 672ns`. The entry's
-  `Result` retains the switch's `*vswitch.ForwardResult`, preserving domain
+  `Result` retains the switch's `*device.Result`, preserving domain
   bridge outcomes and analysis readiness metadata. Because `macH2` is
   unknown, the bridge floods VLAN 10 out `1/1/24` with a C-TAG of VID 10.
 - `Crossing`: Transmits the copy across the 300-meter trunk cable to
@@ -216,7 +226,7 @@ progression across devices and cables:
 
 Time on a cable is two terms: serialization and propagation. Wire octets are
 computed as `max(encoded, 60 + 4 per tag) + 24` (4 octets of FCS, 8 of
-preamble and start delimiter, and 12 of interpacket gap; IEEE 802.3-2022 clause
+preamble and start delimiter, and 12 of interpacket gap, IEEE 802.3-2022 clause
 4.4.2 for the gap). Serialization is `wire octets × 8 / rate` rounded up to the
 nanosecond. Propagation is `length / (velocity factor × 299,792,458 m/s)`
 rounded to the nanosecond. `Delay`, when set, replaces the propagation term and
@@ -225,7 +235,7 @@ nothing else.
 A host's decision is recorded at the arrival time, and a host's cable end is
 charged on the busy clock like any port.
 
-Each entry names the endpoint it happened at in `Device` and `Port`; a host's
+Each entry names the endpoint it happened at in `Device` and `Port`. A host's
 `Port` is empty, since a host has one unnamed port. `Cable` is the cable the
 entry rests on. An injection carries its origin's cable, and a host's arrival
 and decision carry the cable the frame came over.
@@ -235,11 +245,10 @@ copy entered the simulation: `Origin.Kind` is `OriginMirror`, `Origin.Mirror`
 names the mirror configuration that made the copy, and `Origin.Of` identifies
 the original frame's journey. The copy's injection origin is the switch and
 mirror output port, followed by its own crossings, delivery, or drop. A
-reflector-originated copy also carries `OriginMirror` with `Origin.Of` for
-provenance but an empty `Origin.Mirror`: it is a first-class datagram, so —
-unlike a SPAN copy, which the non-empty `Origin.Mirror` marks as already
-policed and non-recursive — it is policed at ingress and may itself be
-mirrored.
+reflector-originated copy carries `OriginReflection` with `Origin.Of` for
+provenance and an empty `Origin.Mirror`. It is policed at ingress and may
+itself be mirrored. A SPAN copy has a non-empty `Origin.Mirror`, which marks
+it as already policed and non-recursive.
 
 An ingress policer rejection happens before the forwarding pipeline and remains an
 `EntryDrop`. Its `Result` records a traffic-layer drop step with a typed
@@ -249,10 +258,15 @@ same semantic trace consumers as ordinary switch hops.
 
 ## Egress queues
 
+`Device.AdmitEgress` supplies admission, a drop or threshold step, and the
+queue's maximum rate. The fabric owns occupancy and scheduling and applies
+the supplied step. The traffic configuration and its rules stay in the device.
+
 Every transmitting endpoint has eight FIFO queues, one for each PCP. Normal
 egress keeps the PCP from ingress classification even when the egress frame is
-untagged. Protocol emissions, mirror copies, and host injections use the outer
-C-tag's PCP, or PCP 0 when the frame has no outer C-tag.
+untagged. A host injection retains the supplied frame's PCP while replacing
+the VID with the host's VLAN form. Protocol emissions use PCP 0. Mirror copies
+use the outer C-tag's PCP, or PCP 0 when the frame has no outer C-tag.
 
 An idle endpoint serves a lone frame immediately. When another frame arrival is
 already scheduled for the same instant, the endpoint schedules a dequeue after
@@ -262,7 +276,9 @@ end while frames remain. `Snapshot.Queued` gives the pending count for each
 non-empty endpoint queue, and `Snapshot.Busy` lists endpoints still serializing
 after `Clock`.
 
-A configured queue maximum rate controls start-to-start spacing. After a frame
+A configured queue maximum rate controls start-to-start spacing. The scheduler
+reads the current device decision at service time, so a configuration change
+applies to frames still waiting. After a frame
 starts, that PCP is next eligible at `start + ceil(wire bits / max rate)`. The
 link still serializes the frame at its negotiated speed. If every pending PCP is
 rate-limited, the endpoint schedules its dequeue at the earliest rate clock.
@@ -307,27 +323,31 @@ With PCP 0 on `sw1:1/1/24` limited to 100 Mbit/s, an 88-wire-octet tagged frame
 opens the next PCP 0 turn 7040 ns after its start. Two untagged host frames
 injected at `t0` and `t0 + 1ns` reach `sw1` at `t0 + 672ns` and
 `t0 + 1344ns`. Their trunk copies reach `sw2` at `t0 + 2870ns` and
-`t0 + 9910ns`; each still serializes in 704 ns at the 1 Gbit/s link rate. An
+`t0 + 9910ns`. Each still serializes in 704 ns at the 1 Gbit/s link rate. An
 unlimited PCP 7 frame queued between those copies takes the free trunk before
 the second PCP 0 frame.
 
 ## Journey retention and flow statistics
 
-An injection names a `Flow` and a `Retention`. A frame is in flight while it
-has an arrival in the queue or an item in an egress queue; when its last one
-leaves, the frame settles at the end of the call that removed it. A settled
-journey that names a flow folds into that flow's `FlowStats`:
+`flow.ID`, `flow.Stats`, and `flow.LatencyStats` belong to
+[flow](../flow/README.md). Fabric owns journey folding, held gauges, and
+add/since accounting ([flow.go](flow.go)).
+
+An injection names a `Flow` and a `Retention`. A frame stays in flight while
+it has an arrival, queued transmission, or device hold. When its last work
+leaves, the frame settles at the end of that call. A settled journey that
+names a flow folds into its [`flow.Stats`](../flow/README.md):
 
 - `Offered` counts the frames the caller injected directly;
 - `Delivered` counts accepted deliveries per destination host;
 - `Copies` counts the deliveries of mirror and reflector copies per mirror
   name, or `"reflection"` for a reflector copy, which is never the stream
   being delivered: a copy contributes only this count and its metadata, so its
-  latency and its drops, losses, unresolved, rejection, or held outcome stay
+  latency and its drops, losses, unresolved, and rejection outcomes stay
   out of the stream's counters;
-- `Drops`, `Lost`, `Unresolved`, `Rejected`, and `Held` count what became of a
-  frame instead of a delivery, `Held` naming a frame a switch held for
-  neighbor resolution; `Drops` counts drop events by reason, so a frame a
+- `Held` is the number of flow frames, including copies, still held for neighbor resolution
+  when `Flows()` is read. `Drops`, `Lost`, `Unresolved`, and `Rejected` count
+  completed outcomes. `Drops` counts drop events by reason, so a frame a
   two-port flood refused twice counts twice;
 - `Latency` summarizes `Delivery.At` minus the injection time over every
   non-copy delivery;
@@ -335,20 +355,34 @@ journey that names a flow folds into that flow's `FlowStats`:
   carries the issues its frames depended on.
 
 `RetainJourney` is the zero value and keeps the settled journey in `Report()`.
-`RetainAggregate` frees it, and `Inject` refuses it with a zero flow. A frame
-a switch holds for neighbor resolution settles and folds `Held` at the hold,
-and its aggregate journey is freed there too: the frame then travels with no
-journey, so the fabric keeps only its `FrameID` under the holding device until
-the release claims it, which is what lets the released frame name the frame it
-was held from. A hold resolution abandons stays a candidate, as a retained
-held journey does, so a later release on the same device may name it and claim
-its placeholder. A protocol journey is never freed.
-`Fabric.Flows()` returns an independent copy of every flow's statistics,
-keyed by flow.
+`RetainAggregate` frees it, and `Inject` refuses it with a zero flow.
+A hold keeps its frame in flight, with its original flow, injection time, and
+retention. The fabric maps each device and hold token to that frame's `FrameID`.
+Release or failure continues the same journey. Copies in the releasing output
+name that frame as their parent and inherit its flow and retention. The key
+remains available to every part of that output and is then removed.
+`TestHoldExits` checks release, timeout, overflow, filter refusal, and routing
+reconfiguration under both retentions and both exit orders.
+Protocol journeys and their re-entry sets are freed at settle. An unknown hold
+token, including on a fabric rebuilt by `assembly.Derive`, starts a new journey.
+
+```mermaid
+flowchart LR
+    receive --> hold[Device and token name FrameID]
+    hold --> output[Resolve once for output]
+    output --> release[Continue frame or drop]
+    output --> copy[Copy names held frame]
+    release --> settle[Remove key and settle after transmissions]
+    copy --> settle
+```
+
+`Fabric.Flows()` returns an independent `map[flow.ID]flow.Stats` copy of every
+flow's statistics. Flow metadata merges journey dependencies, including those
+of copies. Unrelated whole-fabric issues are excluded ([flow.go](flow.go)).
 
 ```go
 if _, err := fab.Inject(fabric.Injection{
-	At:        fab.Snapshot().Clock,
+	At:        fab.Clock(),
 	Origin:    fabric.Endpoint{Node: "h1"},
 	Frame:     frame,
 	Retention: fabric.RetainAggregate,
@@ -356,7 +390,7 @@ if _, err := fab.Inject(fabric.Injection{
 }); err != nil {
 	log.Fatal(err)
 }
-fab.Run(1_000_000)
+fab.Run(fabric.RunOptions{Budget: 1_000_000, Window: 0})
 stats := fab.Flows()[7]
 fmt.Printf("%d offered, %d delivered to h2, min %s\n",
 	stats.Offered, stats.Delivered["h2"], stats.Latency.Min)
@@ -366,19 +400,31 @@ fmt.Printf("%d offered, %d delivered to h2, min %s\n",
 
 `BenchmarkAggregateMillion` injects one million 64-octet frames from `h1`
 across `sw1` and `sw2` to `h2` in batches of ten thousand, each batch at the
-run's clock and drained by a run with a one-million-step budget; the benchmark
+run's clock and drained by a run with a one-million-step budget. The benchmark
 fails if a batch leaves the arrival queue non-empty.
 `BenchmarkAggregateHundredThousandJourneys` runs the same load at a hundred
 thousand frames with journey retention, so a missed budget can be laid at the
 per-frame record rather than at retention.
 
-Measured on the development host (Apple M4 Pro, 2026-09-23): the aggregate
-benchmark took 295 s, and with `-benchmem` reported 2.5 TB of cumulative
-allocation over 5.0 billion allocations; the hundred-thousand-journey
-benchmark took 39 s, against a target of 120 s and 2 GiB for the million-frame
-run. The run loop fingerprints the fabric after every step, and the
-fingerprint builds a `Snapshot`, which copies and sorts the whole arrival
-queue; that per-step work, not retention, dominates both figures.
+`BenchmarkAggregateMillionScenario` uses the same fabric and batches through
+`RunScenario`, including each batch's replay checkpoint. With a zero window,
+both entry points compute no fingerprints and read no journey report in the
+executor (`executor.go`, `TestRunComputesNoFingerprint`).
+
+The Apple M4 Pro measurement recorded in commit `b5e092c3` uses this command
+and output ([bench_test.go](bench_test.go)). It is a historical baseline:
+
+```sh
+go test ./src/common/sim/fabric -run '^$' -bench '^BenchmarkAggregateMillion(Scenario)?$' -benchtime=1x -benchmem
+```
+
+| Benchmark | Time | Cumulative bytes allocated | Allocations |
+| --- | --- | --- | --- |
+| `BenchmarkAggregateMillion` | 97.509 s | 553,086,267,888 | 1,451,956,192 |
+| `BenchmarkAggregateMillionScenario` | 96.438 s | 554,063,757,520 | 1,455,767,932 |
+
+Both meet the 120-second target. Cumulative allocation still exceeds the
+2 GiB target. These figures count all batches and do not measure live heap.
 
 ## Media and reach
 
@@ -396,7 +442,7 @@ signal velocity factor and the maximum reach per link speed:
 | `Twinax`          | 0.77   | -       | -        | -      | 15 m    |
 
 Velocity factors derive from https://en.wikipedia.org/wiki/Velocity_factor
-(Cat 5e for twisted pair; 10BASE-FL and 100BASE-FX minimum for fiber) and
+(Cat 5e for twisted pair, 10BASE-FL and 100BASE-FX minimum for fiber) and
 https://en.wikipedia.org/wiki/Optical_fiber (200,000 km/s in glass). The twinax
 factor is a coaxial proxy (generic RG-8 foamed-dielectric coaxial pair) because
 direct-attach cabling data was not found. Reach rows derive from
@@ -455,13 +501,13 @@ The checks run in this order, and the first one that decides ends the run:
    §7.2). A host with an IPv6 address also takes `33:33:00:00:00:01` for
    ff02::1, and `33:33:ff` followed by the low 24 bits of each own address,
    the MAC of its solicited-node group
-   ([RFC 4291](https://www.rfc-editor.org/rfc/rfc4291.html) §2.7.1, §2.8;
+   ([RFC 4291](https://www.rfc-editor.org/rfc/rfc4291.html) §2.7.1, §2.8,
    [RFC 2464](https://www.rfc-editor.org/rfc/rfc2464.html) §7). Anything else
    is refused with `host-unicast-not-addressed` or
    `host-multicast-not-accepted`. `Accept.Promiscuous` takes any MAC and skips
    step 3.
 3. IP destination. This step runs only for a host with an IP stack and a frame
-   with an IPv4 or IPv6 EtherType; any other EtherType was taken at step 2.
+   with an IPv4 or IPv6 EtherType. Any other EtherType was taken at step 2.
    The packet is taken when it is addressed to an own address, to
    255.255.255.255 or the directed broadcast of an own IPv4 prefix, or to a
    group whose MAC step 2 takes. A /31 or /32 prefix has no directed broadcast
@@ -476,7 +522,7 @@ issue on its `analysis.JourneyScope`.
 For example, a unicast frame to `02:00:00:00:00:09` that floods to `h2`, whose
 address is `02:00:00:00:00:02`, ends in `Rejection` with
 `host-unicast-not-addressed` under rule `host.mac.unicast_not_addressed`, and
-`Deliveries` stays empty. With `Accept: fabric.HostAccept{Promiscuous: true}`
+`Deliveries` stays empty. With `Accept: host.Accept{Promiscuous: true}`
 on `h2`, the same frame ends in `Delivery` under `host.mac.promiscuous`.
 
 A group frame whose MAC step 2 takes can still be refused at step 3. A packet
@@ -484,59 +530,58 @@ to 224.0.0.5 in a frame to `01:00:5e:00:00:01` passes the MAC check on the
 all-hosts clause. But 224.0.0.5 maps to `01:00:5e:00:00:05`, which the host
 does not take, so the packet is refused.
 
-`Diff` reports `accept.promiscuous` and `accept.all_multicast` as host fields,
-and each multicast MAC added or removed as `accept.multicast.<mac>`.
+`assembly.Diff` reports `accept.promiscuous` and `accept.all_multicast` as host fields,
+and each multicast MAC added or removed with a quoted key, such as
+`accept.multicast["01:00:5e:00:00:01"]`.
 Validation refuses a unicast entry in `Accept.Multicast`, naming its submitted
 position, such as `hosts.h1.accept.multicast.0`.
 
 ## Reflector configuration
 
-A `Reflector` is a third node kind beside a switch and a host: `Config.Reflectors
-map[string]Reflector`. Unlike a host, which has one unnamed port, a reflector
-names its ports explicitly in `Ports map[string]phy.Ethernet`, one entry per
+A `reflector.Config` configures a third node kind beside a switch and a host:
+`Config.Reflectors map[string]reflector.Config`. Unlike a host, which has one
+unnamed port, a reflector names its ports explicitly in `Ports map[string]phy.Ethernet`, one entry per
 physical port under a switch port's Ethernet validation rules. Every declared
-port must carry a cable; a port with no cable has no VLAN to reflect onto, so
+port must carry a cable. A port with no cable has no VLAN to reflect onto, so
 `Validate` refuses one and refuses a reflector port named in `Config.Uncabled`
 the same way it refuses any non-switch node there.
 
-`Attachments map[string]Attachment` names the VLANs a reflector answers on. An
-`Attachment` is `{Port string, VLAN *vlan.ID, Addresses []netip.Prefix}`: `Port`
+`Attachments map[string]reflector.Attachment` names the VLANs a reflector
+answers on. An `reflector.Attachment` is `{Port string, VLAN *vlan.ID, Addresses []netip.Prefix}`: `Port`
 must name a declared port, a nil `VLAN` is the port's untagged form, and
-`Addresses` must be non-empty. `Validate` refuses an attachment naming an
-unknown port, an invalid VLAN ID, no address, or a port and VLAN pair another
-attachment already uses, since a frame on that pair could not be told apart.
+`Addresses` must contain valid prefixes and be non-empty. `Validate` refuses
+an attachment naming an unknown port, an invalid VLAN ID, an invalid prefix,
+no address, or a port and VLAN pair another attachment already uses, since a frame on that pair could not be told apart.
 Attachments are walked in sorted name order, so a rejection names the same
 field on every run, such as `reflectors.r1.attachments.b.vlan`.
 
-`New` and `Spec` carry a configured reflector through construction and back
+`assembly.New` and `assembly.Spec` carry a configured reflector through construction and back
 out unchanged, including MAC assignment when its `Address` is left zero, the
 same allocator a switch and a host share. See [Reflector
 acceptance](#reflector-acceptance) for what an arriving frame does at a
 reflector.
 
-`Diff` reports a reflector under subject kind `reflector`, keyed by its name,
-with an added or removed reflector's whole configuration on `From` or `To` as
-a `fabric.reflector` snapshot. A changed `Address` reports field `address`. A
-changed port or attachment reports a field relative to the reflector subject,
-not the `reflectors.<name>.` prefix a validation error carries: an added or
-removed port reports field `ports.<name>` with the port's `phy.Ethernet`
-snapshot, and a changed one reports `ports.<name>.<field>` for whichever of
-phy's own field names differs, such as `ports.p1.speed_bps`. An added or
-removed attachment reports field `attachments.<name>` with a
-`fabric.reflector_attachment` snapshot, and a changed one reports
-`attachments.<name>.port`,
-`attachments.<name>.vlan`, or `attachments.<name>.addresses` for whichever
-field differs. This is the same relative-versus-dotted split the host section
-above describes: a changed VLAN is field `attachments.a.vlan` under subject
-`{reflector, r1}`, while the validation error for the same attachment names
-the dotted `reflectors.r1.attachments.a.vlan`.
+`assembly.Diff` reports a reflector under subject kind `reflector`, keyed by
+its name. Added and removed reflectors carry a `fabric.reflector` snapshot.
+A retained reflector's address uses field `address`. Port lifecycle fields
+use quoted keys such as `ports["p.1"]` with a `phy.ethernet` snapshot.
+Retained ports delegate PHY member fields, for example
+`ports["p.1"].speed_bps`.
+
+Attachment lifecycle fields use `attachments["edge.1"]` with a
+`fabric.reflector_attachment` snapshot. Retained attachments report `.port`,
+`.vlan`, and individual `.addresses["192.0.2.1/24"]` members. Address removals
+precede additions and carry `fabric.prefix` facts. These fields are relative
+to the reflector subject. Validation errors retain dotted submitted paths
+such as `reflectors.r1.attachments.a.vlan`.
+[Reflector diff tests](reflector_diff_test.go) check the fields and typed facts.
 
 ## Reflector acceptance
 
 A frame that reaches a reflector's port is decided in the same step the
-arrival is processed, with no leading `Arrival` entry of its own: the fabric
-runs the checks directly and appends `Reflection`, `Rejection`, or
-`Unresolved`. Each decision entry carries a `trace.Step` on layer `reflector`
+arrival is processed, with no leading `Arrival` entry of its own.
+`reflector.Reflector.Receive` runs the checks and `fabric` appends
+`Reflection`, `Rejection`, or `Unresolved`. Each decision entry carries a `trace.Step` on layer `reflector`
 with op `filter`. The reflector is its subject, its rule names the clause
 that decided, and its inputs are the facts read up to that point. Unlike a
 host's several ways to accept a MAC or an IP destination, each of a
@@ -566,35 +611,33 @@ The checks run in this order, and the first one that decides ends the run:
    (17). Anything else is refused with `reflector-protocol-not-udp`.
 6. UDP destination port (`reflector.udp.port`). The datagram's destination
    port must be 5353 (RFC 6762 §5.2). Anything else is refused with
-   `reflector-udp-port-not-mdns`; a frame that clears every check is taken
+   `reflector-udp-port-not-mdns`. A frame that clears every check is taken
    for reflection under `reflector.accepted`.
 
 A header that does not decode leaves acceptance unknown, the same shape a
 host's IP check follows: an undecodable IP header ends `Unresolved` with
 `reflector-ip-header-undecodable` under rule `reflector.ip.undecodable`, and
-an undecodable UDP header — a well-formed IP header whose payload is too
+an undecodable UDP header (a well-formed IP header whose payload is too
 short to be a UDP datagram, such as one whose total length equals its header
-length — ends `Unresolved` with `reflector-udp-header-undecodable` under
+length) ends `Unresolved` with `reflector-udp-header-undecodable` under
 rule `reflector.udp.undecodable`. Both carry an `Incomplete` issue on the
 journey's `analysis.JourneyScope`, and neither is a `Rejection`: the
 reflector cannot tell whether the frame qualifies.
 
 A frame taken for reflection is never a `Delivery`: a reflector is not a
-host, and `Journey.Deliveries` never holds it. Instead the fabric originates
-one fresh copy per other attachment of the query's address family, skipping
-the attachment the query itself arrived on, each its own journey. The copy
-rebuilds the accepted datagram end to
-end — a new UDP source port of 5353, a new IP source address from the
-target attachment, and a recomputed IPv4 checksum — rather than patching
-bytes in place, because changing the source address invalidates the
-original checksum. The copy's own re-entry set for loop detection is seeded
+host, and `Journey.Deliveries` never holds it. The reflector returns
+one rebuilt `device.Copy` per other attachment of the query's address family.
+It skips the attachment the query arrived on. Each copy has its own journey.
+The reflector rebuilds the datagram with UDP source port 5353 and an IP source
+address from the target attachment. It recomputes the IPv4 checksum because
+changing the source address invalidates the original checksum. The copy's own re-entry set for loop detection is seeded
 from a copy of the arriving frame's, not shared with it: a reflector with
 three attachments answering the same query would otherwise report a false
 loop on its first reflected copy.
 
 ## Hosts with an IP stack and address assignment
 
-A host configured with `IP *HostIP` translates to an internal routing layer
+A host configured with `IP *host.IP` owns an internal routing layer
 operating with VRF `default` and a single routed port carrying the host's
 assigned MAC and configured IP address prefixes. When an injected packet is
 originated:
@@ -615,10 +658,10 @@ originated:
 - Packet origination encounters `no-route` (destination off every prefix with
   no gateway) or `neighbor-miss` (destination or gateway missing from neighbors),
   naming the address and reason without creating a journey. A host stack never
-  reports `neighbor-pending`: `HostRoutingConfig` writes `NeighborDisabled`
-  into every host VRF, because nothing wakes a host stack the way `Fabric`
-  wakes a switch, and a frame a host held would hold forever. The switch is
-  where address resolution is modelled; a host is a packet source.
+  reports `neighbor-pending`: `host.RoutingConfig` writes `NeighborDisabled`
+  into every host VRF. Hosts answer ARP and Neighbor Discovery for their own
+  addresses without learning or resolving a next hop. A switch can resolve
+  an attached host without a configured neighbor.
 
 MAC addresses left zero in a fabric configuration are assigned by `New`
 and `Derive` before any switch or host stack is built. The allocator walks switch names
@@ -631,7 +674,7 @@ configuration leaves them zero.
 
 ## Snapshot after one step
 
-Calling `fab.Run(1)` on the scenario processes the initial arrival at `sw1`
+Calling `fab.Run(fabric.RunOptions{Budget: 1, Window: 0})` on the scenario processes the initial arrival at `sw1`
 and leaves the transmission in flight:
 
 - `Clock`: Set to `t0 + 672ns`, the arrival timestamp of the completed step.
@@ -648,11 +691,11 @@ and leaves the transmission in flight:
 ## Fabric forking
 
 `[Fabric.Fork]` creates an independent executable simulation that continues the
-same run. Runtime execution state — the arrival queue, egress queues, journeys,
-counters, clock, frame-id counters, and switches (via `[vswitch.Switch.Fork]`) —
+same run. Runtime execution state (the arrival queue, egress queues, journeys,
+counters, clock, frame-id counters, and devices (via `device.Device.Fork`))
 is deep-copied, while immutable `ethernet.Frame` values in queues and journeys
-are shared rather than copied. Fabric configuration `cfg` is deep-copied (since
-`SetFault` mutates cables in place), and `byEnd` is rebuilt from the newly copied
+are shared rather than copied. Each `Link` and its cable are cloned (since
+`SetFault` mutates cables in place), and `byEnd` is rebuilt from the cloned
 `links` so fault mutations do not alias between source and fork.
 
 ## Protocol traffic and wake-ups
@@ -664,9 +707,9 @@ would otherwise fire in year 1, ahead of any frame a caller injects.
 
 Spanning tree and other internal protocols schedule state transitions and
 frame emissions through the run's arrival queue. Each device holds at most one
-wake entry in the queue (`Arrival.Wake` true, port empty, frame ID 0, sequence
-0). Because sequence 0 sorts ahead of positive frame sequences, a wake executes
-before frames scheduled for the same instant. `Step` returns `EntryWake` for
+wake entry in the queue (`Kind` is `ArrivalWake`, port empty, frame ID 0,
+sequence 0). Because `ArrivalWake` sorts ahead of `ArrivalFrame` at one
+instant, a wake executes before frames scheduled for the same instant. `Step` returns `StepResult.Arrival == ArrivalWake` for
 these timer events without appending to any frame journey. A scenario's
 `ActionMcheck` is the one out-of-band protocol call: it runs the switch's
 management check at the current clock and queues the emission and the next wake
@@ -676,22 +719,22 @@ Frames emitted by switch layers during wake-ups or forwarding cross cables and
 hubs as journeys marked `Protocol`. The one exception is a released held
 frame: it carries a neighbor resolution's ordinary data, not a frame of the
 switch's own, so its journey is marked `Protocol` false like the data frame
-that was held. A release usually happens during the `Forward` that observes
-the advertisement resolving the neighbor, not during a wake-up; `Switch.Wake`
-and `Switch.Age` settle a resolution timeout and report a frame the hold queue
-pushed out. Periodic
-hellos ensure the queue never drains; callers supply a step budget to
-`Run(budget)` which returns a `RunResult` containing the stop reason, steps
-taken, pending work, status, issues, and fingerprints. In scenarios configured
-with an observation window, `RunScenario` detects convergence automatically when
+that was held. A release usually happens during the `Receive` that observes
+the advertisement resolving the neighbor. `Switch.Advance` settles a
+resolution timeout. The `Receive` that overflows the hold queue reports the
+frame it pushed out. Periodic
+hellos ensure the queue never drains. Callers supply a step budget to
+`Run(options)` which returns a `RunResult` containing the stop reason, steps
+taken, pending work, status, issues, and fingerprints. With a positive
+observation window, `RunScenario` detects convergence automatically when
 the canonical fingerprint remains unchanged across consecutive wakes,
 returning `StopConverged`.
 
 ## Link operational state rule
 
 Switch port operational states derive from the topology during `New`. The
-configured `OperStatus` is kept: `Config()` and `Spec()` return it, and the
-derived state is in `Switch(name).Ports()` and `Links()`.
+configured `OperStatus` is kept: `assembly.Spec(fab).Config()` and `assembly.Spec(fab)` return it, and the
+derived state is in `Device(name).(*vswitch.Switch).Ports()` and `Links()`.
 
 Every non-LAG switch port falls into one of three cases:
 
@@ -702,17 +745,20 @@ Every non-LAG switch port falls into one of three cases:
 - Neither: `Unknown` with reason `adjacency-unresolved`, since nothing says
   what is attached. `Metadata()` reports it as an Incomplete issue on the port.
 
+The [cable package](../medium/cable/README.md) owns two-ended resolution.
 A cabled link resolves in this order:
 
 1. A severed cable (`FaultCut`) leaves both endpoints `Down` with `cut`.
 2. A unidirectional failure (`FaultDeadAToB` or `FaultDeadBToA`) leaves both
    ends `Down` with `dead-direction` when either end auto-negotiates. When both
-   force their setting the link resolves on; when a mode is unreported it is
+   force their setting the link resolves on. When a mode is unreported it is
    `Unknown`.
 3. When either end is administratively disabled both are `Down`: the disabled
    end reads `admin-down`, the other `peer-down`.
-4. Reach, as in [Media and reach](#media-and-reach).
-5. Two-ended negotiation (`phy.Negotiate`) over each end's `phy.Ethernet`: a
+4. An unknown administrative state leaves both ends `Unknown` with
+   `cable.ReasonAdminUnknown` (`unknown-operational-status`).
+5. Reach, as in [Media and reach](#media-and-reach).
+6. Two-ended negotiation (`phy.Negotiate`) over each end's `phy.Ethernet`: a
    switch port's from its `Phy` configuration, a host's from `Host.Ethernet`.
    `LinkFailed` is `Down` with its reason (`speed-mismatch`), `LinkUnknown` is
    `Unknown` (`capability-unknown`), and `LinkUnsupported` is `Unknown` with
@@ -727,7 +773,7 @@ Unreported facts stay unknown unless the configuration opts into
 only what an end or cable leaves unreported: empty supported speeds, an unknown
 auto-negotiation capability, a nil `Setting`, or an unspecified medium. The
 filled values appear in `Links()` (the link's `Cable` and each end's
-`Ethernet`), while `Config()`, `Spec()`, and `Diff` show only the
+`Ethernet`), while `assembly.Spec(fab).Config()`, `assembly.Spec(fab)`, and `assembly.Diff` show only the
 `PhyAssumption` field. The assumption is a standards default, so it runs only
 on the record: every link it filled carries one assumption naming the facts.
 
@@ -754,29 +800,28 @@ such as `h1:-sw1:1/1/1`. A host end's port scope is its node scope. An unset or
 derived `Unknown`. The configured value is kept for the reader, but the
 derived one executes.
 
-`ConstructionSpec.Evidence` is the catalog that `Cable.Evidence` and
-`Uncabled.Evidence` references resolve in; a reference outside it is invalid.
+`assembly.ConstructionSpec.Evidence` is the catalog that `Cable.Evidence` and
+`Uncabled.Evidence` references resolve in. A reference outside it is invalid.
 Issues cite the references of the cable or entry they rest on. Evidence is not
-behavior, so `Diff` and `DiffSpecs` report no change for it, while `Equal`
+behavior, so `assembly.Diff` and `assembly.DiffSpecs` report no change for it, while `Equal`
 compares it.
 
 Queue crossings add `fabric.runtime` evidence with origin `egress-queue`.
 Its context names the rule, physical endpoint, logical port or host node,
 PCP, frame ID, instant, and queue fact fields. `Fabric.Metadata().Evidence()`
-includes this runtime catalog so the queue issue's ref resolves;
-`Spec().Evidence` keeps only construction evidence. Earlier metadata snapshots
+includes this runtime catalog so the queue issue's ref resolves.
+`assembly.Spec(fab).Evidence` keeps only construction evidence. Earlier metadata snapshots
 and forks retain their own catalog values.
 
-A host injection transmits immediately unless a queued arrival precedes its
-requested time or another host injection is already pending before the first
-step. Pending host injections are released in time order with attached streams.
-The host busy clock and link check happen when the frame transmits, either at
-`Inject` or at release. A fault set after `Inject` can therefore change the
-outcome of a pending injection, but not an immediate transmission.
+A host injection is a queue event (`ArrivalHost`, `Inject` in `injection.go`)
+at its requested time. It runs in time order with the other queue events,
+including attached stream frames. The host busy clock and link check happen
+when the event runs, so a fault set after `Inject` and before that time can
+change the outcome of the injection.
 A valid host injection onto a link that is not `Up` is not an error. On a `Down`
 link the journey records an `EntryDrop` with the link's reason at its injection
-time; on an `Unknown` link, an `EntryUnresolved`. Both carry the host's cable and
-transmit nothing.
+time. On an `Unknown` link it records an `EntryUnresolved`. Both carry the
+host's cable and transmit nothing.
 
 ## Journey metadata
 
@@ -825,15 +870,15 @@ Cables support deterministic defect configurations:
 | Kind              | Effect                                           |
 | ----------------- | ------------------------------------------------ |
 | `None`            | Unimpaired transmission                          |
-| `Cut`             | Physical severance; both endpoints remain Down   |
+| `Cut`             | Physical severance. Both endpoints remain Down   |
 | `DeadAToB`        | Blocks transmission from endpoint A to B         |
 | `DeadBToA`        | Blocks transmission from endpoint B to A         |
 | `LoseEveryNth`    | Drops every Nth frame crossing the cable         |
 | `LoseSequence`    | Drops frames matching 1-based crossing positions |
-| `CorruptEveryNth` | Marks every Nth crossing damaged; recipient drop |
+| `CorruptEveryNth` | Marks every Nth crossing damaged. Recipient drop |
 
 `N` is active only for the two every-Nth kinds and must be greater than zero.
-`Sequence` is active only for `LoseSequence`; it must be non-empty and every
+`Sequence` is active only for `LoseSequence`. It must be non-empty and every
 position must be at least one. Validation rejects parameters on other variants.
 Normalization clears inactive parameters and sorts and deduplicates an active
 sequence.
@@ -885,15 +930,15 @@ The package declares reasons for link failures and frame discards:
 | `reflector-protocol-not-udp` | Frame's IP protocol is not UDP |
 | `reflector-udp-header-undecodable` | Reflector cannot decode the UDP header it must check |
 | `reflector-udp-port-not-mdns` | Frame's UDP destination port is not 5353 |
-| `reflector-no-address` | Target attachment names no address of the accepted datagram's family |
+| `reflector-no-address` | Target attachment names no address of the accepted datagram's family. The entry carries no step and counts no discard at that port |
 
 ## Run lifecycle and scenarios
 
-A simulation run is driven by `Run(budget)` or `RunScenario(scenario)` under an
+A simulation run is driven by `Run(options)` or `RunScenario(scenario, options)` under an
 explicit step limit, halting with a typed `RunResult`. The run halts with one
-of six stop reasons:
+of seven stop reasons:
 
-- `StopQueueDrained`: Every scheduled arrival and held frame has been processed,
+- `StopQueueDrained`: Every scheduled arrival has been processed,
   leaving no pending work in queues or buffers.
 - `StopConverged`: State fingerprints were stable across the sliding evaluation
   window, queues hold only periodic protocol wakes (such as spanning tree hellos),
@@ -904,32 +949,57 @@ of six stop reasons:
   raising an `IssueBudgetExhausted` issue at `analysis.Exhausted` status.
 - `StopFault`: A scheduling invariant was breached, halting execution with an
   `analysis.Unsupported` issue.
-- `StopNotRun`: A non-positive budget was provided; zero steps were executed.
+- `StopActionRefused`: A scenario action was refused, such as an injection at
+  an unknown node. The result carries the error, no `scheduling-fault` issue
+  is raised, the fabric is not faulted and runs again, and the actions after
+  the refused one are reported in `DroppedActions`.
+- `StopNotRun`: A non-positive budget was provided. Zero steps were executed.
+
+A zero window skips fingerprints. A positive window enables convergence and
+cycle detection. Pending journeys count frames with live arrivals, queued
+transmissions or holds. A recorded outcome without live work does not keep
+the run pending. Status and issues merge retained journeys, folded flows, and
+the issues of settled protocol journeys, which the fabric keeps as a set of
+distinct issues because it frees those journeys and they have no flow. So
+retention does not change the run's trust result (`TestSettledProtocolJourneyKeepsItsIssues`). An action error returns
+the completed steps, clock, issues and replay checkpoint with the error
+(`TestRunResultAcrossRetentions`, `TestActionErrorKeepsSteps` in the package tests).
+A scenario's actions belong to its run. Those that did not fire before the
+run stopped are counted in `DroppedActions` and removed from the fabric's
+queue, so a later `Run` or `RunScenario` on the same fabric never fires them
+(`TestRunScenarioDiscardsUnfiredActions`).
 
 ### Scenarios and replay
 
-`Scenario` bundles initial topology configuration with timed, sequenced
-actions: frame injections (`ActionInject`), link faults (`ActionFault`),
+`Record.Validate` refuses conflicting `Frame` and `Bytes` values and a
+`CapturedLen` above a set `OriginalLen`, where zero means unset. `Record.Normalize`
+defaults an unset length and refuses the record when the default breaks that
+rule. `Record.Clone` owns the frame value and raw
+bytes, while frame tags and payload remain shared as immutable inputs.
+[record_test.go](record_test.go) checks validation and clone ownership.
+
+`Scenario` declares timed actions on an existing fabric. Each action requires an
+`ID` unique within its scenario. `DiffScenarios` pairs actions by that ID, so
+inserting an action leaves the other actions paired. `RunOptions` supplies the
+step budget and observation window independently of the schedule. The actions are
+frame injections (`ActionInject`), link faults (`ActionFault`),
 switch reconfigurations (`ActionConfigure`), protocol migration checks
 (`ActionMcheck`), and recorded frames (`ActionRecord`):
 
 ```go
 sc := fabric.Scenario{
 	Name:   "trunk-flap-and-inject",
-	Budget: 50,
-	Window: 3,
-	Spec:   spec,
 	Actions: []fabric.Action{
-		{
+		{ID: "action-1",
 			At:   t0.Add(time.Second),
 			Kind: fabric.ActionFault,
 			Fault: &fabric.FaultAction{
 				A:     fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
 				B:     fabric.Endpoint{Node: "sw2", Port: "1/1/1"},
-				Fault: fabric.Fault{Kind: fabric.FaultCut},
+				Fault: cablemodel.Fault{Kind: cablemodel.FaultCut},
 			},
 		},
-		{
+		{ID: "action-2",
 			At:   t0.Add(2 * time.Second),
 			Kind: fabric.ActionInject,
 			Inject: &fabric.Injection{
@@ -945,7 +1015,7 @@ sc := fabric.Scenario{
 	},
 }
 
-res, err := fab.RunScenario(sc)
+res, err := fab.RunScenario(sc, fabric.RunOptions{Budget: 50, Window: 3})
 if err != nil {
 	log.Fatal(err)
 }
@@ -954,9 +1024,20 @@ if err != nil {
 replayRes, err := fabric.Replay(res.Replay)
 ```
 
+`RunScenario` and `Compare` refuse any action before the clock of the
+fabric it runs on. Each comparison side is checked against its own clock
+before either executes an action.
+
+`ReplaySpec` is an in-memory value holding a fork taken before the first
+action. It preserves learned state, queued work, and cable crossing counts.
+Every `Replay` call runs a fresh fork of that checkpoint, so the same value
+can run repeatedly. It has no serialized form. `ReplaySpec.Checkpoint()`
+returns an independent fork for inspecting or continuing that state
+(`replay_test.go`, `TestReplayOfSteppedFabric`).
+
 ### Reconfiguring a switch in a run
 
-`Fabric.Configure(node, cfg)` reconfigures a single virtual switch at the
+`assembly.Configure(fab, node, cfg)` reconfigures a single virtual switch at the
 current simulation time without resetting the rest of the network. The run
 continues: unaffected switches, cables, and in-flight frames remain in flight,
 while `vswitch.Derive` decides what state and learned records the target switch
@@ -966,9 +1047,9 @@ reset. Held frames that can no longer be resolved (for example, if a routing lay
 is replaced) are dropped at the current simulation timestamp. Protocol timers
 and port operational states update to match the new configuration.
 
-Like all scenario actions, `ActionConfigure` within `RunScenario` refuses
-attached streams (`Fabric.Configure` can be called directly between `Run` calls
-with streams attached).
+`ActionConfigure` runs inside `RunScenario` with attached streams like any other
+scenario action (`RunScenario` in `executor.go`). `assembly.Configure` can also
+be called directly between `Run` calls.
 
 The following example models a rolling two-step VLAN migration across two
 switches joined by a trunk cable. `sw1` is migrated to VLAN 20 at `t1`, causing
@@ -986,10 +1067,13 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
-	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
+	"go.aledante.io/FlowSeer/src/common/sim/fabric"
+    "go.aledante.io/FlowSeer/src/common/sim/assembly"
+    "go.aledante.io/FlowSeer/src/common/sim/device/host"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
@@ -1033,23 +1117,23 @@ func main() {
 	macH2 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02}
 	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
 
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Start: t0,
 		Switches: map[string]vswitch.Config{
 			"sw1": {Ports: makePorts(), Bridge: bridgeVLAN10},
 			"sw2": {Ports: makePorts(), Bridge: bridgeVLAN10},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]host.Config{
 			"h1": {Address: macH1},
 			"h2": {Address: macH2},
 		},
 		Cables: []fabric.Cable{
-			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, LengthMeters: 1.0},
-			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/24"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/24"}, LengthMeters: 300, Medium: fabric.MultimodeFiber},
-			{A: fabric.Endpoint{Node: "sw2", Port: "1/1/1"}, B: fabric.Endpoint{Node: "h2"}, LengthMeters: 1.0},
+			{Cable: cablemodel.Cable{LengthMeters: 1.0}, A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
+			{Cable: cablemodel.Cable{LengthMeters: 300, Medium: cablemodel.MultimodeFiber}, A: fabric.Endpoint{Node: "sw1", Port: "1/1/24"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/24"}},
+			{Cable: cablemodel.Cable{LengthMeters: 1.0}, A: fabric.Endpoint{Node: "sw2", Port: "1/1/1"}, B: fabric.Endpoint{Node: "h2"}},
 		},
-		PhyAssumption: &fabric.PhyAssumption{
-			Medium: fabric.TwistedPair,
+		PhyAssumption: &cablemodel.PhyAssumption{
+			Medium: cablemodel.TwistedPair,
 			Ethernet: phy.Ethernet{
 				SupportedSpeedsBPS:       []uint64{1_000_000_000},
 				AutoNegotiationSupported: phy.CapabilitySupported,
@@ -1058,7 +1142,7 @@ func main() {
 		},
 	}
 
-	fab, err := fabric.New(cfg)
+	fab, err := assembly.New(cfg)
 	if err != nil {
 		panic(err)
 	}
@@ -1068,17 +1152,13 @@ func main() {
 
 	sc := fabric.Scenario{
 		Name: "vlan-migration",
-		Spec: fab.Spec(),
 		Actions: []fabric.Action{
-			{
+			{ID: "action-3",
 				At:   t1,
 				Kind: fabric.ActionConfigure,
-				Configure: &fabric.ConfigureAction{
-					Node:   "sw1",
-					Config: vswitch.Config{Ports: makePorts(), Bridge: makeBridgeVLAN20()},
-				},
+				Configure: new(assembly.ConfigureAction("sw1", vswitch.Config{Ports: makePorts(), Bridge: makeBridgeVLAN20()})),
 			},
-			{
+			{ID: "action-4",
 				At:   t1.Add(100 * time.Millisecond),
 				Kind: fabric.ActionInject,
 				Inject: &fabric.Injection{
@@ -1091,15 +1171,12 @@ func main() {
 					},
 				},
 			},
-			{
+			{ID: "action-5",
 				At:   t2,
 				Kind: fabric.ActionConfigure,
-				Configure: &fabric.ConfigureAction{
-					Node:   "sw2",
-					Config: vswitch.Config{Ports: makePorts(), Bridge: makeBridgeVLAN20()},
-				},
+				Configure: new(assembly.ConfigureAction("sw2", vswitch.Config{Ports: makePorts(), Bridge: makeBridgeVLAN20()})),
 			},
-			{
+			{ID: "action-6",
 				At:   t2.Add(100 * time.Millisecond),
 				Kind: fabric.ActionInject,
 				Inject: &fabric.Injection{
@@ -1113,10 +1190,9 @@ func main() {
 				},
 			},
 		},
-		Budget: 100,
 	}
 
-	res, err := fab.RunScenario(sc)
+	res, err := fab.RunScenario(sc, fabric.RunOptions{Budget: 100})
 	if err != nil {
 		panic(err)
 	}
@@ -1130,13 +1206,19 @@ func main() {
 
 ## Derivation and state retention
 
-`fabric.Derive(cur, spec)` derives a new simulation fabric from an existing
+`assembly.Derive(cur, spec)` derives a new simulation fabric from an existing
 fabric and an updated configuration specification, starting a fresh run from
 the new spec's start time while retaining capability layers on unchanged switches.
+Each switch derives at that time from an aged clone. Startup reports every
+port, with LAG members first, then schedules the switch's next wake, including
+on a switch whose only timer is neighbor resolution (`startLayers` in
+`fabric.go`, `TestRoutingOnlySwitchWakesAfterDerive` in `routing_test.go`).
+The first link-report error reaches `fabric.New`, `fabric.Replace`, or
+`fabric.Operate`. Assembly construction callers return those errors.
 
 To modify a switch configuration in-flight within an existing run without starting
-fresh, use `Fabric.Configure(node, cfg)` or `ActionConfigure` in a `Scenario`.
-`Fabric.Retention()` reports the retention outcome for every switch on the fabric.
+fresh, use `assembly.Configure(fab, node, cfg)` or `ActionConfigure` in a `Scenario`.
+`assembly.Retention(fab)` reports the retention outcome for every switch on the fabric.
 
 ## Current-against-candidate comparison
 
@@ -1144,7 +1226,7 @@ fresh, use `Fabric.Configure(node, cfg)` or `ActionConfigure` in a `Scenario`.
 injection scenario over an explicit step budget:
 
 ```go
-cmp := fabric.Compare(currentFab, candidateFab, scenario, 100)
+cmp := fabric.Compare(currentFab, candidateFab, scenario, fabric.RunOptions{Budget: 100})
 switch cmp.Disposition {
 case analysis.Equivalent:
 	// Both topologies deliver or drop scenario frames identically.
@@ -1161,15 +1243,21 @@ The comparison evaluates three dispositions:
 
 - `analysis.Equivalent`: Observable behavior matches across all scenario journeys,
   run-level status and issues, and final behavioral snapshots.
-- `analysis.Different`: The simulation results diverged at an observable behavior.
+- `analysis.Different`: Both runs are Complete and an observable behavior differs.
   `Comparison.Difference` names the first differing observable and the observed
   values on both sides (`Difference.Current` and `Difference.Expected`), and
-  `Comparison.Replay` is a `[2]ReplaySpec` carrying an immutable replay
-  specification for each side: `[0]` reconstructs the current fabric, `[1]` the
-  candidate, so a `Different` reproduces both sides of the divergence.
-- `analysis.Inconclusive`: Observable behaviors matched but one or both runs
-  did not complete (such as step budget exhaustion before pending arrivals or
-  egress queues drained, or an underlying component reporting incomplete readiness).
+  `Comparison.Replay` is a `[2]ReplaySpec` carrying a pre-action checkpoint
+  for each side: `[0]` holds the current fabric, `[1]` the candidate.
+  Replaying either forks that checkpoint, so a `Different` reproduces both
+  sides of the divergence, including their pre-existing live state.
+  `Comparison.Location` identifies the exact behavioral field in a journey,
+  run result, or snapshot (`comparison_location.go`). Journey locations retain
+  injection index and UTC time plus parent-relative mirror and reflection lineage.
+- `analysis.Inconclusive`: Either run reports non-Complete readiness or an
+  execution error, even when an observable differs. `Difference` and `Location`
+  retain the first difference found. Equal settled aggregate roots are also
+  inconclusive because flow totals cannot prove journey equivalence
+  ([compare.go](compare.go)).
 
 ### Behavioral versus diagnostic split
 
@@ -1179,15 +1267,22 @@ behavioral snapshots:
 - **Path**: Crossing endpoints, link speeds, cable media, and delivery destination hosts.
 - **Timing**: Event timestamps (`At`), propagation latency, serialization delay,
   and queue wait durations.
-- **Multiplicity**: Number of primary journeys, mirror copies, and delivery records.
+- **Multiplicity**: Injection and delivery counts at `Injections.Length` and
+  `Deliveries.Length`. A descendant present on only one side reports the located
+  lineage's presence at `Location.Field == "Journey"`, with `Current` and
+  `Expected` set to `"true"` or `"false"` (`diffFabricRuns` in `compare.go`).
 - **Drop reason and location**: Discard reasons and drop endpoints.
 - **Journey rewrite**: Priority Code Point (PCP) alterations and forwarded frame rewrites.
 - **Journey terminal**: Acceptance state (`Delivered`, `Dropped`, `Rejected`, `Looped`),
   delivery destination host, and delivered frame contents.
 - **Status and issues**: Run-level stop reasons (`Stop`), completion statuses (`Status`),
   pending work queues (`Pending`), and canonical analysis issues (`Issues`).
-- **Final state**: Post-run forwarding databases (`FDB`), port operational states,
-  neighbor resolution tables, and link states.
+- **Final state**: The device's behavioral projection and link states.
+  `Snapshot.Devices` holds `device.State`. Its `Fingerprint` and `Diff` use
+  one classification in [device/state.go](../device/state.go), including
+  FDB origin and lifetime, multicast state, ports, power, tree roles, and
+  neighbor VRF and hold depth. Differences show the differing rows and
+  entry counts. The four STP counters are diagnostic.
 
 Semantic trace annotations, step evidence references, and human diagnostic messages
 are diagnostic: differences in diagnostics alone never yield `Different`.
@@ -1195,17 +1290,34 @@ are diagnostic: differences in diagnostics alone never yield `Different`.
 comparison, including its entry count. A changed delivery or drop still yields
 a difference.
 
+`fabric.Align(cmp)` returns an `Alignment` and a presence flag. A `Different`
+result always retains its behavioral location, even if traces agree. Its
+optional `Trace` names the injection, lineage, both report journey indices,
+and an original entry index. One-sided journeys use index `-1` for the absent
+side. Queue diagnostics stay available to alignment while behavioral field
+ordinals skip them. An inconclusive comparison may carry a diagnostic trace
+without asserting a behavioral difference. Equivalent comparisons have no
+alignment (`align.go`, `TestAlignOriginalIndicesAndDiagnosticVerdicts`).
+
 ### Internal fork lifecycle
 
 `Compare` executes internally on `[Fabric.Fork]` copies of both fabrics. Neither
-`a` nor `b` is stepped, injected into, or mutated; both fabrics remain available
+`a` nor `b` is stepped, injected into, or mutated. Both fabrics remain available
 for continued simulation or subsequent comparisons.
 
-The lifted precondition allows comparing fabrics mid-run. Scenario journeys pair
-by injection ordinal (`injFIDsA[i]` to `injFIDsB[i]`); pre-scenario journeys
+The lifted precondition allows comparing fabrics mid-run. Injected and recorded
+roots pair by injection ordinal in execution order. Their locations keep the
+action index and time. An attached frame pairs by attachment ordinal and
+its frame ordinal, which persists when a run continues. One-sided frames are
+compared too (`TestCompareAttachedSources`, `TestCompareAttachedSourceOrdinals`,
+`TestCompareContinuedAttachedSourceOrdinal` in `compare_test.go`). Pre-scenario journeys
 already present on either input are excluded from `Comparison.Current` and
 `Comparison.Expected` so background or pre-run traffic cannot pollute the
-scenario comparison.
+scenario comparison. Mirror and reflection descendants pair by
+parent-relative kind, mirror name, and occurrence, including descendants present on one side
+only (`pairJourneys` in `comparison_location.go`). A freed aggregate root pairs
+by its flow's statistics. Different statistics prove a difference, while equal
+statistics leave the missing journeys inconclusive (`TestCompareAggregatedRoots`).
 
 ## Representative scale and fork cost
 
@@ -1217,8 +1329,8 @@ primed with two thousand and forty-eight learned forwarding entries and four
 thousand and ninety-six queued arrivals.
 
 `Fabric.Fork` duplicates this topology with zero shared mutable state. Allocation
-overhead at this scale is bounded by a measured allocation constant (16,815
-allocations, measured 2026-09-23). Scaling the queued arrival depth four-fold
+overhead at this scale is bounded by a measured allocation constant (`forkAllocationBaseline`
+in `fork_scale_test.go`). Scaling the queued arrival depth four-fold
 scales allocations proportionally within a bounded multiple.
 
 Runtime is benchmarked (`BenchmarkFork`, `BenchmarkForkAndStep100`) and reported
@@ -1230,3 +1342,26 @@ memory sanitizer overhead varies across execution environments.
 A `Fabric` is not safe for concurrent use. Simulators mutate internal clock
 timestamps, queues, forwarding entries, and interface counters during execution.
 Callers running concurrent simulations must create separate `Fabric` instances.
+
+`Clock()` reads the simulation time without building a snapshot. `Device(name)`
+returns an independent device fork. `Inspect(name, fn)` reads the live device
+without changing it or retaining mutable references, which lets
+`assembly.Retention` report the actual derivation outcome.
+
+`StepResult.Arrival` identifies wake and dequeue events. Their entry kind is
+empty because timer service belongs to the scheduler. A retained frame step
+carries its hop result. An aggregate frame step keeps its metadata and outcome
+entries without cloning the hop result. Execution records store no derived
+journey state. `Report()` computes it from the pending work and recorded events.
+
+Frame tags and payload are immutable and shared on execution, scenario, and fork
+copy paths. `Report()` copies them for callers that need mutable report values.
+`BenchmarkStep` measures one prepared step per operation:
+
+```sh
+go test ./src/common/sim/fabric -run '^$' -bench '^BenchmarkStep$' -benchtime=100x -benchmem
+```
+
+The journey and aggregate sub-benchmarks report allocations for the current
+revision. [bench_test.go](bench_test.go) builds the two-switch chain and prepares
+each queued step outside the timed section.

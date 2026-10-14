@@ -1041,16 +1041,16 @@ https://www.uber.com/blog/logging/ (2021-02-19): fields grouped by type into par
 Archived GitLab `mikler/glaber`, branch 3.4 @ `324c32e5ae72c554cc42459b89a9157427184d84` (2025-10-16), `database/clickhouse/schema.sql`, verbatim:
 
 ```sql
-CREATE TABLE glaber.history_dbl (   day Date,  
-                                itemid UInt64,  
-                                clock DateTime,  
+CREATE TABLE glaber.history_dbl (   day Date,
+                                itemid UInt64,
+                                clock DateTime,
                                 hostname String,
                                 itemname String,
-                                ns UInt32, 
+                                ns UInt32,
                                 value Float64
                             ) ENGINE = MergeTree()
 PARTITION BY toYYYYMM(day)
-ORDER BY (itemid, clock) 
+ORDER BY (itemid, clock)
 TTL day + INTERVAL 6 MONTH;
 ```
 

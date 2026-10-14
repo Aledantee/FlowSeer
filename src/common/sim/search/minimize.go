@@ -1,8 +1,10 @@
 package search
 
 import (
+	"reflect"
 	"strings"
 
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
@@ -10,12 +12,12 @@ import (
 )
 
 // Minimality indicates whether scenario reduction reached a minimal fixed point
-// or halted due to an evaluation limit.
+// or halted due to an evaluation limit. Values are safe for concurrent reads.
 type Minimality string
 
 const (
 	// Minimal indicates that no further scenario elements could be removed without
-	// altering or losing the target divergence observable.
+	// altering or losing the target location and exact difference.
 	Minimal Minimality = "Minimal"
 
 	// LimitReached indicates that reduction halted because the maximum number of
@@ -27,131 +29,126 @@ const (
 // evaluated during counterexample minimization.
 const DefaultMinimizationLimit = 64
 
-// Minimize reduces a divergence counterexample within the domain by iteratively
-// removing scenario elements (injections, then faults) in a fixed order.
-//
-// A removal is preserved only if re-running fabric.Compare against the candidate
-// still reproduces the exact same Difference.Observable. Minimization returns either
-// Minimal when no further elements can be pruned, or LimitReached if the evaluation
-// limit is reached.
-func Minimize(current, candidate *fabric.Fabric, cand Candidate, budget int) (Candidate, Minimality) {
+// Minimization retains the original target and exact displayed difference, even
+// when reduction reaches its trial limit. Candidate owns independent action data.
+// Treat its pointers and slices as immutable during concurrent reads.
+type Minimization struct {
+	Candidate  Candidate
+	Minimality Minimality
+	Target     fabric.DifferenceLocation
+	Difference analysis.Difference
+}
+
+// Minimize removes injections, then faults, while retaining the initial location
+// and all Difference values. It does not consume either fabric or the input.
+func Minimize(current, candidate *fabric.Fabric, cand Candidate, budget int) (Minimization, error) {
 	return MinimizeWithLimit(current, candidate, cand, budget, DefaultMinimizationLimit)
 }
 
-// MinimizeWithLimit reduces a counterexample up to a caller-specified maximum trial limit.
-func MinimizeWithLimit(current, candidate *fabric.Fabric, cand Candidate, budget int, maxTrials int) (Candidate, Minimality) {
-	if maxTrials <= 0 {
+// MinimizeWithLimit returns an error for invalid inputs, comparison errors, or an
+// initial non-difference. Zero maxTrials uses the default. Errors never report Minimal.
+func MinimizeWithLimit(current, candidate *fabric.Fabric, cand Candidate, budget int, maxTrials int) (Minimization, error) {
+	if budget <= 0 {
+		return Minimization{}, errs.Msg("minimization budget must be positive")
+	}
+	if maxTrials < 0 {
+		return Minimization{}, errs.Msg("minimization trial limit must be nonnegative")
+	}
+	if maxTrials == 0 {
 		maxTrials = DefaultMinimizationLimit
 	}
-
-	initialCmp := runCompare(current, candidate, cand, budget)
-	if initialCmp.Disposition != analysis.Different {
-		return cand, Minimal
+	scenario, err := cand.ToScenario().Normalize()
+	if err != nil {
+		return Minimization{}, errs.Wrap(err, "minimization scenario")
 	}
-	targetObservable := initialCmp.Difference.Observable
+	cand.Actions = scenario.Actions
+	if err := cand.Validate(); err != nil {
+		return Minimization{}, errs.Wrap(err, "minimization candidate")
+	}
 
+	initialCmp := fabric.Compare(current, candidate, scenario, fabric.RunOptions{Budget: budget, Window: 0})
+	if initialCmp.Err != nil {
+		return Minimization{}, errs.Wrap(initialCmp.Err, "initial minimization comparison")
+	}
+	if initialCmp.Disposition != analysis.Different {
+		return Minimization{}, errs.Msgf("initial minimization comparison is %s, want Different", initialCmp.Disposition)
+	}
+	result := Minimization{Target: initialCmp.Location, Difference: initialCmp.Difference}
 	reduced := cand.Clone()
 	trials := 0
-
 	for {
 		changed := false
-
-		// 1. Reduce injections in scenario in fixed index order
-		idx := 0
-		for idx < len(reduced.Scenario) {
-			if len(reduced.Scenario) <= 1 && len(reduced.Faults) == 0 {
-				idx++
-				continue
-			}
-
-			if trials >= maxTrials {
-				reduced.Tuple = computeCandidateTuple(reduced)
-				return reduced, LimitReached
-			}
-
-			trial := copyCandidateWithoutScenarioIndex(reduced, idx)
-			trials++
-
-			cmp := runCompare(current, candidate, trial, budget)
-			if cmp.Disposition == analysis.Different && cmp.Difference.Observable == targetObservable {
-				reduced = trial
-				changed = true
-			} else {
-				idx++
-			}
-		}
-
-		// 2. Reduce faults in fixed index order
-		fIdx := 0
-		for fIdx < len(reduced.Faults) {
-			if len(reduced.Scenario) == 0 && len(reduced.Faults) <= 1 {
-				fIdx++
-				continue
-			}
-
-			if trials >= maxTrials {
-				reduced.Tuple = computeCandidateTuple(reduced)
-				return reduced, LimitReached
-			}
-
-			trial := copyCandidateWithoutFaultIndex(reduced, fIdx)
-			trials++
-
-			cmp := runCompare(current, candidate, trial, budget)
-			if cmp.Disposition == analysis.Different && cmp.Difference.Observable == targetObservable {
-				reduced = trial
-				changed = true
-			} else {
-				fIdx++
+		for _, kind := range []fabric.ActionKind{fabric.ActionInject, fabric.ActionFault} {
+			idx := 0
+			for idx < len(reduced.Actions) {
+				if reduced.Actions[idx].Kind != kind {
+					idx++
+					continue
+				}
+				if trials >= maxTrials {
+					reduced.Tuple = computeCandidateTuple(reduced)
+					result.Candidate = reduced
+					result.Minimality = LimitReached
+					return result, nil
+				}
+				trial := copyCandidateWithoutActionIndex(reduced, idx)
+				trials++
+				comparison := runCompare(current, candidate, trial, budget)
+				if comparison.Err != nil {
+					reduced.Tuple = computeCandidateTuple(reduced)
+					result.Candidate = reduced
+					return result, errs.Wrap(comparison.Err, "minimization trial comparison")
+				}
+				if comparison.Disposition == analysis.Different && comparison.Difference == result.Difference && reflect.DeepEqual(comparison.Location, result.Target) {
+					reduced = trial
+					changed = true
+				} else {
+					idx++
+				}
 			}
 		}
-
 		if !changed {
 			break
 		}
 	}
-
 	reduced.Tuple = computeCandidateTuple(reduced)
-	return reduced, Minimal
+	result.Candidate = reduced
+	result.Minimality = Minimal
+	return result, nil
 }
 
 func computeCandidateTuple(c Candidate) Tuple {
-	parts := make([]string, 0, len(c.Scenario)+len(c.Faults))
-	for _, inj := range c.Scenario {
-		var vid vlan.ID
-		if len(inj.Frame.Tags) > 0 {
-			vid = inj.Frame.Tags[0].VID
+	parts := make([]string, 0, len(c.Actions))
+	for _, kind := range []fabric.ActionKind{fabric.ActionInject, fabric.ActionFault} {
+		for _, action := range c.Actions {
+			if action.Kind != kind {
+				continue
+			}
+			if kind == fabric.ActionFault {
+				parts = append(parts, string(formatFaultTuple(*action.Fault, action.At)))
+				continue
+			}
+			inj := action.Inject
+			var vid vlan.ID
+			if len(inj.Frame.Tags) > 0 {
+				vid = inj.Frame.Tags[0].VID
+			}
+			etype := inj.Frame.EtherType
+			if etype == 0 {
+				etype = ethernet.EtherTypeIPv4
+			}
+			parts = append(parts, string(formatL2Tuple(inj.Origin, inj.Frame.Dst, vid, etype, inj.Frame.Payload)))
 		}
-		etype := inj.Frame.EtherType
-		if etype == 0 {
-			etype = ethernet.EtherTypeIPv4
-		}
-		parts = append(parts, string(formatL2Tuple(inj.Origin, inj.Frame.Dst, vid, etype, inj.Frame.Payload)))
-	}
-	for _, f := range c.Faults {
-		parts = append(parts, string(formatFaultTuple(FaultSpec{A: f.A, B: f.B, Fault: f.Fault}, f.At)))
-	}
-	if len(parts) == 0 {
-		return Tuple("")
-	}
-	if len(parts) == 1 {
-		return Tuple(parts[0])
 	}
 	return Tuple(strings.Join(parts, "; "))
 }
 
-func copyCandidateWithoutScenarioIndex(c Candidate, removeIdx int) Candidate {
+func copyCandidateWithoutActionIndex(c Candidate, removeIdx int) Candidate {
 	cp := c.Clone()
-	cp.Scenario = append(cp.Scenario[:removeIdx], cp.Scenario[removeIdx+1:]...)
-	return cp
-}
-
-func copyCandidateWithoutFaultIndex(c Candidate, removeIdx int) Candidate {
-	cp := c.Clone()
-	cp.Faults = append(cp.Faults[:removeIdx], cp.Faults[removeIdx+1:]...)
+	cp.Actions = append(cp.Actions[:removeIdx], cp.Actions[removeIdx+1:]...)
 	return cp
 }
 
 func runCompare(current, candidate *fabric.Fabric, cand Candidate, budget int) fabric.Comparison {
-	return fabric.Compare(current, candidate, cand.ToScenario(budget), budget)
+	return fabric.Compare(current, candidate, cand.ToScenario(), fabric.RunOptions{Budget: budget, Window: 0})
 }

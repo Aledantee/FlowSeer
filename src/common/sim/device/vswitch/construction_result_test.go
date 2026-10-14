@@ -11,6 +11,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
+	"go.aledante.io/FlowSeer/src/common/sim/device"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
@@ -296,8 +297,8 @@ func TestConstructionSpecValidatesAndNormalizesSeeds(t *testing.T) {
 		t.Fatalf("NewWithSpec() error = %v", err)
 	}
 	wantSeeds := []bridge.Seed{
-		{FID: vid10, MAC: validMAC, Port: "lag1", Lifetime: bridge.Static},
-		{FID: vid10, MAC: secondMAC, Port: "access", Lifetime: bridge.Static},
+		{FID: vid10, MAC: validMAC, Port: "lag1", Origin: bridge.Configured, Lifetime: bridge.Static},
+		{FID: vid10, MAC: secondMAC, Port: "access", Origin: bridge.Configured, Lifetime: bridge.Static},
 	}
 	if got := sw.Spec().Seeds; !slices.Equal(got, wantSeeds) {
 		t.Errorf("normalized seeds = %+v, want %+v", got, wantSeeds)
@@ -387,7 +388,7 @@ func TestSwitchLearnRejectsInvalidSeedsWithoutRecordingThem(t *testing.T) {
 	}
 }
 
-func TestForwardMetadataKeepsEvidenceLinkedAssumptions(t *testing.T) {
+func TestPeekMetadataKeepsEvidenceLinkedAssumptions(t *testing.T) {
 	ports := twoPortTable(t)
 	catalog, ref := (analysis.EvidenceCatalog{}).Add(analysis.Evidence{
 		Kind:    "snapshot",
@@ -464,12 +465,12 @@ func TestForwardResultEnvelopeAndUnknownOperStatus(t *testing.T) {
 		Src: netaddr.MAC{0x00, 0x01, 0x02, 0x03, 0x04, 0x05},
 		Dst: netaddr.MAC{0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
 	}
-	now := time.Now()
+	now := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
 
 	// Ingress on Unknown oper status port: produces Incomplete issue and does not forward
-	resUnknown := sw.Forward(now, "1/1/1", frame)
+	resUnknown := sw.Receive(now, "1/1/1", frame)
 	if resUnknown.Metadata.Status() != analysis.Incomplete {
-		t.Errorf("unknown oper status Forward status = %v, want Incomplete", resUnknown.Metadata.Status())
+		t.Errorf("unknown oper status Receive status = %v, want Incomplete", resUnknown.Metadata.Status())
 	}
 	if resUnknown.Outcome == trace.Forwarded || resUnknown.Outcome == trace.Flooded {
 		t.Errorf("unknown oper status forwarded frame, outcome = %v", resUnknown.Outcome)
@@ -489,7 +490,7 @@ func TestForwardResultEnvelopeAndUnknownOperStatus(t *testing.T) {
 	}
 
 	// Ingress on Known Down port: definite domain drop, NOT mislabeled as incomplete
-	resDown := sw.Forward(now, "1/1/2", frame)
+	resDown := sw.Receive(now, "1/1/2", frame)
 	if resDown.Outcome != trace.Dropped {
 		t.Errorf("known down port outcome = %v, want Dropped", resDown.Outcome)
 	}
@@ -497,13 +498,13 @@ func TestForwardResultEnvelopeAndUnknownOperStatus(t *testing.T) {
 		t.Errorf("known down port reason = %v, want %v", resDown.Reason, port.ReasonPortDown)
 	}
 	if resDown.Metadata.Status() != analysis.Complete {
-		t.Errorf("known down port Forward status = %v, want Complete (not incomplete)", resDown.Metadata.Status())
+		t.Errorf("known down port Receive status = %v, want Complete (not incomplete)", resDown.Metadata.Status())
 	}
 
 	// Ingress on Known Up port: sibling port uncertainty does NOT taint unrelated port
-	resUp := sw.Forward(now, "1/1/3", frame)
+	resUp := sw.Receive(now, "1/1/3", frame)
 	if resUp.Metadata.Status() != analysis.Complete {
-		t.Errorf("unrelated known-up port Forward status = %v, want Complete", resUp.Metadata.Status())
+		t.Errorf("unrelated known-up port Receive status = %v, want Complete", resUp.Metadata.Status())
 	}
 	if len(resUp.Metadata.Issues()) != 0 {
 		t.Errorf("unrelated known-up port has unexpected issues: %+v", resUp.Metadata.Issues())
@@ -511,6 +512,7 @@ func TestForwardResultEnvelopeAndUnknownOperStatus(t *testing.T) {
 }
 
 func TestRepresentativeSemanticTraceSteps(t *testing.T) {
+	callOutputs := make(map[*vswitch.Switch]device.Output)
 	ports := twoPortTable(t)
 	cfg := vswitch.Config{
 		Ports: ports,
@@ -519,7 +521,7 @@ func TestRepresentativeSemanticTraceSteps(t *testing.T) {
 				Table: map[vlan.ID]string{10: "vlan10"},
 				Switchports: map[string]bridge.Switchport{
 					"1/1/1": {PVID: ptrVID(10)},
-					"1/1/2": {PVID: ptrVID(10)},
+					"1/1/2": {PVID: ptrVID(10), Tagged: []vlan.ID{10}},
 				},
 			},
 		},
@@ -539,13 +541,13 @@ func TestRepresentativeSemanticTraceSteps(t *testing.T) {
 		t.Fatalf("vswitch.New: %v", err)
 	}
 
-	now := time.Now()
+	now := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
 	frame := ethernet.Frame{
 		Src: netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55},
 		Dst: netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0xee},
 	}
 
-	res := sw.Forward(now, "1/1/1", frame)
+	res := captureOutput(callOutputs, sw, sw.Receive(now, "1/1/1", frame))
 	// Check that we have typed trace steps exposing decisive rules without string parsing
 	var hasClassify, hasLearn, hasLookup bool
 	for _, step := range res.Steps {
@@ -577,7 +579,7 @@ func TestRepresentativeSemanticTraceSteps(t *testing.T) {
 	}
 
 	// Mirror copies returned
-	copies := sw.Copies()
+	copies := takeCopies(callOutputs, sw)
 	if len(copies) != 1 {
 		t.Fatalf("got %d mirror copies, want 1", len(copies))
 	}

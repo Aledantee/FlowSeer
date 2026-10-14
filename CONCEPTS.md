@@ -1,22 +1,22 @@
 # Concepts
 
-Shared domain vocabulary for this project — entities, named processes, and status concepts with project-specific meaning. Seeded with core domain vocabulary, then grows as the `compound` skill proposes terms from verified lessons; direct edits are fine. Glossary only, not a spec or catch-all.
+Shared domain vocabulary for this project: entities, named processes, and status concepts with project-specific meaning. Seeded with core domain vocabulary, then grows as the `compound` skill proposes terms from verified lessons. Direct edits are fine. Glossary only, not a spec or catch-all.
 
 ## Inventory
 
 ### Relationships
 
-A Binding joins one Device to one Integration and never changes either end. A Placement joins one Device to one Integration Scope for a dated span. An Attribute Assignment joins one owner entity to one Attribute Definition. Scopes belong to their Integration; Tags form their own tree independent of all of these.
+A Binding joins one Device to one Integration and never changes either end. A Placement joins one Device to one Integration Scope for a dated span. An Attribute Assignment joins one owner entity to one Attribute Definition. Scopes belong to their Integration. Tags form their own tree independent of all of these.
 
 ### Device
 
-The physical box FlowSeer manages, independent of every integration that reaches it. Its identity is a FlowSeer-assigned UUID; the vendor serial and chassis MAC are correlation data the service merges sightings on, never identity, because addresses and platform ids move between boxes.
+The physical box FlowSeer manages, independent of every integration that reaches it. Its identity is a FlowSeer-assigned UUID. The vendor serial and chassis MAC are correlation data the service merges sightings on, never identity, because addresses and platform ids move between boxes.
 
-Lifecycle and reachability are separate axes: reachability is per Binding and heals on its own, while a Device lifecycle change is an operator action or an explicit policy. A retired Device keeps its history and refs; a reappearing serial un-retires it instead of creating a duplicate.
+Lifecycle and reachability are separate axes: reachability is per Binding and heals on its own, while a Device lifecycle change is an operator action or an explicit policy. A retired Device keeps its history and refs. A reappearing serial un-retires it instead of creating a duplicate.
 
 ### Integration
 
-A configured adapter instance — the cloud tenant, controller, or site-local network through which FlowSeer reaches devices. Kinds are code, instances are data: each first-party kind carries its own typed configuration, while all third-party kinds share one descriptor-typed configuration told apart by the kind's announced name. An Integration that runs at a site names the Edge that hosts it.
+A configured adapter instance: the cloud tenant, controller, or site-local network through which FlowSeer reaches devices. Kinds are code, instances are data: each first-party kind carries its own typed configuration, while all third-party kinds share one descriptor-typed configuration told apart by the kind's announced name. An Integration that runs at a site names the Edge that hosts it.
 
 ### Edge
 
@@ -24,19 +24,19 @@ An enrolled process at a site that hosts Integrations. It is the process, not an
 
 ### Binding
 
-One path to a Device through one Integration — "device X is reachable via integration Y at address Z". A Device can have many; routing reads only the Binding. Its status is machine-owned end to end: reachability flaps and heals with nobody acting, and no status value ever means the device is removed. A relationship change is expressed as retiring the old Binding and creating a new one, never by retargeting.
+One path to a Device through one Integration: "device X is reachable via integration Y at address Z". A Device can have many. Routing reads only the Binding. Its status is machine-owned end to end: reachability flaps and heals with nobody acting, and no status value ever means the device is removed. A relationship change is expressed as retiring the old Binding and creating a new one, never by retargeting.
 
 ### Integration Scope
 
-The platform's own hierarchy — a controller's network, zone, or site — mirrored generically inside FlowSeer. Scopes are synced from the platform and never operator-intended; they are keyed by the platform's own identifier under the owning Integration, because the platform can rename or drop them on any sync.
+The platform's own hierarchy (a controller's network, zone, or site), mirrored generically inside FlowSeer. Scopes are synced from the platform and never operator-intended. They are keyed by the platform's own identifier under the owning Integration, because the platform can rename or drop them on any sync.
 
 ### Placement
 
-The dated, append-only record that a Device belongs to an Integration Scope, with who asserted it (an operator, or derivation from the scope the device appeared under — operator wins). A move is a new Placement plus a close of the old one; a closed Placement never reopens, and Placements are never removed.
+The dated, append-only record that a Device belongs to an Integration Scope, with who asserted it (an operator, or derivation from the scope the device appeared under, operator wins). A move is a new Placement plus a close of the old one. A closed Placement never reopens, and Placements are never removed.
 
 ### Tag
 
-An operator-curated hierarchical grouping label. Each Tag names at most one parent; the point of the hierarchy is rollup — anything scoped to an ancestor also matches everything tagged under its descendants. Sibling names are unique and the parent chain stays cycle-free.
+An operator-curated hierarchical grouping label. Each Tag names at most one parent. The point of the hierarchy is rollup: anything scoped to an ancestor also matches everything tagged under its descendants. Sibling names are unique and the parent chain stays cycle-free.
 
 ### Attribute Definition
 
@@ -44,7 +44,7 @@ An operator-defined, typed attribute: a display name, one value type (free text,
 
 ### Attribute Assignment
 
-The values one entity carries for one Attribute Definition. At most one Assignment exists per owner and definition, attachment implies at least one value, and the Assignment shares its owner's lifecycle. An Assignment's owner and definition never change; only its values do.
+The values one entity carries for one Attribute Definition. At most one Assignment exists per owner and definition, attachment implies at least one value, and the Assignment shares its owner's lifecycle. An Assignment's owner and definition never change. Only its values do.
 
 ### Capability
 
@@ -52,11 +52,11 @@ A device-functionality area a Binding advertises as reachable. Capability sets s
 
 ### Provenance
 
-The origin of one live response or event — which Binding answered and when the answering integration observed the payload. Provenance rides response and event envelopes, never the entity messages themselves.
+The origin of one live response or event: which Binding answered and when the answering integration observed the payload. Provenance rides response and event envelopes, never the entity messages themselves.
 
 ### Entity Reference
 
-A reference to one entity whose kind is decided at runtime, as a kind plus an id. Used only where the target's kind is genuinely dynamic — a statically-known target keeps its typed ref pair. Admission of a kind to the dynamic-reference vocabulary is a contract: the entity must be UUID-identified, answer existence checks, and cascade attribute values that reference it when deleted.
+A reference to one entity whose kind is decided at runtime, as a kind plus an id. Used only where the target's kind is genuinely dynamic. A statically-known target keeps its typed ref pair. Admission of a kind to the dynamic-reference vocabulary is a contract: the entity must be UUID-identified, answer existence checks, and cascade attribute values that reference it when deleted.
 
 ### Wlan
 
@@ -124,7 +124,7 @@ unexpired member grant
 
 ### Service Module
 
-A supervised runtime unit within one service. A leaf owns one setup function; a branch owns a supervisor containing one or more child modules. Its full path within the service is stable identity for gates, durable messaging, and telemetry. This is separate from a MIB Module, which is an SMI definition block.
+A supervised runtime unit within one service. A leaf owns one setup function. A branch owns a supervisor containing one or more child modules. Its full path within the service is stable identity for gates, durable messaging, and telemetry. This is separate from a MIB Module, which is an SMI definition block.
 
 ### Local Bus
 
@@ -132,7 +132,7 @@ The private, file-backed message bus a service runs for its own Service Modules:
 
 ### Runtime Manifest
 
-The persisted record of what a Local Bus store *is*: the service identity, its module paths, subscriptions, subject encoding, and broker provenance. Startup compares the stored manifest with the running binary and accepts only additive changes; anything else marks the store migration-required. Because the comparison covers the whole record, the manifest holds only what defines the store, such as identity, routing, and its capacity ceiling, and not operational settings an operator may change between starts.
+The persisted record of what a Local Bus store *is*: the service identity, its module paths, subscriptions, subject encoding, and broker provenance. Startup compares the stored manifest with the running binary and accepts only additive changes. Anything else marks the store migration-required. Because the comparison covers the whole record, the manifest holds only what defines the store, such as identity, routing, and its capacity ceiling, and not operational settings an operator may change between starts.
 
 ### Settlement
 
@@ -140,7 +140,7 @@ The durable record of what a delivery decided about one message on the Local Bus
 
 ### Signal Policy
 
-Whether one Service Module emits each telemetry signal (logs, metrics, traces). Each is declared as inherit, enabled, or disabled; a child inherits its parent's effective value, an environment override beats the declaration, and enabling a signal that has no export backing is a startup error. The policy is snapshotted per module generation, so a running attempt never changes what it emits mid-flight.
+Whether one Service Module emits each telemetry signal (logs, metrics, traces). Each is declared as inherit, enabled, or disabled. A child inherits its parent's effective value, an environment override beats the declaration, and enabling a signal that has no export backing is a startup error. The policy is snapshotted per module generation, so a running attempt never changes what it emits mid-flight.
 
 Disabling traces suppresses span creation only. A trace-disabled module still carries inbound trace context and forwards it on anything it publishes, so modules downstream of it keep end-to-end continuity. Across a durable delivery the downstream span links to the publication rather than descending from it, because the delivery may happen later, more than once, or for many subscribers.
 
@@ -148,19 +148,19 @@ Disabling traces suppresses span creation only. A trace-disabled module still ca
 
 ### Mutation Intent
 
-A centrally recorded request to move one Device toward typed desired state. It may cover several related fields of one capability, but it receives one per-Device sequence and one terminal disposition. The control plane must acknowledge either a verified outcome or abandonment before that sequence closes; abandonment keeps unrelated mutations blocked until its observed recovery state is resolved.
+A centrally recorded request to move one Device toward typed desired state. It may cover several related fields of one capability, but it receives one per-Device sequence and one terminal disposition. The control plane must acknowledge either a verified outcome or abandonment before that sequence closes. Abandonment keeps unrelated mutations blocked until its observed recovery state is resolved.
 
 ### Device Lane
 
-The ordered stream for active I/O to one Device. Reads, polls, capability probes, mutations, verification, and recovery share the lane so none can observe or change the Device out of sequence; passive inbound telemetry stays outside it.
+The ordered stream for active I/O to one Device. Reads, polls, capability probes, mutations, verification, and recovery share the lane so none can observe or change the Device out of sequence. Passive inbound telemetry stays outside it.
 
 ### Firmware Epoch
 
-The span during which a Device reports one exact firmware fingerprint. Capability and route evidence is active only in the epoch where it was learned; a firmware change starts discovery again without resetting the Device Lane sequence.
+The span during which a Device reports one exact firmware fingerprint. Capability and route evidence is active only in the epoch where it was learned. A firmware change starts discovery again without resetting the Device Lane sequence.
 
 ### Indeterminate Mutation
 
-A Mutation Intent whose effect cannot yet be established by authoritative observation. It remains recoverable and holds the Device Lane until verification succeeds or cancellation or timeout abandons it; an abandoned mutation never resumes.
+A Mutation Intent whose effect cannot yet be established by authoritative observation. It remains recoverable and holds the Device Lane until verification succeeds or cancellation or timeout abandons it. An abandoned mutation never resumes.
 
 ### Observed Recovery State
 
@@ -174,7 +174,7 @@ Managed Device state that differs from the centrally recorded baseline without a
 
 ### Facet
 
-A bundle of per-layer attributes for one interface — switchport membership, IP enablement, Ethernet link facts — embedded by value in the interface or component it describes. A facet's presence is its own discriminator: a routed interface is one whose IP facet is set, with no boolean beside it to disagree.
+A bundle of per-layer attributes for one interface (switchport membership, IP enablement, Ethernet link facts), embedded by value in the interface or component it describes. A facet's presence is its own discriminator: a routed interface is one whose IP facet is set, with no boolean beside it to disagree.
 
 ### Radio
 
@@ -182,15 +182,15 @@ A component of kind radio carrying a radio facet with its BSSs. An access point 
 
 ### Table
 
-Device-scoped state whose rows reference interfaces by name — the FDB, the neighbor cache, the VLAN database. Tables hang off the device, never under an interface, because every consumer queries them device-wide. The facet-versus-table distinction decides where a message embeds.
+Device-scoped state whose rows reference interfaces by name: the FDB, the neighbor cache, the VLAN database. Tables hang off the device, never under an interface, because every consumer queries them device-wide. The facet-versus-table distinction decides where a message embeds.
 
 ### Network instance
 
-A device's routing or bridging domain: its default instance, a VRF, or a Layer 2 switch instance. Every forwarding table names the instance it belongs to, so two domains that reuse a VLAN id or a prefix stay apart; a routed interface names its instance once in its IP facet, and rows keyed by that interface inherit it. A device with no instance concept reports one of kind `DEFAULT`, named `default` unless the device has its own name for it.
+A device's routing or bridging domain: its default instance, a VRF, or a Layer 2 switch instance. Every forwarding table names the instance it belongs to, so two domains that reuse a VLAN id or a prefix stay apart. A routed interface names its instance once in its IP facet, and rows keyed by that interface inherit it. A device with no instance concept reports one of kind `DEFAULT`, named `default` unless the device has its own name for it.
 
 ### Protocol instance
 
-One running instance of a routing protocol inside a network instance, such as an OSPF process or an IS-IS tag, named as the device names it; its rows name both, and rows keyed by an interface name only the protocol instance.
+One running instance of a routing protocol inside a network instance, such as an OSPF process or an IS-IS tag, named as the device names it. Its rows name both, and rows keyed by an interface name only the protocol instance.
 
 ### Route
 
@@ -198,11 +198,11 @@ One row of a network instance's routing table: a destination prefix, how it was 
 
 ### Protocol table
 
-A table a single protocol owns lives in that protocol's package under `net/protocol/`, such as the LLDP and CDP neighbor tables. A table several protocols fill lives in a package named for its function, such as snooping group membership, which IGMP and MLD both fill. No message unions two protocols' rows; a protocol-blind view such as what is on a port is a projection a service computes.
+A table a single protocol owns lives in that protocol's package under `net/protocol/`, such as the LLDP and CDP neighbor tables. A table several protocols fill lives in a package named for its function, such as snooping group membership, which IGMP and MLD both fill. No message unions two protocols' rows. A protocol-blind view such as what is on a port is a projection a service computes.
 
 ### Spanning tree instance
 
-One spanning tree a bridge runs. The CIST is the bridge's own tree, carried by its bridge state; under MSTP every further tree is a numbered MSTI row beside it, keyed by network instance and MSTID 1 to 4094. Every VLAN belongs to exactly one of them, and the VLAN map spells the CIST as instance 0. Unrelated to a network instance, which is a forwarding domain rather than a tree inside one.
+One spanning tree a bridge runs. The CIST is the bridge's own tree, carried by its bridge state. Under MSTP every further tree is a numbered MSTI row beside it, keyed by network instance and MSTID 1 to 4094. Every VLAN belongs to exactly one of them, and the VLAN map spells the CIST as instance 0. Unrelated to a network instance, which is a forwarding domain rather than a tree inside one.
 
 ### Canonical unit
 
@@ -210,7 +210,44 @@ Every physical quantity has one canonical unit, named in the field suffix, in in
 
 ### Virtual Device
 
-A device the simulator under `src/common/sim` builds from a port table and the capabilities its configuration carries: a relay, VLAN awareness, Ethernet speeds, PoE, link aggregation. Its capabilities are the layers it is built with, and a layer's presence in the configuration is its own discriminator, the facet rule applied to the simulator. The inventory's `Capability` is the coarser area a Binding reports; a virtual device with the `relay` and `vlan` layers is what a Binding's switching capability looks like from inside.
+A device the simulator under `src/common/sim` builds from a port table and the capabilities its configuration carries: a relay, VLAN awareness, Ethernet speeds, PoE, link aggregation. Its capabilities are the layers it is built with, and a layer's presence in the configuration is its own discriminator, the facet rule applied to the simulator. The inventory's `Capability` is the coarser area a Binding reports. A virtual device with the `relay` and `vlan` layers is what a Binding's switching capability looks like from inside.
+
+### Simulation device
+
+The layer-free contract a fabric drives: origination, reception, timers, link reports, forks, and state. A switch, host, and reflector implement it ([device/device.go](src/common/sim/device/device.go)).
+
+### Simulation host
+
+A single-attachment device that originates packets, accepts its own traffic, and answers local ARP and Neighbor Discovery requests. It learns and resolves no neighbors ([host/README.md](src/common/sim/device/host/README.md)).
+
+### Simulation reflector
+
+A device that accepts mDNS queries and returns rebuilt copies through its other attachments. A reflection keeps its parent frame identity in the journey's origin ([reflector/README.md](src/common/sim/device/reflector/README.md)).
+
+### Simulation cable
+
+The medium that resolves physical link facts and decides loss or corruption at a crossing. The fabric counts crossings and schedules delivery ([cable/README.md](src/common/sim/medium/cable/README.md)).
+
+### Simulation assembly
+
+The package that builds the devices a fabric runs from Go configurations or construction specifications. It owns reconfiguration, derivation, retention, and configuration diffs ([assembly/README.md](src/common/sim/assembly/README.md)).
+
+### Simulation flow
+
+A traffic stream identity and its reported values, owned by `sim/flow` as
+`flow.ID`, `flow.Stats`, and `flow.LatencyStats`. Value cloning lives with
+those values. Fabric folds settled journeys, reads held gauges, and computes
+add/since accounting ([flow.go](src/common/sim/flow/flow.go),
+[fabric/flow.go](src/common/sim/fabric/flow.go)).
+
+### Simulation load report
+
+A simulator projection beside lab observations, built by `simload.NewReport`
+or `simload.NewReportFromSimulator`, each returning `(Report, error)`.
+Flow trust remains scoped to its folded journeys. A lab-only flow ID is
+refused, while simulator-only rows remain visible
+([report.go](src/edge/simload/report.go)). Lab missing sequences name no
+simulator drop cause.
 
 ### Endpoint
 
@@ -234,13 +271,13 @@ The cellular side of a WAN interface: its modem, SIM, serving cell, and signal, 
 
 ### NAT mapping and session
 
-A mapping is a configured rule that says which addresses and ports translate to which; a session is one live translation, the same conversation seen in the private and the public realm.
+A mapping is a configured rule that says which addresses and ports translate to which. A session is one live translation, the same conversation seen in the private and the public realm.
 
 ## Capture
 
 ### Capture Session
 
-A bounded packet capture run by one Edge, sourced from a local interface or a mirror receiver, and stopped by its own budget, an operator, or an error. Its ref is scoped under the owning Edge, the session's one parent. Lifecycle (pending, running, completed, failed, canceled) tracks it from creation to artifact; only a terminal state carries the stored capture's artifact, and a completed session always names why it stopped. Authorization on the session records who asked, why, and whether full payload was deliberately requested, so a headers-only capture and a payload capture are distinguishable in the record and not only in the budget.
+A bounded packet capture run by one Edge, sourced from a local interface or a mirror receiver, and stopped by its own budget, an operator, or an error. Its ref is scoped under the owning Edge, the session's one parent. Lifecycle (pending, running, completed, failed, canceled) tracks it from creation to artifact. Only a terminal state carries the stored capture's artifact, and a completed session always names why it stopped. Authorization on the session records who asked, why, and whether full payload was deliberately requested, so a headers-only capture and a payload capture are distinguishable in the record and not only in the budget.
 
 ## Collection
 
@@ -250,7 +287,7 @@ A decoder answering "this value is not mine to read" rather than failing. What a
 
 ### Fatal walk
 
-A collection walk whose failure voids the whole answer, as against one that degrades and returns what it gathered. Only the table a set of facts is keyed on is fatal; a walk that merely enriches those facts reports its failure alongside the rows already collected rather than in place of them. A caller therefore cannot read an error as "no data" — it must inspect the result too.
+A collection walk whose failure voids the whole answer, as against one that degrades and returns what it gathered. Only the table a set of facts is keyed on is fatal. A walk that merely enriches those facts reports its failure alongside the rows already collected rather than in place of them. A caller therefore cannot read an error as "no data". It must inspect the result too.
 
 ### Collector
 
@@ -268,11 +305,11 @@ One named SMIv1 or SMIv2 definition block, and the unit everything else is attri
 
 ### Declaration
 
-One macro invocation or value assignment inside a module — an `OBJECT-TYPE`, a textual convention, a plain OID assignment. It is the blast radius of a parse error, which is the point: a source is cut into declarations before any grammar runs, so a vendor MIB that is malformed in one place costs that declaration rather than the file.
+One macro invocation or value assignment inside a module: an `OBJECT-TYPE`, a textual convention, a plain OID assignment. It is the blast radius of a parse error, which is the point: a source is cut into declarations before any grammar runs, so a vendor MIB that is malformed in one place costs that declaration rather than the file.
 
 ### Node
 
-A declaration placed in the OID tree, with the clauses that survived resolution. A node that lost something a renderer needs — a required clause, a parent nothing defines, a contradictory syntax — stays in the tree marked unresolved rather than disappearing, so a reader can see what fell and its subtree stays placed. Unresolved nodes are never rendered as if they were whole.
+A declaration placed in the OID tree, with the clauses that survived resolution. A node that lost something a renderer needs (a required clause, a parent nothing defines, a contradictory syntax) stays in the tree marked unresolved rather than disappearing, so a reader can see what fell and its subtree stays placed. Unresolved nodes are never rendered as if they were whole.
 
 ### Naming Node
 
@@ -292,4 +329,4 @@ The committed record of the diagnostics a configured module is already known to 
 
 ### Corpus
 
-The vendored MIB tree under `spec/mib/`, read as a leniency stress bar rather than an adoption target. Only a handful of its modules are configured for generation; the rest is there to exercise deviations no hand-written fixture would think of, and what it produces is committed per vendor so a leniency change surfaces as a reviewable diff.
+The vendored MIB tree under `spec/mib/`, read as a leniency stress bar rather than an adoption target. Only a handful of its modules are configured for generation. The rest is there to exercise deviations no hand-written fixture would think of, and what it produces is committed per vendor so a leniency change surfaces as a reviewable diff.

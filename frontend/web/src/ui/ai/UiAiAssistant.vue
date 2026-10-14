@@ -355,12 +355,14 @@ onUnmounted(() => {
     <header
       class="flex items-center justify-between px-4 py-3 border-b border-border bg-card shrink-0"
     >
-      <h2 class="text-sm font-semibold text-foreground">
+      <h2
+        class="font-mono text-xs font-semibold uppercase tracking-wide text-foreground"
+      >
         {{ props.labels?.title ?? t('ui.aiAssistant.title') }}
       </h2>
       <button
         type="button"
-        class="text-muted-foreground hover:text-foreground text-sm p-1 rounded-sm cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        class="text-muted-foreground hover:text-foreground text-sm p-1 rounded-control cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         :aria-label="props.labels?.close ?? t('ui.aiAssistant.close')"
         @click="handleClose"
       >
@@ -385,7 +387,7 @@ onUnmounted(() => {
           <UiButton
             size="sm"
             variant="ghost"
-            class="gap-1 rounded-full text-2xs h-5 px-2 border border-dashed border-border hover:border-foreground/40 text-muted-foreground hover:text-foreground cursor-pointer"
+            class="gap-1 rounded-control text-2xs h-5 px-2 border border-dashed border-border hover:border-foreground/40 text-muted-foreground hover:text-foreground cursor-pointer"
             data-ai-assistant-add-context
           >
             <span>{{ plusSymbol }}</span>
@@ -426,7 +428,9 @@ onUnmounted(() => {
         data-ai-assistant-empty
       >
         <div v-if="suggestions.length > 0" class="flex flex-col gap-2">
-          <span class="text-xs font-medium text-muted-foreground">
+          <span
+            class="font-mono text-2xs font-semibold uppercase tracking-wide text-muted-foreground"
+          >
             {{ props.labels?.suggestions ?? t('ui.aiAssistant.suggestions') }}
           </span>
           <div class="flex flex-col gap-1.5 items-start">
@@ -434,7 +438,7 @@ onUnmounted(() => {
               v-for="s in suggestions"
               :key="s"
               type="button"
-              class="text-left text-xs px-3 py-1.5 rounded-full border border-border bg-subtle hover:bg-muted/80 text-foreground transition-colors cursor-pointer"
+              class="text-left text-xs px-3 py-1.5 rounded-control border border-border bg-subtle hover:bg-muted/80 text-foreground transition-colors cursor-pointer"
               data-ai-assistant-suggestion
               @click="handleSelectSuggestion(s)"
             >
@@ -450,7 +454,7 @@ onUnmounted(() => {
       <template v-for="(turn, index) in turns" :key="index">
         <div v-if="turn.role === 'user'" class="flex justify-end">
           <div
-            class="bg-muted text-foreground rounded-panel px-3 py-2 text-xs max-w-[85%] whitespace-pre-wrap"
+            class="bg-muted text-foreground rounded-control px-3 py-2 text-xs max-w-[85%] whitespace-pre-wrap"
             data-ai-assistant-user-turn
           >
             {{ turn.prompt }}
@@ -459,7 +463,7 @@ onUnmounted(() => {
 
         <div
           v-else-if="turn.role === 'assistant'"
-          class="flex flex-col gap-2 p-3 rounded-panel border border-border bg-card"
+          class="ui-card relative flex flex-col gap-2 p-3 rounded-panel border border-border bg-card"
           data-ai-assistant-turn
         >
           <div

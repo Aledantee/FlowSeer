@@ -1,0 +1,685 @@
+package netmodel_test
+
+import (
+	"fmt"
+	"slices"
+	"strings"
+	"testing"
+
+	"buf.build/go/protovalidate"
+
+	interfacev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1"
+	phyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1"
+	"go.aledante.io/FlowSeer/src/common/sim/analysis"
+	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
+	"go.aledante.io/FlowSeer/src/common/sim/netmodel"
+	"go.aledante.io/FlowSeer/src/common/sim/trace"
+)
+
+func TestPSEBudgetPresenceMatrix(t *testing.T) {
+	reached := 0
+	names := []string{"absent", "zero", "positive"}
+	for groupIndex, group := range []*uint32{nil, ptr(uint32(0)), ptr(uint32(1))} {
+		for powerIndex, power := range []*uint64{nil, ptr(uint64(0)), ptr(uint64(100))} {
+			t.Run(fmt.Sprintf("group=%s/power=%s", names[groupIndex], names[powerIndex]), func(t *testing.T) {
+				budget := phyv1.PseBudget_builder{PseGroup: group, PowerNanowatts: power}.Build()
+				result := load(t, netmodel.SourceContext{DeviceID: "sw1"}, netmodel.Input{
+					Interfaces: []*interfacev1.Interface{plainPhysicalInterface("eth1")},
+					Budgets:    []*phyv1.PseBudget{budget}, Want: []trace.Layer{phy.LayerNamePoE},
+				})
+				valid := group != nil && *group > 0 && (power == nil || *power > 0)
+				groups := result.Spec.Config.Phy.PoE.Groups
+				if !valid {
+					if len(groups) != 0 {
+						t.Errorf("invalid budget inserted: %+v", groups)
+					}
+					for _, field := range []string{"pse_group", "power_nanowatts"} {
+						invalid := field == "pse_group" && (group == nil || *group == 0) || field == "power_nanowatts" && power != nil && *power == 0
+						if invalid && !slices.ContainsFunc(result.Metadata.Issues(), func(issue analysis.Issue) bool {
+							return strings.Contains(issue.Message, field) && issue.Status != analysis.Complete && len(issue.Evidence) > 0
+						}) {
+							t.Errorf("missing evidenced %s refusal: %+v", field, result.Metadata.Issues())
+						}
+					}
+				} else {
+					want := uint64(0)
+					if power != nil {
+						want = *power
+					}
+					if got, exists := groups["1"]; !exists || len(groups) != 1 || got.PowerNanowatts != want {
+						t.Errorf("groups = %+v, want group 1 power %d", groups, want)
+					}
+					if power == nil && !slices.ContainsFunc(result.Report.Defaults, func(d netmodel.Default) bool {
+						return d.Port == "1" && d.Field == "power_nanowatts" && d.Value == "0" && len(d.Evidence) > 0
+					}) {
+						t.Errorf("unknown budget not reported: %+v", result.Report.Defaults)
+					}
+				}
+				if _, err := vswitch.NewWithSpec(result.Spec); err != nil {
+					t.Fatalf("construct: %v", err)
+				}
+				reached++
+			})
+		}
+	}
+	if reached != 9 {
+		t.Errorf("reached %d budget cases, want 9", reached)
+	}
+}
+
+func TestNetmodel_PortWithoutPoeDetailSkipped(t *testing.T) {
+	adminUp := interfacev1.AdminStatus_ADMIN_STATUS_UP
+	operUp := interfacev1.OperStatus_OPER_STATUS_UP
+	name := "1/1/1"
+	poeSup := true
+	role := phyv1.PoeRole_POE_ROLE_PSE
+	group1 := uint32(1)
+	power := uint64(100_000_000_000)
+
+	budget := phyv1.PseBudget_builder{
+		PseGroup:       &group1,
+		PowerNanowatts: &power,
+	}.Build()
+
+	iface := interfacev1.Interface_builder{
+		Name:        &name,
+		AdminStatus: &adminUp,
+		OperStatus:  &operUp,
+		Physical: interfacev1.PhysicalInterface_builder{
+			Ethernet: phyv1.EthernetFacet_builder{
+				Copper: phyv1.CopperFacet_builder{
+					Poe: phyv1.PoeFacet_builder{
+						Supported: &poeSup,
+						Role:      &role,
+					}.Build(),
+					// Deliberately missing PoeDetail
+				}.Build(),
+			}.Build(),
+		}.Build(),
+	}.Build()
+
+	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, netmodel.Input{Interfaces: []*interfacev1.Interface{iface}, Budgets: []*phyv1.PseBudget{budget}})
+	if err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+	cfg := res.Spec.Config
+	report := res.Report
+
+	foundSkipped := false
+	for _, s := range report.Skipped {
+		if s.Port == "1/1/1" && s.What == "poe" && s.Why == "missing poe_detail" {
+			foundSkipped = true
+			break
+		}
+	}
+	if !foundSkipped {
+		t.Errorf("got Skipped %+v, want poe without detail skipped", report.Skipped)
+	}
+
+	if cfg.Phy != nil && cfg.Phy.PoE != nil && len(cfg.Phy.PoE.Ports) != 0 {
+		t.Errorf("got %d PoE ports loaded, want 0", len(cfg.Phy.PoE.Ports))
+	}
+}
+
+func TestLoadPoeDeliveryObservations(t *testing.T) {
+	adminUp := interfacev1.AdminStatus_ADMIN_STATUS_UP
+	operUp := interfacev1.OperStatus_OPER_STATUS_UP
+	mtu0 := uint32(0)
+	grp := uint32(1)
+
+	loadObserved := func(t *testing.T, status phyv1.PoeStatus, power uint64, class *uint32) netmodel.Result {
+		t.Helper()
+		budgets := []*phyv1.PseBudget{phyv1.PseBudget_builder{PseGroup: ptr(uint32(1)), PowerNanowatts: ptr(power)}.Build()}
+		facets := map[string]*phyv1.PoeFacet{"1/1/1": phyv1.PoeFacet_builder{
+			Supported: ptr(true), Role: phyv1.PoeRole_POE_ROLE_PSE.Enum(), Status: status.Enum(), PowerClass: class,
+		}.Build()}
+		for _, b := range budgets {
+			if err := protovalidate.Validate(b); err != nil {
+				t.Fatalf("budget protovalidate failed: %v", err)
+			}
+		}
+		for name, f := range facets {
+			if err := protovalidate.Validate(f); err != nil {
+				t.Fatalf("facet %s protovalidate failed: %v", name, err)
+			}
+		}
+
+		names := make([]string, 0, len(facets))
+		for name := range facets {
+			names = append(names, name)
+		}
+		slices.Sort(names)
+		ifaces := make([]*interfacev1.Interface, 0, len(facets))
+		for _, name := range names {
+			pName := name
+			iface := interfacev1.Interface_builder{
+				Name:        &pName,
+				AdminStatus: &adminUp,
+				OperStatus:  &operUp,
+				Mtu:         &mtu0,
+				Physical: interfacev1.PhysicalInterface_builder{
+					Ethernet: phyv1.EthernetFacet_builder{
+						Copper: phyv1.CopperFacet_builder{
+							Poe: facets[pName],
+							PoeDetail: phyv1.PoePortDetail_builder{
+								PseGroup: &grp,
+								PsePort:  ptr(uint32(1)),
+							}.Build(),
+						}.Build(),
+					}.Build(),
+				}.Build(),
+			}.Build()
+			if err := protovalidate.Validate(iface); err != nil {
+				t.Fatalf("iface %s protovalidate failed: %v", pName, err)
+			}
+			ifaces = append(ifaces, iface)
+		}
+
+		res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, netmodel.Input{Interfaces: ifaces, Budgets: budgets, Want: []trace.Layer{phy.LayerNamePoE}})
+		if err != nil {
+			t.Fatalf("netmodel.Load failed: %v", err)
+		}
+		return res
+	}
+
+	t.Run("delivered", func(t *testing.T) {
+		res := loadObserved(t, phyv1.PoeStatus_POE_STATUS_DELIVERING_POWER, 100_000_000_000, ptr(uint32(2)))
+		p, ok := res.Spec.Config.Phy.PoE.Ports["1/1/1"]
+		if !ok {
+			t.Fatal("port 1/1/1 missing from loaded config")
+		}
+		if p.PD != phy.PDAttached {
+			t.Errorf("PD = %v, want Attached", p.PD)
+		}
+		if p.PDClass == nil || *p.PDClass != 2 {
+			t.Errorf("PDClass = %v, want 2", p.PDClass)
+		}
+		for _, a := range res.Metadata.Assumptions() {
+			if a.Statement == "absence is inferred from the searching status" {
+				t.Errorf("unexpected searching assumption: %+v", a)
+			}
+		}
+	})
+
+	t.Run("disabled", func(t *testing.T) {
+		res := loadObserved(t, phyv1.PoeStatus_POE_STATUS_DISABLED, 100_000_000_000, nil)
+		p, ok := res.Spec.Config.Phy.PoE.Ports["1/1/1"]
+		if !ok {
+			t.Fatal("port 1/1/1 missing from loaded config")
+		}
+		if p.PD != phy.PDUnknown {
+			t.Errorf("PD = %v, want Unknown", p.PD)
+		}
+		if p.PDClass != nil {
+			t.Errorf("PDClass = %v, want nil", p.PDClass)
+		}
+		for _, a := range res.Metadata.Assumptions() {
+			if a.Statement == "absence is inferred from the searching status" {
+				t.Errorf("unexpected searching assumption: %+v", a)
+			}
+		}
+	})
+
+	t.Run("no device", func(t *testing.T) {
+		res := loadObserved(t, phyv1.PoeStatus_POE_STATUS_SEARCHING, 100_000_000_000, nil)
+		p, ok := res.Spec.Config.Phy.PoE.Ports["1/1/1"]
+		if !ok {
+			t.Fatal("port 1/1/1 missing from loaded config")
+		}
+		if p.PD != phy.PDAbsent {
+			t.Errorf("PD = %v, want Absent", p.PD)
+		}
+		if p.PDClass != nil {
+			t.Errorf("PDClass = %v, want nil", p.PDClass)
+		}
+
+		portScope := analysis.PortScope("sw1", "1/1/1")
+		var portAssumptions []analysis.Assumption
+		for _, a := range res.Metadata.Assumptions() {
+			if a.Scope.Compare(portScope) == 0 && a.Statement == "absence is inferred from the searching status" {
+				portAssumptions = append(portAssumptions, a)
+			}
+		}
+		if len(portAssumptions) != 1 {
+			t.Fatalf("port assumptions count = %d, want 1", len(portAssumptions))
+		}
+		if portAssumptions[0].Statement != "absence is inferred from the searching status" {
+			t.Errorf("statement = %q, want %q", portAssumptions[0].Statement, "absence is inferred from the searching status")
+		}
+	})
+
+	t.Run("unknown", func(t *testing.T) {
+		res := loadObserved(t, phyv1.PoeStatus_POE_STATUS_UNSPECIFIED, 100_000_000_000, nil)
+		p, ok := res.Spec.Config.Phy.PoE.Ports["1/1/1"]
+		if !ok {
+			t.Fatal("port 1/1/1 missing from loaded config")
+		}
+		if p.PD != phy.PDUnknown {
+			t.Errorf("PD = %v, want Unknown", p.PD)
+		}
+		if p.PDClass != nil {
+			t.Errorf("PDClass = %v, want nil", p.PDClass)
+		}
+		for _, a := range res.Metadata.Assumptions() {
+			if a.Statement == "absence is inferred from the searching status" {
+				t.Errorf("unexpected searching assumption: %+v", a)
+			}
+		}
+	})
+
+	t.Run("budget denial", func(t *testing.T) {
+		res := loadObserved(t, phyv1.PoeStatus_POE_STATUS_SEARCHING, 10_000_000_000, nil)
+		p, ok := res.Spec.Config.Phy.PoE.Ports["1/1/1"]
+		if !ok {
+			t.Fatal("port 1/1/1 missing from loaded config")
+		}
+		if p.PD != phy.PDAbsent {
+			t.Errorf("PD = %v, want Absent", p.PD)
+		}
+		if p.PDClass != nil {
+			t.Errorf("PDClass = %v, want nil", p.PDClass)
+		}
+
+		portScope := analysis.PortScope("sw1", "1/1/1")
+		var portAssumptions []analysis.Assumption
+		for _, a := range res.Metadata.Assumptions() {
+			if a.Scope.Compare(portScope) == 0 && a.Statement == "absence is inferred from the searching status" {
+				portAssumptions = append(portAssumptions, a)
+			}
+		}
+		if len(portAssumptions) != 1 {
+			t.Fatalf("port assumptions count = %d, want 1", len(portAssumptions))
+		}
+		if portAssumptions[0].Statement != "absence is inferred from the searching status" {
+			t.Errorf("statement = %q, want %q", portAssumptions[0].Statement, "absence is inferred from the searching status")
+		}
+	})
+}
+
+func TestLoad_PoeLimitInNanowatts(t *testing.T) {
+	// The requested limit reaches the loaded port in nanowatts, the unit
+	// every phy power value shares.
+	adminUp := interfacev1.AdminStatus_ADMIN_STATUS_UP
+	operUp := interfacev1.OperStatus_OPER_STATUS_UP
+	mtu0 := uint32(0)
+	grp := uint32(1)
+	power := uint64(100_000_000_000)
+	name := "1/1/1"
+
+	iface := interfacev1.Interface_builder{
+		Name:        &name,
+		AdminStatus: &adminUp,
+		OperStatus:  &operUp,
+		Mtu:         &mtu0,
+		Physical: interfacev1.PhysicalInterface_builder{
+			Ethernet: phyv1.EthernetFacet_builder{
+				Copper: phyv1.CopperFacet_builder{
+					PoeSettings: phyv1.PoeSettings_builder{PowerLimitNanowatts: ptr(uint64(15_400_000_000))}.Build(),
+					PoeDetail:   phyv1.PoePortDetail_builder{PseGroup: &grp, PsePort: ptr(uint32(1))}.Build(),
+				}.Build(),
+			}.Build(),
+		}.Build(),
+	}.Build()
+	budget := phyv1.PseBudget_builder{PseGroup: &grp, PowerNanowatts: &power}.Build()
+
+	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, netmodel.Input{Interfaces: []*interfacev1.Interface{iface}, Budgets: []*phyv1.PseBudget{budget}, Want: []trace.Layer{phy.LayerNamePoE}})
+	if err != nil {
+		t.Fatalf("netmodel.Load: %v", err)
+	}
+
+	p, ok := res.Spec.Config.Phy.PoE.Ports[name]
+	if !ok {
+		t.Fatalf("port %s missing from loaded config", name)
+	}
+
+	if p.Limit == nil {
+		t.Fatal("Limit is absent, want 15400000000 nanowatts")
+	}
+
+	if *p.Limit != 15_400_000_000 {
+		t.Errorf("Limit = %d, want 15400000000 nanowatts", *p.Limit)
+	}
+}
+
+func TestLoadAutoNegotiationSupportedAbsence(t *testing.T) {
+	name := "1/1/1"
+	admin := interfacev1.AdminStatus_ADMIN_STATUS_UP
+	oper := interfacev1.OperStatus_OPER_STATUS_UP
+	mtu := uint32(0)
+	speeds := []uint64{1_000_000_000}
+
+	iface := interfacev1.Interface_builder{
+		Name:        &name,
+		AdminStatus: &admin,
+		OperStatus:  &oper,
+		Mtu:         &mtu,
+		Physical: interfacev1.PhysicalInterface_builder{
+			Ethernet: phyv1.EthernetFacet_builder{
+				Capabilities: phyv1.EthernetCapabilities_builder{
+					SupportedSpeedsBps: speeds,
+				}.Build(),
+			}.Build(),
+		}.Build(),
+	}.Build()
+
+	input := netmodel.Input{Interfaces: []*interfacev1.Interface{iface}, Want: []trace.Layer{phy.LayerName}}
+	validateInput(t, input)
+
+	res := load(t, netmodel.SourceContext{DeviceID: "sw1"}, input)
+	eth, ok := res.Spec.Config.Phy.Ethernet[name]
+	if !ok {
+		t.Fatalf("port %s missing from ethernet config", name)
+	}
+	if eth.AutoNegotiationSupported != phy.CapabilityUnknown {
+		t.Errorf("auto_negotiation_supported = %q, want %q", eth.AutoNegotiationSupported, phy.CapabilityUnknown)
+	}
+
+	portScope := analysis.PortScope("sw1", name)
+	for _, issue := range res.Metadata.Issues() {
+		if issue.Scope.Compare(portScope) == 0 {
+			t.Errorf("unexpected issue on port: %+v", issue)
+		}
+	}
+	for _, assumption := range res.Metadata.Assumptions() {
+		if assumption.Scope.Compare(portScope) == 0 {
+			t.Errorf("unexpected assumption on port: %+v", assumption)
+		}
+	}
+}
+
+func TestLoadPoeStatusMapping(t *testing.T) {
+	admin := interfacev1.AdminStatus_ADMIN_STATUS_UP
+	oper := interfacev1.OperStatus_OPER_STATUS_UP
+	mtu := uint32(0)
+	supported := true
+	role := phyv1.PoeRole_POE_ROLE_PSE
+	group := uint32(1)
+	power := uint64(100_000_000_000)
+
+	delivering := phyv1.PoeStatus_POE_STATUS_DELIVERING_POWER
+	searching := phyv1.PoeStatus_POE_STATUS_SEARCHING
+	disabled := phyv1.PoeStatus_POE_STATUS_DISABLED
+	testingStatus := phyv1.PoeStatus_POE_STATUS_TEST
+	fault := phyv1.PoeStatus_POE_STATUS_FAULT
+	otherFault := phyv1.PoeStatus_POE_STATUS_OTHER_FAULT
+	unspecified := phyv1.PoeStatus_POE_STATUS_UNSPECIFIED
+	unknownEnum := phyv1.PoeStatus(99)
+
+	tests := []struct {
+		name           string
+		status         *phyv1.PoeStatus
+		powerClass     *uint32
+		wantPD         phy.PDState
+		wantClass      *uint8
+		wantAssumption bool
+	}{
+		{
+			name:           "delivering power with class",
+			status:         &delivering,
+			powerClass:     ptr(uint32(3)),
+			wantPD:         phy.PDAttached,
+			wantClass:      phy.Class(3),
+			wantAssumption: false,
+		},
+		{
+			name:           "searching without class",
+			status:         &searching,
+			wantPD:         phy.PDAbsent,
+			wantAssumption: true,
+		},
+		{
+			name:           "disabled",
+			status:         &disabled,
+			wantPD:         phy.PDUnknown,
+			wantAssumption: false,
+		},
+		{
+			name:           "test",
+			status:         &testingStatus,
+			wantPD:         phy.PDUnknown,
+			wantAssumption: false,
+		},
+		{
+			name:           "fault",
+			status:         &fault,
+			wantPD:         phy.PDUnknown,
+			wantAssumption: false,
+		},
+		{
+			name:           "other fault",
+			status:         &otherFault,
+			wantPD:         phy.PDUnknown,
+			wantAssumption: false,
+		},
+		{
+			name:           "unspecified",
+			status:         &unspecified,
+			wantPD:         phy.PDUnknown,
+			wantAssumption: false,
+		},
+		{
+			name:           "unrecognized enum",
+			status:         &unknownEnum,
+			wantPD:         phy.PDUnknown,
+			wantAssumption: false,
+		},
+		{
+			name:           "absent status",
+			status:         nil,
+			wantPD:         phy.PDUnknown,
+			wantAssumption: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			portName := "1/1/1"
+			facetBuilder := phyv1.PoeFacet_builder{
+				Supported:  &supported,
+				Role:       &role,
+				PowerClass: tt.powerClass,
+			}
+			if tt.status != nil {
+				facetBuilder.Status = tt.status
+			}
+
+			iface := interfacev1.Interface_builder{
+				Name:        &portName,
+				AdminStatus: &admin,
+				OperStatus:  &oper,
+				Mtu:         &mtu,
+				Physical: interfacev1.PhysicalInterface_builder{
+					Ethernet: phyv1.EthernetFacet_builder{
+						Copper: phyv1.CopperFacet_builder{
+							Poe:       facetBuilder.Build(),
+							PoeDetail: phyv1.PoePortDetail_builder{PseGroup: &group, PsePort: ptr(uint32(1))}.Build(),
+						}.Build(),
+					}.Build(),
+				}.Build(),
+			}.Build()
+
+			input := netmodel.Input{
+				Interfaces: []*interfacev1.Interface{iface},
+				Budgets: []*phyv1.PseBudget{
+					phyv1.PseBudget_builder{PseGroup: &group, PowerNanowatts: &power}.Build(),
+				},
+				Want: []trace.Layer{phy.LayerNamePoE},
+			}
+			validateInput(t, input)
+
+			res := load(t, netmodel.SourceContext{DeviceID: "sw1"}, input)
+			portScope := analysis.PortScope("sw1", portName)
+
+			poePort, ok := res.Spec.Config.Phy.PoE.Ports[portName]
+			if !ok {
+				t.Fatalf("port %s missing from PoE ports", portName)
+			}
+			if poePort.PD != tt.wantPD {
+				t.Errorf("port PD = %q, want %q", poePort.PD, tt.wantPD)
+			}
+			if tt.wantClass == nil {
+				if poePort.PDClass != nil {
+					t.Errorf("port PDClass = %v, want nil", *poePort.PDClass)
+				}
+			} else {
+				if poePort.PDClass == nil || *poePort.PDClass != *tt.wantClass {
+					t.Errorf("port PDClass = %v, want %v", poePort.PDClass, *tt.wantClass)
+				}
+			}
+
+			for _, issue := range res.Metadata.Issues() {
+				if issue.Scope.Compare(portScope) == 0 && (issue.Code == netmodel.IssuePowerClassWithoutDelivery || issue.Code == netmodel.IssueUnsupportedPowerClass) {
+					t.Errorf("unexpected issue on port: %+v", issue)
+				}
+			}
+
+			var searchingAssumptions []analysis.Assumption
+			for _, a := range res.Metadata.AssumptionsFor(portScope) {
+				if a.Scope.Compare(portScope) == 0 && a.Statement == "absence is inferred from the searching status" {
+					searchingAssumptions = append(searchingAssumptions, a)
+				}
+			}
+			if tt.wantAssumption {
+				if len(searchingAssumptions) != 1 {
+					t.Fatalf("searching assumptions count = %d, want 1; assumptions: %+v", len(searchingAssumptions), res.Metadata.Assumptions())
+				}
+				a := searchingAssumptions[0]
+				if len(a.Evidence) == 0 {
+					t.Error("assumption has no evidence")
+				} else if _, found := res.Metadata.Evidence().Lookup(a.Evidence[0]); !found {
+					t.Error("assumption evidence not in catalog")
+				}
+			} else if len(searchingAssumptions) != 0 {
+				t.Errorf("unexpected searching assumptions on port: %+v", searchingAssumptions)
+			}
+		})
+	}
+}
+
+func TestLoadPoePowerClassWithoutDelivery(t *testing.T) {
+	admin := interfacev1.AdminStatus_ADMIN_STATUS_UP
+	oper := interfacev1.OperStatus_OPER_STATUS_UP
+	mtu := uint32(0)
+	supported := true
+	role := phyv1.PoeRole_POE_ROLE_PSE
+	group := uint32(1)
+	power := uint64(100_000_000_000)
+
+	searching := phyv1.PoeStatus_POE_STATUS_SEARCHING
+	disabled := phyv1.PoeStatus_POE_STATUS_DISABLED
+
+	tests := []struct {
+		name           string
+		status         *phyv1.PoeStatus
+		wantPD         phy.PDState
+		wantAssumption bool
+	}{
+		{
+			name:           "searching with power class",
+			status:         &searching,
+			wantPD:         phy.PDAbsent,
+			wantAssumption: true,
+		},
+		{
+			name:           "disabled with power class",
+			status:         &disabled,
+			wantPD:         phy.PDUnknown,
+			wantAssumption: false,
+		},
+		{
+			name:           "absent status with power class",
+			status:         nil,
+			wantPD:         phy.PDUnknown,
+			wantAssumption: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			portName := "1/1/1"
+			facetBuilder := phyv1.PoeFacet_builder{
+				Supported:  &supported,
+				Role:       &role,
+				PowerClass: ptr(uint32(3)),
+			}
+			if tt.status != nil {
+				facetBuilder.Status = tt.status
+			}
+
+			iface := interfacev1.Interface_builder{
+				Name:        &portName,
+				AdminStatus: &admin,
+				OperStatus:  &oper,
+				Mtu:         &mtu,
+				Physical: interfacev1.PhysicalInterface_builder{
+					Ethernet: phyv1.EthernetFacet_builder{
+						Copper: phyv1.CopperFacet_builder{
+							Poe:       facetBuilder.Build(),
+							PoeDetail: phyv1.PoePortDetail_builder{PseGroup: &group, PsePort: ptr(uint32(1))}.Build(),
+						}.Build(),
+					}.Build(),
+				}.Build(),
+			}.Build()
+
+			input := netmodel.Input{
+				Interfaces: []*interfacev1.Interface{iface},
+				Budgets: []*phyv1.PseBudget{
+					phyv1.PseBudget_builder{PseGroup: &group, PowerNanowatts: &power}.Build(),
+				},
+				Want: []trace.Layer{phy.LayerNamePoE},
+			}
+			validateInput(t, input)
+
+			res := load(t, netmodel.SourceContext{DeviceID: "sw1"}, input)
+			portScope := analysis.PortScope("sw1", portName)
+
+			poePort, ok := res.Spec.Config.Phy.PoE.Ports[portName]
+			if !ok {
+				t.Fatalf("port %s missing from PoE ports", portName)
+			}
+			if poePort.PD != tt.wantPD {
+				t.Errorf("port PD = %q, want %q", poePort.PD, tt.wantPD)
+			}
+			if poePort.PDClass != nil {
+				t.Errorf("port PDClass = %v, want nil (skipped)", *poePort.PDClass)
+			}
+
+			issues := res.Metadata.Issues()
+			foundIssue := false
+			for _, issue := range issues {
+				if issue.Code == netmodel.IssuePowerClassWithoutDelivery {
+					foundIssue = true
+					if issue.Scope.Compare(portScope) != 0 {
+						t.Errorf("issue scope = %s, want %s", issue.Scope, portScope)
+					}
+					if len(issue.Evidence) == 0 {
+						t.Error("issue has no evidence")
+					} else if _, found := res.Metadata.Evidence().Lookup(issue.Evidence[0]); !found {
+						t.Error("issue evidence not in catalog")
+					}
+				}
+			}
+			if !foundIssue {
+				t.Fatalf("missing IssuePowerClassWithoutDelivery in issues: %+v", issues)
+			}
+
+			var searchingAssumptions []analysis.Assumption
+			for _, a := range res.Metadata.AssumptionsFor(portScope) {
+				if a.Scope.Compare(portScope) == 0 && a.Statement == "absence is inferred from the searching status" {
+					searchingAssumptions = append(searchingAssumptions, a)
+				}
+			}
+			if tt.wantAssumption {
+				if len(searchingAssumptions) != 1 {
+					t.Fatalf("port assumptions count = %d, want 1; assumptions: %+v", len(searchingAssumptions), res.Metadata.Assumptions())
+				}
+				if searchingAssumptions[0].Statement != "absence is inferred from the searching status" {
+					t.Errorf("assumption statement = %q, want %q", searchingAssumptions[0].Statement, "absence is inferred from the searching status")
+				}
+			} else if len(searchingAssumptions) != 0 {
+				t.Errorf("unexpected searching assumptions on port: %+v", searchingAssumptions)
+			}
+		})
+	}
+}

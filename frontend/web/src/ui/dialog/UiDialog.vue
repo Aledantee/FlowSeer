@@ -63,11 +63,11 @@ const emit = defineEmits<
 >()
 
 const dialogVariants = tv({
-  base: 'bg-popover text-foreground border border-border shadow-lg z-(--z-overlay) focus:outline-none data-[state=open]:animate-dialog-in data-[state=closed]:animate-dialog-out motion-reduce:data-[state=open]:animate-dialog-fade-in motion-reduce:data-[state=closed]:animate-fade-out',
+  base: 'bg-popover text-foreground border border-border z-(--z-overlay) focus:outline-none data-[state=open]:animate-dialog-in data-[state=closed]:animate-dialog-out motion-reduce:data-[state=open]:animate-dialog-fade-in motion-reduce:data-[state=closed]:animate-fade-out',
   variants: {
     side: {
       center:
-        'rounded-panel fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 p-6 w-full',
+        'ui-card relative rounded-panel fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 p-6 w-full',
       right:
         'fixed inset-y-0 right-0 h-full border-l border-y-0 border-r-0 rounded-none p-6 w-full overflow-y-auto',
     },
@@ -119,11 +119,11 @@ const dialogVariants = tv({
         </VisuallyHidden>
         <div
           v-if="title || $slots.title || description || $slots.description"
-          class="flex flex-col gap-1.5 mb-4"
+          class="flex flex-col gap-1.5 pb-3 mb-4 border-b border-border"
         >
           <DialogTitle
             v-if="title || $slots.title"
-            class="text-lg font-semibold text-foreground"
+            class="font-mono text-lg font-semibold tracking-tight text-foreground"
           >
             <slot name="title">{{ title }}</slot>
           </DialogTitle>
@@ -142,7 +142,7 @@ const dialogVariants = tv({
           <slot name="footer" />
         </div>
         <DialogClose
-          class="absolute top-4 right-4 inline-flex items-center justify-center rounded-xs p-1 text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          class="absolute top-4 right-4 inline-flex items-center justify-center rounded-control p-1 text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           :aria-label="resolvedCloseLabel"
         >
           <svg

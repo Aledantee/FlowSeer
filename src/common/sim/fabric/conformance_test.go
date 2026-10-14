@@ -4,6 +4,10 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
@@ -13,6 +17,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/internal/simtest"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
@@ -47,9 +52,9 @@ func buildConformanceFabric(t *testing.T, vid2 uint16) (*fabric.Fabric, netaddr.
 		},
 	}
 
-	cfg := fabric.Config{
-		PhyAssumption: &fabric.PhyAssumption{
-			Medium: fabric.TwistedPair,
+	cfg := assembly.Config{
+		PhyAssumption: &cablemodel.PhyAssumption{
+			Medium: cablemodel.TwistedPair,
 			Ethernet: phy.Ethernet{
 				SupportedSpeedsBPS:       []uint64{10_000_000, 100_000_000, 1_000_000_000},
 				AutoNegotiationSupported: phy.CapabilitySupported,
@@ -57,29 +62,27 @@ func buildConformanceFabric(t *testing.T, vid2 uint16) (*fabric.Fabric, netaddr.
 			},
 		},
 		Switches: map[string]vswitch.Config{"sw1": swCfg},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: h1MAC},
 			"h2": {Address: h2MAC},
 		},
 		Cables: []fabric.Cable{
 			{
-				A:            fabric.Endpoint{Node: "h1"},
-				B:            fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
-				LengthMeters: 5,
-				Medium:       fabric.TwistedPair,
+				Cable: cablemodel.Cable{LengthMeters: 5, Medium: cablemodel.TwistedPair},
+				A:     fabric.Endpoint{Node: "h1"},
+				B:     fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
 			},
 			{
-				A:            fabric.Endpoint{Node: "sw1", Port: "1/1/2"},
-				B:            fabric.Endpoint{Node: "h2"},
-				LengthMeters: 5,
-				Medium:       fabric.TwistedPair,
+				Cable: cablemodel.Cable{LengthMeters: 5, Medium: cablemodel.TwistedPair},
+				A:     fabric.Endpoint{Node: "sw1", Port: "1/1/2"},
+				B:     fabric.Endpoint{Node: "h2"},
 			},
 		},
 	}
 
-	fab, err := fabric.New(cfg)
+	fab, err := assembly.New(cfg)
 	if err != nil {
-		t.Fatalf("fabric.New: %v", err)
+		t.Fatalf("assembly.New: %v", err)
 	}
 	return fab, h1MAC, h2MAC
 }
@@ -130,7 +133,7 @@ func TestConformanceRunLifecycle(t *testing.T) {
 	t0 := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
 
 	// 1. Not run if budget is 0
-	resNotRun := fab.Run(0)
+	resNotRun := fab.Run(fabric.RunOptions{Budget: 0, Window: 0})
 	if resNotRun.Stop != fabric.StopNotRun {
 		t.Errorf("Run(0) StopReason = %v, want %v", resNotRun.Stop, fabric.StopNotRun)
 	}
@@ -156,13 +159,13 @@ func TestConformanceRunLifecycle(t *testing.T) {
 	}
 
 	// 3. StopBudget when budget is limited
-	resBudget := fab.Run(1)
+	resBudget := fab.Run(fabric.RunOptions{Budget: 1, Window: 0})
 	if resBudget.Stop != fabric.StopBudget {
 		t.Errorf("Run(1) StopReason = %v, want %v", resBudget.Stop, fabric.StopBudget)
 	}
 
 	// 4. Drain queue with sufficient budget
-	resDrained := fab.Run(100)
+	resDrained := fab.Run(fabric.RunOptions{Budget: 100, Window: 0})
 	if resDrained.Stop != fabric.StopQueueDrained {
 		t.Errorf("Run(100) StopReason = %v, want %v", resDrained.Stop, fabric.StopQueueDrained)
 	}
@@ -195,13 +198,13 @@ func TestConformanceExactBehavioralComparison(t *testing.T) {
 	}
 
 	// Current-first comparison
-	cmpCurFirst := fabric.Compare(cur, cand, scenarioFromInjections(scenario), 10)
+	cmpCurFirst := fabric.Compare(cur, cand, scenarioFromInjections(scenario), fabric.RunOptions{Budget: 10, Window: 0})
 	if cmpCurFirst.Disposition != analysis.Different {
 		t.Fatalf("cur-first comparison = %v, want Different", cmpCurFirst.Disposition)
 	}
 
 	// Candidate-first comparison
-	cmpCandFirst := fabric.Compare(cand, cur, scenarioFromInjections(scenario), 10)
+	cmpCandFirst := fabric.Compare(cand, cur, scenarioFromInjections(scenario), fabric.RunOptions{Budget: 10, Window: 0})
 	if cmpCandFirst.Disposition != analysis.Different {
 		t.Fatalf("cand-first comparison = %v, want Different", cmpCandFirst.Disposition)
 	}
@@ -238,12 +241,12 @@ func TestConformanceDiagnosticTraceEquality(t *testing.T) {
 		},
 	}
 
-	cmpAB := fabric.Compare(cur, cand, scenarioFromInjections(scenario), 10)
+	cmpAB := fabric.Compare(cur, cand, scenarioFromInjections(scenario), fabric.RunOptions{Budget: 10, Window: 0})
 	if cmpAB.Disposition != analysis.Equivalent {
 		t.Errorf("cur vs cand disposition = %v, want Equivalent", cmpAB.Disposition)
 	}
 
-	cmpBA := fabric.Compare(cand, cur, scenarioFromInjections(scenario), 10)
+	cmpBA := fabric.Compare(cand, cur, scenarioFromInjections(scenario), fabric.RunOptions{Budget: 10, Window: 0})
 	if cmpBA.Disposition != analysis.Equivalent {
 		t.Errorf("cand vs cur disposition = %v, want Equivalent", cmpBA.Disposition)
 	}

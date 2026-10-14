@@ -1,7 +1,12 @@
-import { describe, expect, it } from 'vitest'
+// @vitest-environment happy-dom
+import { afterEach, describe, expect, it } from 'vitest'
+import { createApp, h, nextTick } from 'vue'
 import { loadDock, minimize, openBeside, openTab, saveDock } from './dock'
 import type { PageLocation } from './page'
 import { resolveTarget, scopeOf, viewOf } from './page'
+import { TooltipProvider } from 'reka-ui'
+import PageDock from './PageDock.vue'
+import { createWebI18n } from '../i18n'
 
 const at = (
   path: string,
@@ -112,5 +117,54 @@ describe('page locations', () => {
     expect(
       scopeOf(at('/topology', { site: 'berlin', focus: 'dev-2~eth0', q: 'x' })),
     ).toEqual({ site: 'berlin' })
+  })
+})
+
+describe('PageDock component', () => {
+  afterEach(() => {
+    document.body.replaceChildren()
+  })
+
+  it('restores minimized page on click and aligns dock chrome with Signal styling', async () => {
+    const tabs = [{ id: 'tab-1', location: at('/devices/dev-1') }]
+    const host = document.createElement('div')
+    document.body.append(host)
+    let restoredId = ''
+    const app = createApp({
+      setup() {
+        return () =>
+          h(TooltipProvider, null, () =>
+            h(PageDock, {
+              tabs,
+              title: () => ({
+                label: 'berlin-ap-01',
+                detail: 'Berlin Mitte',
+                icon: 'devices',
+                labelName: true,
+              }),
+              canSplit: true,
+              onOpen: (id: string) => {
+                restoredId = id
+              },
+            }),
+          )
+      },
+    })
+    app.use(createWebI18n('en'))
+    app.mount(host)
+    await nextTick()
+
+    const dock = host.querySelector('.dock-scroll')
+    expect(dock?.classList.contains('shadow-lg')).toBe(false)
+
+    const label = host.querySelector('strong')
+    expect(label?.classList.contains('font-mono')).toBe(true)
+
+    const button = host.querySelector('button.dock-open') as HTMLButtonElement
+    expect(button).not.toBeNull()
+    button.click()
+    expect(restoredId).toBe('tab-1')
+
+    app.unmount()
   })
 })

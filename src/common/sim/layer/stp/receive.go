@@ -13,18 +13,26 @@ func (l *Layer) syncTree(t *tree, rootPort string, now time.Time) {
 		if otherName == rootPort {
 			continue
 		}
-		if l.mst != nil && t.id != cistID && l.boundary(otherName) {
-			continue
-		}
 		otherP := t.ports[otherName]
 		if otherP == nil {
 			continue
 		}
 		otherLink := l.links[otherName]
 		if otherP.role == bpdu.RoleDesignated && !otherLink.edge {
+			// A port that is synced and past Discarding keeps its agreement,
+			// state, and proposing flag.
+			if otherP.synced && otherP.state != StateDiscarding {
+				continue
+			}
 			wasProposing := otherP.proposing
 			wasDiscarding := otherP.state == StateDiscarding
 			otherP.agreed = false
+			if l.mst != nil && t.id != cistID && l.boundary(otherName) && !otherP.synced {
+				otherP.boundarySyncState = StateDiscarding
+				_, _, delay := l.times(t)
+				otherP.fwdDelayTimer = now.Add(delay)
+			}
+			otherP.synced = true
 			otherP.proposing = otherLink.pointToPoint && otherLink.sendRSTP
 			if otherP.proposing && (!wasProposing || !wasDiscarding) {
 				l.requestNewInfo(t, otherP)
@@ -60,17 +68,8 @@ func (l *Layer) syncTree(t *tree, rootPort string, now time.Time) {
 	}
 }
 
-func (l *Layer) handleProposal(t *tree, p *portState, link *linkRecord, now time.Time, flushes *[]layer.FlushTarget) {
+func (l *Layer) handleProposal(t *tree, p *portState, now time.Time) {
 	l.syncTree(t, p.name, now)
-	if p.role == bpdu.RoleRoot && link.pointToPoint && l.isSynced(t, p.name) && link.sendRSTP {
-		if p.state != StateForwarding {
-			p.state = StateForwarding
-			p.forwardTransitions++
-			if !link.edge {
-				l.detectTopologyChange(t, p, now, flushes)
-			}
-		}
-	}
 }
 
 func (l *Layer) recordAgreement(t *tree, p *portState, link *linkRecord, incoming priorityVector, role bpdu.Role, agreement bool) {
@@ -205,6 +204,7 @@ func (l *Layer) receiveMSTIs(now time.Time, port string, b bpdu.BPDU, heldCISTVe
 // goes to ReceiveSSTP instead, which is the only entry point that classifies
 // a BPDU by VLAN.
 func (l *Layer) Receive(now time.Time, port string, b bpdu.BPDU) layer.Effects {
+	defer l.finishRecentRootDeadlines(now)
 	l.settleHelloTimers(now)
 	t := l.cist()
 	p, ok := t.ports[port]
@@ -322,6 +322,7 @@ const (
 // this function is the hole BPDU guard exists to close. Loop-guard recovery is
 // tree-owned, so only the applied path clears the arrival tree's mark.
 func (l *Layer) ReceiveSSTP(now time.Time, port string, arrival SSTPArrival, b bpdu.BPDU) (layer.Effects, SSTPOutcome) {
+	defer l.finishRecentRootDeadlines(now)
 	l.settleHelloTimers(now)
 	link, ok := l.links[port]
 	if !ok || !link.up {
@@ -473,23 +474,7 @@ func (l *Layer) applyBPDU(t *tree, p *portState, now time.Time, b bpdu.BPDU, flu
 		}
 	}
 
-	// Built in the same shape rawVector gives the stored vector it is compared
-	// against: a non-CIST tree carries its cost in internalRootPathCost, not
-	// externalRootPathCost, and a vector built with the cost in the wrong slot
-	// compares against a different component than the one it belongs next to.
-	incoming := priorityVector{rootID: b.RootID, bridgeID: b.BridgeID, portID: b.PortID}
-	switch {
-	case t.id == cistID && internal:
-		incoming.externalRootPathCost = b.RootPathCost
-		incoming.regionalRootID = b.RegionalRootID
-		incoming.internalRootPathCost = b.InternalRootPathCost
-	case t.id == cistID:
-		incoming.externalRootPathCost = b.RootPathCost
-		incoming.regionalRootID = b.RootID
-	default:
-		incoming.regionalRootID = b.RootID
-		incoming.internalRootPathCost = b.RootPathCost
-	}
+	incoming := receivedVector(t, b, internal)
 
 	sameSource := p.rcvInfoValid && (b.BridgeID == p.rcvBridgeID && b.PortID == p.rcvPortID)
 	isSuperior := false
@@ -577,7 +562,7 @@ func (l *Layer) applyBPDU(t *tree, p *portState, now time.Time, b bpdu.BPDU, flu
 
 	l.recomputeAll(now, flushes)
 
-	answered := l.answerProposals(t, p, link, b, mstiProposals, now, flushes)
+	answered := l.answerProposals(t, p, link, b, mstiProposals, now)
 	for _, answeredTree := range answered {
 		l.requestNewInfo(answeredTree, answeredTree.ports[p.name])
 	}
@@ -586,6 +571,28 @@ func (l *Layer) applyBPDU(t *tree, p *portState, now time.Time, b bpdu.BPDU, flu
 			l.requestNewInfo(t, p)
 		}
 	}
+}
+
+// Built in the same shape rawVector gives the stored vector it is compared
+// against: a non-CIST tree carries its cost in internalRootPathCost, not
+// externalRootPathCost, and a vector built with the cost in the wrong slot
+// compares against a different component than the one it belongs next to.
+func receivedVector(t *tree, b bpdu.BPDU, internal bool) priorityVector {
+	incoming := priorityVector{rootID: b.RootID, bridgeID: b.BridgeID, portID: b.PortID}
+	switch {
+	case t.id == cistID && internal:
+		incoming.externalRootPathCost = b.RootPathCost
+		incoming.regionalRootID = b.RegionalRootID
+		incoming.internalRootPathCost = b.InternalRootPathCost
+	case t.id == cistID:
+		incoming.externalRootPathCost = b.RootPathCost
+		incoming.regionalRootID = b.RootID
+	default:
+		incoming.regionalRootID = b.RootID
+		incoming.internalRootPathCost = b.RootPathCost
+	}
+
+	return incoming
 }
 
 func (l *Layer) propagateReceivedTC(t *tree, p *portState, link *linkRecord, b bpdu.BPDU, now time.Time, flushes *[]layer.FlushTarget) {
@@ -639,11 +646,11 @@ func (l *Layer) recordReceivedBPDU(p *portState, b bpdu.BPDU, internal bool, now
 	}
 }
 
-func (l *Layer) answerProposals(t *tree, p *portState, link *linkRecord, b bpdu.BPDU, mstiProposals []bpdu.MSTID, now time.Time, flushes *[]layer.FlushTarget) []*tree {
+func (l *Layer) answerProposals(t *tree, p *portState, link *linkRecord, b bpdu.BPDU, mstiProposals []bpdu.MSTID, now time.Time) []*tree {
 	var answered []*tree
 	if b.Proposal() && b.Role() == bpdu.RoleDesignated && (p.role == bpdu.RoleRoot || p.role == bpdu.RoleAlternate) {
 		answered = append(answered, t)
-		l.handleProposal(t, p, link, now, flushes)
+		l.handleProposal(t, p, now)
 		if l.mst != nil && link.external {
 			for _, id := range l.treeOrder {
 				mt := l.trees[id]
@@ -651,7 +658,7 @@ func (l *Layer) answerProposals(t *tree, p *portState, link *linkRecord, b bpdu.
 					continue
 				}
 				if mp, ok := mt.ports[p.name]; ok && (mp.role == bpdu.RoleRoot || mp.role == bpdu.RoleAlternate) {
-					l.handleProposal(mt, mp, link, now, flushes)
+					l.handleProposal(mt, mp, now)
 					answered = append(answered, mt)
 				}
 			}
@@ -660,7 +667,7 @@ func (l *Layer) answerProposals(t *tree, p *portState, link *linkRecord, b bpdu.
 	for _, mstid := range mstiProposals {
 		if mt, ok := l.trees[treeID(mstid)]; ok {
 			if mp, ok := mt.ports[p.name]; ok && (mp.role == bpdu.RoleRoot || mp.role == bpdu.RoleAlternate) {
-				l.handleProposal(mt, mp, link, now, flushes)
+				l.handleProposal(mt, mp, now)
 				answered = append(answered, mt)
 			}
 		}

@@ -38,6 +38,15 @@ explain why, with no process narration, no planning identifiers, and no TODOs.
   POSIX, where string concatenation does not.
 - **Exit non-zero on any failure and name it on standard error.** A caller
   that sees exit 0 may rely on the check having run.
+- **A hook is a command of the `hooks` group and reads its event through
+  `lib/hookio.py`.** `hookio.read_event` gives the first byte of standard
+  input five seconds and then reads to the end, so a silent stream cannot
+  hold the tool call behind it. It reads the descriptor, never `sys.stdin`,
+  because a thread left blocked inside that stream aborts the interpreter at
+  exit. A hook's exit code follows the runtime's hook contract, which is the
+  exception to the rule above. A guard that cannot decide prints a decision
+  with `hookio.deny` and exits 0, since a failure code other than 2 lets the
+  tool call through.
 - **Do no module-level work beyond definitions in a command or library
   module.** An import then has no side effect, so a test imports a command
   without running it. `run.py` is the one exception: it sets
@@ -49,3 +58,12 @@ explain why, with no process narration, no planning identifiers, and no TODOs.
 - **A package-local script carries its own metadata block and imports
   nothing from `tools/scripts/`.** A bench gate or a lab script that its
   package runs then works without the rest of the tree.
+- **Write no host-side shell script and no bare `python3` line.**
+  `test/conformance/scripting/` fails a tracked or new file that is a shell
+  script (a `.sh`, `.bash`, or `.zsh` name, or a `#!` line naming a shell), a
+  command that starts `python` or `python3` instead of `uv run`, and a `.py`
+  file outside `tools/scripts/` that lacks an inline metadata block. Its
+  exempt list names the files that must stay shell, each with its reason: the
+  snmpd pass-scripts and the clixon `startup.sh`, which run inside container
+  images without uv, vendored files under `spec/`, and `docs/research/`.
+  Adding an entry changes the scripting record.

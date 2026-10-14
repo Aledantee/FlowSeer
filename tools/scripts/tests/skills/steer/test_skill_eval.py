@@ -1,4 +1,4 @@
-"""Tests for the skill-eval runner against a temporary repository and a stub bench.sh."""
+"""Tests for the skill-eval runner against a temporary repository and a stub bench."""
 
 from contextlib import redirect_stderr, redirect_stdout
 import io
@@ -6,7 +6,6 @@ import json
 import os
 from pathlib import Path
 import re
-import shutil
 import subprocess
 import tempfile
 import unittest
@@ -77,35 +76,30 @@ Path(options["--out"]).write_text(json.dumps({
 }))
 """
 
-ALPHA_CHECK = """#!/bin/sh
-lane=$1
-text=$2
-case $text in
-  *demo*) echo "PASS names-demo" ;;
-  *) echo "FAIL names-demo" ;;
-esac
-if [ -f "$lane/.agents/skills/demo/SKILL.md" ]; then
-  echo "PASS skill-present"
-else
-  echo "FAIL skill-present"
-fi
+ALPHA_CHECK = """import sys
+from pathlib import Path
+
+lane, text = sys.argv[1], sys.argv[2]
+print(("PASS" if "demo" in text else "FAIL") + " names-demo")
+print(("PASS" if Path(lane, ".agents/skills/demo/SKILL.md").is_file() else "FAIL") + " skill-present")
 """
 
-BETA_CHECK = """#!/bin/sh
-if [ "$(git -C "$1" rev-parse HEAD)" = "$EVAL_BASE" ]; then
-  echo "PASS base-is-head"
-else
-  echo "FAIL base-is-head"
-fi
-if [ -n "$2" ]; then
-  echo "PASS has-report"
-else
-  echo "FAIL has-report"
-fi
+BETA_CHECK = """import os, subprocess, sys
+
+head = subprocess.run(["git", "-C", sys.argv[1], "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
+print(("PASS" if head == os.environ["EVAL_BASE"] else "FAIL") + " base-is-head")
+print(("PASS" if sys.argv[2] else "FAIL") + " has-report")
 """
 
-LAZY_CHECK = """#!/bin/sh
-echo "PASS always"
+LAZY_CHECK = """print("PASS always")
+"""
+
+BETA_SETUP = """import subprocess
+from pathlib import Path
+
+Path("fixture.txt").write_text("fixture\\n")
+subprocess.run(["git", "add", "-A"], check=True)
+subprocess.run(["git", "commit", "-q", "-m", "fixture commit"], check=True)
 """
 
 
@@ -126,9 +120,9 @@ def write(path: Path, text: str, executable=False):
 def scenario(repo_dir: Path, skill: str, name: str, spec: dict, check: str, setup: str | None = None):
     directory = repo_dir / ".agents/skills" / skill / "evals" / name
     write(directory / "scenario.json", json.dumps(spec))
-    write(directory / "check.sh", check, executable=True)
+    write(directory / "check.py", check)
     if setup is not None:
-        write(directory / "setup.sh", setup)
+        write(directory / "setup.py", setup)
 
 
 class Fixture(unittest.TestCase):
@@ -140,7 +134,7 @@ class Fixture(unittest.TestCase):
         self.lanes = self.root / "lanes"
         self.out = self.root / "rows.jsonl"
         self.log = self.root / "stub.jsonl"
-        self.bench = self.root / "bench.sh"
+        self.bench = self.root / "bench"
         write(self.bench, STUB_BENCH, executable=True)
 
         self.repo.mkdir()
@@ -168,7 +162,7 @@ class Fixture(unittest.TestCase):
             self.repo, "demo", "beta",
             {"skill": "demo", "query": "Review the work since {EVAL_PARENT}.", "budget_usd": 5, "expected_behavior": ["x"]},
             BETA_CHECK,
-            setup='echo fixture > fixture.txt\ngit add -A\ngit commit -q -m "fixture commit"\n',
+            setup=BETA_SETUP,
         )
         write(self.repo / ".agents/skills/demo/SKILL.md", "v3\n")
         write(self.repo / ".agents/skills/demo/NEW.md", "new\n")
@@ -356,7 +350,6 @@ class SkillEvalTest(Fixture):
         self.assertIn("no scenario for skill demo named nope", stderr)
 
 
-@unittest.skipUnless(shutil.which("shellcheck"), "shellcheck is not installed")
 class LintTest(Fixture):
     def test_lint_counts_every_scenario(self):
         code, stdout, stderr = self.run_eval("--lint", skill=None)
@@ -372,16 +365,16 @@ class LintTest(Fixture):
         )
         code, stdout, stderr = self.run_eval("--lint", skill="demo")
         self.assertEqual(code, 1)
-        self.assertEqual(stderr.strip(), "demo/lazy: check.sh prints no FAIL on an untouched lane")
+        self.assertEqual(stderr.strip(), "demo/lazy: check.py prints no FAIL on an untouched lane")
         self.assertEqual(stdout.strip(), "checked 3 scenarios")
 
-    def test_lint_flags_missing_fields_and_a_check_that_is_not_executable(self):
+    def test_lint_flags_missing_fields_and_a_missing_check(self):
         scenario(self.repo, "demo", "thin", {"skill": "demo", "query": "q"}, ALPHA_CHECK)
-        (self.repo / ".agents/skills/demo/evals/thin/check.sh").chmod(0o644)
+        (self.repo / ".agents/skills/demo/evals/thin/check.py").unlink()
         code, _, stderr = self.run_eval("--lint", skill="demo")
         self.assertEqual(code, 1)
         self.assertIn("demo/thin: scenario.json lacks budget_usd, expected_behavior", stderr)
-        self.assertIn("demo/thin: check.sh is missing or not executable", stderr)
+        self.assertIn("demo/thin: check.py is missing", stderr)
 
 
 class RealTreeTest(unittest.TestCase):

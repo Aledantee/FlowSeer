@@ -1,156 +1,141 @@
 // Package search provides bounded differential search over finite domains of
-// network simulation scenarios, deterministic counterexample minimization,
-// and first-divergence trace alignment.
+// network simulation scenarios and deterministic counterexample minimization.
 package search
 
 import (
-	"net/netip"
+	"cmp"
+	"math"
 	"slices"
-	"time"
+	"strconv"
 
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 )
 
-// Tuple represents the canonical, deterministic identity of a candidate in a search domain.
+// Tuple is the canonical, deterministic identity of a domain candidate.
 type Tuple string
 
-// String returns the string representation of the tuple.
-func (t Tuple) String() string {
-	return string(t)
-}
+// String returns the tuple's canonical representation.
+func (t Tuple) String() string { return string(t) }
 
-// TimedFault declares a cable fault applied at a specific simulation time.
-type TimedFault struct {
-	At    time.Time
-	A     fabric.Endpoint
-	B     fabric.Endpoint
-	Fault fabric.Fault
-}
-
-// Clone returns an independent deep copy of the timed fault.
-func (f TimedFault) Clone() TimedFault {
-	return TimedFault{
-		At:    f.At,
-		A:     f.A,
-		B:     f.B,
-		Fault: f.Fault.Clone(),
-	}
-}
-
-// Candidate encapsulates an evaluation target within a domain, pairing an ordered
-// scenario of traffic injections and timed faults with its unique domain tuple identity.
+// Candidate pairs an ordered injection and fault scenario with its domain identity.
+// Action IDs identify declarations and survive reduction.
 type Candidate struct {
-	Tuple    Tuple
-	Scenario []fabric.Injection
-	Faults   []TimedFault
+	Tuple   Tuple
+	Actions []fabric.Action
 }
 
-// Clone returns an independent deep copy of the Candidate.
+// Clone returns a copy with independent action payloads.
 func (c Candidate) Clone() Candidate {
-	cp := Candidate{
-		Tuple: c.Tuple,
-	}
-	if c.Scenario != nil {
-		cp.Scenario = make([]fabric.Injection, len(c.Scenario))
-		for i, inj := range c.Scenario {
-			injCp := inj
-			if inj.Frame.Tags != nil {
-				injCp.Frame.Tags = slices.Clone(inj.Frame.Tags)
-			}
-			if inj.Frame.Payload != nil {
-				injCp.Frame.Payload = slices.Clone(inj.Frame.Payload)
-			}
-			if inj.Packet != nil {
-				pktCp := *inj.Packet
-				if inj.Packet.Payload != nil {
-					pktCp.Payload = slices.Clone(inj.Packet.Payload)
-				}
-				injCp.Packet = &pktCp
-			}
-			cp.Scenario[i] = injCp
-		}
-	}
-	if c.Faults != nil {
-		cp.Faults = make([]TimedFault, len(c.Faults))
-		for i, f := range c.Faults {
-			cp.Faults[i] = f.Clone()
+	cp := c
+	if c.Actions != nil {
+		cp.Actions = make([]fabric.Action, len(c.Actions))
+		for i, action := range c.Actions {
+			cp.Actions[i] = action.Clone()
 		}
 	}
 	return cp
 }
 
-// ToScenario converts candidate injections and timed faults into a scheduled fabric.Scenario.
-func (c Candidate) ToScenario(budget int) fabric.Scenario {
-	actions := make([]fabric.Action, 0, len(c.Scenario)+len(c.Faults))
-	for i := range c.Scenario {
-		inj := c.Scenario[i]
-		cp := inj
-		if inj.Frame.Tags != nil {
-			cp.Frame.Tags = slices.Clone(inj.Frame.Tags)
+// Validate rejects non-injection/non-fault actions and invalid scenario actions,
+// including mixed numbering and duplicate timestamp/index pairs.
+func (c Candidate) Validate() error {
+	for i, action := range c.Actions {
+		if action.Kind != fabric.ActionInject && action.Kind != fabric.ActionFault {
+			return errs.Msgf("candidate action %d must be injection or fault", i)
 		}
-		if inj.Frame.Payload != nil {
-			cp.Frame.Payload = slices.Clone(inj.Frame.Payload)
-		}
-		if inj.Packet != nil {
-			pktCp := *inj.Packet
-			if inj.Packet.Payload != nil {
-				pktCp.Payload = slices.Clone(inj.Packet.Payload)
-			}
-			cp.Packet = &pktCp
-		}
-		actions = append(actions, fabric.Action{
-			At:     inj.At,
-			Kind:   fabric.ActionInject,
-			Inject: &cp,
-		})
 	}
-	for i := range c.Faults {
-		f := c.Faults[i]
-		actions = append(actions, fabric.Action{
-			At:   f.At,
-			Kind: fabric.ActionFault,
-			Fault: &fabric.FaultAction{
-				A:     f.A,
-				B:     f.B,
-				Fault: f.Fault.Clone(),
-			},
-		})
-	}
-	return fabric.Scenario{
-		Name:    "search-candidate",
-		Actions: actions,
-		Budget:  budget,
-	}
+	return c.ToScenario().Validate()
 }
 
-// Limits bounds the execution and retained difference collection of a differential search.
+// ToScenario copies the candidate and assigns IDs to unnamed declarations before
+// sorting. Existing IDs survive reduction. Unnumbered declarations receive
+// indices once, with injections preceding faults at tied times. Numbered actions
+// retain their indices and follow the fabric's timestamp/index order.
+func (c Candidate) ToScenario() fabric.Scenario {
+	actions := c.Clone().Actions
+	for i := range actions {
+		if actions[i].ID == "" {
+			actions[i].ID = "action-" + strconv.Itoa(i+1)
+		}
+	}
+	numbered := false
+	for _, action := range actions {
+		if action.Index != 0 {
+			numbered = true
+		}
+	}
+	if !numbered {
+		slices.SortStableFunc(actions, func(a, b fabric.Action) int {
+			if a.Kind == b.Kind {
+				return 0
+			}
+			if a.Kind == fabric.ActionInject {
+				return -1
+			}
+			return 1
+		})
+		for i := range actions {
+			actions[i].Index = i + 1
+		}
+	}
+	for i := range actions {
+		actions[i].At = actions[i].At.Round(0).UTC()
+		if actions[i].Inject != nil && !actions[i].Inject.At.IsZero() {
+			actions[i].Inject.At = actions[i].Inject.At.Round(0).UTC()
+		}
+	}
+	slices.SortStableFunc(actions, func(a, b fabric.Action) int {
+		if r := a.At.Compare(b.At); r != 0 {
+			return r
+		}
+		return cmp.Compare(a.Index, b.Index)
+	})
+	return fabric.Scenario{Name: "search-candidate", Actions: actions}
+}
+
+// Limits bounds evaluations and retained differences. It is immutable during Search.
 type Limits struct {
-	// MaxCandidates limits the number of domain candidates evaluated. If 0 or negative,
-	// all domain candidates are evaluated up to domain exhaustion.
+	// MaxCandidates bounds tested candidates. Zero enumerates the entire domain.
 	MaxCandidates int
-
-	// MaxDifferences limits the number of distinct behavioral divergences retained
-	// with full replay specifications and differences. Excess differences are counted
-	// in summary statistics without full replay records.
+	// MaxDifferences is the retained replay limit. Zero counts only, -1 is unlimited.
 	MaxDifferences int
-
-	// Budget is the per-candidate simulation step budget passed to fabric.Compare.
+	// Budget is the positive per-candidate simulation step budget.
 	Budget int
 }
 
-// Domain represents a finite, deterministic enumerable set of simulation candidates.
-//
-// Size reports the exact count of unique candidates contained in the domain.
-// Enumerate executes yield for each candidate in a total, deterministic order independent
-// of map iteration or insertion order. Enumeration halts early if yield returns false.
+// Validate rejects nonpositive budgets, negative candidate limits, and difference
+// limits below -1 before any domain enumeration.
+func (l Limits) Validate() error {
+	if l.Budget <= 0 {
+		return errs.Msg("search budget must be positive")
+	}
+	if l.MaxCandidates < 0 {
+		return errs.Msg("search candidate limit must be nonnegative")
+	}
+	if l.MaxDifferences < -1 {
+		return errs.Msg("search difference limit must be at least -1")
+	}
+	return nil
+}
+
+// Domain enumerates a finite deterministic set. Size is its exact candidate count.
+// Enumerate stops when yield returns false, with order independent of input ordering.
 type Domain interface {
 	Size() int
 	Enumerate(yield func(Candidate) bool)
 }
 
-// L3Domain is the search domain interface for routed layer-3 traffic exploration.
-// Concrete enumeration is deferred to a subsequent phase.
-type L3Domain interface {
-	Domain
-	RoutedSubnets() []netip.Prefix
+func productSize(dimensions ...int) (int, error) {
+	if slices.Contains(dimensions, 0) {
+		return 0, nil
+	}
+	size := 1
+	for _, dimension := range dimensions {
+		if dimension > math.MaxInt/size {
+			return 0, errs.Msg("domain cross product exceeds int")
+		}
+		size *= dimension
+	}
+	return size, nil
 }

@@ -26,6 +26,11 @@ Suggested change: <smallest edit to the skill, agent, or hook>.
 
 ## Entries
 
+## 2026-10-10 drive: ending a Codex turn leaves completed stages idle
+Skill or agent: `.agents/skills/drive/SKILL.md`, step 2, and `.agents/skills/delegate/SKILL.md`, Orca worker waits.
+What happened: the coordinator ended its turn while terminal waits ran. The workers completed, but no coordinator turn resumed to read their reports or start the next stages. The user had to request continuation. The allowed turn boundary was followed as written.
+Suggested change: require Codex to remain in its polling turn unless an installed continuation mechanism is verified to restart the coordinator. A running shell wait alone does not establish that mechanism.
+
 ## 2026-10-12 implement: the per-unit verifier run checks whitespace against the unit's own commit
 Skill or agent: `.claude/skills/implement/SKILL.md`, step 2.5, and
 `references/workers.md` (the wave's verifier run after the merge).

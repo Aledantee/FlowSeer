@@ -25,28 +25,33 @@ forwarding question is answered.
 
 `src/common/sim` is the home of network simulation. The library divides
 ownership across specialized packages:
+
 - `trace` is an import leaf defining typed execution steps, configuration diff
   changes, producer-owned rule IDs, and semantic facts.
 - `analysis` defines the trust contract: analysis readiness status, scoped
-  issues, evidence catalogs, and assumptions.
+  issues, evidence catalogs, assumptions, and shared comparison verdicts.
 - `device/vswitch` composes capabilities over a port table, validates and
   normalizes configurations, and returns forwarding results combining domain
   outcomes with analysis trust metadata.
 - `port` owns the port table. Capability packages under `layer/` (`phy`,
-  `bridge`, `lag`, `stp`, `mcast`, `routing`, `traffic`) own their respective
-  configurations, validation, normalization, cloning, diffs, and rule
+  `bridge`, `lag`, `stp`, `loopprotect`, `mcast`, `routing`, `filter`, `traffic`)
+  own their respective configurations, validation, normalization, cloning, diffs, and rule
   identifiers.
 - `netmodel` translates FlowSeer network model messages into virtual
   switch construction specifications, loading reports, and readiness metadata.
 - `fabric` composes switches, hosts, and cables into a stepped network simulation
-  recording traversal journeys.
+  recording traversal journeys, exact comparison locations, and trace alignment.
+- `flow` owns `ID`, `Stats`, `LatencyStats`, and statistics cloning.
+  Fabric owns folding, held gauges, and add/since accounting
+  ([flow/flow.go](../../src/common/sim/flow/flow.go),
+  [fabric/flow.go](../../src/common/sim/fabric/flow.go)).
 - `search` enumerates finite scenario domains against current-versus-candidate
-  fabrics, minimizes causal counterexamples, and aligns traces.
+  fabrics and minimizes counterexamples while preserving exact targets.
 - `internal/simtest` maintains an admitted, versioned analysis conformance
   corpus.
 
 - The device is sized by its caller. A port table with caller-chosen names
-  is the one place a port exists; every layer keys its attributes by port
+  is the one place a port exists. Every layer keys its attributes by port
   name and validates against the table. Port count, naming, speeds, and
   PoE budgets are inputs, because the lab alone holds three vendors that
   agree on none of them.
@@ -56,8 +61,8 @@ ownership across specialized packages:
   routing. The
   switch derives its capability set from its configuration and rejects
   configuration of a capability it lacks. The ladder is hub, bridge,
-  switch: a port table alone repeats every frame to every other port; the
-  relay adds one filtering database with every tag payload; VLAN
+  switch: a port table alone repeats every frame to every other port. The
+  relay adds one filtering database with every tag payload. VLAN
   awareness adds classification and tag forms. This is the
   facet rule of the network model applied to the simulator, and it keeps
   one code path per capability rather than one per device model.
@@ -65,7 +70,7 @@ ownership across specialized packages:
   PoE, `bridge` for the relay and VLANs, `routing` for routed interfaces
   and per-VRF tables. A layer imports the port table, the shared trace package,
   and shared network value or codec packages under `src/common/net`. Sibling
-  capability layers do not import one another; `vswitch` composes them, and
+  capability layers do not import one another. `vswitch` composes them, and
   `netmodel` owns the protobuf boundary. A new layer is a new package and a new
   field.
 - A simulator holds one state. Comparison, diff, and deriving an expected
@@ -77,7 +82,7 @@ ownership across specialized packages:
   run pulls source frames due at or before the earliest queued arrival, or
   the earliest source frame when the queue is empty. A step takes one arrival,
   forwards it on its device, and
-  enqueues one copy per egress cable; a copy is a transmission on the
+  enqueues one copy per egress cable. A copy is a transmission on the
   egress port that starts when the port is free and its queue's turn comes,
   in strict priority by PCP, takes the frame's serialization at the negotiated
   rate, and arrives after the cable's propagation. The run halts after a
@@ -87,13 +92,21 @@ ownership across specialized packages:
   names what the run holds at that instant and nothing else. A fork is what a
   caller steps instead, a running copy of the whole fabric that continues the
   same run from that instant rather than starting a new one the way `Derive`
-  does; "State ownership, forking, and snapshots" below states the copy rule.
-  Every frame's processing is a journey — hops, cable crossings, deliveries,
-  and drops with reasons — and the caller chooses what survives it: a
+  does. "State ownership, forking, and snapshots" below states the copy rule.
+  Every frame's processing is a journey of hops, cable crossings, deliveries,
+  and drops with reasons. The caller chooses what survives it: a
   `RetainJourney` injection keeps the settled journey, while a
   `RetainAggregate` injection frees it and folds what became of the frame into
   the flow's statistics, so a run can offer millions of frames without holding
-  millions of journeys. Those statistics report what the flow offered,
+  millions of journeys. Settled protocol journeys also release their traversal
+  storage. These retentions currently lose per-frame paths and drop locations.
+  Reporting every frame's path, drop location, and reason under these retentions
+  remains required. The export and retention mechanism and its memory cost
+  remain separately scoped work, coupled to the measured allocation miss
+  ([fabric/flow.go](../../src/common/sim/fabric/flow.go),
+  [fabric scale limits](../../src/common/sim/fabric/README.md#offered-load-scale),
+  [follow-up inventory](../plans/2026-10-10-1624-refactor-simulation-followups-plan.md)).
+  Those statistics report what the flow offered,
   delivered per host, dropped by reason, lost, unresolved, rejected, and held
   for resolution, and how late each delivery arrived, with the trust metadata
   of everything the answer rests on. An egress queue states a buffer in
@@ -109,21 +122,21 @@ ownership across specialized packages:
   The entry names the physical endpoint. The endpoint's issue and that step
   cite the same `fabric.runtime` evidence, whose context records the endpoint,
   queue, frame, instant, and fact values. The runtime catalog is available
-  through `Fabric.Metadata()` and journey metadata; `Fabric.Spec()` remains
+  through `Fabric.Metadata()` and journey metadata. `assembly.Spec(f)` remains
   the construction input and does not acquire runtime evidence. A later
   crossing on another PCP of the same endpoint creates no second event.
   This is the event model of ns-3 without goroutines. The queue also
   holds the wake-ups a layer schedules and the frames a device emits on
   its own, spanning tree first, under the same total order, so the single
   device stays a function of time, port, and frame and the run stays
-  deterministic. A loop is a queue that does not drain; the run marks the
+  deterministic. A loop is a queue that does not drain. The run marks the
   re-entry and the budget halts it.
 - A cable is a model of its own: a length and a medium that give a
   propagation time and bound the negotiated speed, an optional delay that
   replaces the propagation term, a top speed, and a declared fault (cut,
   one direction dead, a deterministic loss or corruption rule). A run is a
-  function of its configuration, its injections and streams, and their seeds;
-  the journey names the cable where a frame was lost.
+  function of its configuration, its injections and streams, and their seeds.
+  The journey names the cable where a frame was lost.
 - The shapes come from prior art, recorded in
   [the prior art research](2026-09-10-network-simulation-prior-art-research.md):
   a trace is a list of per-layer operations as Packet Tracer shows them,
@@ -139,10 +152,10 @@ ownership across specialized packages:
   form follow IEEE 802.1Q as the Q-BRIDGE-MIB and BRIDGE-MIB under
   `spec/mib/ietf/` describe them. A vendor deviation is a documented
   difference the trace can name.
-- The library is pure. No goroutines, no wall clock, no I/O; the caller
+- The library is pure. No goroutines, no wall clock, no I/O. The caller
   passes the time and holds the lock. A trace is a value, so two states can
   be compared and a result can be stored or shown.
-- The core holds plain Go types; protobuf messages appear only in
+- The core holds plain Go types. Protobuf messages appear only in
   `netmodel`. The generated messages are shaped for what a device reports,
   with presence meaning unknown, while a rule needs every value decided
   and every default reported. They are pointer graphs that cannot key a
@@ -156,14 +169,14 @@ ownership across specialized packages:
   ids and tags, `ethernet` for the frame and its codec. The collectors and
   the capture pipeline move to them in their own changes.
 - It is the engine of the shadow projection. The projection record's
-  "no emulator runs" means no third-party emulator; the virtual device is
+  "no emulator runs" means no third-party emulator. The virtual device is
   the projection, and a frame query joins the invariants as part of the
   preview once the device service wires it.
 - It lives under `src/common` because both the device service, for the
   preview, and the edge, for replaying captured frames against the device
   they came from, import it, and neither wires it as a service module. The
   simulators keep `src/common`'s rule of importing nothing from
-  `generated/`; `netmodel` is the documented exception, because a
+  `generated/`. `netmodel` is the documented exception, because a
   simulator nobody can load from the network model is a test fixture.
 
 ### Result contract axes
@@ -174,7 +187,8 @@ Every analysis evaluation separates four orthogonal axes:
    checks. Invalid inputs (such as non-existent port references or malformed
    VLAN IDs) are rejected with a Go `error` before simulation begins.
 2. **Domain outcome**: What the simulated dataplane did with the frame:
-   `Forwarded`, `Flooded`, `Dropped`, or `Consumed`, along with a domain reason
+   `Forwarded`, `Flooded`, `Dropped`, `Consumed`, or `Held` (queued on an
+   unresolved neighbor), along with a domain reason
    (such as `ingress-filter`, `port-down`, or `unicast-hit`).
 3. **Analysis readiness**: The trust placed in the answer: `Complete`,
    `Incomplete`, `Exhausted`, `Unstable`, or `Unsupported`, derived from an
@@ -197,30 +211,41 @@ None of these axes may be inferred from another:
 ### Construction specifications and singular normalization
 
 Every capability package exposes one normalization function (`Normalize`).
-Public constructors validate only after normalization.
+Public constructors normalize and then validate. Traffic field paths are the exception: they
+are validated before normalization so they name the submitted slice positions
+(`vswitch.ConstructionSpec.Normalize`).
 
 To reproduce simulations without drift, `vswitch.ConstructionSpec` and
 `fabric.ConstructionSpec` pair normalized configuration with non-configuration
 seeds (such as preloaded forwarding database entries). Re-running a simulation
 from its construction specification yields identical state and trace records.
 
+### 2026-10-09: Assembly owns construction
+
+`assembly.ConstructionSpec` replaces `fabric.ConstructionSpec`.
+`assembly.Derive` rebuilds a fabric from that specification, and
+`assembly.Configure` replaces one switch at the fabric clock. Their
+construction and retention rules below still apply. The runtime accepts built
+nodes through `fabric.Config`, `fabric.New`, `fabric.Replace`, and
+`fabric.Operate`, so it imports the device seam without a concrete device kind
+([assembly/assemble.go](../../src/common/sim/assembly/assemble.go),
+[fabric/topology.go](../../src/common/sim/fabric/topology.go)).
+
 ### State ownership, forking, and snapshots
 
 A snapshot, a fork, and `Derive` answer three different questions about a
 switch or a fabric's execution history. A snapshot is a read-only report: it
-exposes what a device or a run holds — the clock, the frames in flight, each
-device's forwarding database, port and neighbor state, and held-frame depth
-— as values a caller can compare but never step forward. A fork is an
+exposes what a device or a run holds (the clock, the frames in flight, each
+device's forwarding database, port and neighbor state, and held-frame depth)
+as values a caller can compare but never step forward. A fork is an
 executable copy: a second `Switch` or `Fabric` that starts identical to its
-source and diverges under its own steps from there. It is the input a
-current-against-candidate comparison will take once one exists;
-`fabric.Compare`'s present precondition that neither fabric has injected a
-frame is the next phase's to lift, not this one's. `Derive` is neither. It
+source and diverges under its own steps from there. Comparison forks its
+inputs to evaluate a scenario without consuming their live state. `Derive`
 rebuilds a switch or a fabric from a target construction specification,
 carries forward only the runtime state each capability layer's retention key
 says still applies, and starts a fresh run rather than continuing one.
 
-`Fabric.Configure` is a fourth operation, and the only one that changes
+`assembly.Configure` is a fourth operation, and the only one that changes
 configuration without leaving the run. It replaces one switch's configuration
 at the fabric clock, refuses the change unless the whole fabric would still
 construct, and rebuilds that switch through `vswitch.Derive`, so the retention
@@ -232,24 +257,32 @@ the state between two devices is what this operation exists to show.
 `Fork`'s copy rule follows from what each field is, not from a rule written
 once and trusted. Construction fixes some fields and execution mutates the
 rest, so every field of `Switch`, `Bridge`, and `Fabric` carries one of three
-classes. An `immutableShared` field is unwritten after construction; the
+classes. An `immutableShared` field is unwritten after construction. The
 fork points at the same value the source does. A `deepCopied` field is
-mutated by execution; the fork gets its own copy the source's later writes
-cannot reach. A `resetOnFork` field is a binding back to the switch or
-bridge that holds it — the bridge's spanning-tree gate, its LAG selector,
-its multicast resolver — and is rebound to the fork's own layers rather than
-copied, because a copied binding would have the fork asking the source for a
-LAG member or a multicast resolution. Each class has its own assertion:
-pointer identity for the first, a mutation probe for the second, a
-zero-value check for the third before the switch rebinds it. A table
-recording a class per field and never checking it back is a defect this
-phase has already seen once; see [one slot, two
+mutated by execution. The fork gets its own copy the source's later writes
+cannot reach. `Switch.Fork` loops over the table in
+`src/common/sim/device/vswitch/layers.go` to clone each layer, including the
+packet filter, then applies the table's relay bindings to those clones.
+A `resetOnFork` field is left at its zero value in the fork. Two kinds
+exist. A binding back to the switch or bridge that holds it (the bridge's
+spanning-tree gate, its LAG selector, its multicast resolver) is rebound to
+the fork's own layers rather than copied, because a copied binding would have
+the fork asking the source for a LAG member or a multicast resolution. The
+switch's active `call` is nil between public entries, so a fork starts
+without one. Each class has its own assertion:
+pointer identity and equality of value fields for the first, a mutation probe
+for the second, a zero-value check for the third before the switch rebinds it. A table
+classifies only fields populated on at least one source fixture, with an
+explicit reason for a field that is zero between calls. The switch gate in
+`fork_internal_test.go` uses populated layers and a separate no-spanning-tree
+fixture with scoped trust metadata. Recording a class per field and never
+checking it back is a defect. See [one slot, two
 roles](../solutions/architecture-patterns/one-slot-two-roles-is-a-defect-class-not-a-defect.md).
 
 An `ethernet.Frame` is an immutable value: nothing in the library writes
 into one after it is built. Every copy path shares the frame instead of
-copying it — `Fork`'s queues, egress queues, hold queues, and journeys, and
-`Snapshot`'s reported frames — because copying every queued and held payload
+copying it (`Fork`'s queues, egress queues, hold queues, and journeys, and
+`Snapshot`'s reported frames) because copying every queued and held payload
 would be the dominant cost at the declared scale and nothing needs the copy.
 `Report()` is the one exception: it deep-copies frames because it hands a
 journey to a caller outside the library, a contract already paid for before
@@ -260,11 +293,10 @@ A retained record's provenance and its lifetime are two separate axes.
 `Lifetime` is `Static` or `Aging`, naming whether it expires on its own. The
 two vary independently: a configured record can still age out, and an
 observed one can be pinned past the interval that would otherwise expire it.
-A single `Static` boolean cannot say both at once, which is why
-`restoreMulticastState` used to synthesize a fabricated IGMP query just to
-get an aging router port back — there was no way to install an observed
-record with its own expiry directly. A record with only one reachable
-origin, such as `mcast.Entry`, keeps no `Origin` field; its package README
+A single `Static` boolean cannot say both at once. Multicast's `Restore`
+copies an observed router port with its original deadline while the target's
+static configuration takes precedence. A record with only one reachable
+origin, such as `mcast.Entry`, keeps no `Origin` field. Its package README
 says why, because splitting an axis nothing ever disagrees about would add a
 field with one value forever.
 
@@ -274,11 +306,28 @@ its own `Config`: spanning tree's roles depend on link state and speed that
 live on the port table, and LAG's member selection depends on the switch's
 base MAC, which reaches the layer only as a normalization input. Each
 capability layer exports `RetentionKey(...) string`, a canonical encoding of
-every normalized input its runtime state actually depends on, and `Derive`
-retains a layer only when the current switch's key and the target's agree.
-Both keys are computed from constructed switches, never from a raw target
+every normalized input its runtime state actually depends on. `Derive` gates
+STP, LoopProtect, LAG, and routing state retention on equality of the current
+and target keys. Traffic calls `Retain` whenever both switches have a traffic
+layer. The bridge filtering database is reseeded per eligible dynamic entry
+([`derive.go`](../../src/common/sim/device/vswitch/derive.go)).
+Multicast restores state per entry on VLANs both
+layers snoop, restricted to target logical ports admitted by the switch's
+port forwarding and VLAN membership. Spanning tree gates egress when a
+frame arrives and never decides which membership Derive retains. Its key names
+only the difference in the retention report. `mcast.Layer.Restore` copies
+the whole group state and each observed router port with their deadlines,
+while the target's static router ports take precedence.
+`Kept` means key equality for a layer carried whole and for traffic.
+Multicast and the bridge are carried per record and report kept when no
+source record is absent afterwards. The bridge counts keys missing after
+reseed, including capacity evictions. A lost record with equal keys names
+`config`. An absent layer on both sides is kept. Filter is rebuilt from
+configuration and reports key equality because it holds no runtime record.
+
+Dependency keys are computed from constructed switches, never from a raw target
 specification, because a raw spec has not yet run through the normalization
-and MAC assignment that decide what a field becomes; see [validate and
+and MAC assignment that decide what a field becomes. See [validate and
 derive judge what New
 builds](../solutions/architecture-patterns/validate-and-derive-judge-what-new-builds.md).
 
@@ -309,32 +358,38 @@ them.
 
 - **Effective link and port state.** Every non-LAG switch port is cabled,
   listed in `Config.Uncabled`, or unresolved. A cabled port's link decides
-  its state; `Uncabled` is `Down` with `no-cable`, a stated absence; neither
+  its state. `Uncabled` is `Down` with `no-cable`, a stated absence. Neither
   is `Unknown` with `adjacency-unresolved`, since nothing says what, if
   anything, is attached. A configured `OperStatus` that disagrees with the
-  derived state is kept for the reader (`Config()`, `Spec()`), but the
+  derived state is kept for the reader (`Config()`, `assembly.Spec`), but the
   derived state executes, and the disagreement adds an `oper-status-conflict`
   issue instead of the derived value silently overwriting it.
 - **`Config.PhyAssumption`.** An opt-in medium and Ethernet profile that
   fills only what an end or cable leaves unreported: empty speeds, an
   unknown capability, a nil setting, or an unspecified medium. Filled values
-  appear in `Fabric.Links()`; `Config()`, `Spec()`, and `Diff` show only the
+  appear in `Fabric.Links()`. `Config()`, `assembly.Spec`, and `Diff` show only the
   knob itself, and each link it fills carries one `Assumption` naming the
   facts, so a standards default runs only on the record.
-- **Protocol link-state input.** `Switch.LinkChange` takes `port.LinkState`,
-  not a boolean, so an `Unknown` link leaves the port `Unknown` instead of
-  being coerced to `Down`; STP and LAG still hear it as not operational. The
+- **Protocol link-state input.** `Switch.LinkChange` takes `device.Link`:
+  operational state, speed, this end's duplex, and whether the peer relays
+  or terminates frames. The switch applies its administrative STP override
+  and decides point-to-point (`src/common/sim/device/vswitch/link.go`).
+  An `Unknown` link leaves the port `Unknown`. STP and LAG hear it as
+  not operational. The
   switch raises `protocol-link-unknown` on every port whose role or
-  membership those protocols compute once one of their inputs is unknown; a
+  membership those protocols compute once one of their inputs is unknown. A
   later `Up` report clears it. Without this, an unknown redundant uplink
   would silently re-elect a spanning tree root with every dependent journey
   reading `Complete`.
+  Startup reports every port, with LAG members before their parents, and
+  schedules each switch's wake. Its first link-report error reaches the
+  constructor, `Derive`, or `Configure` (`src/common/sim/fabric/fabric.go`).
 - **Host acceptance.** A frame the pipeline delivers to a host is not
   necessarily one the host keeps. After arrival, the host checks VLAN
   form, destination MAC, and, for a host with an IP stack, the IP
   destination, each under a named clause (own address, broadcast,
   solicited-node group, promiscuous mode). `Journey.Deliveries` holds only
-  frames a host accepted; a rejection or an undecodable header is a
+  frames a host accepted. A rejection or an undecodable header is a
   recorded outcome of its own.
 - **Journey dependency metadata.** `Journey.Metadata` is captured per entry
   at record time, not read live from `Fabric.Metadata()`. Each entry folds
@@ -359,7 +414,7 @@ Every recorded journey receives exactly one result state. `JourneyPending` is th
 sole nonterminal state, assigned when work on the frame remains queued, in an
 egress buffer, or held awaiting neighbor resolution at the run boundary. All other
 states are terminal: `JourneyDelivered`, `JourneyRejected`, `JourneyDropped`,
-`JourneyLooped`, `JourneyTruncated`, `JourneyUnresolved`, and `JourneyReleased`.
+`JourneyLooped`, `JourneyTruncated`, and `JourneyUnresolved`.
 Host rejection is separated from delivery at this layer: a physical arrival that
 the destination host refuses (due to MAC mismatch, VLAN filter, or IP rejection)
 is terminal `JourneyRejected` and is excluded from deliveries.
@@ -367,10 +422,9 @@ is terminal `JourneyRejected` and is excluded from deliveries.
 A journey's origin is a typed relation rather than an overloaded parent pointer.
 Its kind records how the frame entered the simulation: a caller's direct
 injection (`OriginInjection`), a mirror copy produced by port mirroring
-(`OriginMirror`), or a frame released from a neighbor hold queue
-(`OriginRelease`). For mirror copies and releases, the origin links back to the
-holding or source frame ID without adding forward-pointing pointers that could
-drift out of agreement.
+(`OriginMirror`), or a reflected datagram (`OriginReflection`). Copies name
+the source frame ID. A release continues the held frame's own journey and
+keeps its original origin.
 
 Convergence and oscillation are evaluated on a canonical state fingerprint of
 protocol-relevant snapshot state across consecutive periodic wake arrivals. The
@@ -378,8 +432,9 @@ fingerprint explicitly excludes the clock, the arrival queue, and counters.
 Without that exclusion, periodic protocol events (such as spanning tree BPDUs)
 would advance the clock and refresh counters on every step, making a settled
 fabric look perpetually changing or disguising budget exhaustion as normal
-progress. A scenario declares its observation window and positive step budget as
-an in-memory Go value; it carries no file persistence or packet-capture parser.
+progress. A scenario declares its action schedule. `fabric.RunOptions` carries
+the observation window and positive step budget beside that schedule. Both are
+in-memory Go values with no file persistence or packet-capture parser.
 When the run names streams, their seeds determine field draws.
 
 ### Current-against-candidate comparison
@@ -388,10 +443,10 @@ A caller compares a current network or switch against a candidate to detect
 regressions and verify equivalence. Comparison evaluates behavioral observables
 rather than whole-state fingerprints or shallow boolean equality:
 
-- **Switch observables.** For `vswitch.ForwardResult`, comparison checks
+- **Switch observables.** For `vswitch.Output`, comparison checks
   forwarded frames per egress port with rewritten fields, the selected LAG
-  member, mirror copies, PCP, and the typed forwarding outcome (`Forwarded`,
-  `Flooded`, `Dropped`, or `Consumed`, with domain reason). Semantic trace
+  member, mirror copy VLAN, selected member and frame content, PCP, and the typed forwarding outcome (`Forwarded`,
+  `Flooded`, `Dropped`, `Consumed`, or `Held`, with domain reason). Semantic trace
   steps and metadata are diagnostic and never cause a `Different` verdict.
 - **Fabric observables.** Per paired journey in `fabric.Journey`, comparison
   checks `State`, `Origin`, ordered `Entries` (path hops, cable crossings,
@@ -409,23 +464,34 @@ rather than whole-state fingerprints or shallow boolean equality:
   stored:
   - `Equivalent` requires both sides' `Status` to be `Complete` and every
     behavioral observable to match.
-  - `Different` requires a proven behavioral observable mismatch, naming the
-    first differing observable and carrying an immutable `ReplaySpec`.
-  - `Inconclusive` occurs when either side reports `Incomplete`, `Exhausted`,
-    `Unstable`, or `Unsupported`, or when budget stopped a run that still held
-    pending work. Equivalence over partial evaluation is never assumed.
+  - `Different` requires Complete readiness on both sides and a proven
+    behavioral observable mismatch, naming the first differing observable
+    and carrying a `ReplaySpec` whose checkpoint
+    preserves the fabric's pre-action live state. Replay forks that checkpoint
+    on each call, including its cable crossing counts, and has no written form.
+    Fabric comparisons also name a `DifferenceLocation`: journey, run, or
+    snapshot area, subject, and exact field. Journey targets retain the
+    injection index and UTC time plus mirror and reflection lineage.
+  - `Inconclusive` occurs on an execution error or when either side reports
+    `Incomplete`, `Exhausted`, `Unstable`, or `Unsupported`, or when budget stopped a run that still held
+    pending work. It takes precedence even when an observable differs, and
+    `Difference` and `Location` keep that difference. Equal settled aggregate
+    roots are also inconclusive because flow totals cannot prove journey
+    equivalence ([compare.go](../../src/common/sim/fabric/compare.go)).
 - **Internal forking and lifted precondition.** `fabric.Compare` forks both
   inputs internally via `a.Fork()` and `b.Fork()`, injects the scenario, runs
   the forks to budget, and compares. The caller's `a` and `b` fabrics are never
   stepped, injected, or learned into. This lifts the former restriction that
-  fabrics must not have injected frames prior to comparison; mid-run fabrics
+  fabrics must not have injected frames prior to comparison. Mid-run fabrics
   are directly comparable without consuming caller state.
 - **Injection-ordinal journey pairing.** Forks of running fabrics assign frame
   identifiers from divergent local histories, so new scenario journeys cannot
   pair by frame ID. Instead, journeys pair by injection ordinal: the nth
   scenario injection's journey on side A pairs with the nth injection's journey
   on side B. Pre-scenario journeys represent shared history and are excluded
-  from the diff.
+  from the diff. Mirror and reflection descendants pair by kind, mirror name,
+  and parent-relative occurrence, including one-sided descendants
+  (`src/common/sim/fabric/comparison_location.go`).
 - **Separation from convergence fingerprints.** `Snapshot.Fingerprint()` remains
   the convergence oracle covering device and link convergence across periodic
   protocol boundaries. It does not capture per-journey paths, arrival timing, or
@@ -440,38 +506,52 @@ bounded equivalence under a resource contract:
 
 - **Finite domain enumeration.** A search domain implements the `Domain`
   interface with `Size() int` and an internal iterator `Enumerate(yield func(Candidate) bool)`.
-  Candidates represent test scenarios paired with domain tuple identities.
+  Candidates hold independent injection and fault `fabric.Action` values paired
+  with domain tuple identities. Action indices survive reduction, and tied
+  unnumbered declarations place injections before faults.
   Enumeration follows a total deterministic order independent of map iteration.
   When a search halts early on its candidate budget, it returns an exact slice of
   untested tuples alongside tested coverage (`Coverage` and `Remainder`).
 - **Domain scopes.** Two concrete domains exist: `L2TrafficDomain` (cross
   product of declared source, destination, VLAN, and frame-shape tuples) and
-  `TimedFaultDomain` (declared cable faults at declared times). `L3Domain` is an
-  interface only this phase, deferring routed traffic enumeration to a later
-  increment without altering the search pipeline.
+  `TimedFaultDomain` (declared cable faults at declared times). Both constructors
+  return a domain and an error after validation. Empty dimensions yield empty
+  domains. No routed-domain interface is declared (`src/common/sim/search`).
 - **Comparison per candidate.** `search.Search(current, candidate, dom, lim)`
-  evaluates each candidate via `fabric.Compare(current, candidate, cand.Scenario, lim.Budget)`.
+  evaluates each candidate via
+  `fabric.Compare(current, candidate, cand.ToScenario(),
+  fabric.RunOptions{Budget: lim.Budget})`.
   `fabric.Compare` forks both fabrics internally. Neither the current nor the
   candidate fabric is stepped or consumed across the search, so callers can reuse
-  mid-run fabrics directly.
+  mid-run fabrics directly. Invalid limits return an error before enumeration.
+  Candidate failures increment `Result.Errors` and keep the first wrapped
+  error in `Result.Err`, then enumeration continues.
 - **Resource contract and asymmetric retention.** Discarded candidates (equivalent
   or inconclusive) record coverage accounting and a summary count only, without
   full execution traces. Only retained `Different` candidates (bounded by
-  `lim.MaxDifferences`) preserve their tuple identity, immutable `[2]ReplaySpec`,
-  and first differing `Difference` observable.
+  `lim.MaxDifferences`) preserve their tuple identity, `[2]ReplaySpec` with
+  pre-action in-memory checkpoints for both fabrics,
+  and first differing `Difference` observable. Zero retention keeps counts
+  only, and `-1` retains all differences. Tested coverage includes errors.
 - **Deterministic counterexample minimization.** When a behavioral difference is
   found, `Minimize` performs deterministic reduction within the domain by
   removing scenario elements (injections, then faults) in a fixed order. A
   removal is accepted only if `fabric.Compare` replayed on the reduced candidate
-  still reproduces the exact same `Difference.Observable`. Minimization reports
-  `Minimal` or `LimitReached`.
-- **First-divergence trace alignment.** For a retained comparison, `Align`
-  walks paired journeys in deterministic order and locates the first entry index
-  where causal trace facts diverge. Trace facts remain diagnostic and never
+  still reproduces the same `DifferenceLocation` and all `Difference` values.
+  `Minimization` returns the candidate, target, difference, and `Minimal` or
+  `LimitReached`. Invalid inputs, comparison errors, and an initial
+  non-difference return errors. Exact values may retain an otherwise removable
+  action (`TestMinimizeExactValuesCanRetainOtherwiseRemovableAction` in
+  `src/common/sim/search/minimize_test.go`).
+- **First-divergence trace alignment.** `fabric.Align` uses comparison's injection
+  and ancestry pairing, including one-sided descendants. It retains a behavioral
+  location separately from an optional diagnostic trace location. Trace indices
+  address original entries, including queue diagnostics. Trace facts never
   alter the behavioral disposition.
 - **Package dependency direction.** The `search` package imports `analysis`,
-  `vswitch`, and `fabric`. None of `analysis`, `vswitch`, or `fabric` imports
-  `search`.
+  `fabric`, and network codec/value packages in production. Search tests import
+  `vswitch` to construct fixtures. None of `analysis`, `vswitch`, or `fabric`
+  imports `search`.
 
 ### LAG bucket selection and multicast query observation
 
@@ -479,20 +559,20 @@ bounded equivalence under a resource contract:
   `BalanceTCP` selection buckets `hash & 0xff` into 256 slots, and each slot
   remembers which member last carried it. A bucket keeps its member while
   that member stays enabled, so a member fault reassigns only the buckets
-  that were on the faulted member; the other buckets, and the flows hashing
+  that were on the faulted member. The other buckets, and the flows hashing
   to them, are untouched (`ofproto/bond.c` `choose_output_member` and
   `get_enabled_member`, OVS `branch-3.3` at `73e38c8d`). A newly enabled
   member joins the back of the enabled list rather than the front, so
   reassignment after a fault cycles through survivors in a fixed order
   instead of piling every orphaned bucket onto one member. `Select` commits
-  a bucket's assignment and the enabled list's rotation; `Peek` computes the
+  a bucket's assignment and the enabled list's rotation. `Peek` computes the
   same choice without committing either, so a preview cannot perturb the
   live bond. Active-backup keeps the member it last chose rather than
-  failing back once the member it moved away from recovers; only a
+  failing back once the member it moved away from recovers. Only a
   configured `Primary` returns traffic to a specific member. A
   `RebalanceInterval` elapsing on an unchanged, balanced bucket with two or
   more enabled members raises `lag-rebalance-unmodeled`: OVS would have
-  measured load and could have moved the bucket, and netsim does not
+  measured load and could have moved the bucket, and sim does not
   measure load.
 - **The switch never queries, so an unobserved query it depended on degrades
   readiness instead of silently keeping full timers.** RFC 3376 §6.4's leave
@@ -508,6 +588,22 @@ bounded equivalence under a resource contract:
   tell whether one was sent and lost or never existed. With no router port
   there is no querier to have sent one, so the full membership interval is
   the real behavior and the result stays Complete.
+  Multicast state is read as of a time: `Resolve`, `Groups`, and
+  `RouterPorts` ignore expired state without writing, and a fabric snapshot
+  uses the fabric clock. Learning ages a port's state before applying a
+  record, so its timers determine the transition even without a prior
+  `Advance` call (`src/common/sim/layer/mcast/layer.go`).
+  IGMPv1 and IGMPv2 host timers start only on reports, with the second also
+  serving MLDv1. An IGMPv1 timer makes Leave and `TO_IN` ineffective even
+  with fast leave. A group query obligation ends on an observed `Q(G)` or
+  a record that sets the group timer. A source obligation ends per queried
+  source when `Q(G,A)` names it, a record sets its timer, or it is deleted.
+  A matching query ends its obligation however late it arrives. A group
+  query leaves source obligations intact because RFC 3376 §6.6.1 lowers
+  only the group timer. MLD reports may come from `::` under RFC 4541 §3,
+  while queries and Done require a link-local source
+  (`src/common/sim/layer/mcast/state.go`,
+  `src/common/sim/device/vswitch/mcast.go`).
 
 ### Spanning-tree information lifetime, guards, and the gate
 
@@ -517,14 +613,14 @@ bounded equivalence under a resource contract:
   because the received value is the root's and a fabric holds bridges with
   differing timers. A BPDU that fails the test is discarded rather than
   stored, so a BPDU naming a root that no longer exists stops refreshing the
-  port's timer on every hop; the port's own information then expires on the
+  port's timer on every hop. The port's own information then expires on the
   `3 × HelloTime` silence bound and the roles are recomputed. UNH-IOL's RSTP
   conformance suite states the rule as a hop count with max age as its
   maximum, citing IEEE Std 802.1Q-2011 sub-clauses 13.23.6, 13.27.30, and
   13.28.
 - **Internal information ages by remaining hops instead of message age.** A
-  BPDU whose configuration identifier matches this bridge's own is internal;
-  it is accepted while `RemainingHops > 1` and re-originated one hop short, on
+  BPDU whose configuration identifier matches this bridge's own is internal.
+  It is accepted while `RemainingHops > 1` and re-originated one hop short, on
   the CIST and every MSTI alike, so a claim naming a regional root that no
   longer exists stops refreshing after `MaxHops` hops rather than a fixed
   time. External information (an RST or Configuration BPDU, or an MST BPDU
@@ -545,7 +641,7 @@ bounded equivalence under a resource contract:
   unadmitted, untracked, or PVID-inconsistent SSTP BPDU
   leaves the mark in place. Under MSTP the CIST mark is the bridge-global
   outcome read by every MSTI, while PVST reads each tree's own mark. A link
-  down clears every tree. Loop guard is netsim's own design drawn from Cisco,
+  down clears every tree. Loop guard is sim's own design drawn from Cisco,
   Juniper, and Arista, and is inactive on an operationally edge port and on a
   shared link, where a port that stops hearing BPDUs is not evidence of a link
   broken in one direction.
@@ -556,10 +652,14 @@ bounded equivalence under a resource contract:
   forwarding state belongs to a spanning tree, and more than one tree can run
   over one port, so `Learns` and `Forwards` take a port and a VLAN and the
   layer maps the VLAN to a tree. With no region configured, one tree, the
-  CIST, carries every VLAN, so the answers agree; with a region configured, a
+  CIST, carries every VLAN, so the answers agree. With a region configured, a
   VLAN an instance claims maps to that MSTI instead, and a boundary port's
-  answer for it still traces back to the CIST because an MSTI takes the CIST
-  port's role there. The port identifier and the port key set stay
+  answer for it traces back to the CIST because an MSTI takes the CIST
+  port's role there. During an MSTI's own sync cut on a Designated boundary
+  port, its state is the less forward of its own ladder and the CIST's state
+  to suppress temporary loops. An agreement or the end of that ladder
+  restores the CIST's answer (`src/common/sim/layer/stp/sync_boundary_test.go`).
+  The port identifier and the port key set stay
   bridge-global: the identifier appears on the wire, and the key set's order
   reaches the caller as the order of `Effects.Flush`.
 
@@ -599,7 +699,7 @@ bounded equivalence under a resource contract:
 - **A region is a name, a revision, and a digest over the VID-to-MSTID
   table, carried as a 51-octet configuration identifier.** The digest is
   HMAC-MD5 over the 4096-entry table, two big-endian octets per VID, keyed
-  with a fixed constant; the all-zero table digests to
+  with a fixed constant. The all-zero table digests to
   `ac36177f50283cd4b83821d8ab26de62` and VID 10 on MSTID 1 with VID 20 on
   MSTID 2 to `9357ebb7a8d74dd5fef4f2bab50531aa`, which is what proves the
   construction matches the standard rather than some other one. A port that
@@ -613,7 +713,7 @@ bounded equivalence under a resource contract:
   internal root path cost, designated bridge, designated port. An RSTP tree,
   and the CIST on a boundary port, set the regional root from the root and
   leave the internal cost zero, collapsing to the four-component
-  root/cost/bridge/port order with the cost in the external slot; an MSTI
+  root/cost/bridge/port order with the cost in the external slot. An MSTI
   does the same the other way round, taking its root from its regional root
   and leaving the external cost zero. The CIST on an internal port populates
   all six components, comparing regional root and internal cost ahead of
@@ -621,14 +721,14 @@ bounded equivalence under a resource contract:
   comparing outward. None of this needs a branch, because a constant or
   shared leading component drops out of a lexicographic comparison, so a
   second vector type would only duplicate the comparator.
-- **Only the CIST computes a boundary port's role; every MSTI takes the
+- **Only the CIST computes a boundary port's role. Every MSTI takes the
   CIST's role there outright.** Electing an independent role from information
   a different region sent would let an MSTI disagree with the CIST about
   which link is blocked, which is the boundary a region name and revision
   exist to detect. A bridge whose CIST root port is itself a boundary port
   names its own bridge identifier the CIST's regional root and originates the
   region's full hop count, rather than naming the peer's root: crossing the
-  boundary is what starts the region. netsim also reports no Master role:
+  boundary is what starts the region. Sim also reports no Master role:
   both the CIST and MSTI role MIB tables (`ieee8021MstpCistPortRole`,
   `ieee8021MstpPortRole`) list exactly Root, Alternate, Designated, and
   Backup, so a boundary port's MSTI mirrors the CIST's Root under the label
@@ -646,7 +746,7 @@ bounded equivalence under a resource contract:
   raises all produce. The CIST case is a deliberate over-flush: the CIST
   carries every VLAN no instance claims, a set the layer cannot enumerate, so
   it names no FIDs. On a boundary port that is correct, since a CIST change
-  there reaches every tree; on an internal port it costs a round of flooding
+  there reaches every tree. On an internal port it costs a round of flooding
   to relearn entries that were not stale. The alternative is a target that
   can express "every FID except these", which is a wider contract than one
   over-flush justifies. That argument does not carry to PVST, where VLAN 1's
@@ -662,7 +762,7 @@ bounded equivalence under a resource contract:
   length, wire type `0x80`, and no TLV. Its receive effect is scoped by the
   arrival VLAN classified by the switch. PVST and SSTP behavior is modelled on
   observation. [CISCO](https://www.cisco.com/c/en/us/support/docs/lan-switching/spanning-tree-protocol-stp-8021d/218321-configure-stp-with-loop-guard-and-bpdu-s.html) was read for per-VLAN loop guard, [PVID](https://web.archive.org/web/20241113152806/https://www.cisco.com/c/en/us/support/docs/lan-switching/spanning-tree-protocol/24063-pvid-inconsistency-24063.html) for the SSTP address and VLAN tagging rule, and [EXT](https://documentation.extremenetworks.com/slxos/SW/20xx/l2config/GUID-FC3E8C8E-3930-4777-825D-3ECD12328F51.shtml) for tagged per-VLAN TCNs. [WS](https://gitlab.com/wireshark/wireshark/-/raw/master/epan/dissectors/packet-bpdu.c) was read for the wire offsets. The spanning tree layer names the VLAN and leaves
-  the frame untagged; the switch passes it through the same `OriginateFrame`
+  the frame untagged. The switch passes it through the same `OriginateFrame`
   every other frame it originates goes through, which already implements
   tagged where the VLAN is tagged and untagged where it is the port's untagged
   VLAN. VLAN 1's tree additionally emits one untagged IEEE-addressed frame per
@@ -671,7 +771,7 @@ bounded equivalence under a resource contract:
 - **A BPDU is admitted past the spanning tree gate the tree itself set, and
   separately judged against the bridge's ingress admission rule.** Reception
   resolves the arrival VLAN from the frame's own tag, or the port's untagged
-  VLAN. The spanning tree gate — a port a tree holds discarding — is still
+  VLAN. The spanning tree gate (a port a tree holds discarding) is still
   bypassed: those are exactly the ports whose blocking depends on continuing
   to hear their peer, so running a BPDU through that gate would drop the
   frames that keep the topology converged. The bridge's ingress admission
@@ -707,11 +807,11 @@ bounded equivalence under a resource contract:
 
 ### Loop protection outside spanning tree
 
-- **The mechanism is netsim's own, not a vendor's.** It is drawn from H3C
-  loop detection and the Aruba and Huawei features of the same shape — a
-  multicast probe, a returned frame read as a loop, a per-port action — but it
+- **The mechanism is sim's own, not a vendor's.** It is drawn from H3C
+  loop detection and the Aruba and Huawei features of the same shape (a
+  multicast probe, a returned frame read as a loop, a per-port action), but it
   emulates none of their frames: each vendor's probe format is proprietary, so
-  a netsim probe carries only what the layer needs to recognize its own
+  a sim probe carries only what the layer needs to recognize its own
   return, sent to a locally scoped multicast address no bridge treats
   specially. The recovery modes come from a wider read: Cisco's errdisable
   recovery, Juniper's revert interval, and the timers MikroTik, Extreme, and
@@ -725,7 +825,7 @@ bounded equivalence under a resource contract:
   protection judges the topology clear.** It goes out a port that is
   operationally forwarding and that a spanning tree on the same switch also
   forwards, so loop protection never raises anything the tree has already
-  broken; it exists for the loop a tree does not cover, whether because none
+  broken. It exists for the loop a tree does not cover, whether because none
   runs or because the loop sits outside every tree's view. Loop protection's
   own verdict on the port is deliberately not one of the gates: a port a
   `Block` action already covers keeps probing, which is what lets a
@@ -742,13 +842,13 @@ bounded equivalence under a resource contract:
   drops it at ingress before detection runs.
 - **`NoLearn` contains the symptom without removing the cause.** It stops the
   MAC flapping between two ports that a loop causes, but keeps forwarding, so
-  the loop itself is not broken; only `Block` and `Disable` do that. `NoLearn`
+  the loop itself is not broken. Only `Block` and `Disable` do that. `NoLearn`
   suits a port an operator wants to keep passing traffic on while diagnosing
   what is looping.
 - **Not emulated: vendor probe formats, per-VLAN recovery, and carrier loss.**
   No vendor's on-the-wire probe is reproduced, an applied action covers the
   whole port rather than recovering independently per VLAN, and a real
-  errdisabled port drops carrier where netsim's blocked port stays
+  errdisabled port drops carrier where sim's blocked port stays
   operationally up and simply stops learning and forwarding.
 
 ### Route selection and recursive next hops
@@ -761,17 +861,17 @@ bounded equivalence under a resource contract:
   egress interface, and recorded in the lookup fact beside the member that
   carried the packet. A lookup that kept only the winner could not answer
   "what else would have carried this", which is the planning question a
-  failure analysis starts from. The set is capped at 64, FRR's limit; the
+  failure analysis starts from. The set is capped at 64, FRR's limit. The
   rest are withdrawn as `max-paths`.
 - **One member of the set carries the flow, chosen by a layer-3 hash.** An
   FNV-1a hash over the source address, the destination address, and for IPv6
-  the flow label — no protocol octet, no ports — is reduced by RFC 2992
-  hash-threshold. That is what an unconfigured router does, and netsim has no
+  the flow label (no protocol octet, no ports) is reduced by RFC 2992
+  hash-threshold. That is what an unconfigured router does, and sim has no
   field saying someone configured it otherwise. Hash-threshold rather than
   modulo-N because a withdrawn or added path must move as few flows as
   possible: "which flows move when this path fails" is answered wrongly by an
   algorithm that moves nearly all of them. The hash is a pure function of the
-  packet, so `Peek` and `Forward` agree and neither commits anything.
+  packet, so `Peek` and `Receive` agree and neither commits anything.
 - **Recursion resolves when the table is built, and a route that cannot
   resolve is withdrawn rather than left to fail per packet.** A static route
   whose next hop is not on-link is resolved against its own VRF's table, to a
@@ -781,7 +881,7 @@ bounded equivalence under a resource contract:
   resolves only through a default route is not installed, and its packets fall
   through to whatever else matches with a Complete result: the configuration
   stays valid on real gear, so this is neither a construction error nor
-  `Incomplete`, which is reserved for an input netsim does not have.
+  `Incomplete`, which is reserved for an input sim does not have.
   `Layer.WithdrawnRoutes` reports each withdrawal with its reason and the
   chain of prefixes walked, because "why is my static route not being used" is
   the question this decision creates. A withdrawn route and a `neighbor-miss`
@@ -789,57 +889,80 @@ bounded equivalence under a resource contract:
 
 ### Neighbor resolution and held frames
 
-- **`neighbor-miss` and `neighbor-pending` are two different answers to "who
-  is at this next hop", not degrees of the same failure.** `neighbor-miss` is
-  a routing VRF that will never resolve the next hop to a MAC address, either
-  because it does not observe neighbors at all or because it already tried
-  and gave up; `neighbor-pending` is a next hop the routing table reached
-  whose neighbor entry is newly or still unresolved, and it is not a drop —
-  the frame is held. A withdrawn route is a third, earlier failure: no chain
-  of routes reaches the next hop at all, decided once when the table is
-  built, before any neighbor lookup runs.
-- **A neighbor entry has five states, and two states of RFC 4861's machine
-  are missing on purpose.** `Unobserved`, `Incomplete`, `Reachable`, `Stale`,
-  and `Failed` are the states a lookup can report; `Delay` and `Probe` exist
-  in the RFC only to schedule a unicast solicitation toward Neighbor
-  Unreachability Detection, and netsim never solicits, so no input can ever
-  drive them. A state nothing in the simulator can reach is worse than no
-  state, so it is left out rather than sitting dead in the type. The same
-  five states serve ARP and NDP alike: section 7.3.2's set already covers
-  everything an ARP binding has to say, so a vocabulary invented separately
-  for IPv4 would name the same five things a second time.
+Amendment 2026-10-07: sending and reception are implemented in
+`src/common/sim/layer/routing/neighbor.go`, `solicitation.go`, and `receive.go`.
+
+- **A miss either starts resolution or cannot solicit.** An observed VRF
+  holds the frame and emits a solicitation on its first committing miss.
+  A disabled VRF or an interface without an address of the target's family
+  reports `neighbor-miss`. Failed resolution deletes the entry, so later
+  traffic can try again.
+- **Observed neighbors run the RFC 4861 states for both families.**
+  Incomplete sends three solicitations one `RetransTimer` apart, then
+  deletes the entry and fails held frames. Reachable ages to Stale. Traffic
+  to a Stale entry forwards on the cached MAC and starts the five second
+  Delay, followed by three unicast probes. An unanswered Probe is deleted.
+  Configured entries never change. `Unobserved` means no entry exists.
+  Passively learned stale neighbors are unbounded. No capacity with eviction
+  or inactivity expiry is selected
+  ([routing limits](../../src/common/sim/layer/routing/README.md#limits)).
 - **The wire formats live in two packages, `arp` and `ndp` under
   `src/common/net`, alongside `netaddr`, `vlan`, and `ethernet`.** Each rides
-  Ethernet or ICMPv6 directly and encodes or decodes one message shape; they
-  hold no neighbor table and no lifecycle of their own; that state lives in
-  `routing.Layer`, which applies one RFC 4861 section 7.2.5 merge rule to
-  both families. ARP has no solicited or override flags of its own, so the
-  switch maps a reply or a request onto the flags the layer takes.
-- **The switch observes and never solicits, so an unresolved neighbor a
-  lookup depended on degrades readiness instead of silently blocking the
-  frame forever.** It reads ARP replies and requests, and Neighbor
-  Solicitation and Advertisement messages, off the wire as they pass, and
-  applies RFC 4861 section 7.2.5 to what they say, without ever sending a
-  solicitation of its own. A host's routing layer does not resolve at all:
-  `HostRoutingConfig` writes `NeighborDisabled` into every host VRF, because
-  nothing wakes a host stack the way `Fabric` wakes a switch, and a frame a
-  host held would hold forever. A miss on a host is always `neighbor-miss`,
-  never `neighbor-pending`.
+  Ethernet or ICMPv6 directly and encodes or decodes one message shape. They
+  hold no neighbor table or lifecycle. That state lives in `routing.Layer`,
+  and `Receive` writes it. ARP follows RFC 826 reception, merging an existing
+  sender before checking whether the target is local. A reply confirms the
+  sender as a solicited override update, and a request is unsolicited.
+  Neighbor Discovery follows RFC 4861 sections 7.1 and 7.2.3 to 7.2.5,
+  discarding a non-local solicitation before learning its source.
+- **Routing returns neighbor protocol emissions to the switch.** The switch
+  hands received ARP and Neighbor Discovery frames to the layer. A local
+  solicitation is answered, including under `NeighborDisabled`, while only
+  an observed VRF learns bindings. The layer admits only the interface's
+  unicast MAC, ARP broadcast, and IPv6 all-nodes or local solicited-node MACs.
+  The switch sends routing emissions as protocol frames at priority zero,
+  with the same VLAN, routed-port, and sub-interface egress paths as a
+  released frame. A host stack remains `NeighborDisabled` and processes
+  these control frames to answer for its own addresses, without learning or
+  resolving neighbors (`src/common/sim/device/host/host.go`, `Receive`).
+  Its advertisements clear the Router flag through `routing.Config.ClearRouterFlag`,
+  because RFC 4861 section 4.4 identifies that flag with a router sender
+  (https://www.rfc-editor.org/rfc/rfc4861.html#section-4.4).
 - **A frame held during resolution rides the same wake and emission facility
   the run model already gives every protocol layer.** A committing `Route`
   or `Originate` call that lands on an `Incomplete` neighbor queues the
-  frame instead of dropping it, bounded by a configured hold depth; the
-  `Forward` that observes the advertisement resolving that neighbor releases
-  the frames that observation freed, and `Switch.Wake` settles a resolution
+  frame instead of dropping it, bounded by a configured hold depth. The
+  `Receive` that observes the advertisement resolving that neighbor releases
+  the frames that observation freed, and `Switch.Advance` settles a resolution
   timeout, the same call that fires spanning tree hellos and LACP timers. A
   resolved entry releases its held frames as ordinary emissions, and a
   timed-out one reports them dropped with `neighbor-miss`. `Emission`
   carries a `Protocol` field, because a released frame is exactly the kind of
   emission that is not one: everything else the switch emits on its own is a
-  BPDU, an LACPDU, a Marker response emitted by the switch, or a loop-protect
-  probe, and the fabric
-  seam that injects emissions needs to tell a held user frame apart from a frame
-  the switch originated.
+  BPDU, an LACPDU, a Marker response, a loop-protect probe, or a routing
+  solicitation, probe, or answer. The fabric seam that injects emissions needs
+  to tell a held user frame apart from a frame the switch originated.
+  On release, the switch evaluates the current ingress binding with the held
+  frame's ingress interface, resolves a deferred decision against its egress
+  interface, and evaluates the egress binding. A refusal carries the filter's
+  reason and steps in `device.Drop`. An originated frame meets only the
+  egress binding. This also applies after a derive changes the filter while
+  retaining the routing hold queue
+  (`TestHeldFrameMeetsDerivedIngressFilter` in
+  `src/common/sim/device/vswitch/filter_test.go`).
+  `Output.Hold` is the routing result's token for a held frame. A later
+  `Emission.Hold` or `device.Drop.Hold` carries the same token, alongside
+  the held frame's `Ingress`. Protocol emissions carry a zero token.
+  Live and released frames share `putRoutedFrame` in
+  `src/common/sim/device/vswitch/route.go`, so their port, member, tags, and
+  priority agree. The fabric transmits a release on that selected member
+  (`src/common/sim/fabric/output.go:applyDeviceOutput`).
+
+### Reporting granularity
+
+The simulation targets the highest granularity it can report.
+For every frame it says what path the frame took, where it was dropped, and why.
+Where a design choice trades detail for a smaller output or less code, the detailed reading wins: a record per member over a snapshot, a distinct reason over a shared one, a named location over an aggregate.
 
 ### Semantic traces and producer-owned facts
 
@@ -869,14 +992,14 @@ admitted case must define:
 
 - Open vSwitch or a kernel bridge in a namespace. They answer for their own
   dataplane from their own configuration, need root and Linux, and cannot
-  be diffed against a typed expectation. Rejected in the shadow record; this
+  be diffed against a typed expectation. Rejected in the shadow record. This
   record does not reopen it.
 - Compute forwarding inside the device service's projection package. It
   would work for the gate and be unreachable from the edge, where a capture
   replay is the second consumer.
 - Model vendor dataplanes. Every vendor in the lab differs somewhere
   (FastIron dual-mode ports, LANCOM management VLAN handling), and a model
-  that tries to follow each becomes untestable; the standard's model with
+  that tries to follow each becomes untestable. The standard's model with
   named deviations is checkable.
 - Use the generated network model messages as the simulator's own types.
   One shape and free validation, at the cost of unknown-versus-decided
@@ -884,22 +1007,22 @@ admitted case must define:
   links, hosts, and traces that nothing on a wire would read yet.
 - A device model per feature set (an access switch, a core switch, an
   unmanaged bridge). Each would be a copy of the pipeline with steps
-  removed; a capability set expresses the same devices as one pipeline
+  removed. A capability set expresses the same devices as one pipeline
   with stages present or absent.
 
 ## Consequences
 
 - `src/common/net/netaddr`, `src/common/net/vlan`, and `src/common/net/ethernet` hold
-  the value types and the codec; `src/common/sim/trace` holds the step,
-  trace, and change records; `src/common/sim/analysis` holds the trust
-  metadata, issue scopes, and evidence catalog; `src/common/sim/device/vswitch`
-  holds the switch itself, while `src/common/sim/layer`,
-  `src/common/sim/port`, and `src/common/sim/netmodel` hold the capability
-  layers, the port table, and the protobuf boundary;
+  the value types and the codec. `src/common/sim/trace` holds the step,
+  trace, and change records. `src/common/sim/analysis` holds the trust
+  metadata, issue scopes, evidence catalog, and shared comparison verdicts.
+  `src/common/sim/device/vswitch` holds the switch itself.
+  `src/common/sim/layer`, `src/common/sim/port`, and `src/common/sim/netmodel`
+  hold the capability layers, the port table, and the protobuf boundary.
   `src/common/sim/fabric` holds switches, hosts, cables, the run,
-  journeys, snapshots, comparison, diff, and derivation;
+  journeys, snapshots, comparison locations, trace alignment, diff, and derivation.
   `src/common/sim/search` holds bounded differential search, counterexample
-  minimization, and trace alignment;
+  minimization, validated action domains, and counts-only retention.
   `src/common/sim/internal/simtest` holds the versioned conformance
   corpus. A `service.Module` leaf is written with the first host.
 - The forwarding scope grows by capability: rapid spanning tree with
@@ -909,7 +1032,7 @@ admitted case must define:
   same timer facility. Each is a new package under `vswitch` or a
   new rule set, not a rewrite.
 - Links load from LLDP neighbors once the full-network view resolves a
-  chassis and port id to a device; until then a fabric is built from a
+  chassis and port id to a device. Until then a fabric is built from a
   spec.
 - An exhaustive differential, "every flow whose fate changes", is finite
   for a customer bridge: ingress port, classified VID, and destination
@@ -936,11 +1059,12 @@ The following areas remain outside the foundation established here:
   README lists what it does not model. LACP runs in `lag` as a Version 1
   implementation with the Marker Responder. Its remaining gaps are the
   [LAG Limits](../../src/common/sim/layer/lag/README.md#limits).
-- **Neighbor solicitation and unreachability detection**: the switch observes
-  ARP and NDP traffic but never sends a solicitation of its own, and a stale
-  or incomplete neighbor entry never moves through `Delay` or `Probe` toward
-  a fresh answer; the `Reachable` cache is trusted until it ages out or a
-  received advertisement changes it.
+- **Neighbor resolution limits**: routing sends solicitations and unicast
+  probes, but no ICMP Address Unreachable errors, MLD joins, randomized
+  ReachableTime, or upper-layer reachability hints. The
+  [routing Limits](../../src/common/sim/layer/routing/README.md#limits)
+  state the remaining protocol scope. Passively learned stale neighbors are
+  unbounded, with no capacity or inactivity expiry selected.
 - **Firewall and reflector depth**: NAT, connection tracking, ICMP error
   generation for a `reject` rule, DNS-aware mDNS reflection, and a
   multicast snooping schema in the network model, all of which the
@@ -962,13 +1086,13 @@ The following areas remain outside the foundation established here:
 
 ## Amendments
 
-### 2026-09-17 — device.access moved to model.access
+### 2026-09-17: device.access moved to model.access
 
 `flowseer.device.access.v1` in Consequences above now reads
 `flowseer.model.access.v1`. See [the network model structure
 record](2026-08-20-network-model-structure-direction.md#the-package-tree).
 
-### 2026-09-18 — Current-against-candidate comparison
+### 2026-09-18: Current-against-candidate comparison
 
 Landed 2026-09-19: exact comparison across switch and fabric in `src/common/sim/analysis`, `src/common/sim/device/vswitch`, and `src/common/sim/fabric`.
 Added the [Current-against-candidate comparison](#current-against-candidate-comparison)
@@ -976,7 +1100,7 @@ subsection establishing exact switch and fabric comparison over behavioral
 observables with `Equivalent`, `Different`, and `Inconclusive` dispositions,
 internal forking of inputs, and injection-ordinal journey pairing.
 
-### 2026-09-19 — Bounded differential search
+### 2026-09-19: Bounded differential search
 
 Landed 2026-09-19: bounded differential search and conformance fixtures in `src/common/sim/search` and `src/common/sim/fabric`.
 Added the [Bounded differential search](#bounded-differential-search) subsection
@@ -985,7 +1109,7 @@ accounting, deterministic replay-checked counterexample minimization,
 first-divergence trace alignment, and asymmetric retention under the search
 resource contract.
 
-### 2026-09-25 — In-run switch configuration
+### 2026-09-25: In-run switch configuration
 
 Named in-run switch configuration (`Fabric.Configure` and `ActionConfigure`) as
 the fourth operation on a run's state next to snapshot, fork, and `Derive`. While
@@ -999,7 +1123,7 @@ Landed 2026-09-28: `Fabric.Configure` and the scenario action `ActionConfigure`
 in `src/common/sim/fabric`. The "State ownership, forking, and snapshots"
 section now names the operation beside the other three.
 
-### 2026-09-28 — Spanning tree and LACP leave the capability gaps
+### 2026-09-28: Spanning tree and LACP leave the capability gaps
 
 Landed 2026-09-11: Rapid Spanning Tree with per-port 802.1D compatibility in
 `src/common/sim/layer/stp`, and LACP with the bond modes in
@@ -1028,3 +1152,81 @@ Marker generation and reception and preserving frame order across a detached
 link's conversations. Open vSwitch supplies the distribution and fallback
 choices that the README identifies. Equivalence to the published standard
 remains unverified because that text was not read.
+
+### 2026-10-07: Multicast restores complete state per entry
+
+`mcast.Layer.Restore` owns multicast retention because a legacy-report replay
+loses source filters and pending queries. It copies each admitted port's group
+state with every deadline unchanged, including an INCLUDE state's source timers
+when its group timer is zero. Observed router ports keep their expiry and yield
+to target static configuration. The target's intervals govern later learning.
+`TestRestore` in `src/common/sim/layer/mcast/layer_test.go` checks the copy and
+its independence. `TestDeriveKeepsSourceSpecificMulticast` in
+`src/common/sim/device/vswitch/derive_internal_test.go` checks that an unrelated
+VLAN edit keeps `INCLUDE {10.0.0.9}` and its forwarding result.
+
+### 2026-10-08: Derivation reports record loss
+
+[`derive.go`](../../src/common/sim/device/vswitch/derive.go) carries layers
+through the shared table. Multicast restoration excludes the spanning tree
+predicate. Bridge and multicast verdicts count lost records, while whole
+layers and traffic compare keys. `Retention` includes bridge and filter.
+`Forget` removes construction seeds as well as the active FDB entry.
+
+### 2026-10-08: Comparison reads mirror content
+
+[`compare.go`](../../src/common/sim/device/vswitch/compare.go) compares
+returned copies by mirror, port, VLAN, member, and frame. Trace facts are
+diagnostic. An incomplete side makes the disposition inconclusive even
+when a behavioral difference is found, and the difference remains visible.
+
+### 2026-10-08: Fork clones every layer through the layer table
+
+`Switch.Fork` clones each present layer, the packet filter included, through
+the table in `src/common/sim/device/vswitch/layers.go`, then rebinds the
+bridge's gate, selector, and resolver to the clones. The field classification
+in `fork_internal_test.go` runs over populated fixtures, and an
+`immutableShared` struct is checked by value as well as by pointer.
+`TestForkKeepsTheFilter` in `src/common/sim/device/vswitch/fork_test.go` checks
+that a fork keeps its bound filter.
+
+### 2026-10-08: Receive and advance return their output
+
+`Peek`, `Start`, `Mcheck`, and `Derive` return `Output` directly, and
+`LinkChange` returns it with an error for an absent port or invalid link state.
+The switch holds no pending emissions, copies, or neighbor failures between
+calls (`TestSwitchHoldsNoPendingOutput` in
+`src/common/sim/device/vswitch/switch_internal_test.go`). `Receive` and `Advance` settle the layer
+timers due at their instant, and the `Receive` that evicts a held frame reports
+the drop in its own `Output`.
+
+### 2026-10-08: Held frames meet the filter at release
+
+A held frame leaves through the same routed egress as a live one
+(`putRoutedFrame` in `src/common/sim/device/vswitch/route.go`), so its port,
+selected LAG member, tags, and priority agree. At release the switch evaluates
+the current ingress binding, resolves a deferred decision against the egress
+interface, and evaluates the egress binding. An originated frame meets the
+egress binding alone. `Output.Hold`, `Emission.Hold`, and `device.Drop.Hold`
+carry one token for a held frame, with its ingress interface, and the fabric
+transmits a release on the selected member. `TestHeldFrameFiltersAtRelease` in
+`src/common/sim/device/vswitch/filter_test.go` checks the filtering.
+
+### 2026-10-09: A hold continues the same journey
+
+[`output.go`](../../src/common/sim/fabric/output.go) maps a device and hold token to
+its frame's `FrameID`. A hold counts as in flight. One output resolves each
+token once for all its emissions, drops, and copies, then removes the key.
+A release continues that journey. A failure appends its drop there. A mirror
+copy names the held frame and inherits its flow and retention. An unknown
+token starts a new journey, as on a fabric rebuilt by `assembly.Derive`.
+
+[`flow.go`](../../src/common/sim/fabric/flow.go) folds at settle, after the
+hold and all transmissions end. It frees aggregate and protocol traversal
+storage. [`Stats.Held`](../../src/common/sim/flow/flow.go) counts keys
+for the flow when `Flows()` is read.
+Release contributes to `Delivered`, and failure to `Drops`.
+`TestHoldExits` in
+[`flow_internal_test.go`](../../src/common/sim/fabric/flow_internal_test.go)
+checks all five exits under both retentions in both orders, with no keys
+remaining and `StopConverged`.

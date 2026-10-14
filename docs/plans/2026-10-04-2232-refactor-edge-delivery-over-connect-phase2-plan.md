@@ -56,6 +56,10 @@ This phase adds:
   names another edge (`src/services/device/internal/intake/intake.go`,
   `reasonForeignProvenance`).
 
+- Keep `MaxRecordBytes` at 256 KiB. Reduce telemetry receiver acceptance so each accepted body plus its stored envelope fits that record limit. Why: accepted telemetry must fit a segment and delivery call. (decided by the user, 2026-10-10)
+
+- With no collector configured, return `settled: 0` and retain telemetry until a collector is configured or log bounds expire it. Why: missing configuration must not silently discard accepted telemetry. (decided by the user, 2026-10-10)
+
 ## Requirements
 
 The parent's requirements 4, 5, and the central half of 6 are claimed here.
@@ -97,3 +101,6 @@ The parent's requirements 4, 5, and the central half of 6 are claimed here.
   (`src/services/device/internal/host/host.go`, `forwarderGate`).
 - Which listener the handlers mount on depends on whether the central high
   availability plan's first phase has landed.
+
+- Parked by drive: What sustained rate, sustained duration, tenfold burst duration, offered-load concurrency, and recovery deadline must ingest prove? Work retained on `parked/edge-connect-p2-implement`. Options: define a numeric profile (testable acceptance) | leave ingest and host mounting blocked (no unproved capacity claim). Recommended: define a numeric profile, because the stop condition requires a pass or failure.
+- Parked by drive: Should a separate guardrail-reviewed task repair generated-module routing in `tools/scripts/verify/change.py` before full verification? Options: repair path normalization and rerun full verification (preserves the required gates) | retain partial work until that repair lands (no policy edit now). Recommended: repair, because `./generated/go/yang` bypasses the `generated/` prefix check and starts a prohibited broad race run.

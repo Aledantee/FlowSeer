@@ -6,6 +6,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from tests.verify import support
+
 RUN_PY = Path(__file__).resolve().parents[2] / "run.py"
 
 
@@ -113,6 +115,63 @@ class LedgerCommitTest(unittest.TestCase):
         self.receipt("2091-01-01T00:00:00Z")
         self.assertEqual(self.ledger("set", "U1", "passed").returncode, 0)
         self.assertEqual(self.unit("U1")["verified_at"], "2091-01-01T00:00:00Z")
+
+
+class ReceiptTest(support.VerifierCase):
+    """The receipt a passing run writes holds four lines that a person or `verify ledger` reads."""
+
+    @support.across
+    def test_ledger_reads_the_receipt_a_passing_run_wrote(self):
+        self.write("docs/plans/example-plan.md", "# Example\n")
+        # The verifier's plan-status check reads the state file beside the plan.
+        done = self.run_py("plan", "record", "init", "docs/plans/example-plan.md")
+        self.assertEqual(done.returncode, 0, done.stderr)
+        self.commit_all("plan")
+        self.ledger("init", "docs/plans/example-plan.md", "U1")
+        self.assertEqual(self.ledger("set", "U1", "in_progress").returncode, 0)
+        self.write("unit-one.txt", "work\n")
+        self.commit_all("unit one")
+        self.write("README.md", "# Fixture\n\nChanged.\n")
+        self.passes("--", "README.md")
+        verified_at = self.receipt.read_text().split("\n")[0].removeprefix("verified_at=")
+
+        done = self.ledger("set", "U1", "passed")
+        self.assertEqual(done.returncode, 0, done.stderr)
+        units = json.loads((self.root / ".git/flowseer-plan-status.json").read_text())["units"]
+        self.assertEqual(next(unit for unit in units if unit["id"] == "U1")["verified_at"], verified_at)
+
+    def run_py(self, *args):
+        return subprocess.run(
+            [sys.executable, str(RUN_PY), *args],
+            cwd=self.root,
+            capture_output=True,
+            text=True,
+            check=False,
+            env=self.env,
+        )
+
+    def ledger(self, *args):
+        return self.run_py("verify", "ledger", *args)
+
+    def receipt_lines(self) -> list[str]:
+        return self.receipt.read_text().split("\n")
+
+    @support.across
+    def test_receipt_for_a_path_with_a_space_quotes_it(self):
+        self.write("a b.md", "# Name\n")
+        self.passes("--", "a b.md")
+        lines = self.receipt_lines()
+        self.assertRegex(lines[0], r"^verified_at=\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$")
+        self.assertEqual(lines[1:], ["base=HEAD", "full=false", "paths=a\\ b.md ", ""])
+
+    @support.across
+    def test_receipt_for_a_full_run_holds_one_empty_word(self):
+        self.populate_full()
+        self.commit_all("full")
+        self.passes("--full")
+        lines = self.receipt_lines()
+        self.assertRegex(lines[0], r"^verified_at=\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$")
+        self.assertEqual(lines[1:], ["base=HEAD", "full=true", "paths='' ", ""])
 
 
 if __name__ == "__main__":

@@ -3,12 +3,14 @@ package routing_test
 import (
 	"fmt"
 	"net/netip"
+	"strings"
 	"testing"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/sim/internal/simtest"
 	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
@@ -86,10 +88,67 @@ func TestValidate(t *testing.T) {
 	ports := newTestPortTable(t)
 
 	tests := []struct {
-		name    string
-		mutate  func(*routing.Config)
-		wantErr bool
+		name      string
+		mutate    func(*routing.Config)
+		wantErr   bool
+		wantField string
 	}{
+		{
+			name: "routes differing only by metric",
+			mutate: func(c *routing.Config) {
+				vrf := c.VRFs[routing.DefaultVRF]
+				r := vrf.Routes[0]
+				r.Metric++
+				vrf.Routes = append(vrf.Routes, r)
+				c.VRFs[routing.DefaultVRF] = vrf
+			},
+			wantErr:   true,
+			wantField: "vrfs.default.routes.10.0.30.0/24",
+		},
+		{
+			name: "routes differing only by preference",
+			mutate: func(c *routing.Config) {
+				vrf := c.VRFs[routing.DefaultVRF]
+				r := vrf.Routes[0]
+				r.Preference++
+				vrf.Routes = append(vrf.Routes, r)
+				c.VRFs[routing.DefaultVRF] = vrf
+			},
+			wantErr:   true,
+			wantField: "vrfs.default.routes.10.0.30.0/24",
+		},
+		{
+			name: "same subnet on two interfaces",
+			mutate: func(c *routing.Config) {
+				c.VRFs[routing.DefaultVRF] = routing.VRF{Interfaces: map[string]routing.Interface{
+					"a0": {VLAN: 10, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.1.1/24")}},
+					"b0": {VLAN: 20, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.1.2/24")}},
+				}}
+			},
+			wantErr:   true,
+			wantField: "vrfs.default.interfaces.b0.prefixes",
+		},
+		{
+			name: "link-local addresses claiming a global subnet",
+			mutate: func(c *routing.Config) {
+				c.VRFs[routing.DefaultVRF] = routing.VRF{Interfaces: map[string]routing.Interface{
+					"a0": {VLAN: 10, Prefixes: []netip.Prefix{netip.MustParsePrefix("fe80::1/0")}},
+					"b0": {VLAN: 20, Prefixes: []netip.Prefix{netip.MustParsePrefix("fe80::2/0")}},
+				}}
+			},
+			wantErr:   true,
+			wantField: "vrfs.default.interfaces.b0.prefixes",
+		},
+
+		{
+			name: "link-local subnet on two interfaces",
+			mutate: func(c *routing.Config) {
+				c.VRFs[routing.DefaultVRF] = routing.VRF{Interfaces: map[string]routing.Interface{
+					"a0": {VLAN: 10, Prefixes: []netip.Prefix{netip.MustParsePrefix("fe80::1/64")}},
+					"b0": {VLAN: 20, Prefixes: []netip.Prefix{netip.MustParsePrefix("fe80::1/64")}},
+				}}
+			},
+		},
 		{
 			name:    "valid configuration",
 			mutate:  func(_ *routing.Config) {},
@@ -563,10 +622,10 @@ func TestValidate(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "neighbor policy negative resolution timeout under NeighborObserved",
+			name: "neighbor policy negative retransmission timer under NeighborObserved",
 			mutate: func(c *routing.Config) {
 				vrf := c.VRFs[routing.DefaultVRF]
-				vrf.NeighborPolicy = routing.NeighborPolicy{ResolutionTimeout: -time.Second}
+				vrf.NeighborPolicy = routing.NeighborPolicy{RetransTimer: -time.Second}
 				c.VRFs[routing.DefaultVRF] = vrf
 			},
 			wantErr: true,
@@ -584,16 +643,16 @@ func TestValidate(t *testing.T) {
 			name: "neighbor policy negative fields accepted under NeighborDisabled",
 			mutate: func(c *routing.Config) {
 				vrf := c.VRFs[routing.DefaultVRF]
-				vrf.NeighborPolicy = routing.NeighborPolicy{Mode: routing.NeighborDisabled, HoldDepth: -1, ResolutionTimeout: -time.Second}
+				vrf.NeighborPolicy = routing.NeighborPolicy{Mode: routing.NeighborDisabled, HoldDepth: -1, RetransTimer: -time.Second}
 				c.VRFs[routing.DefaultVRF] = vrf
 			},
 			wantErr: false,
 		},
 		{
-			name: "neighbor policy ReachableTime shorter than ResolutionTimeout is valid",
+			name: "neighbor policy ReachableTime shorter than RetransTimer is valid",
 			mutate: func(c *routing.Config) {
 				vrf := c.VRFs[routing.DefaultVRF]
-				vrf.NeighborPolicy = routing.NeighborPolicy{ReachableTime: time.Second, ResolutionTimeout: time.Minute}
+				vrf.NeighborPolicy = routing.NeighborPolicy{ReachableTime: time.Second, RetransTimer: time.Minute}
 				c.VRFs[routing.DefaultVRF] = vrf
 			},
 			wantErr: false,
@@ -606,6 +665,9 @@ func TestValidate(t *testing.T) {
 			cfg := validBaseConfig()
 			tt.mutate(&cfg)
 			err := cfg.Validate(layer.Env{Ports: ports})
+			if tt.wantField != "" && errs.Attributes(err)["field"] != tt.wantField {
+				t.Errorf("field = %v, want %s", errs.Attributes(err)["field"], tt.wantField)
+			}
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("Validate() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -706,7 +768,7 @@ func TestCloneCopiesNeighborPolicy(t *testing.T) {
 	t.Parallel()
 	cfg := validBaseConfig()
 	vrf := cfg.VRFs[routing.DefaultVRF]
-	vrf.NeighborPolicy = routing.NeighborPolicy{Mode: routing.NeighborDisabled, ReachableTime: time.Minute, ResolutionTimeout: 5 * time.Second, HoldDepth: 7}
+	vrf.NeighborPolicy = routing.NeighborPolicy{Mode: routing.NeighborDisabled, ReachableTime: time.Minute, RetransTimer: 5 * time.Second, HoldDepth: 7}
 	cfg.VRFs[routing.DefaultVRF] = vrf
 
 	cloned := cfg.Clone()
@@ -717,7 +779,7 @@ func TestCloneCopiesNeighborPolicy(t *testing.T) {
 	cfg.VRFs[routing.DefaultVRF] = vrf
 
 	got := cloned.VRFs[routing.DefaultVRF].NeighborPolicy
-	want := routing.NeighborPolicy{Mode: routing.NeighborDisabled, ReachableTime: time.Minute, ResolutionTimeout: 5 * time.Second, HoldDepth: 7}
+	want := routing.NeighborPolicy{Mode: routing.NeighborDisabled, ReachableTime: time.Minute, RetransTimer: 5 * time.Second, HoldDepth: 7}
 	if got != want {
 		t.Errorf("cloned neighbor policy = %+v, want %+v", got, want)
 	}
@@ -822,7 +884,7 @@ func TestNormalize(t *testing.T) {
 	}
 
 	// Check the zero neighbor policy normalizes to the RFC 4861 section 10 defaults.
-	wantPolicy := routing.NeighborPolicy{ReachableTime: 30 * time.Second, ResolutionTimeout: 3 * time.Second, HoldDepth: 3}
+	wantPolicy := routing.NeighborPolicy{ReachableTime: 30 * time.Second, RetransTimer: time.Second, HoldDepth: 3}
 	if vrf.NeighborPolicy != wantPolicy {
 		t.Errorf("neighbor policy = %+v, want %+v", vrf.NeighborPolicy, wantPolicy)
 	}
@@ -834,16 +896,16 @@ func TestNormalizeLeavesAnExplicitNeighborPolicyAlone(t *testing.T) {
 		routing.DefaultVRF: {
 			Interfaces: map[string]routing.Interface{"vlan10": {VLAN: 10}},
 			NeighborPolicy: routing.NeighborPolicy{
-				Mode:              routing.NeighborDisabled,
-				ReachableTime:     time.Minute,
-				ResolutionTimeout: 10 * time.Second,
-				HoldDepth:         5,
+				Mode:          routing.NeighborDisabled,
+				ReachableTime: time.Minute,
+				RetransTimer:  10 * time.Second,
+				HoldDepth:     5,
 			},
 		},
 	}}
 
 	got := cfg.Normalize(layer.Env{}).VRFs[routing.DefaultVRF].NeighborPolicy
-	want := routing.NeighborPolicy{Mode: routing.NeighborDisabled, ReachableTime: time.Minute, ResolutionTimeout: 10 * time.Second, HoldDepth: 5}
+	want := routing.NeighborPolicy{Mode: routing.NeighborDisabled, ReachableTime: time.Minute, RetransTimer: 10 * time.Second, HoldDepth: 5}
 	if got != want {
 		t.Errorf("neighbor policy = %+v, want %+v", got, want)
 	}
@@ -988,13 +1050,22 @@ func TestDiff(t *testing.T) {
 		}
 
 		changes := routing.Diff(a, b)
-		expectedFields := []string{"vlan", "mac", "prefixes", "preference", "metric", "mac"}
+		expectedFields := []string{"vlan", "mac", `prefixes["10.0.10.1/24"]`, `prefixes["10.0.20.1/24"]`, "preference", "metric", "mac"}
 		wantTypeIDs := map[string]string{
 			"preference": "routing.route.preference",
 			"metric":     "routing.route.metric",
 		}
 		if len(changes) != len(expectedFields) {
 			t.Fatalf("got %d changes (%+v), want %d", len(changes), changes, len(expectedFields))
+		}
+		prefixWant := []simtest.ChangeExpectation{
+			{Layer: "routing", Subject: trace.Subject{Kind: "interface", Key: `"default"/"if1"`}, Field: `prefixes["10.0.10.1/24"]`, From: &simtest.FactExpectation{TypeID: "routing.prefix", Canonical: "10.0.10.1/24"}},
+			{Layer: "routing", Subject: trace.Subject{Kind: "interface", Key: `"default"/"if1"`}, Field: `prefixes["10.0.20.1/24"]`, To: &simtest.FactExpectation{TypeID: "routing.prefix", Canonical: "10.0.20.1/24"}},
+		}
+		for i, want := range prefixWant {
+			if !want.Matches(changes[i+2]) {
+				t.Errorf("prefix record[%d] = %+v, want %+v", i, changes[i+2], want)
+			}
 		}
 		for i, field := range expectedFields {
 			if changes[i].Field != field {
@@ -1089,7 +1160,7 @@ func TestDiffReportsNeighborPolicyChange(t *testing.T) {
 		}}
 	}
 
-	base := routing.NeighborPolicy{ReachableTime: 30 * time.Second, ResolutionTimeout: 3 * time.Second, HoldDepth: 3}
+	base := routing.NeighborPolicy{ReachableTime: 30 * time.Second, RetransTimer: 3 * time.Second, HoldDepth: 3}
 
 	cases := []struct {
 		name  string
@@ -1098,22 +1169,22 @@ func TestDiffReportsNeighborPolicyChange(t *testing.T) {
 	}{
 		{
 			name:  "mode",
-			other: routing.NeighborPolicy{Mode: routing.NeighborDisabled, ReachableTime: 30 * time.Second, ResolutionTimeout: 3 * time.Second, HoldDepth: 3},
+			other: routing.NeighborPolicy{Mode: routing.NeighborDisabled, ReachableTime: 30 * time.Second, RetransTimer: 3 * time.Second, HoldDepth: 3},
 			field: "mode",
 		},
 		{
 			name:  "reachable time from 30s to 60s",
-			other: routing.NeighborPolicy{ReachableTime: 60 * time.Second, ResolutionTimeout: 3 * time.Second, HoldDepth: 3},
+			other: routing.NeighborPolicy{ReachableTime: 60 * time.Second, RetransTimer: 3 * time.Second, HoldDepth: 3},
 			field: "reachable_time",
 		},
 		{
-			name:  "resolution timeout",
-			other: routing.NeighborPolicy{ReachableTime: 30 * time.Second, ResolutionTimeout: 5 * time.Second, HoldDepth: 3},
-			field: "resolution_timeout",
+			name:  "retransmission timer",
+			other: routing.NeighborPolicy{ReachableTime: 30 * time.Second, RetransTimer: 5 * time.Second, HoldDepth: 3},
+			field: "retrans_timer",
 		},
 		{
 			name:  "hold depth",
-			other: routing.NeighborPolicy{ReachableTime: 30 * time.Second, ResolutionTimeout: 3 * time.Second, HoldDepth: 5},
+			other: routing.NeighborPolicy{ReachableTime: 30 * time.Second, RetransTimer: 3 * time.Second, HoldDepth: 5},
 			field: "hold_depth",
 		},
 	}
@@ -1269,5 +1340,18 @@ func TestRoutingSnapshotFactsAreLosslessAndImmutable(t *testing.T) {
 	}
 	if interfaceFactA.Canonical() == interfaceFactB.Canonical() {
 		t.Errorf("different interfaces share canonical form %q", interfaceFactA.Canonical())
+	}
+}
+
+func TestRetentionKeyIncludesQuotedNodeIdentity(t *testing.T) {
+	t.Parallel()
+	cfg := validBaseConfig()
+	first := routing.RetentionKey(cfg, layer.Env{NodeID: "sw1"})
+	second := routing.RetentionKey(cfg, layer.Env{NodeID: "sw2\nport-state=evil"})
+	if first == second {
+		t.Fatal("different node identities share a retention key")
+	}
+	if !strings.HasPrefix(second, `config=node_id="sw2\nport-state=evil";`) {
+		t.Fatalf("key = %q, want quoted identity inside config", second)
 	}
 }

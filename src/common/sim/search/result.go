@@ -50,6 +50,10 @@ type Result struct {
 	TotalDifferences  int
 	EquivalentCount   int
 	InconclusiveCount int
+	// Errors counts invalid candidates separately from honest partial evaluations.
+	Errors int
+	// Err retains only the first candidate error, wrapped with its tuple.
+	Err error
 }
 
 // DiscardedDifferences returns the count of divergence candidates whose full traces

@@ -93,29 +93,25 @@ func TestUDPPortVariationDrawConsumesInvalidFrame(t *testing.T) {
 	v := UDPPortVariation{Dst: true, Count: 7, Draw: true}
 	rng := newSplitMix64(42)
 	want := newSplitMix64(42)
-	v.Apply(0, ethernet.Frame{}, &rng)
+	v.apply(0, ethernet.Frame{}, &rng)
 	want.Next()
 	if got, expected := rng.Next(), want.Next(); got != expected {
 		t.Errorf("next draw = 0x%x, want 0x%x after invalid frame", got, expected)
 	}
 }
 
-type corruptIPVariation struct{}
-
-func (corruptIPVariation) Validate() error { return nil }
-
-func (corruptIPVariation) Apply(_ int, frame ethernet.Frame, _ *splitMix64) ethernet.Frame {
-	frame.Payload = []byte{1}
-	return frame
-}
-
-func TestUDPPortVariationRejectsEarlierCustomVariation(t *testing.T) {
-	spec := internalVariationSpec(internalUDPFrame(t), 1,
-		corruptIPVariation{}, UDPPortVariation{Dst: true, Count: 2})
-	if err := spec.Validate(); err == nil {
-		t.Error("Validate() error = nil, want refusal")
+func TestUDPPortVariationApplyRejectsShortUDPDatagram(t *testing.T) {
+	frame := internalUDPFrame(t)
+	header, datagram, err := ip.Decode(frame.Payload)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if source, err := spec.Source(); err == nil {
-		t.Errorf("Source() = %v, nil, want refusal", source)
+	frame.Payload, err = header.Encode(append(datagram, 0xa5, 0x5a))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := (UDPPortVariation{Dst: true, Step: 1, Count: 2}).apply(1, frame, nil)
+	if !bytes.Equal(got.Payload, frame.Payload) {
+		t.Fatal("apply changed short UDP datagram")
 	}
 }

@@ -1,15 +1,18 @@
-package fabric
+package fabric_test
 
 import (
 	"strconv"
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
+	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/traffic"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
@@ -18,7 +21,7 @@ import (
 // bufferAccountingFabric returns a one-port fabric whose endpoint is already
 // busy, so enqueueEgress records egress depth instead of draining the queue
 // through a link it does not have. A nil buffer leaves the queue unstated.
-func bufferAccountingFabric(t *testing.T, buffer *uint64) (*Fabric, Endpoint) {
+func bufferAccountingFabric(t *testing.T, buffer *uint64) (*fabric.Fabric, fabric.Endpoint) {
 	t.Helper()
 
 	return mtuAccountingFabric(t, 0, buffer)
@@ -27,7 +30,7 @@ func bufferAccountingFabric(t *testing.T, buffer *uint64) (*Fabric, Endpoint) {
 // mtuAccountingFabric is [bufferAccountingFabric] with a stated port MTU, so a
 // test can pin the unstated-buffer threshold to the port's own maximum-size
 // frame.
-func mtuAccountingFabric(t *testing.T, mtu int, buffer *uint64) (*Fabric, Endpoint) {
+func mtuAccountingFabric(t *testing.T, mtu int, buffer *uint64) (*fabric.Fabric, fabric.Endpoint) {
 	t.Helper()
 
 	builder := port.NewBuilder()
@@ -44,16 +47,15 @@ func mtuAccountingFabric(t *testing.T, mtu int, buffer *uint64) (*Fabric, Endpoi
 		}
 	}
 
-	fab, err := New(Config{Switches: map[string]vswitch.Config{
+	fab, err := assembly.New(assembly.Config{Switches: map[string]vswitch.Config{
 		"sw1": {Ports: ports, Traffic: &traffic.Config{Queues: queues}},
 	}})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	fab.initRunState()
 
-	ep := Endpoint{Node: "sw1", Port: "1/1/1"}
-	fab.busyUntil[ep] = fab.clock.Add(time.Hour)
+	ep := fabric.Endpoint{Node: "sw1", Port: "1/1/1"}
+	(*fabric.ExportFabricBusyUntil(fab))[ep] = fabric.ExportFabricClock(fab).Add(time.Hour)
 
 	return fab, ep
 }
@@ -63,7 +65,7 @@ func mtuAccountingFabric(t *testing.T, mtu int, buffer *uint64) (*Fabric, Endpoi
 // members state neither, so a lookup against a member would miss both. Every
 // member endpoint is busy, so enqueueEgress records depth instead of draining
 // through a link the fabric does not have.
-func lagAccountingFabric(t *testing.T, lagMTU int, buffer *uint64) (*Fabric, []Endpoint) {
+func lagAccountingFabric(t *testing.T, lagMTU int, buffer *uint64) (*fabric.Fabric, []fabric.Endpoint) {
 	t.Helper()
 
 	builder := port.NewBuilder()
@@ -84,40 +86,39 @@ func lagAccountingFabric(t *testing.T, lagMTU int, buffer *uint64) (*Fabric, []E
 		}
 	}
 
-	fab, err := New(Config{Switches: map[string]vswitch.Config{
+	fab, err := assembly.New(assembly.Config{Switches: map[string]vswitch.Config{
 		"sw1": {Ports: ports, Traffic: &traffic.Config{Queues: queues}},
 	}})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	fab.initRunState()
 
-	eps := make([]Endpoint, 0, len(members))
+	eps := make([]fabric.Endpoint, 0, len(members))
 	for _, name := range members {
-		ep := Endpoint{Node: "sw1", Port: name}
-		fab.busyUntil[ep] = fab.clock.Add(time.Hour)
+		ep := fabric.Endpoint{Node: "sw1", Port: name}
+		(*fabric.ExportFabricBusyUntil(fab))[ep] = fabric.ExportFabricClock(fab).Add(time.Hour)
 		eps = append(eps, ep)
 	}
 
 	return fab, eps
 }
 
-func egressBufferFrame() ethernet.Frame {
+func accountingEgressFrame() ethernet.Frame {
 	return ethernet.Frame{Src: netaddr.MAC{0x02}, Dst: netaddr.MAC{0x03}, Payload: make([]byte, 1000)}
 }
 
 func TestEgressUnstatedThresholdRecordsEvidenceAtEnqueue(t *testing.T) {
 	fab, ep := bufferAccountingFabric(t, nil)
-	frame := egressBufferFrame()
-	fab.enqueueEgress(fab.clock, ep, ep.Port, frame, 1, 1, &Journey{}, 0, "")
-	journey := &Journey{}
-	fab.enqueueEgress(fab.clock, ep, ep.Port, frame, 2, 2, journey, 0, "")
+	frame := accountingEgressFrame()
+	fabric.ExportFabricEnqueueEgress(fab, (*fabric.ExportFabricClock(fab)), ep, ep.Port, frame, 1, 1, fabric.MakeTestJourneyPointer(fabric.ExportJourneyFields{}), 0, "")
+	journey := fabric.MakeTestJourneyPointer(fabric.ExportJourneyFields{})
+	fabric.ExportFabricEnqueueEgress(fab, (*fabric.ExportFabricClock(fab)), ep, ep.Port, frame, 2, 2, journey, 0, "")
 
 	if got, want := len(journey.Entries), 1; got != want {
 		t.Fatalf("entries at enqueue = %d, want %d", got, want)
 	}
 	entry := journey.Entries[0]
-	if entry.Kind != EntryQueueThreshold || entry.Step == nil {
+	if entry.Kind != fabric.EntryQueueThreshold || entry.Step == nil {
 		t.Fatalf("entry = %+v, want queue threshold step", entry)
 	}
 	if entry.Step.Op != trace.OpQueue || entry.Step.RuleID != traffic.RuleQueueBufferUnstated {
@@ -133,16 +134,16 @@ func TestEgressUnstatedThresholdRecordsEvidenceAtEnqueue(t *testing.T) {
 		t.Fatalf("step evidence = %v, want one reference", entry.Step.Evidence)
 	}
 	ref := entry.Step.Evidence[0]
-	value, ok := fab.runtimeEvidence.Lookup(ref)
+	value, ok := fabric.ExportFabricRuntimeEvidence(fab).Lookup(ref)
 	if !ok || value.Kind != "fabric.runtime" || value.Origin != "egress-queue" {
 		t.Fatalf("runtime evidence = %+v, found %t", value, ok)
 	}
-	if err := validateEvidence("queue", []trace.EvidenceRef{ref}, fab.Metadata().Evidence()); err != nil {
-		t.Errorf("queue evidence does not validate: %v", err)
+	if _, ok := fab.Metadata().Evidence().Lookup(ref); !ok {
+		t.Error("queue evidence is missing from the catalog")
 	}
 	var matching []analysis.Issue
 	for _, issue := range fab.Metadata().IssuesFor(analysis.PortScope(ep.Node, ep.Port)) {
-		if issue.Code == IssueQueueBufferUnstated {
+		if issue.Code == fabric.IssueQueueBufferUnstated {
 			matching = append(matching, issue)
 		}
 	}
@@ -159,10 +160,10 @@ func TestEgressUnstatedThresholdRecordsEvidenceAtEnqueue(t *testing.T) {
 func TestEgressLagThresholdKeepsLogicalSubjectAndPhysicalIssue(t *testing.T) {
 	fab, members := lagAccountingFabric(t, 0, nil)
 	member := members[0]
-	frame := egressBufferFrame()
-	fab.enqueueEgress(fab.clock, member, "lag1", frame, 1, 1, &Journey{}, 5, "")
-	journey := &Journey{}
-	fab.enqueueEgress(fab.clock, member, "lag1", frame, 2, 2, journey, 5, "")
+	frame := accountingEgressFrame()
+	fabric.ExportFabricEnqueueEgress(fab, (*fabric.ExportFabricClock(fab)), member, "lag1", frame, 1, 1, fabric.MakeTestJourneyPointer(fabric.ExportJourneyFields{}), 5, "")
+	journey := fabric.MakeTestJourneyPointer(fabric.ExportJourneyFields{})
+	fabric.ExportFabricEnqueueEgress(fab, (*fabric.ExportFabricClock(fab)), member, "lag1", frame, 2, 2, journey, 5, "")
 	if len(journey.Entries) != 1 || journey.Entries[0].Step == nil {
 		t.Fatalf("LAG crossing entries = %+v, want queue step", journey.Entries)
 	}
@@ -175,7 +176,7 @@ func TestEgressLagThresholdKeepsLogicalSubjectAndPhysicalIssue(t *testing.T) {
 	}
 	scope := analysis.PortScope(member.Node, member.Port)
 	issues := journey.Metadata.IssuesFor(scope)
-	if got := countIssueScope(issues, IssueQueueBufferUnstated, scope); got != 1 {
+	if got := countIssueScope(issues, fabric.IssueQueueBufferUnstated, scope); got != 1 {
 		t.Errorf("member scoped queue issues = %d, want one", got)
 	}
 	if len(entry.Step.Evidence) != 1 {
@@ -183,7 +184,7 @@ func TestEgressLagThresholdKeepsLogicalSubjectAndPhysicalIssue(t *testing.T) {
 	}
 	var memberIssue *analysis.Issue
 	for i := range issues {
-		if issues[i].Code == IssueQueueBufferUnstated && issues[i].Scope == scope {
+		if issues[i].Code == fabric.IssueQueueBufferUnstated && issues[i].Scope == scope {
 			memberIssue = &issues[i]
 			break
 		}
@@ -206,27 +207,26 @@ func jumboEgressFrame() ethernet.Frame {
 // depth to zero, and the peak survives the drain.
 func TestEgressQueueDepthAndPeak(t *testing.T) {
 	fab, ep := bufferAccountingFabric(t, nil)
-	frame := egressBufferFrame()
-	journey := &Journey{}
+	frame := accountingEgressFrame()
+	journey := fabric.MakeTestJourneyPointer(fabric.ExportJourneyFields{})
 	for range 10 {
-		fab.enqueueEgress(fab.clock, ep, ep.Port, frame, 1, 1, journey, 0, "")
+		fabric.ExportFabricEnqueueEgress(fab, (*fabric.ExportFabricClock(fab)), ep, ep.Port, frame, 1, 1, journey, 0, "")
 	}
 
-	q := fab.egress[ep]
-	if got, want := q.depth[0], uint64(10*1014); got != want {
+	q := (*fabric.ExportFabricEgress(fab))[ep]
+	if got, want := fabric.ExportEgressQueueDepth(q)[0], uint64(10*1014); got != want {
 		t.Fatalf("depth after ten enqueues = %d, want %d", got, want)
 	}
-	if got, want := q.peak[0], uint64(10*1014); got != want {
+	if got, want := fabric.ExportEgressQueuePeak(q)[0], uint64(10*1014); got != want {
 		t.Fatalf("peak after ten enqueues = %d, want %d", got, want)
 	}
-
-	fab.busyUntil[ep] = time.Time{}
-	fab.removeDequeue(ep)
-	fab.serve(fab.clock.Add(2*time.Hour), ep)
-	if got := q.depth[0]; got != 0 {
+	(*fabric.ExportFabricBusyUntil(fab))[ep] = time.Time{}
+	fabric.ExportFabricRemoveDequeue(fab, ep)
+	fabric.ExportFabricServe(fab, fabric.ExportFabricClock(fab).Add(2*time.Hour), ep)
+	if got := fabric.ExportEgressQueueDepth(q)[0]; got != 0 {
 		t.Errorf("depth after the queue drained = %d, want 0", got)
 	}
-	if got, want := q.peak[0], uint64(10*1014); got != want {
+	if got, want := fabric.ExportEgressQueuePeak(q)[0], uint64(10*1014); got != want {
 		t.Errorf("peak after the queue drained = %d, want it unchanged at %d", got, want)
 	}
 }
@@ -244,20 +244,20 @@ func TestEgressStatedBufferBoundary(t *testing.T) {
 		{buffer: 2027, admits: 1},
 	} {
 		fab, ep := bufferAccountingFabric(t, &tc.buffer)
-		frame := egressBufferFrame()
-		journey := &Journey{}
+		frame := accountingEgressFrame()
+		journey := fabric.MakeTestJourneyPointer(fabric.ExportJourneyFields{})
 		for range 2 {
-			fab.enqueueEgress(fab.clock, ep, ep.Port, frame, 1, 1, journey, 0, "")
+			fabric.ExportFabricEnqueueEgress(fab, (*fabric.ExportFabricClock(fab)), ep, ep.Port, frame, 1, 1, journey, 0, "")
 		}
 
-		if got, want := fab.egress[ep].depth[0], uint64(tc.admits*1014); got != want {
+		if got, want := fabric.ExportEgressQueueDepth((*fabric.ExportFabricEgress(fab))[ep])[0], uint64(tc.admits*1014); got != want {
 			t.Errorf("buffer %d: depth = %d, want %d", tc.buffer, got, want)
 		}
 		if got, want := len(journey.Entries), 2-tc.admits; got != want {
 			t.Errorf("buffer %d: drop entries = %d, want %d", tc.buffer, got, want)
 		}
 		var outDiscards, queueFull uint64
-		if c := fab.counters[ep]; c != nil {
+		if c := (*fabric.ExportFabricCounters(fab))[ep]; c != nil {
 			outDiscards = c.OutDiscards
 			queueFull = c.Discards[traffic.ReasonQueueFull]
 		}
@@ -276,19 +276,19 @@ func TestEgressStatedBufferBoundary(t *testing.T) {
 func TestEgressStatedBufferNeverMarksUnstated(t *testing.T) {
 	buffer := uint64(4000)
 	fab, ep := bufferAccountingFabric(t, &buffer)
-	frame := egressBufferFrame()
+	frame := accountingEgressFrame()
 	for range 2 {
-		fab.enqueueEgress(fab.clock, ep, ep.Port, frame, 1, 1, &Journey{}, 0, "")
+		fabric.ExportFabricEnqueueEgress(fab, (*fabric.ExportFabricClock(fab)), ep, ep.Port, frame, 1, 1, fabric.MakeTestJourneyPointer(fabric.ExportJourneyFields{}), 0, "")
 	}
 
-	if got, want := fab.egress[ep].depth[0], uint64(2*1014); got != want {
+	if got, want := fabric.ExportEgressQueueDepth((*fabric.ExportFabricEgress(fab))[ep])[0], uint64(2*1014); got != want {
 		t.Fatalf("depth = %d, want %d: the 4000-octet buffer holds both frames", got, want)
 	}
-	if len(fab.unstatedBacked) != 0 {
-		t.Fatalf("a stated-buffer queue marked endpoints %v, want none", fab.unstatedBacked)
+	if len((*fabric.ExportFabricUnstatedBacked(fab))) != 0 {
+		t.Fatalf("a stated-buffer queue marked endpoints %v, want none", (*fabric.ExportFabricUnstatedBacked(fab)))
 	}
 	scope := analysis.PortScope(ep.Node, ep.Port)
-	if got := countIssueScope(fab.Metadata().IssuesFor(scope), IssueQueueBufferUnstated, scope); got != 0 {
+	if got := countIssueScope(fab.Metadata().IssuesFor(scope), fabric.IssueQueueBufferUnstated, scope); got != 0 {
 		t.Errorf("Metadata holds %d queue-buffer-unstated issues, want none on a stated queue", got)
 	}
 }
@@ -300,21 +300,21 @@ func TestEgressStatedBufferNeverMarksUnstated(t *testing.T) {
 // mark at 2028.
 func TestEgressUnstatedThresholdUsesPortMTU(t *testing.T) {
 	fab, ep := mtuAccountingFabric(t, 9000, nil)
-	frame := egressBufferFrame()
-	journey := &Journey{}
+	frame := accountingEgressFrame()
+	journey := fabric.MakeTestJourneyPointer(fabric.ExportJourneyFields{})
 
 	for range 2 {
-		fab.enqueueEgress(fab.clock, ep, ep.Port, frame, 1, 1, journey, 0, "")
+		fabric.ExportFabricEnqueueEgress(fab, (*fabric.ExportFabricClock(fab)), ep, ep.Port, frame, 1, 1, journey, 0, "")
 	}
-	if len(fab.unstatedBacked) != 0 {
-		t.Fatalf("depth 2028 marked %v, want none below the 9018-octet threshold", fab.unstatedBacked)
+	if len((*fabric.ExportFabricUnstatedBacked(fab))) != 0 {
+		t.Fatalf("depth 2028 marked %v, want none below the 9018-octet threshold", (*fabric.ExportFabricUnstatedBacked(fab)))
 	}
 
 	for range 7 {
-		fab.enqueueEgress(fab.clock, ep, ep.Port, frame, 1, 1, journey, 0, "")
+		fabric.ExportFabricEnqueueEgress(fab, (*fabric.ExportFabricClock(fab)), ep, ep.Port, frame, 1, 1, journey, 0, "")
 	}
-	if _, marked := fab.unstatedBacked[ep]; !marked {
-		t.Fatalf("depth 9126 left %v unmarked, want a mark past the 9018-octet threshold", fab.unstatedBacked)
+	if _, marked := (*fabric.ExportFabricUnstatedBacked(fab))[ep]; !marked {
+		t.Fatalf("depth 9126 left %v unmarked, want a mark past the 9018-octet threshold", (*fabric.ExportFabricUnstatedBacked(fab)))
 	}
 }
 
@@ -325,16 +325,16 @@ func TestEgressLagBufferEnforcedOnMember(t *testing.T) {
 	buffer := uint64(2000)
 	fab, eps := lagAccountingFabric(t, 0, &buffer)
 	member := eps[0]
-	frame := egressBufferFrame()
-	journey := &Journey{}
+	frame := accountingEgressFrame()
+	journey := fabric.MakeTestJourneyPointer(fabric.ExportJourneyFields{})
 	for range 2 {
-		fab.enqueueEgress(fab.clock, member, "lag1", frame, 1, 1, journey, 0, "")
+		fabric.ExportFabricEnqueueEgress(fab, (*fabric.ExportFabricClock(fab)), member, "lag1", frame, 1, 1, journey, 0, "")
 	}
 
-	if got := fab.egress[member].depth[0]; got != 1014 {
+	if got := fabric.ExportEgressQueueDepth((*fabric.ExportFabricEgress(fab))[member])[0]; got != 1014 {
 		t.Errorf("member depth = %d, want 1014: the 2000-octet buffer refuses the second frame", got)
 	}
-	if _, keyed := fab.egress[Endpoint{Node: "sw1", Port: "lag1"}]; keyed {
+	if _, keyed := (*fabric.ExportFabricEgress(fab))[fabric.Endpoint{Node: "sw1", Port: "lag1"}]; keyed {
 		t.Errorf("the LAG name holds an egress queue; a LAG buffer is enforced per member")
 	}
 	if got, want := len(journey.Entries), 1; got != want {
@@ -344,8 +344,31 @@ func TestEgressLagBufferEnforcedOnMember(t *testing.T) {
 		t.Errorf("EgressDepths[%v][0].Depth = %d, want 1014, keyed by the member endpoint", member, got)
 	}
 	scope := analysis.PortScope(member.Node, member.Port)
-	if got := countIssueScope(fab.Metadata().IssuesFor(scope), IssueQueueBufferUnstated, scope); got != 0 {
+	if got := countIssueScope(fab.Metadata().IssuesFor(scope), fabric.IssueQueueBufferUnstated, scope); got != 0 {
 		t.Errorf("a stated LAG buffer raised %d queue-buffer-unstated issues, want none", got)
+	}
+}
+
+// TestEgressMemberNamedProtocolFrameReadsLagBuffer covers a protocol frame
+// sent on a member under the member's own name: the LAG's stated buffer
+// answers it, so the member queue tail-drops and raises no
+// queue-buffer-unstated issue.
+func TestEgressMemberNamedProtocolFrameReadsLagBuffer(t *testing.T) {
+	buffer := uint64(2000)
+	fab, eps := lagAccountingFabric(t, 0, &buffer)
+	member := eps[0]
+	frame := accountingEgressFrame()
+	journey := fabric.MakeTestJourneyPointer(fabric.ExportJourneyFields{})
+	for range 2 {
+		fabric.ExportFabricEnqueueEgress(fab, (*fabric.ExportFabricClock(fab)), member, member.Port, frame, 1, 1, journey, 0, "")
+	}
+
+	if got := fabric.ExportEgressQueueDepth((*fabric.ExportFabricEgress(fab))[member])[0]; got != 1014 {
+		t.Errorf("member depth = %d, want 1014: the LAG's 2000-octet buffer refuses the second frame", got)
+	}
+	scope := analysis.PortScope(member.Node, member.Port)
+	if got := countIssueScope(fab.Metadata().IssuesFor(scope), fabric.IssueQueueBufferUnstated, scope); got != 0 {
+		t.Errorf("a protocol frame on a member of a LAG with a stated buffer raised %d queue-buffer-unstated issues, want none", got)
 	}
 }
 
@@ -357,10 +380,10 @@ func TestEgressLagBufferEnforcedOnMember(t *testing.T) {
 func TestEgressLagThresholdUsesLagMTU(t *testing.T) {
 	fab, eps := lagAccountingFabric(t, 9000, nil)
 	member := eps[0]
-	fab.enqueueEgress(fab.clock, member, "lag1", jumboEgressFrame(), 1, 1, &Journey{}, 0, "")
+	fabric.ExportFabricEnqueueEgress(fab, (*fabric.ExportFabricClock(fab)), member, "lag1", jumboEgressFrame(), 1, 1, fabric.MakeTestJourneyPointer(fabric.ExportJourneyFields{}), 0, "")
 
-	if len(fab.unstatedBacked) != 0 {
-		t.Fatalf("one 9014-octet frame marked %v, want none below the LAG's 9018-octet threshold", fab.unstatedBacked)
+	if len((*fabric.ExportFabricUnstatedBacked(fab))) != 0 {
+		t.Fatalf("one 9014-octet frame marked %v, want none below the LAG's 9018-octet threshold", (*fabric.ExportFabricUnstatedBacked(fab)))
 	}
 }
 
@@ -368,19 +391,19 @@ func TestEgressLagThresholdUsesLagMTU(t *testing.T) {
 // raises the fork's peak without moving the source's.
 func TestEgressForkKeepsOwnPeak(t *testing.T) {
 	fab, ep := bufferAccountingFabric(t, nil)
-	frame := egressBufferFrame()
-	fab.enqueueEgress(fab.clock, ep, ep.Port, frame, 1, 1, &Journey{}, 0, "")
+	frame := accountingEgressFrame()
+	fabric.ExportFabricEnqueueEgress(fab, (*fabric.ExportFabricClock(fab)), ep, ep.Port, frame, 1, 1, fabric.MakeTestJourneyPointer(fabric.ExportJourneyFields{}), 0, "")
 
 	fork := fab.Fork()
-	forkJourney := &Journey{}
+	forkJourney := fabric.MakeTestJourneyPointer(fabric.ExportJourneyFields{})
 	for range 3 {
-		fork.enqueueEgress(fork.clock, ep, ep.Port, frame, 1, 1, forkJourney, 0, "")
+		fabric.ExportFabricEnqueueEgress(fork, (*fabric.ExportFabricClock(fork)), ep, ep.Port, frame, 1, 1, forkJourney, 0, "")
 	}
 
-	if got := fab.egress[ep].peak[0]; got != 1014 {
+	if got := fabric.ExportEgressQueuePeak((*fabric.ExportFabricEgress(fab))[ep])[0]; got != 1014 {
 		t.Errorf("source peak = %d, want 1014", got)
 	}
-	if got, want := fork.egress[ep].peak[0], uint64(4*1014); got != want {
+	if got, want := fabric.ExportEgressQueuePeak((*fabric.ExportFabricEgress(fork))[ep])[0], uint64(4*1014); got != want {
 		t.Errorf("fork peak = %d, want %d", got, want)
 	}
 }

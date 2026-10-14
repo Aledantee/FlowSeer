@@ -2,6 +2,7 @@ package fabric
 
 import (
 	"math"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -9,8 +10,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
-	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
-	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
+	"go.aledante.io/FlowSeer/src/common/sim/device"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
@@ -33,7 +33,8 @@ func TestReportDeepClonesNestedJourneyData(t *testing.T) {
 		Tags:    []vlan.Tag{tag},
 		Payload: []byte{1},
 	}
-	f := &Fabric{journeys: map[FrameID]*Journey{
+	f := newRunFabric(t, time.Time{})
+	f.journeys = map[FrameID]*journey{
 		1: {
 			FrameID: 1,
 			Injection: Injection{
@@ -43,17 +44,17 @@ func TestReportDeepClonesNestedJourneyData(t *testing.T) {
 				},
 			},
 			Entries: []Entry{{
-				Result: &vswitch.ForwardResult{Result: bridge.Result{
+				Result: &device.Result{
 					Trace: trace.Trace{Steps: []trace.Step{{
 						Inputs:   []trace.Fact{lengthFact(1)},
 						Outputs:  []trace.Fact{topSpeedFact(2)},
 						Evidence: []trace.EvidenceRef{"source"},
 					}}},
-					Egress: []bridge.Egress{{Frame: frame}},
-				}},
+					Egress: []device.Egress{{Frame: frame}},
+				},
 			}},
 		},
-	}}
+	}
 
 	report := f.Report()
 	report[0].Injection.Frame.Tags[0].VID = 20
@@ -106,11 +107,9 @@ func TestScheduleDequeueRecordsFaultInsteadOfPanicking(t *testing.T) {
 	ep := Endpoint{Node: "sw1", Port: "e0"}
 
 	t.Run("dequeue before the clock", func(t *testing.T) {
-		f := &Fabric{
-			egress:  map[Endpoint]*egressQueue{ep: {}},
-			clock:   base,
-			stepped: true,
-		}
+		f := newRunFabric(t, base)
+		f.egress = map[Endpoint]*egressQueue{ep: {}}
+		f.stepped = true
 
 		f.scheduleDequeue(ep, base.Add(-time.Second))
 
@@ -132,9 +131,8 @@ func TestScheduleDequeueRecordsFaultInsteadOfPanicking(t *testing.T) {
 	})
 
 	t.Run("second dequeue while one is pending", func(t *testing.T) {
-		f := &Fabric{
-			egress: map[Endpoint]*egressQueue{ep: {dequeuePending: true}},
-		}
+		f := newRunFabric(t, time.Time{})
+		f.egress = map[Endpoint]*egressQueue{ep: {dequeuePending: true}}
 
 		f.scheduleDequeue(ep, base)
 
@@ -147,11 +145,9 @@ func TestScheduleDequeueRecordsFaultInsteadOfPanicking(t *testing.T) {
 	})
 
 	t.Run("Run halts and Err keeps the first fault", func(t *testing.T) {
-		f := &Fabric{
-			egress:  map[Endpoint]*egressQueue{ep: {}},
-			clock:   base,
-			stepped: true,
-		}
+		f := newRunFabric(t, base)
+		f.egress = map[Endpoint]*egressQueue{ep: {}}
+		f.stepped = true
 
 		f.scheduleDequeue(ep, base.Add(-time.Second))
 		first := f.Err()
@@ -160,7 +156,7 @@ func TestScheduleDequeueRecordsFaultInsteadOfPanicking(t *testing.T) {
 		if f.Err() != first {
 			t.Errorf("Err() = %q after a second fault, want the first %q", f.Err(), first)
 		}
-		if res := f.Run(10); res.Steps != 0 {
+		if res := f.Run(RunOptions{Budget: 10, Window: 0}); res.Steps != 0 {
 			t.Errorf("Run(10) = %d after a fault, want 0", res.Steps)
 		}
 		if f.Err() == nil {
@@ -169,22 +165,22 @@ func TestScheduleDequeueRecordsFaultInsteadOfPanicking(t *testing.T) {
 	})
 }
 
-// TestRecordNeighborFailureCountsOnlyAgainstAPort reaches into the package because the invariant
+// TestHeldDropCountsOnlyAgainstAPort reaches into the package because the invariant
 // is about a counter nothing can read: snapshotCounters walks a device's real ports, so an
 // Endpoint whose Port names a VLAN interface never appears in a Snapshot and is invisible from
 // outside — a later reader finding it would believe it meant something. A drop that names no
 // port has to create nothing at all, which only the counter map itself can show.
-func TestRecordNeighborFailureCountsOnlyAgainstAPort(t *testing.T) {
+func TestHeldDropCountsOnlyAgainstAPort(t *testing.T) {
 	t.Parallel()
 	base := time.Date(2026, 9, 17, 12, 0, 0, 0, time.UTC)
 
 	t.Run("a drop naming no port creates no endpoint", func(t *testing.T) {
 		t.Parallel()
-		f := &Fabric{clock: base}
-		f.recordNeighborFailure(base, "sw1", vswitch.NeighborDrop{
+		f := newRunFabric(t, base)
+		f.applyOutput(base, "sw1", device.Output{Drops: []device.Drop{{
 			Step:   trace.Step{Subject: trace.Subject{Kind: "interface", Key: "vlan20"}},
 			Reason: routing.ReasonNeighborMiss,
-		})
+		}}})
 
 		if len(f.counters) != 0 {
 			t.Errorf("counters = %+v, want none: the drop named no port", f.counters)
@@ -193,12 +189,12 @@ func TestRecordNeighborFailureCountsOnlyAgainstAPort(t *testing.T) {
 
 	t.Run("a drop naming a port counts against it", func(t *testing.T) {
 		t.Parallel()
-		f := &Fabric{clock: base}
-		f.recordNeighborFailure(base, "sw1", vswitch.NeighborDrop{
+		f := newRunFabric(t, base)
+		f.applyOutput(base, "sw1", device.Output{Drops: []device.Drop{{
 			Step:   trace.Step{Subject: trace.Subject{Kind: "port", Key: "1/1/2"}},
 			Port:   "1/1/2",
 			Reason: routing.ReasonNeighborHoldOverflow,
-		})
+		}}})
 
 		c, ok := f.counters[Endpoint{Node: "sw1", Port: "1/1/2"}]
 		if !ok {
@@ -213,27 +209,25 @@ func TestRecordNeighborFailureCountsOnlyAgainstAPort(t *testing.T) {
 	})
 }
 
-func TestInjectEmissionWithoutHeldFrameFallsBackToInjectionOrigin(t *testing.T) {
+func TestUnknownHoldTokenStartsOneJourney(t *testing.T) {
 	t.Parallel()
 
-	f := &Fabric{
-		journeys: make(map[FrameID]*Journey),
-		switches: make(map[string]*vswitch.Switch),
-	}
-	f.initRunState()
+	f := newRunFabric(t, time.Time{})
+	f.journeys = make(map[FrameID]*journey)
 
-	em := vswitch.Emission{
+	em := device.Emission{
 		Port:     "swp1",
+		Hold:     9,
 		Frame:    ethernet.Frame{Payload: []byte("non-protocol-payload")},
 		Protocol: false,
 	}
 
-	f.injectEmission(time.Now(), "sw1", em)
+	f.applyOutput(time.Now(), "sw1", device.Output{Emissions: []device.Emission{em, em}})
 
 	if len(f.journeys) != 1 {
 		t.Fatalf("len(journeys) = %d, want 1", len(f.journeys))
 	}
-	var j *Journey
+	var j *journey
 	for _, journey := range f.journeys {
 		j = journey
 	}
@@ -246,4 +240,23 @@ func TestInjectEmissionWithoutHeldFrameFallsBackToInjectionOrigin(t *testing.T) 
 	if j.Origin.Of != 0 {
 		t.Errorf("journey.Origin.Of = %v, want 0", j.Origin.Of)
 	}
+}
+
+type lengthFact float64
+
+func (f lengthFact) TypeID() string    { return "fabric.length_meters" }
+func (f lengthFact) Canonical() string { return strconv.FormatFloat(float64(f), 'f', -1, 64) }
+
+type topSpeedFact uint64
+
+func (f topSpeedFact) TypeID() string    { return "fabric.top_speed_bps" }
+func (f topSpeedFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
+
+func newRunFabric(t *testing.T, start time.Time) *Fabric {
+	t.Helper()
+	f, err := New(Config{Start: start})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return f
 }

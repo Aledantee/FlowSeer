@@ -1,9 +1,16 @@
 package fabric_test
 
 import (
+	"fmt"
 	"net/netip"
 	"strconv"
 	"testing"
+
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
+	reflectormodel "go.aledante.io/FlowSeer/src/common/sim/device/reflector"
+
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/ip"
@@ -14,6 +21,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
@@ -28,12 +36,48 @@ var (
 	reflectorGroupAddr = netip.AddrFrom4([4]byte{224, 0, 0, 251})
 )
 
+func TestReflectorSpecRoundTrip(t *testing.T) {
+	cfg := statedPhysical(reflectorAcceptConfig(t))
+	fab, err := assembly.New(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	spec := assembly.Spec(fab)
+	if len(spec.Reflectors) != 1 || !spec.Reflectors["r1"].Equal(cfg.Reflectors["r1"]) {
+		t.Fatalf("Spec reflectors = %+v, want configured r1", spec.Reflectors)
+	}
+	rebuilt, err := assembly.NewWithSpec(spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !assembly.Spec(rebuilt).Equal(spec) {
+		t.Fatal("reflector specification changed on round trip")
+	}
+}
+
+func TestReflectorRefusesMixedFamily(t *testing.T) {
+	src, dst := netip.MustParseAddr("fe80::7"), netip.MustParseAddr("ff02::fb")
+	datagram, err := udp.Encode(udp.Header{SrcPort: 5353, DstPort: 5353}, []byte("query"), src, dst)
+	if err != nil {
+		t.Fatal(err)
+	}
+	packet, err := (ip.Header{Src: src, Dst: dst, HopLimit: 255, Protocol: 17, V6: &ip.V6{}}).Encode(datagram)
+	if err != nil {
+		t.Fatal(err)
+	}
+	frame := ethernet.Frame{Src: reflectorSenderMAC, Dst: reflectorGroupMAC, Tags: acceptedVID10(), EtherType: ethernet.EtherTypeIPv6, Payload: packet}
+	entry := reflectorDecision(t, reflectorArrival(t, reflectorAcceptConfig(t), frame))
+	if entry.Kind != fabric.EntryRejection || entry.Reason != "reflector-ip-not-group" {
+		t.Fatalf("decision = %s / %s, want Rejection / reflector-ip-not-group", entry.Kind, entry.Reason)
+	}
+}
+
 // reflectorAcceptConfig builds a fabric with one switch of two ports, a host
 // h1 cabled to the first, and a reflector r1 attached to the second, on VLAN
 // 10. Injecting at the port facing h1 floods to the port facing r1, the only
 // other port, so the frame's fate at r1 is unambiguous: no other device
 // shares the journey.
-func reflectorAcceptConfig(t *testing.T) fabric.Config {
+func reflectorAcceptConfig(t *testing.T) assembly.Config {
 	t.Helper()
 	b := port.NewBuilder()
 	b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
@@ -41,16 +85,16 @@ func reflectorAcceptConfig(t *testing.T) fabric.Config {
 
 	vid10 := vlan.ID(10)
 
-	return fabric.Config{
+	return assembly.Config{
 		Switches: map[string]vswitch.Config{"sw1": {Ports: mustTable(t, b)}},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}},
 		},
-		Reflectors: map[string]fabric.Reflector{
+		Reflectors: map[string]reflectormodel.Config{
 			"r1": {
 				Address: reflectorOwnAddress,
 				Ports:   map[string]phy.Ethernet{"p1": {}},
-				Attachments: map[string]fabric.Attachment{
+				Attachments: map[string]reflectormodel.Attachment{
 					"a": {
 						Port:      "p1",
 						VLAN:      &vid10,
@@ -60,19 +104,19 @@ func reflectorAcceptConfig(t *testing.T) fabric.Config {
 			},
 		},
 		Cables: []fabric.Cable{
-			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, LengthMeters: 5},
-			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "r1", Port: "p1"}, LengthMeters: 5},
+			{Cable: cablemodel.Cable{LengthMeters: 5}, A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
+			{Cable: cablemodel.Cable{LengthMeters: 5}, A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "r1", Port: "p1"}},
 		},
 	}
 }
 
 // reflectorArrival injects frame at the port facing away from r1 and returns
 // the journey once the run has settled.
-func reflectorArrival(t *testing.T, cfg fabric.Config, frame ethernet.Frame) fabric.Journey {
+func reflectorArrival(t *testing.T, cfg assembly.Config, frame ethernet.Frame) fabric.Journey {
 	t.Helper()
-	fab, err := fabric.New(statedPhysical(cfg))
+	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
-		t.Fatalf("fabric.New: %v", err)
+		t.Fatalf("assembly.New: %v", err)
 	}
 	fid, err := fab.Inject(fabric.Injection{
 		At:     fixedTime,
@@ -82,7 +126,7 @@ func reflectorArrival(t *testing.T, cfg fabric.Config, frame ethernet.Frame) fab
 	if err != nil {
 		t.Fatalf("Inject: %v", err)
 	}
-	fab.Run(10)
+	fab.Run(fabric.RunOptions{Budget: 10, Window: 0})
 
 	for _, j := range fab.Report() {
 		if j.FrameID == fid {
@@ -177,42 +221,42 @@ func TestReflectorAcceptanceFollowsItsCheckOrder(t *testing.T) {
 			frame:      mdnsFrame(t, reflectorOwnAddress, acceptedVID10(), reflectorGroupMAC, reflectorGroupAddr, 17, 5353),
 			wantKind:   fabric.EntryRejection,
 			wantRule:   "reflector.mac.own_source",
-			wantReason: fabric.ReasonReflectorOwnSource,
+			wantReason: reflectormodel.ReasonReflectorOwnSource,
 		},
 		{
 			name:       "a tag form matching no attachment on the arrival port is refused",
 			frame:      mdnsFrame(t, reflectorSenderMAC, mismatchedVID, reflectorGroupMAC, reflectorGroupAddr, 17, 5353),
 			wantKind:   fabric.EntryRejection,
 			wantRule:   "reflector.vlan.form",
-			wantReason: fabric.ReasonReflectorTagFormNotAccepted,
+			wantReason: reflectormodel.ReasonReflectorTagFormNotAccepted,
 		},
 		{
 			name:       "a destination MAC that is not the mDNS group MAC is refused",
 			frame:      mdnsFrame(t, reflectorSenderMAC, acceptedVID10(), otherMAC, reflectorGroupAddr, 17, 5353),
 			wantKind:   fabric.EntryRejection,
 			wantRule:   "reflector.mac.group",
-			wantReason: fabric.ReasonReflectorMACNotGroup,
+			wantReason: reflectormodel.ReasonReflectorMACNotGroup,
 		},
 		{
 			name:       "an IP destination that is not the mDNS group is refused",
 			frame:      mdnsFrame(t, reflectorSenderMAC, acceptedVID10(), reflectorGroupMAC, other, 17, 5353),
 			wantKind:   fabric.EntryRejection,
 			wantRule:   "reflector.ip.group",
-			wantReason: fabric.ReasonReflectorIPNotGroup,
+			wantReason: reflectormodel.ReasonReflectorIPNotGroup,
 		},
 		{
 			name:       "a protocol that is not UDP is refused",
 			frame:      mdnsFrame(t, reflectorSenderMAC, acceptedVID10(), reflectorGroupMAC, reflectorGroupAddr, 6, 5353),
 			wantKind:   fabric.EntryRejection,
 			wantRule:   "reflector.udp.protocol",
-			wantReason: fabric.ReasonReflectorProtocolNotUDP,
+			wantReason: reflectormodel.ReasonReflectorProtocolNotUDP,
 		},
 		{
 			name:       "a UDP destination port that is not 5353 is refused",
 			frame:      mdnsFrame(t, reflectorSenderMAC, acceptedVID10(), reflectorGroupMAC, reflectorGroupAddr, 17, 5354),
 			wantKind:   fabric.EntryRejection,
 			wantRule:   "reflector.udp.port",
-			wantReason: fabric.ReasonReflectorUDPPortNotMDNS,
+			wantReason: reflectormodel.ReasonReflectorUDPPortNotMDNS,
 		},
 		{
 			name: "an undecodable IP header leaves acceptance unknown",
@@ -222,7 +266,7 @@ func TestReflectorAcceptanceFollowsItsCheckOrder(t *testing.T) {
 			},
 			wantKind:   fabric.EntryUnresolved,
 			wantRule:   "reflector.ip.undecodable",
-			wantReason: fabric.ReasonReflectorIPHeaderUndecodable,
+			wantReason: reflectormodel.ReasonReflectorIPHeaderUndecodable,
 		},
 		{
 			// A well-formed IPv4 header whose total length equals its header
@@ -234,7 +278,7 @@ func TestReflectorAcceptanceFollowsItsCheckOrder(t *testing.T) {
 			frame:      undecodableUDPFrame(t),
 			wantKind:   fabric.EntryUnresolved,
 			wantRule:   "reflector.udp.undecodable",
-			wantReason: fabric.ReasonReflectorUDPHeaderUndecodable,
+			wantReason: reflectormodel.ReasonReflectorUDPHeaderUndecodable,
 		},
 	}
 
@@ -250,7 +294,7 @@ func TestReflectorAcceptanceFollowsItsCheckOrder(t *testing.T) {
 			if step == nil {
 				t.Fatalf("decision %+v carries no step", decision)
 			}
-			if step.Layer != fabric.ReflectorLayer || step.Op != trace.OpFilter || step.RuleID != tc.wantRule ||
+			if step.Layer != reflectormodel.Layer || step.Op != trace.OpFilter || step.RuleID != tc.wantRule ||
 				step.Subject != (trace.Subject{Kind: "reflector", Key: "r1"}) {
 				t.Errorf("step = %s %s %s %+v, want reflector filter %s on reflector r1", step.Layer, step.Op, step.RuleID, step.Subject, tc.wantRule)
 			}
@@ -268,6 +312,9 @@ func TestReflectorAcceptanceFollowsItsCheckOrder(t *testing.T) {
 					issue.Status == analysis.Incomplete &&
 					issue.Scope.Compare(analysis.JourneyScope(strconv.FormatUint(uint64(journey.FrameID), 10))) == 0 {
 					undecided = true
+					if want := fmt.Sprintf("reflector %q cannot decide on frame %d: its header does not decode", "r1", journey.FrameID); issue.Message != want {
+						t.Errorf("issue message = %q, want %q", issue.Message, want)
+					}
 				}
 			}
 			if want := tc.wantKind == fabric.EntryUnresolved; undecided != want {
@@ -278,21 +325,24 @@ func TestReflectorAcceptanceFollowsItsCheckOrder(t *testing.T) {
 }
 
 // TestReflectorDropsACorruptArrivalBeforeAnyClauseRuns proves that a corrupt
-// arrival is discarded before acceptReflector ever runs, over an otherwise
+// arrival is discarded before the reflector acceptance rules run, over an otherwise
 // fully accepted mDNS query: only the corruption can explain the drop.
 func TestReflectorDropsACorruptArrivalBeforeAnyClauseRuns(t *testing.T) {
 	cfg := reflectorAcceptConfig(t)
-	cfg.Cables[1].Fault = fabric.Fault{Kind: fabric.FaultCorruptEveryNth, N: 1}
+	cfg.Cables[1].Fault = cablemodel.Fault{Kind: cablemodel.FaultCorruptEveryNth, N: 1}
 
 	frame := mdnsFrame(t, reflectorSenderMAC, acceptedVID10(), reflectorGroupMAC, reflectorGroupAddr, 17, 5353)
 	journey := reflectorArrival(t, cfg, frame)
 	decision := reflectorDecision(t, journey)
 
-	if decision.Kind != fabric.EntryDrop || decision.Reason != fabric.ReasonBadFrame {
-		t.Errorf("decision = %s %q, want Drop %q", decision.Kind, decision.Reason, fabric.ReasonBadFrame)
+	if decision.Kind != fabric.EntryDrop || decision.Reason != cablemodel.ReasonBadFrame {
+		t.Errorf("decision = %s %q, want Drop %q", decision.Kind, decision.Reason, cablemodel.ReasonBadFrame)
 	}
 	if decision.Step != nil {
 		t.Errorf("decision step = %+v, want none: a corrupt arrival never reaches a clause", decision.Step)
+	}
+	if decision.Cable != nil {
+		t.Fatalf("reflector corrupt-entry cable = %+v, want nil", decision.Cable)
 	}
 	if len(journey.Deliveries) != 0 {
 		t.Errorf("deliveries = %+v, want none", journey.Deliveries)

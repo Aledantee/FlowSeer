@@ -13,6 +13,8 @@ type LayerRetention struct {
 
 // Retention summarizes the retention outcome across all capability layers.
 type Retention struct {
+	Bridge      LayerRetention
+	Filter      LayerRetention
 	STP         LayerRetention
 	LoopProtect LayerRetention
 	LAG         LayerRetention
@@ -24,6 +26,8 @@ type Retention struct {
 // allKeptRetention returns a Retention value with every layer marked kept.
 func allKeptRetention() Retention {
 	return Retention{
+		Bridge:      LayerRetention{Kept: true},
+		Filter:      LayerRetention{Kept: true},
 		STP:         LayerRetention{Kept: true},
 		LoopProtect: LayerRetention{Kept: true},
 		LAG:         LayerRetention{Kept: true},

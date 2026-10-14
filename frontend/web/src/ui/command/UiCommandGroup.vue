@@ -29,7 +29,7 @@ useAiOrigin(
 <template>
   <ComboboxGroup
     ref="group"
-    class="overflow-hidden p-1 text-foreground [&_[data-reka-combobox-label]]:px-2 [&_[data-reka-combobox-label]]:py-1.5 [&_[data-reka-combobox-label]]:text-xs [&_[data-reka-combobox-label]]:font-medium [&_[data-reka-combobox-label]]:text-muted-foreground"
+    class="overflow-hidden p-1 text-foreground [&_[data-reka-combobox-label]]:px-2 [&_[data-reka-combobox-label]]:py-1.5 [&_[data-reka-combobox-label]]:font-mono [&_[data-reka-combobox-label]]:text-2xs [&_[data-reka-combobox-label]]:font-semibold [&_[data-reka-combobox-label]]:uppercase [&_[data-reka-combobox-label]]:tracking-wide [&_[data-reka-combobox-label]]:text-muted-foreground"
   >
     <ComboboxLabel v-if="heading" as="div">
       {{ heading }}

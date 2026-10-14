@@ -1,20 +1,185 @@
 package fabric_test
 
 import (
+	"reflect"
 	"slices"
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/sim/device"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/traffic"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
+
+func steppedReplayFabric(t *testing.T) (*fabric.Fabric, fabric.Scenario) {
+	t.Helper()
+	fab, h1, h2 := newTwoSwitchTopology(t, cablemodel.Fault{Kind: cablemodel.FaultLoseSequence, Sequence: []uint{4}})
+	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
+	for i := range 3 {
+		if _, err := fab.Inject(fabric.Injection{At: t0.Add(time.Duration(i) * time.Second), Origin: fabric.Endpoint{Node: "h2"}, Frame: ethernet.Frame{Src: h2, Dst: h1, Payload: []byte("learn")}}); err != nil {
+			t.Fatal(err)
+		}
+		fab.Run(fabric.RunOptions{Budget: 20, Window: 0})
+	}
+	history := fab.Report()
+	if len(history) != 3 {
+		t.Fatalf("history journeys = %d, want 3", len(history))
+	}
+	var crossings int
+	for _, j := range history {
+		if len(j.Deliveries) != 1 {
+			t.Fatalf("history journey = %+v, want one delivery", j)
+		}
+		for _, e := range j.Entries {
+			if e.Kind == fabric.EntryCrossing && e.Device == "sw1" && e.Port == "1/1/24" {
+				crossings++
+			}
+		}
+	}
+	if crossings != 3 {
+		t.Fatalf("history trunk crossings = %d, want 3", crossings)
+	}
+	entries := fab.Device("sw1").(*vswitch.Switch).Entries()
+	if len(entries) != 1 || entries[0].MAC != h2 || entries[0].Port != "1/1/24" {
+		t.Fatalf("learned FDB = %+v, want h2 on 1/1/24", entries)
+	}
+	return fab, fabric.Scenario{Name: "stepped-replay", Actions: []fabric.Action{{ID: "replay_test-1", At: t0.Add(3 * time.Second), Kind: fabric.ActionInject, Inject: &fabric.Injection{Origin: fabric.Endpoint{Node: "h1"}, Frame: ethernet.Frame{Src: h1, Dst: h2, Payload: []byte("fourth")}}}}}
+}
+
+func equalReplayResults(t *testing.T, a, b fabric.RunResult) {
+	t.Helper()
+	a.Replay, b.Replay = fabric.ReplaySpec{}, fabric.ReplaySpec{}
+	if !reflect.DeepEqual(a, b) {
+		t.Fatalf("replay result differs: steps/clock/stop = %d/%s/%s, want %d/%s/%s", b.Steps, b.Clock, b.Stop, a.Steps, a.Clock, a.Stop)
+	}
+}
+
+func assertSteppedReplayJourney(t *testing.T, replay fabric.ReplaySpec) {
+	t.Helper()
+	fab := replay.Checkpoint()
+	if fab == nil {
+		t.Fatal("replay has no checkpoint")
+	}
+	if got := fab.Report(); len(got) != 3 {
+		t.Fatalf("checkpoint journeys = %d, want 3", len(got))
+	}
+	entries := fab.Device("sw1").(*vswitch.Switch).Entries()
+	if len(entries) != 1 || entries[0].MAC != replay.Scenario.Actions[0].Inject.Frame.Dst || entries[0].Port != "1/1/24" {
+		t.Fatalf("replay checkpoint FDB = %+v, want learned destination on 1/1/24", entries)
+	}
+	if _, err := fab.RunScenario(replay.Scenario, replay.Options); err != nil {
+		t.Fatal(err)
+	}
+	journeys := fab.Report()
+	if len(journeys) != 4 {
+		t.Fatalf("replayed journeys = %d, want 4", len(journeys))
+	}
+	j := journeys[3]
+	if j.State != fabric.JourneyDropped || len(j.Deliveries) != 0 || j.Entries[len(j.Entries)-1].Kind != fabric.EntryLoss || j.Entries[len(j.Entries)-1].Reason != cablemodel.ReasonCableLoss {
+		t.Fatalf("replayed fourth journey = %+v, want cable loss without delivery", j)
+	}
+	var hops int
+	for _, e := range j.Entries {
+		if e.Kind == fabric.EntryHop {
+			hops++
+			if e.Result.Outcome != trace.Forwarded || len(e.Result.Egress) != 1 || e.Result.Egress[0].Port != "1/1/24" {
+				t.Fatalf("replayed fourth hop = %+v, want learned unicast on 1/1/24", e.Result)
+			}
+		}
+	}
+	if hops != 1 {
+		t.Fatalf("replayed fourth hops = %d, want 1", hops)
+	}
+}
+
+func TestReplayOfSteppedFabric(t *testing.T) {
+	fab, sc := steppedReplayFabric(t)
+	res, err := fab.RunScenario(sc, fabric.RunOptions{Budget: 20, Window: 0})
+	if err != nil {
+		t.Fatal(err)
+	}
+	j := fab.Report()[3]
+	if j.State != fabric.JourneyDropped || j.Entries[len(j.Entries)-1].Reason != cablemodel.ReasonCableLoss {
+		t.Fatalf("fourth journey = %+v, want cable loss", j)
+	}
+	var hops int
+	for _, e := range j.Entries {
+		if e.Kind == fabric.EntryHop {
+			hops++
+			if e.Result.Outcome != trace.Forwarded || len(e.Result.Egress) != 1 || e.Result.Egress[0].Port != "1/1/24" {
+				t.Fatalf("fourth hop = %+v, want learned unicast on 1/1/24", e.Result)
+			}
+		}
+	}
+	if hops != 1 {
+		t.Fatalf("fourth hops = %d, want 1", hops)
+	}
+	replayed, err := fabric.Replay(res.Replay)
+	if err != nil {
+		t.Fatal(err)
+	}
+	equalReplayResults(t, res, replayed)
+	assertSteppedReplayJourney(t, replayed.Replay)
+}
+
+func TestCompareReplayOfSteppedFabrics(t *testing.T) {
+	a, sc := steppedReplayFabric(t)
+	b, _ := steppedReplayFabric(t)
+	cmp := fabric.Compare(a, b, sc, fabric.RunOptions{Budget: 20, Window: 0})
+	if cmp.Err != nil {
+		t.Fatal(cmp.Err)
+	}
+	var checked int
+	for i, original := range []*fabric.Fabric{a, b} {
+		want, err := original.Fork().RunScenario(sc, fabric.RunOptions{Budget: 20, Window: 0})
+		if err != nil {
+			t.Fatal(err)
+		}
+		got, err := fabric.Replay(cmp.Replay[i])
+		if err != nil {
+			t.Fatal(err)
+		}
+		equalReplayResults(t, want, got)
+		assertSteppedReplayJourney(t, got.Replay)
+		checked++
+	}
+	if checked != 2 {
+		t.Fatalf("checked comparison sides = %d, want 2", checked)
+	}
+}
+
+func TestReplayRunsTwice(t *testing.T) {
+	fab, sc := steppedReplayFabric(t)
+	res, err := fab.RunScenario(sc, fabric.RunOptions{Budget: 20, Window: 0})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var checked int
+	for range 2 {
+		got, err := fabric.Replay(res.Replay)
+		if err != nil {
+			t.Fatal(err)
+		}
+		equalReplayResults(t, res, got)
+		assertSteppedReplayJourney(t, got.Replay)
+		checked++
+	}
+	if checked != 2 {
+		t.Fatalf("checked replay calls = %d, want 2", checked)
+	}
+}
 
 func buildReplayPorts(t *testing.T) port.Table {
 	t.Helper()
@@ -36,7 +201,7 @@ func buildReplayPorts(t *testing.T) port.Table {
 func makeReplayFabric(t *testing.T, pTable port.Table, brCfg *bridge.Config, trafficCfg ...*traffic.Config) *fabric.Fabric {
 	t.Helper()
 
-	hosts := make(map[string]fabric.Host)
+	hosts := make(map[string]hostmodel.Config)
 	var cables []fabric.Cable
 
 	ports := pTable.Ports()
@@ -44,13 +209,13 @@ func makeReplayFabric(t *testing.T, pTable port.Table, brCfg *bridge.Config, tra
 		hostName := "h" + string(rune('1'+i))
 		mac := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, byte(i + 1)}
 
-		hosts[hostName] = fabric.Host{
+		hosts[hostName] = hostmodel.Config{
 			Address: mac,
 		}
 		cables = append(cables, fabric.Cable{
-			A:            fabric.Endpoint{Node: hostName},
-			B:            fabric.Endpoint{Node: "sw1", Port: p.Name},
-			LengthMeters: 1.0,
+			Cable: cablemodel.Cable{LengthMeters: 1.0},
+			A:     fabric.Endpoint{Node: hostName},
+			B:     fabric.Endpoint{Node: "sw1", Port: p.Name},
 		})
 	}
 
@@ -58,7 +223,7 @@ func makeReplayFabric(t *testing.T, pTable port.Table, brCfg *bridge.Config, tra
 	if len(trafficCfg) > 0 {
 		tc = trafficCfg[0]
 	}
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Switches: map[string]vswitch.Config{
 			"sw1": {
 				Ports:   pTable,
@@ -70,7 +235,7 @@ func makeReplayFabric(t *testing.T, pTable port.Table, brCfg *bridge.Config, tra
 		Cables: cables,
 	}
 
-	fab, err := fabric.New(statedPhysical(cfg))
+	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatalf("New replay fabric: %v", err)
 	}
@@ -118,6 +283,7 @@ func TestReplayUntaggedLearnAndFlood(t *testing.T) {
 		t.Fatalf("Inject: %v", err)
 	}
 
+	stepHostInputs(t, fab, 1)
 	entry, ok := fab.Step()
 	if !ok || entry.Kind != fabric.EntryHop {
 		t.Fatalf("Step failed: ok=%t, entry=%+v", ok, entry)
@@ -142,7 +308,7 @@ func TestReplayUntaggedLearnAndFlood(t *testing.T) {
 		t.Errorf("egress ports = %v, want 1/1/2 and 1/1/3", egressPorts)
 	}
 
-	entries := fab.Switch("sw1").Entries()
+	entries := fab.Device("sw1").(*vswitch.Switch).Entries()
 	if len(entries) != 1 {
 		t.Fatalf("len(entries) = %d, want 1", len(entries))
 	}
@@ -186,7 +352,7 @@ func TestReplayKnownUnicastAndSamePortDrop(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inject: %v", err)
 	}
-	fab.Step()
+	fab.Run(fabric.RunOptions{Budget: 100, Window: 0})
 
 	// 2. Return frame from h2 to macA forwards directly to 1/1/1.
 	_, err = fab.Inject(fabric.Injection{
@@ -203,6 +369,7 @@ func TestReplayKnownUnicastAndSamePortDrop(t *testing.T) {
 		t.Fatalf("Inject return: %v", err)
 	}
 
+	stepHostInputs(t, fab, 1)
 	entry, ok := fab.Step()
 	if !ok || entry.Kind != fabric.EntryHop {
 		t.Fatalf("Step return failed: ok=%t, entry=%+v", ok, entry)
@@ -216,6 +383,13 @@ func TestReplayKnownUnicastAndSamePortDrop(t *testing.T) {
 	}
 
 	// 3. Frame from h1 with destination macA drops as same-port.
+	entryFinish, ok := fab.Step()
+	if !ok || (entryFinish.Kind != fabric.EntryDelivery && entryFinish.Kind != fabric.EntryRejection) {
+		t.Fatalf("step after return failed: ok=%t, entry=%+v", ok, entryFinish)
+	}
+	if len(fab.Snapshot().Queue) != 0 {
+		t.Fatalf("queue has %d remaining arrivals, want 0", len(fab.Snapshot().Queue))
+	}
 	_, err = fab.Inject(fabric.Injection{
 		At:     now.Add(2 * time.Second),
 		Origin: fabric.Endpoint{Node: "h1"},
@@ -230,6 +404,7 @@ func TestReplayKnownUnicastAndSamePortDrop(t *testing.T) {
 		t.Fatalf("Inject same-port: %v", err)
 	}
 
+	stepHostInputs(t, fab, 1)
 	entrySame, ok := fab.Step()
 	if !ok || entrySame.Kind != fabric.EntryHop {
 		t.Fatalf("Step same-port failed: ok=%t, entry=%+v", ok, entrySame)
@@ -288,7 +463,8 @@ func TestReplayDownPortNeitherIngressesNorEgresses(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inject on host with down link: %v", err)
 	}
-	if entries := fab.Report()[hostFrame-1].Entries; len(entries) != 2 || entries[1].Kind != fabric.EntryDrop || entries[1].Reason != fabric.ReasonPeerDown {
+	stepHostInputs(t, fab, 1)
+	if entries := fab.Report()[hostFrame-1].Entries; len(entries) != 2 || entries[1].Kind != fabric.EntryDrop || entries[1].Reason != cablemodel.ReasonPeerDown {
 		t.Errorf("host journey entries = %+v, want injection then a peer-down drop", entries)
 	}
 
@@ -332,6 +508,7 @@ func TestReplayDownPortNeitherIngressesNorEgresses(t *testing.T) {
 		t.Fatalf("Inject on active port: %v", err)
 	}
 
+	stepHostInputs(t, fab, 1)
 	entryFlood, ok := fab.Step()
 	if !ok || entryFlood.Kind != fabric.EntryHop {
 		t.Fatalf("Step flood failed: ok=%t, entry=%+v", ok, entryFlood)
@@ -375,6 +552,7 @@ func TestReplayReservedDestinationAddressesDropped(t *testing.T) {
 		t.Fatalf("Inject: %v", err)
 	}
 
+	stepHostInputs(t, fab, 1)
 	entry, ok := fab.Step()
 	if !ok || entry.Kind != fabric.EntryHop {
 		t.Fatalf("Step failed: ok=%t, entry=%+v", ok, entry)
@@ -387,8 +565,8 @@ func TestReplayReservedDestinationAddressesDropped(t *testing.T) {
 	if res.Reason != bridge.ReasonReservedAddress {
 		t.Errorf("res.Reason = %q, want %q", res.Reason, bridge.ReasonReservedAddress)
 	}
-	if len(fab.Switch("sw1").Entries()) != 0 {
-		t.Errorf("FDB has %d entries, want 0", len(fab.Switch("sw1").Entries()))
+	if len(fab.Device("sw1").(*vswitch.Switch).Entries()) != 0 {
+		t.Errorf("FDB has %d entries, want 0", len(fab.Device("sw1").(*vswitch.Switch).Entries()))
 	}
 }
 
@@ -446,7 +624,7 @@ func TestReplaySTaggedFrameCarriedThroughBothEgressForms(t *testing.T) {
 		t.Fatalf("res.Outcome = %q, want Flooded", res.Outcome)
 	}
 
-	var egressTagged, egressUntagged *bridge.Egress
+	var egressTagged, egressUntagged *device.Egress
 	for i := range res.Egress {
 		if res.Egress[i].Port == "1/1/2" {
 			egressTagged = &res.Egress[i]
@@ -523,6 +701,7 @@ func TestReplayOversizedFrameDropsAtEgress(t *testing.T) {
 		t.Fatalf("Inject: %v", err)
 	}
 
+	stepHostInputs(t, fab, 1)
 	entry, ok := fab.Step()
 	if !ok || entry.Kind != fabric.EntryHop {
 		t.Fatalf("Step failed: ok=%t, entry=%+v", ok, entry)
@@ -533,7 +712,7 @@ func TestReplayOversizedFrameDropsAtEgress(t *testing.T) {
 		t.Fatalf("res.Outcome = %q, want Flooded", res.Outcome)
 	}
 
-	var egress2, egress3 *bridge.Egress
+	var egress2, egress3 *device.Egress
 	for i := range res.Egress {
 		if res.Egress[i].Port == "1/1/2" {
 			egress2 = &res.Egress[i]
@@ -608,6 +787,7 @@ func TestReplayAdmissionAndIngressFiltering(t *testing.T) {
 			t.Fatalf("Inject: %v", err)
 		}
 
+		stepHostInputs(t, fab, 1)
 		entry, ok := fab.Step()
 		if !ok || entry.Kind != fabric.EntryHop {
 			t.Fatalf("Step failed: ok=%t, entry=%+v", ok, entry)
@@ -834,7 +1014,7 @@ func TestReplayedRunReproducesArrivalTimes(t *testing.T) {
 
 func TestScenarioReplayConfigureEquality(t *testing.T) {
 	cfg, macH1, macH2 := makeTwoSwitchConfigs(t)
-	fab, err := fabric.New(statedPhysical(cfg))
+	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
@@ -866,6 +1046,7 @@ func TestScenarioReplayConfigureEquality(t *testing.T) {
 		Name: "replay-configure",
 		Actions: []fabric.Action{
 			{
+				ID:   "replay_test-2",
 				At:   t0,
 				Kind: fabric.ActionInject,
 				Inject: &fabric.Injection{
@@ -879,14 +1060,13 @@ func TestScenarioReplayConfigureEquality(t *testing.T) {
 				},
 			},
 			{
-				At:   t0.Add(time.Second),
-				Kind: fabric.ActionConfigure,
-				Configure: &fabric.ConfigureAction{
-					Node:   "sw2",
-					Config: sw2New,
-				},
+				ID:        "replay_test-3",
+				At:        t0.Add(time.Second),
+				Kind:      fabric.ActionConfigure,
+				Configure: new(assembly.ConfigureAction("sw2", sw2New)),
 			},
 			{
+				ID:   "replay_test-4",
 				At:   t0.Add(2 * time.Second),
 				Kind: fabric.ActionInject,
 				Inject: &fabric.Injection{
@@ -900,10 +1080,9 @@ func TestScenarioReplayConfigureEquality(t *testing.T) {
 				},
 			},
 		},
-		Budget: 50,
 	}
 
-	res1, err := fab.RunScenario(sc)
+	res1, err := fab.RunScenario(sc, fabric.RunOptions{Budget: 50, Window: 0})
 	if err != nil {
 		t.Fatalf("RunScenario: %v", err)
 	}
@@ -934,11 +1113,8 @@ func TestScenarioReplayConfigureEquality(t *testing.T) {
 		t.Errorf("res1.Fingerprints != res2.Fingerprints")
 	}
 
-	fab2, err := fabric.NewWithSpec(res1.Replay.Spec)
-	if err != nil {
-		t.Fatalf("NewWithSpec: %v", err)
-	}
-	if _, err := fab2.RunScenario(res1.Replay.Scenario); err != nil {
+	fab2 := res1.Replay.Checkpoint()
+	if _, err := fab2.RunScenario(res1.Replay.Scenario, res1.Replay.Options); err != nil {
 		t.Fatalf("fab2.RunScenario: %v", err)
 	}
 	report2 := fab2.Report()

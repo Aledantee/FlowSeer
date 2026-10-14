@@ -749,7 +749,7 @@ func TestDiffMSTVLANMoveBetweenInstances(t *testing.T) {
 
 	vlanFields := map[string]int{}
 	for _, c := range changes {
-		if c.Field == "vlans" {
+		if c.Field == `vlans["20"]` {
 			vlanFields[c.Subject.Key]++
 		}
 	}
@@ -891,7 +891,7 @@ func TestDiffPVSTRemovedEntirely(t *testing.T) {
 
 	var found int
 	for _, c := range changes {
-		if c.Field == "pvst" {
+		if c.Field == "pvst.presence" {
 			found++
 			if factCanonical(c.From) != "stp.bool=true" || factCanonical(c.To) != "stp.bool=false" {
 				t.Errorf("pvst change = (%s, %s), want (stp.bool=true, stp.bool=false)", factCanonical(c.From), factCanonical(c.To))
@@ -1044,8 +1044,8 @@ func TestPVSTNormalizeInsertsDefaultVLAN1(t *testing.T) {
 	if got := tree.Priority; got != stp.DefaultBridgePriority {
 		t.Errorf("VLAN 1 tree priority = %d, want default %d", got, stp.DefaultBridgePriority)
 	}
-	if !tree.PriorityPresent {
-		t.Error("VLAN 1 tree PriorityPresent = false, want true after normalization")
+	if tree.PriorityPresent {
+		t.Error("VLAN 1 tree PriorityPresent = true, want false after normalization")
 	}
 
 	// A non-empty Trees map that still omits VLAN 1 must also get the
@@ -1258,5 +1258,92 @@ func TestInstancePortPriorityInheritanceDiffAndRetentionKey(t *testing.T) {
 		if c.Field == "priority" && c.Subject.Kind == "mst_instance_port" {
 			t.Errorf("Diff({32, false}, {32, true}) reported unexpected priority change: %+v", c)
 		}
+	}
+}
+
+func TestPVSTInheritedBridgePriorityFollowsNormalize(t *testing.T) {
+	t.Parallel()
+
+	cfg := stp.Config{
+		Address: mustMAC(t, "00:11:22:33:44:01"),
+		Ports:   map[string]stp.Port{"1/1/1": {}},
+		PVST:    &stp.PVST{Trees: map[vlan.ID]stp.Tree{10: {}}},
+	}
+	env := layer.Env{Ports: mustPortTable(t, "1/1/1")}
+	before := cfg.Normalize(env)
+	if got := before.PVST.Trees[10]; got.Priority != 32768 || got.PriorityPresent {
+		t.Errorf("initial tree = %+v, want priority 32768 without override", got)
+	}
+	changed := before.Clone()
+	changed.Priority = 4096
+	after := changed.Normalize(env)
+
+	t.Run("normalized value", func(t *testing.T) {
+		t.Parallel()
+		if got := after.PVST.Trees[10]; got.Priority != 4096 || got.PriorityPresent {
+			t.Errorf("tree = %+v, want priority 4096 without override", got)
+		}
+	})
+	t.Run("BPDU bridge identifier", func(t *testing.T) {
+		t.Parallel()
+		l := mustNewSTP(t, after, env.Ports)
+		fx := l.LinkChange(time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC), "1/1/1", true, true, 1_000_000_000)
+		for _, em := range fx.Emissions {
+			if em.VID != 10 {
+				continue
+			}
+			b, vid, err := bpdu.DecodeSSTP(em.Frame)
+			if err != nil {
+				t.Fatalf("DecodeSSTP: %v", err)
+			}
+			if vid == 10 {
+				if got := b.BridgeID.Priority; got != 0x100a {
+					t.Errorf("BPDU bridge priority = %#04x, want 0x100a", got)
+				}
+				return
+			}
+		}
+		t.Fatal("no VLAN 10 BPDU emitted")
+	})
+	t.Run("Diff", func(t *testing.T) {
+		t.Parallel()
+		var from, to string
+		for _, c := range stp.Diff(before, after) {
+			if c.Subject.Kind == "pvst_tree" && c.Subject.Key == "10" && c.Field == "priority" {
+				from, to = factCanonical(c.From), factCanonical(c.To)
+			}
+		}
+		if from != "stp.priority=32768" || to != "stp.priority=4096" {
+			t.Errorf("Diff priority = %q to %q, want 32768 to 4096", from, to)
+		}
+	})
+}
+
+func TestPVSTExplicitTreePrioritySurvivesNormalize(t *testing.T) {
+	t.Parallel()
+
+	cfg := stp.Config{PVST: &stp.PVST{Trees: map[vlan.ID]stp.Tree{10: {Priority: 8192, PriorityPresent: true}}}}
+	before := cfg.Normalize(layer.Env{})
+	changed := before.Clone()
+	changed.Priority = 4096
+	after := changed.Normalize(layer.Env{})
+	for _, norm := range []stp.Config{before, after} {
+		if got := norm.PVST.Trees[10]; got.Priority != 8192 || !got.PriorityPresent {
+			t.Errorf("tree = %+v, want explicit priority 8192", got)
+		}
+	}
+}
+
+func TestPVSTInheritedZeroPriorityCanonical(t *testing.T) {
+	t.Parallel()
+
+	cfg := stp.Config{Priority: 0, PriorityPresent: true, PVST: &stp.PVST{Trees: map[vlan.ID]stp.Tree{10: {}}}}
+	norm := cfg.Normalize(layer.Env{})
+	got := norm.PVST.Trees[10]
+	if got.Priority != 0 || got.PriorityPresent {
+		t.Errorf("tree = %+v, want inherited priority zero without override", got)
+	}
+	if got := got.Canonical(); got != "priority=0,ports=[]" {
+		t.Errorf("Canonical = %q, want priority=0,ports=[]", got)
 	}
 }

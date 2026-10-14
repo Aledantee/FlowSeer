@@ -6,12 +6,12 @@ import (
 
 	"buf.build/go/protovalidate"
 
-	"go.aledante.io/FlowSeer/src/common/sim/fabric"
+	"go.aledante.io/FlowSeer/src/common/sim/device"
 	"go.aledante.io/FlowSeer/src/common/sim/netmodel"
 )
 
 func TestInterfaceCountersExportDistinctValues(t *testing.T) {
-	c := fabric.Counters{
+	c := device.PortCounters{
 		InBytes:      101,
 		OutBytes:     102,
 		InUnicast:    103,
@@ -71,7 +71,7 @@ func TestInterfaceCountersExportDistinctValues(t *testing.T) {
 }
 
 func TestInterfaceCountersExportZeroValues(t *testing.T) {
-	c := fabric.Counters{}
+	c := device.PortCounters{}
 
 	exported := netmodel.InterfaceCounters(c, time.Time{})
 
@@ -120,7 +120,7 @@ func TestInterfaceCountersExportZeroValues(t *testing.T) {
 func TestInterfaceCountersDiscontinuityFromRunStart(t *testing.T) {
 	start := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
 
-	exported := netmodel.InterfaceCounters(fabric.Counters{}, start)
+	exported := netmodel.InterfaceCounters(device.PortCounters{}, start)
 
 	if !exported.HasLastDiscontinuity() {
 		t.Fatal("HasLastDiscontinuity() = false for a non-zero run start")
@@ -134,7 +134,7 @@ func TestInterfaceCountersDiscontinuityFromRunStart(t *testing.T) {
 }
 
 func TestInterfaceCountersZeroStartLeavesDiscontinuityUnset(t *testing.T) {
-	exported := netmodel.InterfaceCounters(fabric.Counters{}, time.Time{})
+	exported := netmodel.InterfaceCounters(device.PortCounters{}, time.Time{})
 
 	if exported.HasLastDiscontinuity() {
 		t.Errorf("HasLastDiscontinuity() = true for a zero run start, got %v", exported.GetLastDiscontinuity().AsTime())

@@ -2,7 +2,7 @@
 
 Load this when writing the brief for a worker started through `orca
 orchestration`, or when setting up a machine so workers can reach Orca
-sandboxed. A worker started by `scripts/orca-worker.sh` never calls `orca`
+sandboxed. A worker started by `delegate orca-worker` never calls `orca`
 and needs none of it.
 
 ## The brief paragraph

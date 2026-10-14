@@ -6,12 +6,41 @@ helpers for verifying network simulation contracts.
 The package is internal to `src/common/sim`. It is test support owned by the
 simulation library, not a public service, wire schema, benchmark, or UI. The
 representative scale fixture (`RepresentativeFabric`) is a shared topology
-envelope; scale measurement and allocation gating live in `fabric`, preserving
+envelope. Scale measurement and allocation gating live in `fabric`, preserving
 this boundary.
+
+## Corpus source files
+
+Constructors are grouped by subject so each fixture stays beside its
+expectations. [registry.go](registry.go) assembles the default corpus and
+keeps its registration order explicit.
+
+| File | Responsibility |
+| --- | --- |
+| [cases.go](cases.go) | Shared physical facts, fact and change expectations, and journey inspection helpers. |
+| [baseline_cases.go](baseline_cases.go) | VLAN reconfiguration, candidate fork isolation, partial models, and unicast forwarding. |
+| [topology_cases.go](topology_cases.go) | Physical link uncertainty, uncabled ports, negotiation, and host acceptance. |
+| [topology_stp_cases.go](topology_stp_cases.go) | Unknown uplinks and spanning-tree trust on the known path. |
+| [lag_multicast_cases.go](lag_multicast_cases.go) | LAG member faults, active-backup selection, source-specific admission, and leave timing. |
+| [routing_cases.go](routing_cases.go) | ECMP candidates, neighbor resolution, and recursive route withdrawal. |
+| [stp_cases.go](stp_cases.go) | Shared spanning-tree topology, MST instances, region boundaries, and port guards. |
+| [pvst_cases.go](pvst_cases.go) | Per-VLAN tree configuration and its elected forwarding path. |
+| [mst_load_cases.go](mst_load_cases.go) | Complete and incomplete observed MST regions. |
+| [loopprotect_cases.go](loopprotect_cases.go) | Probe-driven containment of a cable loop. |
+| [mcast_cases.go](mcast_cases.go) | IPv4 and IPv6 mDNS admission under snooping. |
+| [reflector_cases.go](reflector_cases.go) | Cross-VLAN reflection and reflected-copy re-entry. |
+| [filter_cases.go](filter_cases.go) | Filter changes, unicast refusal, and stateful replies. |
+| [load_cases.go](load_cases.go) | Stated and unstated egress buffers and ingress policing. |
+| [scenario_cases.go](scenario_cases.go) | Link-flap replay and periodic-protocol budget exhaustion. |
+| [corpus.go](corpus.go) | Case contracts, admission, and registry ownership. |
+| [comparison_cases.go](comparison_cases.go) | Switch and fabric comparison fixtures with insertion-order permutations. |
+| [routed_fixture.go](routed_fixture.go) | Routed topology fixture with explicit physical facts. |
+| [scale.go](scale.go) | Representative topology and queued-arrival envelope. |
+| [conformance.go](conformance.go) | Test-group claims and their source inventory. |
 
 ## Admitted cases
 
-The corpus maintains executable scenarios locking the simulation contracts
+The corpus maintains 41 executable scenarios locking the simulation contracts
 established across the library:
 
 - `planning/candidate-fork-diverges`: A candidate simulation is forked mid-run and
@@ -20,19 +49,21 @@ established across the library:
   and delivery trace untouched.
 - `planning/port-vlan-change`: Reconfigures an access switchport from VLAN 10 to
   VLAN 20 and asserts both forwarding sides, their ordered traces, and typed
-  diff facts ([bridge.PVIDFact], [bridge.VLANsFact]) without string parsing.
+  diff facts through independent `TypeID` and `Canonical` expectations:
+  `bridge.pvid` values `10` and `20`, and `bridge.vlan_id` member removals and
+  additions ([baseline_cases.go](baseline_cases.go)).
 - `planning/oversubscribed-trunk-stated-buffer`: A 32-frame stream reaches a
   10 Mbit/s tagged trunk from a 1 Gbit/s ingress. Its 1518-octet egress buffer
   tail-drops the third frame at 1018 octets of prior queue depth, with a
-  `QueueDropFact` and Complete readiness.
+  `traffic.QueueDropFact` and Complete readiness.
 - `planning/oversubscribed-trunk-unstated-buffer`: The same stream has no
   stated buffer. The third frame records the first queue threshold crossing
-  and reaches h2; its Incomplete issue and queue step cite the same runtime
+  and reaches h2. Its Incomplete issue and queue step cite the same runtime
   evidence. All 32 frames avoid a queue drop, so the zero-loss estimate is
   explicitly limited by the unknown buffer size.
 - `planning/policed-stream`: A 1 Mbit/s ingress policer with a 1518-octet
   burst refuses the second frame of the 32-frame stream. Its
-  `PolicerDecisionFact` records the 1038 wire octets charged to the bucket.
+  `traffic.PolicerDecisionFact` records the 1038 wire octets charged to the bucket.
 - `topology-shadowing/partial-model-unknown-port`: Loads a device model with one
   unknown operational port via [netmodel.Load]. Proves that the construction
   specification remains usable, readiness is Incomplete strictly for the
@@ -40,16 +71,14 @@ established across the library:
 - `topology-shadowing/unresolved-transceiver`: A [fabric.Fabric] journey crosses
   a cable with no stated medium. Both ends still agree on an observed speed, so
   the frame is delivered, but the journey is Incomplete with
-  `propagation-unknown`: its timing rests on an unidentified transceiver. One
-  [Case] asserts one journey, so the sibling delivery the acceptance example
-  describes is a second, registered case,
-  `topology-shadowing/unresolved-transceiver-known-delivery`, sharing the same
-  fixture. It sends between two fully resolved hosts on the same switch and
-  stays Complete.
+  `propagation-unknown`: its timing rests on an unidentified transceiver.
+- `topology-shadowing/unresolved-transceiver-known-delivery`: The same fixture
+  sends between two fully resolved hosts on one switch. This journey stays
+  Complete because it never crosses the unresolved cable.
 - `topology-shadowing/uncabled-port-definite-drop`: A switch port named in
   `Config.Uncabled` drops a known-unicast frame Complete with `port-down`.
   `Fabric.Metadata` also carries `adjacency-unresolved` for a sibling port
-  that is merely omitted; the journey never depends on that port, and its own
+  that is merely omitted. The journey never depends on that port, and its own
   metadata stays clear of it.
 - `topology-shadowing/unreported-negotiation`: A host reports no Ethernet facts
   at all, so its link stays Unknown with `capability-unknown` instead of the
@@ -66,11 +95,16 @@ established across the library:
   the region matches, has no effect here: MSTI 1 takes the CIST's own
   blocking decision on the boundary and drops on l2, disproving the false
   answer that an MSTI computes an independent role there that could
-  disagree with the CIST's. One [Case] asserts one journey, so VLAN 20's
-  unaffected delivery is a second, registered case,
-  `topology-shadowing/mst-region-boundary-vlan20-crosses-l1`, sharing the
-  same fixture. It crosses l1, the link the CIST forwards on, unaffected by
-  VLAN 10's block.
+  disagree with the CIST's.
+- `topology-shadowing/mst-region-boundary-vlan20-crosses-l1`: The same fixture
+  sends VLAN 20 over l1, the link the CIST forwards on, unaffected by VLAN
+  10's block.
+- `topology-shadowing/mstp-model-complete-region`: Model intake retains the
+  reported MSTI priorities and path costs. A frame on a known-down port
+  drops Complete with `port-down`.
+- `topology-shadowing/mstp-model-incomplete-region`: A missing region digest
+  omits STP and reports evidenced dependent issues. The known-down port's
+  forwarding result stays Complete while the model is Incomplete.
 - `troubleshooting/host-rejects-foreign-unicast`: A fully resolved, Complete
   network path carries a known-unicast frame onto a host's port for a MAC
   that is not the host's own address. The host refuses it under
@@ -90,18 +124,18 @@ established across the library:
   instance between two switches, with sw2's per-instance path cost inflated
   on l1. MSTI 1 roots through l2, so the VLAN 10 frame crosses it, disproving
   the false answer that spanning tree computes one shape for the bridge and
-  sends every VLAN over whatever link that single tree elects. One [Case]
-  asserts one journey, so VLAN 20's opposite-link delivery is a second,
-  registered case, `planning/mstp-vlan-instances-diverge-vlan20-crosses-l1`,
-  sharing the same fixture: with its own per-instance path cost inflated on
-  l2, MSTI 2 roots through l1 instead, and the VLAN 20 frame crosses that
-  opposite link. A third case sharing the fixture,
-  `planning/mstp-vlan-instances-diverge-instance-blocks-alternate`, proves
-  MSTI 1 does not merely leave l1 unused: a frame seeded behind l1 for VLAN
-  10 is dropped `port-blocked` there, carrying a gate fact for
+  sends every VLAN over whatever link that single tree elects.
+- `planning/mstp-vlan-instances-diverge-vlan20-crosses-l1`: The same fixture
+  inflates VLAN 20's per-instance path cost on l2. MSTI 2 roots through l1,
+  and the VLAN 20 frame crosses that link.
+- `planning/mstp-vlan-instances-diverge-instance-blocks-alternate`: A frame
+  seeded behind l1 for VLAN 10 is dropped `port-blocked` there, carrying a gate fact for
   `tree_kind="MSTI";tree_id=1` in state Alternate and Discarding,
   disproving the false answer that MSTI 1 elected l2 without ever putting
   l1 into a blocking state.
+- `planning/pvst-per-vlan-root`: VLAN 10 runs its own rapid spanning tree.
+  Inflating its path cost on l1 makes its frame cross l2 and reach h2v10,
+  proving that the VLAN's own tree chooses the forwarding path.
 - `troubleshooting/active-backup-no-failback`: An active-backup bond with no
   configured `Primary` moves from member `a` to member `b` when `a` goes
   down, and stays on `b` with cause `last-active` once `a` recovers,
@@ -118,10 +152,10 @@ established across the library:
   260 s membership interval a full run would use, disproving the false
   answer that forwarding continues for the full interval regardless.
 - `troubleshooting/stale-root-ages-out`: One uplink hears the root bridge
-  directly; a second bridge claims the same root on the other uplink at a
+  directly. A second bridge claims the same root on the other uplink at a
   better cost, in a BPDU whose message age has already reached the max age it
   carries. Storing that claim would make the second uplink Alternate and block
-  the frame; discarding it leaves the uplink Designated and Forwarding and the
+  the frame. Discarding it leaves the uplink Designated and Forwarding and the
   frame is delivered, disproving the false answer that every circulating copy
   refreshes the timer and holds the port blocked forever.
 - `troubleshooting/bpdu-guard-disables-edge`: An unexpected bridge announces
@@ -134,7 +168,7 @@ established across the library:
   reason `loop-inconsistent`, disproving the false answer that it becomes
   Designated and forwards, which on a link broken in one direction is a loop.
 - `troubleshooting/loop-protect-contains-access-loop`: Two switches joined by
-  two cables run no spanning tree, so the cables form a real loop; loop
+  two cables run no spanning tree, so the cables form a real loop. Loop
   protection with Block on one switch's two looped ports acts on exactly one
   of them once a probe returns, and a broadcast the loop-protected switch's
   own host sends afterward reaches the host on the other switch exactly once
@@ -149,10 +183,11 @@ established across the library:
   with outcome Held and reason `neighbor-pending`, and the forward's metadata
   carries `neighbor-unresolved` at Incomplete scoped to the neighbor lookup,
   disproving the false answer that an unresolved next hop is a definite drop.
-  The case goes on to observe an ARP reply, proving the hold is releasable
-  rather than a disguised, permanent drop; the observing `Forward` already
-  releases the frame, so the case's own `Wake` call is a no-op kept to make
-  a future move of the release onto `Wake` visible here.
+  The case checks the emitted ARP request separately from the data frame
+  released after an ARP reply, proving the hold is releasable
+  rather than a disguised, permanent drop. The observing `Receive` already
+  releases the frame, so the case's own `Advance` call is a no-op kept to make
+  a future move of the release onto `Advance` visible here.
 - `troubleshooting/recursive-route-not-installed`: A `/24` static route names a
   next hop no other route reaches. The device still constructs, the `/24` is
   withdrawn instead of installed, and the packet takes the less specific `/8`
@@ -197,7 +232,8 @@ established across the library:
   reads like a completed analysis.
 - `planning/filter-rule-change`: Adds a filter deny rule to an ingress interface
   and asserts both forwarding sides, their ordered traces, and the typed diff fact
-  ([filter.SnapshotRule]) without string parsing, with [vswitch.Compare]
+  through an independent `filter.rule` canonical expectation in
+  [filter_cases.go](filter_cases.go), with [vswitch.Compare]
   detecting the forwarding divergence from forwarded to dropped.
 - `troubleshooting/filter-drops-mdns-unicast-probe`: An ingress interface bound to
   a filter set with a matching drop rule drops a unicast UDP probe with reason
@@ -207,9 +243,9 @@ established across the library:
   accepted by a stateful counterpart set, emitting a `filter.state` step referencing
   the counterpart rule.
 
-The sixteen `fabric`-based cases execute a [fabric.Fabric] and populate
-[ExecutionResult.Journey], seven of them alongside
-[ExecutionResult.FabricMetadata]. Journey is the recorded traversal; its own
+The twenty-one `fabric`-based cases execute a [fabric.Fabric] and populate
+[ExecutionResult.Journey], eleven of them alongside
+[ExecutionResult.FabricMetadata]. Journey is the recorded traversal. Its own
 `Metadata` is what the case's `ExpectedMetadata` asserts. FabricMetadata is
 [fabric.Fabric.Metadata], scoped over the whole topology, so it can carry an
 issue a given journey never depended on. Both fields are informational: only
@@ -242,52 +278,60 @@ a switch comparison and the model-loading and forwarding metadata separately.
 
 ## Diff coverage
 
-[AssertDiffCoversConfig] walks a seeded `Config` by reflection — structs,
-non-nil pointers, map values, and slice elements — and for every leaf it
-finds, perturbs a fresh copy at that leaf alone and asserts the package's
-`Diff` reports at least one change. A leaf whose perturbation produced the
-same value fails outright rather than being skipped, because a check that
-plants a value proves nothing unless the plant is known to differ from what
-was there:
+| File | Responsibility |
+| --- | --- |
+| [diffcoverage.go](diffcoverage.go) | Shape walk, submitted mutations, exact sequence matching, and retention checks. |
+| [diffmapping_assembly.go](diffmapping_assembly.go) | Assembly seeds, mapping entries, and inactive fault controls. |
+| [diffmapping_assembly_expect.go](diffmapping_assembly_expect.go) | Independent ordered assembly diff expectations. |
+| [diffmapping_vswitch.go](diffmapping_vswitch.go) | Switch seeds and mapping entries. |
+| [diffmapping_vswitch_expect.go](diffmapping_vswitch_expect.go) | Independent ordered switch diff expectations. |
+| [diffmapping_port.go](diffmapping_port.go) | Opaque port-table member mutations and expectations. |
+| [diffmapping_bridge.go](diffmapping_bridge.go), [diffmapping_filter.go](diffmapping_filter.go), [diffmapping_lag.go](diffmapping_lag.go), [diffmapping_loopprotect.go](diffmapping_loopprotect.go) | Owner seeds, leaf mappings, and independent ordered expectations. |
+| [diffmapping_mcast.go](diffmapping_mcast.go), [diffmapping_phy.go](diffmapping_phy.go), [diffmapping_routing.go](diffmapping_routing.go), [diffmapping_stp.go](diffmapping_stp.go), [diffmapping_traffic.go](diffmapping_traffic.go) | Owner seeds, leaf mappings, and independent ordered expectations. |
+
+[AssertMappedDiffCoverage] checks a fixed configuration fixture against the
+exported type shape before applying any slot-local setup. Every scalar,
+map identity, optional pointer and opaque Port table member has a submitted
+mutation and an independently specified ordered sequence. Missing seeds or
+mappings fail even when another populated branch reports changes.
 
 ```go
-seed := bridge.Config{VLAN: &bridge.VLAN{Table: map[vlan.ID]string{10: "ten"}}}
-normalize := func(c bridge.Config) bridge.Config { return c.Normalize(layer.Env{}) }
-simtest.AssertDiffCoversConfig(t, seed, normalize, bridge.Diff, nil)
+simtest.AssertMappedDiffCoverage(t, "bridge")
 ```
 
-The value chosen for each leaf matters: normalization can silently absorb a
-perturbation into a default that happens to equal the seed's own value (a
-non-default enum toggled to its zero value, a priority normalized from
-absence), which reads as "no arm" when the real defect is the fixture's
-choice of value, not a gap in `Diff`. Every layer's `Normalize` takes a
-`layer.Env`, so the `normalize` argument is a closure that supplies one, as in
-the example above. `lag`'s diff_coverage_test.go does the same with
-`layer.Env{}`.
+The mapping compares layer, subject kind, subject key, field and the TypeID
+and Canonical of both facts at each position. Empty sequences prove
+normalization no-ops. Identity replacements require both lifecycle records.
+Member fields retain Go-quoted keys, for example `attachments["edge.1"].vlan`.
+Positional range changes use normalized coordinates such as
+`match.src_ports[0].start` and preserve Start/End order. Capability lifecycle
+uses `presence`. Whole assembly subject lifecycle retains an empty field.
+Occurrence changes can repeat identical records when the fixed expectation
+requires them.
 
-`port.Diff` takes a `Table` whose fields are unexported and built only
-through `NewBuilder`, so [AssertDiffCoversPort] walks the exported
-`port.Port` instead and builds each side's table through the builder,
-alongside fixed companion ports a perturbed field needs to stay valid (a
-paired LAG port for a member's `lag_parent`, for one).
+Every producer and wrapper uses exact matching. Missing delegated records fail
+even when capability presence and unrelated changes remain. The checker has
+no allowance facility.
+The literal counts are 627 registered paths, 627 concrete expectations and
+eight primary empty sequences (`TestMappedDiffManifest` in
+[diffcoverage_test.go](diffcoverage_test.go)).
 
-A leaf legitimately outside `Diff`'s contract — evidence that is provenance
-rather than compared configuration, one arm of a value that only applies
-under a specific discriminant like `Fault.Kind` — is named in the
-`exemptions` map with a reason, not silently skipped: an exemption naming a
-leaf the walk did not find fails, so a renamed or removed field cannot hide
-behind a stale exemption.
+Port tables retain their opaque contents during copying. Their seven member
+mutations rebuild both tables through `port.NewBuilder`, with a fixed LAG
+companion. Assembly raw fixtures include active fault sequence variants,
+provenance evidence and physical-assumption observations. These inputs
+exercise Normalize/Diff directly and do not claim construction validity.
 
 [AssertEveryDiffPackageIsCovered] walks `src/common/sim/device/vswitch/`,
-`src/common/sim/port/`, `src/common/sim/fabric/`, and the direct
+`src/common/sim/port/`, `src/common/sim/assembly/`, and the direct
 subdirectories of `src/common/sim/layer/` for a file named
 `diff.go` and fails on any path absent from the package's own
 `diffCoveredPackages` literal, and on any entry in that literal the walk did
 not find. Go builds one test binary per package, so no single package's
-`diff_coverage_test.go` can see whether a sibling's exists; this enumeration,
+`diff_coverage_test.go` can see whether a sibling's exists. This enumeration,
 run once from `TestEveryDiffPackageIsCovered`, is what proves the full set
 ran. The literal is what a person edits deliberately when a package gains a
-`diff.go`; the walk is what would otherwise let that package ship silently
+`diff.go`. The walk is what would otherwise let that package ship silently
 uncovered.
 
 ## Retention key coverage
@@ -295,4 +339,4 @@ uncovered.
 [AssertRetentionKeyCoversConfig] walks a seeded `Config` by reflection and, for
 every leaf not named in `exemptions`, perturbs a fresh copy at that leaf alone
 and asserts the layer's `RetentionKey` changes. An exemption naming a leaf the
-walk did not find fails, ensuring exemption tables do not go stale.
+walk did not find fails. This keeps exemption tables current.

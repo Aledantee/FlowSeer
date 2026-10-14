@@ -26,8 +26,8 @@ of every earlier lane that ran in it:
 
 ```bash
 git branch parked/<slug> <plan branch>
-.claude/skills/delegate/scripts/orca-worker.sh grade <slug> --outcome blocked --verify none
-.claude/skills/delegate/scripts/orca-worker.sh stop <slug>
+uv run tools/scripts/run.py delegate orca-worker grade <slug> --outcome blocked --verify none
+uv run tools/scripts/run.py delegate orca-worker stop <slug>
 ```
 
 The plan's recorded branch is gone with the worktree. Record the parked one
@@ -50,12 +50,17 @@ Write the user's answer into the plan's Decisions, ending it with
 `(decided by the user, <YYYY-MM-DD>)` so workers leave it alone
 (`delegate`, Write the brief, item 6), and remove
 its `Parked by drive:` line in the same commit. Run the verifier on the plan
-path; the plan rejoins the next round. A phase parked with a
+path; the plan rejoins the next round.
+When the answer removes a requirement, edit the phase and its parent in
+the same commit. Put the dropped work under Out of scope and name its new
+owner when deferred. Check that no unit still cites the removed requirement
+and verify both plan paths. A standalone plan needs only its own edit.
+A phase parked with a
 `parked/<slug>` branch resumes from it: its next stage worker, whichever
 stage parked, starts from that branch merged with this branch's `HEAD`, so
 units that passed there are not redone and a review reads the record of
 open items the parked review left. Start that worker with
-`orca-worker.sh start ... --base parked/<slug>`, and have its brief merge
+`delegate orca-worker start ... --base parked/<slug>`, and have its brief merge
 this branch's `HEAD` before anything else. It is the first lane of a new
 worktree, so record the branch its `start` prints in place of the parked
 one and commit it, as step 2 does for a first stage:

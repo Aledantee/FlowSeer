@@ -5,11 +5,16 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
+	reflectormodel "go.aledante.io/FlowSeer/src/common/sim/device/reflector"
+
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/loopprotect"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
@@ -26,7 +31,7 @@ func TestFabricSchedulesLoopProtectWakeWithNoSTPOrLAG(t *testing.T) {
 		port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up},
 	)
 
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Start: time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC),
 		Switches: map[string]vswitch.Config{
 			"sw1": {
@@ -51,9 +56,9 @@ func TestFabricSchedulesLoopProtectWakeWithNoSTPOrLAG(t *testing.T) {
 		},
 	}
 
-	fab, err := fabric.New(statedPhysical(cfg))
+	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
-		t.Fatalf("fabric.New: %v", err)
+		t.Fatalf("assembly.New: %v", err)
 	}
 
 	sawWake := false
@@ -63,7 +68,7 @@ func TestFabricSchedulesLoopProtectWakeWithNoSTPOrLAG(t *testing.T) {
 		if !ok {
 			break
 		}
-		if entry.Kind == fabric.EntryWake && entry.Device == "sw1" {
+		if entry.Arrival == fabric.ArrivalWake && entry.Device == "sw1" {
 			sawWake = true
 		}
 	}
@@ -88,7 +93,7 @@ func TestFabricSchedulesLoopProtectWakeWithNoSTPOrLAG(t *testing.T) {
 }
 
 // TestFabricRoundTripsAReflector proves that New followed by Spec and Config
-// still carries a configured reflector. NewConstructionSpec and Fabric.Spec
+// still carries a configured reflector. NewConstructionSpec and assembly.Spec
 // assign Hosts field by field into a fresh map; a matching assignment
 // dropped for Reflectors would build a fabric with no such node and no
 // error, surfacing only several calls later as an endpoint-not-found error
@@ -96,12 +101,12 @@ func TestFabricSchedulesLoopProtectWakeWithNoSTPOrLAG(t *testing.T) {
 func TestFabricRoundTripsAReflector(t *testing.T) {
 	cfg := reflectorBaseConfig(t)
 
-	fab, err := fabric.New(statedPhysical(cfg))
+	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
-		t.Fatalf("fabric.New: %v", err)
+		t.Fatalf("assembly.New: %v", err)
 	}
 
-	spec := fab.Spec()
+	spec := assembly.Spec(fab)
 	refl, ok := spec.Reflectors["r1"]
 	if !ok {
 		t.Fatal("Spec() dropped reflector r1")
@@ -110,7 +115,7 @@ func TestFabricRoundTripsAReflector(t *testing.T) {
 		t.Fatal("Spec() dropped reflector r1's attachment a")
 	}
 
-	if _, ok := fab.Config().Reflectors["r1"]; !ok {
+	if _, ok := assembly.Spec(fab).Config().Reflectors["r1"]; !ok {
 		t.Fatal("Config() dropped reflector r1")
 	}
 }
@@ -129,29 +134,29 @@ func TestFabricUsesTheReflectorsOwnPortFacts(t *testing.T) {
 	b := port.NewBuilder()
 	b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
 
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Switches: map[string]vswitch.Config{
 			"sw1": {
 				Ports: mustFabricPortTable(t, port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}),
 				Phy:   &phy.Config{Ethernet: map[string]phy.Ethernet{"1/1/1": forced100}},
 			},
 		},
-		Reflectors: map[string]fabric.Reflector{
+		Reflectors: map[string]reflectormodel.Config{
 			"r1": {
 				Ports: map[string]phy.Ethernet{"p1": forced100},
-				Attachments: map[string]fabric.Attachment{
+				Attachments: map[string]reflectormodel.Attachment{
 					"a": {Port: "p1", Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.0.9/24")}},
 				},
 			},
 		},
 		Cables: []fabric.Cable{
-			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, B: fabric.Endpoint{Node: "r1", Port: "p1"}, Medium: fabric.TwistedPair},
+			{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, B: fabric.Endpoint{Node: "r1", Port: "p1"}},
 		},
 	}
 
-	fab, err := fabric.New(cfg)
+	fab, err := assembly.New(cfg)
 	if err != nil {
-		t.Fatalf("fabric.New: %v", err)
+		t.Fatalf("assembly.New: %v", err)
 	}
 
 	links := fab.Links()

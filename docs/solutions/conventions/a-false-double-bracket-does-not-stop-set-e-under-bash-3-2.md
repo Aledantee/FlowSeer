@@ -60,7 +60,7 @@ A script that kills a background job prints a line like
 `script.sh: line 40:  97731 Terminated: 15  docker info > /dev/null 2>&1`
 when bash reaps the job. The line goes to the shell's stderr at reap
 time, so `kill … 2>/dev/null` does not stop it. Take the job out of the
-job table before killing it, as `tools/test/service-otel-integration.sh:31`
+job table before killing it, as `861d0994:tools/test/service-otel-integration.sh:31`
 does, or discard stderr around the whole kill-and-reap block:
 
 ```bash

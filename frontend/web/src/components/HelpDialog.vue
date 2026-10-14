@@ -16,7 +16,9 @@ const emit = defineEmits<{ closeAutoFocus: [event: Event] }>()
   >
     <div class="space-y-4 text-sm text-foreground">
       <div>
-        <h3 class="font-medium text-foreground mb-1">
+        <h3
+          class="font-mono text-xs font-semibold uppercase tracking-wide text-foreground mb-1"
+        >
           {{ t('view.help.scopeHeading') }}
         </h3>
         <p class="text-muted-foreground text-xs leading-relaxed">
@@ -24,7 +26,9 @@ const emit = defineEmits<{ closeAutoFocus: [event: Event] }>()
         </p>
       </div>
       <div>
-        <h3 class="font-medium text-foreground mb-1">
+        <h3
+          class="font-mono text-xs font-semibold uppercase tracking-wide text-foreground mb-1"
+        >
           {{ t('view.help.findHeading') }}
         </h3>
         <I18nT
@@ -39,7 +43,9 @@ const emit = defineEmits<{ closeAutoFocus: [event: Event] }>()
         </I18nT>
       </div>
       <div>
-        <h3 class="font-medium text-foreground mb-1">
+        <h3
+          class="font-mono text-xs font-semibold uppercase tracking-wide text-foreground mb-1"
+        >
           {{ t('view.help.moveHeading') }}
         </h3>
         <p class="text-muted-foreground text-xs leading-relaxed">

@@ -86,7 +86,7 @@ func TestLoad_CompleteModel(t *testing.T) {
 	}
 	now := time.Date(2026, 9, 12, 12, 0, 0, 0, time.UTC)
 
-	res, err := netmodel.Load(now, src, ifaces, vlans, fdb, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	res, err := netmodel.Load(now, src, netmodel.Input{Interfaces: ifaces, VLANs: vlans, FDB: fdb})
 	if err != nil {
 		t.Fatalf("Load complete model failed: %v", err)
 	}
@@ -125,7 +125,7 @@ func TestLoad_CompleteModel(t *testing.T) {
 		Src: netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0xee},
 		Dst: netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55},
 	}
-	fwdRes := sw.Forward(now, "1/1/2", frame)
+	fwdRes := sw.Receive(now, "1/1/2", frame)
 	if fwdRes.Metadata.Status() != analysis.Complete {
 		t.Errorf("Forward status = %v, want Complete", fwdRes.Metadata.Status())
 	}
@@ -154,7 +154,7 @@ func TestLoad_PartialModel_MissingOperStatus(t *testing.T) {
 	}
 	now := time.Date(2026, 9, 12, 12, 0, 0, 0, time.UTC)
 
-	res, err := netmodel.Load(now, src, []*interfacev1.Interface{p1, p2, p3}, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	res, err := netmodel.Load(now, src, netmodel.Input{Interfaces: []*interfacev1.Interface{p1, p2, p3}})
 	if err != nil {
 		t.Fatalf("Load partial model failed: %v", err)
 	}
@@ -195,7 +195,7 @@ func TestLoad_PartialModel_MissingOperStatus(t *testing.T) {
 	}
 
 	// 1/1/1 (unknown oper status) never forwards and returns Incomplete forwarding result
-	fwd1 := sw.Forward(now, "1/1/1", frame)
+	fwd1 := sw.Receive(now, "1/1/1", frame)
 	if fwd1.Outcome == trace.Forwarded || fwd1.Outcome == trace.Flooded {
 		t.Errorf("unknown port 1/1/1 forwarded frame, outcome = %v", fwd1.Outcome)
 	}
@@ -204,7 +204,7 @@ func TestLoad_PartialModel_MissingOperStatus(t *testing.T) {
 	}
 
 	// 1/1/2 (explicit down) returns definite port-down drop with Complete status
-	fwd2 := sw.Forward(now, "1/1/2", frame)
+	fwd2 := sw.Receive(now, "1/1/2", frame)
 	if fwd2.Outcome != trace.Dropped || fwd2.Reason != port.ReasonPortDown {
 		t.Errorf("down port 1/1/2 outcome=%v reason=%v, want Dropped port-down", fwd2.Outcome, fwd2.Reason)
 	}
@@ -213,7 +213,7 @@ func TestLoad_PartialModel_MissingOperStatus(t *testing.T) {
 	}
 
 	// 1/1/3 (known up) forwards with Complete status; sibling uncertainty does NOT taint it
-	fwd3 := sw.Forward(now, "1/1/3", frame)
+	fwd3 := sw.Receive(now, "1/1/3", frame)
 	if fwd3.Metadata.Status() != analysis.Complete {
 		t.Errorf("known up port 1/1/3 Forward status = %v, want Complete", fwd3.Metadata.Status())
 	}
@@ -231,7 +231,7 @@ func TestLoad_PartialModel_SkipsAndDefaults(t *testing.T) {
 	now := time.Date(2026, 9, 12, 12, 0, 0, 0, time.UTC)
 
 	// Explicitly request only relay layer, skipping switchport/vlan facets
-	res, err := netmodel.Load(now, src, []*interfacev1.Interface{p1, p2}, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, []trace.Layer{bridge.LayerName})
+	res, err := netmodel.Load(now, src, netmodel.Input{Interfaces: []*interfacev1.Interface{p1, p2}, Want: []trace.Layer{bridge.LayerName}})
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}
@@ -327,7 +327,7 @@ func TestLoad_ConflictingRows(t *testing.T) {
 	}
 	now := time.Date(2026, 9, 12, 12, 0, 0, 0, time.UTC)
 
-	res, err := netmodel.Load(now, src, []*interfacev1.Interface{p1, p2}, vlans, []*switchingv1.FdbEntry{fdb1, fdb2}, nil, nil, []*stpv1.PortState{ps1, ps2}, nil, nil, nil, nil, nil, nil)
+	res, err := netmodel.Load(now, src, netmodel.Input{Interfaces: []*interfacev1.Interface{p1, p2}, VLANs: vlans, FDB: []*switchingv1.FdbEntry{fdb1, fdb2}, STPPorts: []*stpv1.PortState{ps1, ps2}})
 	if err != nil {
 		t.Fatalf("Load with conflicting rows failed: %v", err)
 	}
@@ -357,14 +357,14 @@ func TestLoad_ErrorVersusResultSeparation(t *testing.T) {
 	src := netmodel.SourceContext{DeviceID: "sw1"}
 
 	// 1. Empty interface list is an impossible construction error
-	if _, err := netmodel.Load(now, src, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil); err == nil {
+	if _, err := netmodel.Load(now, src, netmodel.Input{}); err == nil {
 		t.Errorf("Load(empty ifaces) succeeded, want error")
 	}
 
 	// 2. Duplicate interface name is an impossible construction error
 	p1 := makeTestInterface("1/1/1", true)
 	p1Dup := makeTestInterface("1/1/1", true)
-	if _, err := netmodel.Load(now, src, []*interfacev1.Interface{p1, p1Dup}, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil); err == nil {
+	if _, err := netmodel.Load(now, src, netmodel.Input{Interfaces: []*interfacev1.Interface{p1, p1Dup}}); err == nil {
 		t.Errorf("Load(duplicate port name) succeeded, want error")
 	}
 
@@ -376,7 +376,7 @@ func TestLoad_ErrorVersusResultSeparation(t *testing.T) {
 			LagParentInterfaceName: &parentBogus,
 		}.Build(),
 	}.Build()
-	if _, err := netmodel.Load(now, src, []*interfacev1.Interface{pLagMember}, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil); err == nil {
+	if _, err := netmodel.Load(now, src, netmodel.Input{Interfaces: []*interfacev1.Interface{pLagMember}}); err == nil {
 		t.Errorf("Load(invalid LAG parent) succeeded, want error")
 	}
 }
@@ -392,12 +392,12 @@ func TestLoad_CopyIsolationAndDeterministicOrdering(t *testing.T) {
 	}
 	now := time.Date(2026, 9, 12, 12, 0, 0, 0, time.UTC)
 
-	res1, err := netmodel.Load(now, src, []*interfacev1.Interface{p1, p2}, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	res1, err := netmodel.Load(now, src, netmodel.Input{Interfaces: []*interfacev1.Interface{p1, p2}})
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}
 
-	res2, err := netmodel.Load(now, src, []*interfacev1.Interface{p2, p1}, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	res2, err := netmodel.Load(now, src, netmodel.Input{Interfaces: []*interfacev1.Interface{p2, p1}})
 	if err != nil {
 		t.Fatalf("Load shuffled failed: %v", err)
 	}
@@ -428,7 +428,7 @@ func TestLoad_SpecConfigNormalizedDirectly(t *testing.T) {
 	}
 	now := time.Date(2026, 9, 12, 12, 0, 0, 0, time.UTC)
 
-	res, err := netmodel.Load(now, src, []*interfacev1.Interface{p1, p2}, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	res, err := netmodel.Load(now, src, netmodel.Input{Interfaces: []*interfacev1.Interface{p1, p2}})
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}
@@ -514,17 +514,17 @@ func TestLoad_ShuffledFdbRowsYieldEqualSpec(t *testing.T) {
 	now := time.Date(2026, 9, 12, 12, 0, 0, 0, time.UTC)
 
 	// Shuffled orders of valid static FDB entries
-	res1, err := netmodel.Load(now, src, []*interfacev1.Interface{p1, p2}, vlans, []*switchingv1.FdbEntry{fdb1, fdb2, fdb3}, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	res1, err := netmodel.Load(now, src, netmodel.Input{Interfaces: []*interfacev1.Interface{p1, p2}, VLANs: vlans, FDB: []*switchingv1.FdbEntry{fdb1, fdb2, fdb3}})
 	if err != nil {
 		t.Fatalf("Load order 1 failed: %v", err)
 	}
 
-	res2, err := netmodel.Load(now, src, []*interfacev1.Interface{p1, p2}, vlans, []*switchingv1.FdbEntry{fdb3, fdb2, fdb1}, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	res2, err := netmodel.Load(now, src, netmodel.Input{Interfaces: []*interfacev1.Interface{p1, p2}, VLANs: vlans, FDB: []*switchingv1.FdbEntry{fdb3, fdb2, fdb1}})
 	if err != nil {
 		t.Fatalf("Load order 2 failed: %v", err)
 	}
 
-	res3, err := netmodel.Load(now, src, []*interfacev1.Interface{p1, p2}, vlans, []*switchingv1.FdbEntry{fdb2, fdb1, fdb3}, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	res3, err := netmodel.Load(now, src, netmodel.Input{Interfaces: []*interfacev1.Interface{p1, p2}, VLANs: vlans, FDB: []*switchingv1.FdbEntry{fdb2, fdb1, fdb3}})
 	if err != nil {
 		t.Fatalf("Load order 3 failed: %v", err)
 	}
@@ -609,7 +609,7 @@ func TestLoad_InvalidNumericAdminOperEnum(t *testing.T) {
 	}
 	now := time.Date(2026, 9, 12, 12, 0, 0, 0, time.UTC)
 
-	res, err := netmodel.Load(now, src, []*interfacev1.Interface{p1, p2, p3, p4, p5}, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	res, err := netmodel.Load(now, src, netmodel.Input{Interfaces: []*interfacev1.Interface{p1, p2, p3, p4, p5}})
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}
@@ -663,25 +663,25 @@ func TestLoad_InvalidNumericAdminOperEnum(t *testing.T) {
 	}
 
 	// 1/1/1 (invalid admin enum -> Unknown) drops with unknown-operational-status and Unsupported status
-	fwd1 := sw.Forward(now, "1/1/1", frame)
+	fwd1 := sw.Receive(now, "1/1/1", frame)
 	if fwd1.Metadata.Status() != analysis.Unsupported {
 		t.Errorf("1/1/1 Forward status = %v, want Unsupported", fwd1.Metadata.Status())
 	}
 
 	// 1/1/2 (invalid oper enum -> Unknown) drops with unknown-operational-status and Unsupported status
-	fwd2 := sw.Forward(now, "1/1/2", frame)
+	fwd2 := sw.Receive(now, "1/1/2", frame)
 	if fwd2.Metadata.Status() != analysis.Unsupported {
 		t.Errorf("1/1/2 Forward status = %v, want Unsupported", fwd2.Metadata.Status())
 	}
 
 	// 1/1/3 (known admin down) drops with port-down and Complete status
-	fwd3 := sw.Forward(now, "1/1/3", frame)
+	fwd3 := sw.Receive(now, "1/1/3", frame)
 	if fwd3.Outcome != trace.Dropped || fwd3.Reason != port.ReasonPortDown || fwd3.Metadata.Status() != analysis.Complete {
 		t.Errorf("1/1/3 Forward = %+v, want Dropped port-down with Complete status", fwd3)
 	}
 
 	// 1/1/4 (known oper testing -> down) drops with port-down and Complete status
-	fwd4 := sw.Forward(now, "1/1/4", frame)
+	fwd4 := sw.Receive(now, "1/1/4", frame)
 	if fwd4.Outcome != trace.Dropped || fwd4.Reason != port.ReasonPortDown || fwd4.Metadata.Status() != analysis.Complete {
 		t.Errorf("1/1/4 Forward = %+v, want Dropped port-down with Complete status", fwd4)
 	}

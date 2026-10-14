@@ -2,14 +2,17 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
+	"go.aledante.io/FlowSeer/src/common/sim/flow"
 	"go.aledante.io/FlowSeer/src/edge/simload"
 	"go.aledante.io/FlowSeer/src/edge/simload/packetio"
 	"go.aledante.io/FlowSeer/src/modules/capture/rawsocket"
@@ -78,7 +81,7 @@ func TestTransmitRejectsInvalidStreamShapeBeforeOpening(t *testing.T) {
 }
 
 func TestComparePreservesIssuesAndObservationLabels(t *testing.T) {
-	input := `{"version":1,"destination":"host","simulator":{"status":"incomplete","issues":[{"code":"queue-full","status":"incomplete","scope":"node[\"sw1\"]","message":"queue bounded"}],"flows":[{"id":1,"offered":10,"delivered":{"host":8},"drops":{"queue-full":2},"lost":0,"unresolved":0,"rejected":0,"held":0,"copies":{},"latency":{"Min":0,"Max":0,"Sum":0,"Count":0},"status":"incomplete","issues":[]}]},"lab":{"flows":{"1":{"sent":10,"unique_received":8,"missing":2,"duplicates":0,"reordered":0,"late_after_close":0,"latency":{"min":0,"max":0,"sum":0,"count":0}}},"malformed":0,"interface_drops":0}}`
+	input := `{"version":1,"destination":"host","simulator":{"status":"incomplete","issues":[{"code":"queue-full","status":"incomplete","scope":"node[\"sw1\"]","message":"queue bounded"}],"flows":[{"id":1,"offered":10,"delivered":{"host":8},"drops":{"queue-full":2},"lost":0,"unresolved":0,"rejected":0,"held_at_end":0,"copies":{},"latency":{"Min":0,"Max":0,"Sum":0,"Count":0},"status":"incomplete","issues":[]}]},"lab":{"flows":{"1":{"sent":10,"unique_received":8,"missing":2,"duplicates":0,"reordered":0,"late_after_close":0,"latency":{"min":0,"max":0,"sum":0,"count":0}}},"malformed":0,"interface_drops":0}}`
 	var output, diagnostics bytes.Buffer
 	if code := run([]string{"compare"}, strings.NewReader(input), &output, &diagnostics, simload.Dependencies{}); code != 0 {
 		t.Fatalf("run code = %d, diagnostics = %q", code, diagnostics.String())
@@ -116,15 +119,25 @@ func TestTransmitRejectsDuplicateFlowsBeforeOpening(t *testing.T) {
 func TestCompareRejectsDuplicateAndUnknownFlowIDs(t *testing.T) {
 	for _, tc := range []struct {
 		name  string
-		input string
+		ids   []flow.ID
+		labID flow.ID
 		want  string
 	}{
-		{"duplicate simulator IDs", `{"version":1,"destination":"host","simulator":{"flows":[{"id":1},{"id":1}]},"lab":{"flows":{}}}`, "duplicated"},
-		{"unknown lab ID", `{"version":1,"destination":"host","simulator":{"flows":[{"id":1}]},"lab":{"flows":{"2":{"sent":1}}}}`, "unknown"},
+		{"duplicate simulator IDs", []flow.ID{1, 1}, 1, "simulator flow ID 1 is duplicated"},
+		{"unknown lab ID", []flow.ID{1}, 2, "lab flow ID 2 is unknown to the simulator input"},
+		{"zero simulator ID", []flow.ID{0}, 0, "simulator flow ID must be nonzero"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
+			document := compareDocument{Version: inputVersion, Destination: "host", Lab: simload.Observation{Flows: map[flow.ID]simload.FlowObservation{tc.labID: {Sent: 1}}}}
+			for _, id := range tc.ids {
+				document.Simulator.Flows = append(document.Simulator.Flows, simload.SimulatorFlow{ID: id})
+			}
+			input, err := json.Marshal(document)
+			if err != nil {
+				t.Fatal(err)
+			}
 			var output, diagnostics bytes.Buffer
-			if code := run([]string{"compare"}, strings.NewReader(tc.input), &output, &diagnostics, simload.Dependencies{}); code == 0 || !strings.Contains(diagnostics.String(), tc.want) || output.Len() != 0 {
+			if code := run([]string{"compare"}, bytes.NewReader(input), &output, &diagnostics, simload.Dependencies{}); code == 0 || strings.TrimSpace(diagnostics.String()) != tc.want || output.Len() != 0 {
 				t.Fatalf("code=%d stderr=%q stdout=%q", code, diagnostics.String(), output.String())
 			}
 		})
@@ -161,5 +174,51 @@ func TestREADMETransmitExampleUsesLabEtherType(t *testing.T) {
 	}
 	if spec.Frame.EtherType != ethernet.EtherType(0x88b5) || len(spec.Frame.Payload) < simload.SignatureSize {
 		t.Fatalf("README frame EtherType = %#04x, payload = %d octets", spec.Frame.EtherType, len(spec.Frame.Payload))
+	}
+}
+
+type deadlineClock struct {
+	epoch    time.Time
+	deadline time.Time
+}
+
+func (c *deadlineClock) Now() time.Time { return c.epoch }
+func (c *deadlineClock) Wait(_ context.Context, at time.Time) error {
+	c.deadline = at
+	return errors.New("stop at deadline")
+}
+
+type idleReceiver struct{}
+
+func (idleReceiver) Receive(ctx context.Context) <-chan rawsocket.Frame {
+	frames := make(chan rawsocket.Frame)
+	go func() {
+		<-ctx.Done()
+		close(frames)
+	}()
+	return frames
+}
+func (idleReceiver) Stats() (uint64, uint64, error) { return 0, 0, nil }
+func (idleReceiver) Close() error                   { return nil }
+
+type unusedSender struct{}
+
+func (unusedSender) Send(context.Context, []byte) error { return errors.New("unexpected send") }
+func (unusedSender) Close() error                       { return nil }
+func TestTransmitStartSetsFirstDeadline(t *testing.T) {
+	frame, err := (ethernet.Frame{Payload: make([]byte, simload.SignatureSize)}).Encode()
+	if err != nil {
+		t.Fatal(err)
+	}
+	input := `{"version":1,"tx_interface":"tx0","rx_interface":"rx0","flows":[{"id":1,"frame_hex":"` + hex.EncodeToString(frame) + `","frames_per_second":1000,"count":1,"start":"1h"}]}`
+	clock := &deadlineClock{epoch: time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)}
+	deps := simload.Dependencies{Clock: clock, ResolveInterface: upResolver, OpenSender: func(string) (packetio.Sender, error) { return unusedSender{}, nil }, OpenReceiver: func(string) (rawsocket.Source, error) { return idleReceiver{}, nil }}
+	var output, diagnostics bytes.Buffer
+	code := run([]string{"transmit"}, strings.NewReader(input), &output, &diagnostics, deps)
+	if code == 0 || !strings.Contains(diagnostics.String(), "stop at deadline") {
+		t.Fatalf("code=%d diagnostics=%s", code, diagnostics.String())
+	}
+	if want := clock.epoch.Add(time.Hour); !clock.deadline.Equal(want) {
+		t.Fatalf("first transmit deadline = %s, want %s", clock.deadline, want)
 	}
 }

@@ -1,7 +1,8 @@
 # stream
 
-`stream.Source` returns Ethernet frames one at a time at offsets from its own
-start. A source can replay a capture or generate traffic from a `stream.Spec`.
+`stream.Source` returns independent, encodable Ethernet frames at nondecreasing
+offsets from the consumer epoch. A source can replay a capture or generate
+traffic from a `stream.Spec`.
 
 ## Replay a capture
 
@@ -45,14 +46,14 @@ func attachCapture(fab *fabric.Fabric, path string) error {
 }
 ```
 
-The first record maps to offset zero; later records retain their spacing and
+The first record maps to offset zero. Later records retain their spacing and
 file order. Source and destination MACs are preserved. At a host origin, the
 fabric replaces captured VLAN tags with one tag for the host's VLAN, with
 priority and DEI bits set to zero, or removes all tags if the host is untagged.
-An added tag adds four wire octets; a removed tag saves four. A capture with a
+An added tag adds four wire octets. A removed tag saves four. A capture with a
 non-Ethernet link type, a truncated frame, or an explicitly declared FCS is
 refused before attachment. Without FCS metadata, the adapter assumes the
-captured bytes exclude the FCS; it cannot infer that from packet bytes. The
+captured bytes exclude the FCS. It cannot infer that from packet bytes. The
 source keeps all records in memory, so memory use scales with capture size.
 
 ## Generate traffic from a spec
@@ -79,18 +80,21 @@ func firstFrame() (time.Duration, ethernet.Frame, error) {
 ```
 
 The first ten frames are 672 ns apart: an untagged minimum frame occupies 84
-wire octets. The next burst begins at 1.00672 ms. `Next` returns offsets from
-the stream's start; a consumer adds `Spec.Start` to its own epoch. It returns
+wire octets. The next burst begins at 1.00672 ms. `Next` includes `Spec.Start`
+in its offsets, so a consumer adds only its own epoch. It returns
 `ok == false` after the count. `Clone` copies the current cursor, so advancing
-one iterator does not advance the other.
+one iterator does not advance the other. Each yield owns its tags and payload,
+including yields from a cloned cursor (`TestSourceFramesIndependent` in
+`source_test.go`). A 10 fps source with `Start: time.Second` yields offsets
+of 1 s and 1.1 s, as `TestFrameRateOffsets` checks.
 
 Exactly one rate and one end (`Count` or `Duration`) must be set. `Normalize`
 turns a duration into a ceiling count and defaults a zero burst to one. A frame
-whose `Encode` fails, an invalid variation, negative burst or gap, and timing
+whose `Encode` fails, an invalid variation, negative start, burst or gap, and timing
 beyond `time.Duration` are rejected by `Validate` and `Source`.
 
 Variations run in list order on each frame, after the template. `MACVariation`
-steps a source or destination address within 48 bits; `Count` is the number of
+steps a source or destination address within 48 bits. `Count` is the number of
 offsets before it repeats. `SizeVariation` cycles through sizes that include
 the four-octet FCS. It adjusts the Ethernet payload length for the header and
 each VLAN tag, preserving the original payload prefix and zero-padding when
@@ -98,21 +102,18 @@ needed. A size variation requires a frames-per-second rate because bit-rate
 spacing cannot use the template's wire size for frames of varying sizes.
 `UDPPortVariation` steps a source or destination port in an IP/UDP template.
 A UDP port change passes through `udp.Encode` and `ip.Header.Encode`
-so both checksums are recomputed; it never patches a byte in place. The
+so both checksums are recomputed. It never patches a byte in place. The
 template must re-encode to an IP packet of the same length, with its UDP length
-covering the full IP payload. Earlier size variations must leave the whole IP
-packet intact.
-The set of variations is closed to this package, because `Variation.Apply` takes
-the unexported generator. A UDP port variation cannot follow a variation type
-that `Spec.Validate` does not list, since that type's effect on the IP packet is
-unknown.
+covering the full IP payload. Every size in a spec containing a UDP variation
+must retain the whole IP packet, regardless of declaration order or pointer form.
+The set of variations is closed through its private `apply` method.
 The port variation preserves bytes after the IP packet, including Ethernet
 padding, and refuses fragmented IPv4 templates.
 
 MAC and UDP variations can draw an offset from the generator instead of stepping.
 `Spec.Seed` sets the sequence, so two sources built from the same spec emit the
 same bytes. A source clone copies the cursor and generator state. `Spec.Clone`
-copies the variation list; the frame template and variation values, including
+copies the variation list. The frame template and variation values, including
 any `Sizes` slice, remain shared. Keep these values immutable while a source
 uses them.
 

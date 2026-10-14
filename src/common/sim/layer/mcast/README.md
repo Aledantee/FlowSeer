@@ -1,7 +1,7 @@
 # Multicast snooping
 
 This package keeps RFC 3376 §6.4 router state for each configured VLAN, multicast
-group, and logical ingress port. It consumes decoded IGMP and MLD messages; the
+group, and logical ingress port. It consumes decoded IGMP and MLD messages. The
 caller supplies the IP source address and the logical ingress port selected by
 the bridge. Physical LAG members are ignored because forwarding uses their
 logical parent. An admitted control trace carries an immutable fact with the
@@ -14,8 +14,8 @@ can produce a different final state when reversed.
 
 For each (VLAN, group, port), the package holds a filter mode, a group timer,
 and a set of source records, each an address with its own timer. A timer of
-zero is a real state — the source's timer has run to zero without the record
-being deleted — not an absent record. Following RFC 3376 §6.4's notation,
+zero means the source's timer has run to zero without deleting the record.
+Following RFC 3376 §6.4's notation,
 `INCLUDE (A)` is an include-mode port with source set `A`, and `EXCLUDE (X,Y)`
 is an exclude-mode port where `X` holds sources with a running timer and `Y`
 holds sources whose timer has reached zero. A port with no router state is
@@ -49,34 +49,43 @@ second and 2, the robustness variable, RFC 3376 §8.1, §8.8, §8.9, and RFC 381
 | `EXCLUDE (X,Y)` | `TO_EX (A)` | `EXCLUDE (A-Y, Y*A)` | `(A-X-Y)=` group timer, delete `(X-A)`, delete `(Y-A)`, Send Q(G, `A-Y`), group timer `=GMI` |
 | `EXCLUDE (X,Y)` | `TO_IN (A)` | `EXCLUDE (X+A, Y-A)` | `(A)=GMI`, Send Q(G, `X-A`), Send Q(G) |
 
-IGMPv1, IGMPv2, and MLDv1 reports map to `IS_EX ({})`; an IGMPv2 leave or an
-MLDv1 done message maps to `TO_IN ({})` (RFC 3810 §8.3.2). Either mapping
-(re)starts an older-version-host timer for that group and port, lasting one
-GMI. While it runs, a `BLOCK` record is ignored outright and a `TO_EX (x)`
-record is treated as `TO_EX ({})`. MLDv2 uses the same tables as IGMPv3 (RFC
-3810 §7.4-§7.6).
+IGMPv1 and IGMPv2 reports map to `IS_EX ({})` (RFC 3376 §7.3.2), as do
+MLDv1 reports (RFC 3810 §8.3.2). Each group and port keeps separate IGMPv1
+and IGMPv2 host timers, with the latter also serving MLDv1. Only a report of
+that version starts or refreshes its timer, for one GMI. While either timer
+runs, `BLOCK` is ignored and `TO_EX (x)` is treated as `TO_EX ({})`.
+While the IGMPv1 timer runs, IGMPv2 Leave and `TO_IN` are also ignored.
+MLDv2 uses the same tables as IGMPv3 (RFC 3810 §7.4-§7.6).
+
+An IGMPv2 Leave or MLDv1 Done maps to `TO_IN ({})` and starts no host timer.
+The layer also uses that mapping when no compatibility timer runs, a case
+those compatibility sections do not specify.
 
 Fast leave keeps its own shortcut, independent of the tables above: a message
-or record shaped like a leave — an IGMPv2 leave, an MLDv1 done, or a
-`MODE_IS_INCLUDE`/`CHANGE_TO_INCLUDE_MODE` record carrying no sources —
+or record shaped like a leave (an IGMPv2 leave, an MLDv1 done, or a
+`MODE_IS_INCLUDE`/`CHANGE_TO_INCLUDE_MODE` record carrying no sources)
 deletes the port's router state outright instead of going through `TO_IN`.
+The IGMPv1 rule still ignores Leave and `TO_IN`, even with fast leave enabled.
 
 ### Timer expiry (§6.5)
 
-`Advance(now)` applies the expiry rules lazily relative to `now`:
+`Resolve`, `Groups`, and `RouterPorts` read state as of their `now` without
+writing. `Learn` and `LearnMLD` age a port's state before applying a record,
+so a report uses the transition for the mode its timers leave at that time.
+`Advance(now)` removes what the reads already ignore:
 
 - A group timer expiring while the port is in `EXCLUDE` moves it to `INCLUDE`.
-  Sources with a running timer are kept with their timer; sources at a zero
+  Sources with a running timer are kept with their timer. Sources at a zero
   timer are deleted. If nothing is left, the port's router state for that
   group is deleted too.
 - A source timer expiring while the port is in `INCLUDE` deletes that source
-  record; deleting the last one deletes the port's router state.
+  record. Deleting the last one deletes the port's router state.
 - A source timer expiring while the port is in `EXCLUDE` moves that source
-  from `X` to `Y`; the record stays, now at a zero timer.
+  from `X` to `Y`. The record stays, now at a zero timer.
 
-`Resolve` computes the same rules against the `now` it is given without
-requiring a prior `Advance` call, so a caller's aging cadence does not change the
-forwarding answer.
+For example, a report and query learned at `t0` on the default intervals
+leave no membership or learned router port at `t0 + 300s`, even without an
+`Advance` call. `TestResolveIgnoresExpiredState` in `layer_test.go` checks it.
 
 ### Forwarding (§6.3)
 
@@ -89,14 +98,16 @@ forwarding answer.
 | `EXCLUDE` | no record | forward |
 
 `Resolve(vid, group, source, now)` applies this table per source and returns
-the union of admitted member ports and router ports. `registered` is true when
-any port holds router state for the group, regardless of whether the queried
-source is admitted on it — a learned router port appears in the returned
-ports without setting `registered`.
+the union of admitted member ports and static or unexpired learned router
+ports. `registered` is true when any port's group timer runs in `EXCLUDE` or
+any of its source timers runs, regardless of whether the queried source is
+admitted on it. A learned router port appears in the returned ports without
+setting `registered`. Only that live group state and the live router ports
+can produce a pending query.
 
 ## Queries and the unobserved-query issue
 
-This package never emits a query; "Send Q" in the tables above only records
+This package never emits a query. "Send Q" in the tables above only records
 that the router state expects one. `Resolve` tracks whether that expectation
 was met:
 
@@ -115,6 +126,15 @@ was met:
   from: the full timers are the real behavior, and `Resolve` never reports a
   pending query.
 
+A group obligation ends on an unsuppressed `Q(G)` or a record that sets the
+group timer. A source obligation keeps the sources that its table row
+queried. Each source leaves that set when an unsuppressed `Q(G,A)` names it,
+a record sets its timer, or the source is deleted. The source obligation
+ends when the set is empty. These rules apply however late the query arrives.
+A `Q(G)` leaves source obligations intact because it lowers only the group
+timer (RFC 3376 §6.6.1). `Clone` and `Restore` copy both compatibility timers
+and the queried set independently.
+
 ## Router ports
 
 An IGMP query learns its ingress as a router port when its IPv4 source is not
@@ -123,11 +143,10 @@ An IGMP query learns its ingress as a router port when its IPv4 source is not
 and its `Lifetime` (`Static` or `Aging`) names whether `Advance` removes it. The
 two axes separate origin from expiry: a record from configuration is always
 `Configured` and `Static`, and one a learned query installs is always `Observed`
-and `Aging`, but the fields are independent so a caller reconstructing runtime
-state — `InstallObserved` — can install an `Observed`, `Aging` record
-carrying an expiry of its own choosing rather than one the layer computes.
-`InstallObserved` refuses to override a port a static `Config` entry already
-claims.
+and `Aging`. `Restore` copies an observed router port with its original expiry,
+even when the target's `RouterPortInterval` differs. It leaves a target static
+router port in place and copies no configured record from the previous layer.
+The zero values of `Origin` and `Lifetime` name neither value of their type.
 
 `mcast.Entry`, the learned group membership record `Groups` returns, has no
 `Origin` field: nothing in `Config` can preload a group membership, so every
@@ -137,12 +156,15 @@ that never varies would document a distinction nothing ever makes.
 ## Aging and snapshots
 
 Learned router-port entries expire after their configured interval (default
-260 seconds, same as `MembershipInterval`), or, when installed through
-`InstallObserved`, after the expiry the caller gave. `Advance(now)` removes
+260 seconds, same as `MembershipInterval`). A record copied by `Restore`
+keeps its original expiry. `Advance(now)` removes
 every `Aging` router port whose expiry has passed, and the group timer and
-source timer expiry above, in one pass; it does not touch `Static` router
-ports. `Groups` and `RouterPorts` return sorted snapshots, and `Clone`
-preserves every timer in an independent layer.
+source timer expiry above, in one pass. It does not touch `Static` router
+ports. `Groups(vid, now)` and `RouterPorts(vid, now)` return sorted snapshots
+of the state left by expiry at `now`, without changing stored state.
+`fabric.Snapshot` passes the fabric clock. `Clone` preserves every timer in
+an independent layer. `TestReadsMatchAdvance` in `layer_test.go` compares
+reads with and without aging first.
 
 `Resolve` is intentionally narrower than a bridge forwarding policy. It
 returns the admitted port union, membership registration, and the pending-
@@ -151,14 +173,53 @@ the returned router ports, and how a pending query surfaces as an issue.
 
 ## State retention
 
-Multicast snooping runtime state is snoop-driven and preserved across derivation
-whenever both switches have multicast snooping enabled. `vswitch.Derive` retains
-the layer across derivation with per-entry filtering (`Retain`), pruning entries
-whose VLAN, port, or spanning-tree forwarding state was lost, and replaying the
-surviving records via `InstallObserved` and group learning to keep expiries
-intact. Derivation reports `Retention().Mcast` as kept with per-entry drops rather
-than an all-or-nothing rebuild.
+`Restore(prev, keep)` copies each port's group state on VLANs both layers snoop
+when the port is logical in the target and `keep(vid, port)` admits it. The copy
+preserves the filter mode, group and source deadlines, both compatibility deadlines,
+and pending queries. Its maps are independent of `prev`. The target's settings
+apply to subsequent learning.
+
+For example, `TestRestore` in `layer_test.go` restores `INCLUDE {10.0.0.9}`
+with its source deadline unchanged into a layer with a different membership
+interval. Replaying it as a legacy report would discard that source filter.
+
+`vswitch.Derive` calls `Restore` with a predicate that checks port forwarding,
+VLAN membership, and spanning-tree forwarding. It reports `Retention().Mcast`
+as kept whenever both switches have multicast snooping enabled, including when
+individual entries are dropped. `TestDeriveKeepsSourceSpecificMulticast` in
+`src/common/sim/device/vswitch/derive_internal_test.go` checks the surviving
+source filter and its forwarding result after an unrelated VLAN edit.
 
 `RetentionKey(cfg Config, env layer.Env) string` encodes every normalized
 input the multicast snooping runtime state depends on: its own configuration as
 `Diff` sees it and port states for configured router ports.
+
+## Limits
+
+The layer emits no query and takes LMQT from configuration. One
+`MembershipInterval` stands for both GMI and the Older Host Present Interval
+(RFC 3376 §8.13) or Older Version Host Present Timeout (RFC 3810 §9.13).
+A learned router port uses the layer's configured `RouterPortInterval` as
+its lifetime. RFC 4541 §2.1.1 item 1 describes router-port discovery without
+specifying a lifetime.
+The switch accepts reports from `::` under RFC 4541 §3, but requires a
+link-local source for queries and Done. What a snooping switch should do
+with a query or Done from `::` is unverified.
+A group query obligation ends on an observed group query or on a record
+that sets the group timer, and not when the EXCLUDE state it belongs to
+ends. After a change to INCLUDE with no group query observed, `Resolve`
+reports the obligation pending for as long as a host keeps refreshing a
+source (`obligationPending` in `state.go`).
+
+## Configuration diffs
+
+`Diff` compares normalized VLAN configurations and effective flood policy
+([diff.go](diff.go)). Router ports use quoted canonical member coordinates
+and `mcast.router_port` facts. Replacing eth2 with eth3 emits
+`router_ports["eth2"]: eth2 -> nil` followed by
+`router_ports["eth3"]: nil -> eth3`. Old-only removals precede new-only
+additions in normalized order. Reordering and duplicate-only edits produce no
+records ([diff_coverage_test.go](diff_coverage_test.go)).
+
+Retained VLANs compare flood policy, fast leave, router members, then timer
+and query-count fields. VLAN addition and removal retain complete snapshots.

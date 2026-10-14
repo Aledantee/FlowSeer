@@ -19,7 +19,7 @@ interface TypographyStep {
 }
 
 const defaultSteps: TypographyStep[] = [
-  { name: '2xs', size: '10px', lineHeight: '14px', className: 'text-2xs' },
+  { name: '2xs', size: '11px', lineHeight: '14px', className: 'text-2xs' },
   { name: 'xs', size: '11px', lineHeight: '16px', className: 'text-xs' },
   { name: 'sm', size: '12px', lineHeight: '16px', className: 'text-sm' },
   { name: 'base', size: '13px', lineHeight: '20px', className: 'text-base' },
@@ -28,6 +28,18 @@ const defaultSteps: TypographyStep[] = [
   { name: 'xl', size: '20px', lineHeight: '28px', className: 'text-xl' },
   { name: '2xl', size: '24px', lineHeight: '32px', className: 'text-2xl' },
   { name: '3xl', size: '28px', lineHeight: '36px', className: 'text-3xl' },
+  {
+    name: 'display',
+    size: '32px',
+    lineHeight: '40px',
+    className: 'text-display',
+  },
+  {
+    name: 'display-xl',
+    size: '64px',
+    lineHeight: '64px',
+    className: 'text-display-xl',
+  },
 ]
 
 export const Default: Story = {
@@ -57,21 +69,21 @@ export const Default: Story = {
     },
     template: `
       <div class="p-6 max-w-5xl mx-auto font-sans text-foreground bg-background">
-        <div role="heading" aria-level="1" class="text-2xl font-bold mb-2">Typography</div>
+        <div role="heading" aria-level="1" class="font-mono text-3xl font-medium mb-2">TYPOGRAPHY</div>
         <div class="text-sm text-muted-foreground mb-6">Type scale, fonts (Inter, Mono), and tabular figures.</div>
 
         <div class="space-y-6">
           <div
             v-for="step in steps"
             :key="step.name"
-            class="p-4 border border-border rounded-panel bg-card shadow-xs"
+            class="p-4 border border-border rounded-panel bg-card relative"
           >
             <div class="flex items-center justify-between pb-3 mb-3 border-b border-border text-xs text-muted-foreground">
               <span class="font-mono font-semibold text-foreground">text-{{ step.name }}</span>
               <span>Size: {{ step.size }} | Line height: {{ step.lineHeight }}</span>
             </div>
 
-            <div class="space-y-3">
+              <div class="space-y-3">
               <div>
                 <span class="text-2xs uppercase tracking-wider text-muted-foreground block mb-1">Inter (Sans)</span>
                 <div :class="[step.className, 'font-sans text-foreground']">

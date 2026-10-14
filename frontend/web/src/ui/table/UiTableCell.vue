@@ -39,9 +39,7 @@ const alignmentClass = computed(() => {
   return 'text-left'
 })
 
-const paddingClass = computed(() =>
-  isDense.value ? 'py-2 px-3' : 'py-3.5 px-4',
-)
+const paddingClass = computed(() => (isDense.value ? 'py-2 px-3' : 'py-3 px-3'))
 
 const typographyClass = computed(() => {
   if (props.mono || props.align === 'numeric') {

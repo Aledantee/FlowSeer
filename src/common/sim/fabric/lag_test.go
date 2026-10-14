@@ -6,6 +6,11 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+	"go.aledante.io/FlowSeer/src/common/sim/device"
+
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/ip"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
@@ -14,8 +19,102 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/lag"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
+
+func TestRoutedLAGSolicitationKeepsCommittedMember(t *testing.T) {
+	start := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	routerMAC := netaddr.MAC{0, 0, 0x5e, 0, 1, 1}
+	ports := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "in", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "prime", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "member-a", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "member-b", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}))
+	peerPorts := mustTable(t, port.NewBuilder().Add(port.Port{Name: "in", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+	cfg := statedPhysical(assembly.Config{
+		Start: start,
+		Switches: map[string]vswitch.Config{
+			"sw": {
+				MAC: routerMAC, Ports: ports,
+				Bridge: &bridge.Config{VLAN: &bridge.VLAN{Table: map[vlan.ID]string{20: "egress"}, Switchports: map[string]bridge.Switchport{
+					"prime": {Tagged: []vlan.ID{20}}, "lag1": {Tagged: []vlan.ID{20}},
+				}}},
+				LAG: &lag.Config{LAGs: map[string]lag.LAG{"lag1": {Mode: lag.BalanceSLB}}},
+				Routing: &routing.Config{VRFs: map[string]routing.VRF{routing.DefaultVRF: {Interfaces: map[string]routing.Interface{
+					"in":  {Port: "in", MAC: routerMAC, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.10.1/24")}},
+					"out": {Port: "lag1", VLAN: 20, MAC: routerMAC, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.20.1/24")}},
+				}}}},
+			},
+			"a": {Ports: peerPorts}, "b": {Ports: peerPorts},
+		},
+		Hosts: map[string]hostmodel.Config{"source": {Address: netaddr.MAC{2}}, "prime-source": {Address: netaddr.MAC{4}}},
+		Cables: []fabric.Cable{
+			{A: fabric.Endpoint{Node: "sw", Port: "in"}, B: fabric.Endpoint{Node: "source"}},
+			{A: fabric.Endpoint{Node: "sw", Port: "prime"}, B: fabric.Endpoint{Node: "prime-source"}},
+			{A: fabric.Endpoint{Node: "sw", Port: "member-a"}, B: fabric.Endpoint{Node: "a", Port: "in"}},
+			{A: fabric.Endpoint{Node: "sw", Port: "member-b"}, B: fabric.Endpoint{Node: "b", Port: "in"}},
+		},
+	})
+	target := cfg.Switches["sw"].Clone()
+	delete(target.Bridge.VLAN.Switchports, "lag1")
+	initial := cfg.Switches["sw"].Clone()
+	vrf := initial.Routing.VRFs[routing.DefaultVRF]
+	delete(vrf.Interfaces, "out")
+	initial.Routing.VRFs[routing.DefaultVRF] = vrf
+	cfg.Switches["sw"] = initial
+	fab, err := assembly.New(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var prime device.Output
+	if err := fabric.Operate(fab, "sw", func(d device.Device, _ time.Time) (device.Output, error) {
+		prime = d.(*vswitch.Switch).Receive(start, "prime", ethernet.Frame{
+			Src: routerMAC, Dst: netaddr.MAC{0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+			Tags: []vlan.Tag{{TPID: uint16(ethernet.EtherTypeDot1Q), VID: 20}}, Payload: []byte("prime wire VLAN"),
+		})
+		return device.Output{}, nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if len(prime.Egress) != 1 || prime.Egress[0].Port != "lag1" || prime.Egress[0].Member != "member-a" {
+		t.Fatalf("prime = %+v, want lag1/member-a at VID 20", prime)
+	}
+	if err := assembly.Configure(fab, "sw", target); err != nil {
+		t.Fatal(err)
+	}
+	payload, err := (ip.Header{Src: netip.MustParseAddr("10.0.10.7"), Dst: netip.MustParseAddr("10.0.20.7"), HopLimit: 64, Protocol: 17, V4: &ip.V4{}}).Encode([]byte("resolve"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = fab.Inject(fabric.Injection{At: start, Origin: fabric.Endpoint{Node: "sw", Port: "in"}, Frame: ethernet.Frame{Src: netaddr.MAC{2}, Dst: routerMAC, EtherType: ethernet.EtherTypeIPv4, Payload: payload}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	observed, _ := observeJourneys(t, fab, 4)
+	if err := fab.Err(); err != nil {
+		t.Fatal(err)
+	}
+	crossings := 0
+	for _, journey := range observed {
+		if !journey.Protocol || journey.Injection.Frame.EtherType != ethernet.EtherTypeARP || !journey.Injection.At.Equal(start) {
+			continue
+		}
+		for _, entry := range journey.Entries {
+			if entry.Kind == fabric.EntryCrossing {
+				if entry.Device != "b" || entry.Port != "in" {
+					t.Fatalf("solicitation crossing = %+v, want peer b via committed member-b", entry)
+				}
+				crossings++
+			}
+		}
+	}
+	if crossings != 1 {
+		t.Fatalf("solicitation crossings = %d, want 1", crossings)
+	}
+}
 
 func newLagTopology(t *testing.T, start time.Time, lagA, lagB *lag.Config) (*fabric.Fabric, netaddr.MAC, netaddr.MAC) {
 	t.Helper()
@@ -53,7 +152,7 @@ func newLagTopology(t *testing.T, start time.Time, lagA, lagB *lag.Config) (*fab
 	macH1 := netaddr.MAC{0x02, 0x00, 0x00, 0x00, 0x00, 0x01}
 	macH2 := netaddr.MAC{0x02, 0x00, 0x00, 0x00, 0x00, 0x02}
 
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Start: start,
 		Switches: map[string]vswitch.Config{
 			"A": {
@@ -67,7 +166,7 @@ func newLagTopology(t *testing.T, start time.Time, lagA, lagB *lag.Config) (*fab
 				LAG:    lagB,
 			},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: macH1},
 			"h2": {Address: macH2},
 		},
@@ -79,7 +178,7 @@ func newLagTopology(t *testing.T, start time.Time, lagA, lagB *lag.Config) (*fab
 		},
 	}
 
-	fab, err := fabric.New(statedPhysical(cfg))
+	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
@@ -128,7 +227,7 @@ func TestBalanceSLB(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Inject src %v rep %d: %v", src, rep, err)
 			}
-			fab.Run(10)
+			fab.Run(fabric.RunOptions{Budget: 10, Window: 0})
 
 			var j *fabric.Journey
 			for k := range fab.Report() {
@@ -196,7 +295,7 @@ func TestBalanceTCP(t *testing.T) {
 			break
 		}
 		if _, ok := fab.Step(); !ok {
-			converged = fab.Snapshot().Clock
+			converged = fab.Clock()
 			break
 		}
 	}
@@ -208,7 +307,7 @@ func TestBalanceTCP(t *testing.T) {
 	cursor := converged
 	for _, srcPort := range ports {
 		for rep := 0; rep < 2; rep++ {
-			if clock := fab.Snapshot().Clock; clock.After(cursor) {
+			if clock := fab.Clock(); clock.After(cursor) {
 				cursor = clock
 			}
 			injTime := cursor.Add(time.Millisecond)
@@ -246,7 +345,7 @@ func TestBalanceTCP(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Inject port %d rep %d: %v", srcPort, rep, err)
 			}
-			fab.Run(10)
+			fab.Run(fabric.RunOptions{Budget: 10, Window: 0})
 
 			var j *fabric.Journey
 			for k := range fab.Report() {
@@ -305,7 +404,7 @@ func TestActiveBackupFailover(t *testing.T) {
 		t.Fatalf("Inject f1: %v", err)
 	}
 
-	fab.Run(10)
+	fab.Run(fabric.RunOptions{Budget: 10, Window: 0})
 
 	j1 := fab.Report()[0]
 	if j1.FrameID != fid1 {
@@ -326,7 +425,7 @@ func TestActiveBackupFailover(t *testing.T) {
 	err = fab.SetFault(
 		fabric.Endpoint{Node: "A", Port: "1/1/1"},
 		fabric.Endpoint{Node: "B", Port: "1/1/1"},
-		fabric.Fault{Kind: fabric.FaultCut},
+		cablemodel.Fault{Kind: cablemodel.FaultCut},
 	)
 	if err != nil {
 		t.Fatalf("SetFault: %v", err)
@@ -347,7 +446,7 @@ func TestActiveBackupFailover(t *testing.T) {
 		t.Fatalf("Inject f2: %v", err)
 	}
 
-	fab.Run(10)
+	fab.Run(fabric.RunOptions{Budget: 10, Window: 0})
 
 	var j2 *fabric.Journey
 	for i := range fab.Report() {
@@ -408,14 +507,14 @@ func TestDelays(t *testing.T) {
 	}
 
 	// Wait for initial up-delay (2s) so 1/1/1 and 1/1/2 become enabled.
-	fab.Run(10)
-	t1 := fab.Snapshot().Clock // t0 + 2s
+	fab.Run(fabric.RunOptions{Budget: 10, Window: 0})
+	t1 := fab.Clock() // t0 + 2s
 
 	// Cut first cable at t1.
 	if err := fab.SetFault(
 		fabric.Endpoint{Node: "A", Port: "1/1/1"},
 		fabric.Endpoint{Node: "B", Port: "1/1/1"},
-		fabric.Fault{Kind: fabric.FaultCut},
+		cablemodel.Fault{Kind: cablemodel.FaultCut},
 	); err != nil {
 		t.Fatalf("SetFault cut: %v", err)
 	}
@@ -429,7 +528,7 @@ func TestDelays(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inject at t1+0.5s: %v", err)
 	}
-	fab.Run(10)
+	fab.Run(fabric.RunOptions{Budget: 10, Window: 0})
 
 	var jLoss *fabric.Journey
 	for i := range fab.Report() {
@@ -443,7 +542,7 @@ func TestDelays(t *testing.T) {
 	}
 	var hadLoss bool
 	for _, e := range jLoss.Entries {
-		if e.Kind == fabric.EntryLoss && e.Reason == fabric.ReasonCableLoss && e.Cable != nil && e.Cable.A.Port == "1/1/1" {
+		if e.Kind == fabric.EntryLoss && e.Reason == cablemodel.ReasonCableLoss && e.Cable != nil && e.Cable.A.Port == "1/1/1" {
 			hadLoss = true
 			break
 		}
@@ -461,7 +560,7 @@ func TestDelays(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inject at t1+1.5s: %v", err)
 	}
-	fab.Run(10)
+	fab.Run(fabric.RunOptions{Budget: 10, Window: 0})
 
 	var jCross2 *fabric.Journey
 	for i := range fab.Report() {
@@ -485,11 +584,11 @@ func TestDelays(t *testing.T) {
 	}
 
 	// Restore cable at t2.
-	t2 := fab.Snapshot().Clock
+	t2 := fab.Clock()
 	if err := fab.SetFault(
 		fabric.Endpoint{Node: "A", Port: "1/1/1"},
 		fabric.Endpoint{Node: "B", Port: "1/1/1"},
-		fabric.Fault{Kind: fabric.FaultNone},
+		cablemodel.Fault{Kind: cablemodel.FaultNone},
 	); err != nil {
 		t.Fatalf("SetFault restore: %v", err)
 	}
@@ -503,7 +602,7 @@ func TestDelays(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inject at t2+1s: %v", err)
 	}
-	fab.Run(10)
+	fab.Run(fabric.RunOptions{Budget: 10, Window: 0})
 
 	var jStill2 *fabric.Journey
 	for i := range fab.Report() {
@@ -535,7 +634,7 @@ func TestDelays(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inject at t2+2.5s: %v", err)
 	}
-	fab.Run(10)
+	fab.Run(fabric.RunOptions{Budget: 10, Window: 0})
 
 	var jPrimary *fabric.Journey
 	for i := range fab.Report() {
@@ -617,9 +716,9 @@ func TestLACPConvergence(t *testing.T) {
 		t.Fatal("lag1 on switch A is not Up")
 	}
 
-	// fab.Switch("A").MemberInfo("1/1/1") reads Attached and Enabled with B's system ID as partner.
-	swA := fab.Switch("A")
-	swB := fab.Switch("B")
+	// fab.Device("A").(*vswitch.Switch).MemberInfo("1/1/1") reads Attached and Enabled with B's system ID as partner.
+	swA := fab.Device("A").(*vswitch.Switch)
+	swB := fab.Device("B").(*vswitch.Switch)
 	infoA1 := swA.MemberInfo("1/1/1")
 	if infoA1.Status != lag.Current || infoA1.Actor.State != 0x3f {
 		t.Errorf("A:1/1/1 = %+v, want Current with actor state 0x3f", infoA1)
@@ -684,7 +783,7 @@ func TestLACPConvergence(t *testing.T) {
 		}
 	}
 
-	swAMismatch := fabMismatch.Switch("A")
+	swAMismatch := fabMismatch.Device("A").(*vswitch.Switch)
 	info1 := swAMismatch.MemberInfo("1/1/1")
 	if !info1.Attached || !info1.Enabled {
 		t.Errorf("A:1/1/1 attached=%v enabled=%v, want true/true", info1.Attached, info1.Enabled)
@@ -729,7 +828,7 @@ func TestFallback(t *testing.T) {
 		}
 	}
 
-	if info := fabWithFallback.Switch("A").MemberInfo("1/1/1"); info.Status != lag.Defaulted || !info.Enabled || info.Actor.State&0xc0 != 0x40 {
+	if info := fabWithFallback.Device("A").(*vswitch.Switch).MemberInfo("1/1/1"); info.Status != lag.Defaulted || !info.Enabled || info.Actor.State&0xc0 != 0x40 {
 		t.Fatalf("fallback member at 5s = %+v, want Defaulted and enabled without Expired", info)
 	}
 
@@ -741,7 +840,7 @@ func TestFallback(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inject with fallback: %v", err)
 	}
-	fabWithFallback.Run(10)
+	fabWithFallback.Run(fabric.RunOptions{Budget: 10, Window: 0})
 
 	var jWith *fabric.Journey
 	for i := range fabWithFallback.Report() {
@@ -790,7 +889,7 @@ func TestFallback(t *testing.T) {
 		}
 	}
 
-	if info := fabNoFallback.Switch("A").MemberInfo("1/1/1"); info.Status != lag.Defaulted || info.Enabled {
+	if info := fabNoFallback.Device("A").(*vswitch.Switch).MemberInfo("1/1/1"); info.Status != lag.Defaulted || info.Enabled {
 		t.Fatalf("member without fallback at 3s = %+v, want Defaulted and disabled", info)
 	}
 
@@ -802,7 +901,7 @@ func TestFallback(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inject without fallback: %v", err)
 	}
-	fabNoFallback.Run(10)
+	fabNoFallback.Run(fabric.RunOptions{Budget: 10, Window: 0})
 
 	var jWithout *fabric.Journey
 	for i := range fabNoFallback.Report() {
@@ -847,14 +946,12 @@ func TestPassive(t *testing.T) {
 	fab, _, _ := newLagTopology(t, t0, lagActive, lagPassive)
 
 	// Step until A's first LACPDU arrives at B and B emits a reply.
-	for i := 0; i < 20; i++ {
-		fab.Step()
-	}
+	observed, _ := observeJourneys(t, fab, 20)
 
 	var firstArrivalAtB time.Time
 	var firstBJourneyAt time.Time
 
-	for _, j := range fab.Report() {
+	for _, j := range observed {
 		if !j.Protocol {
 			continue
 		}
@@ -917,10 +1014,10 @@ func TestMemberlessLagIsDown(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fab, err := fabric.New(statedPhysical(fabric.Config{
+	fab, err := assembly.New(statedPhysical(assembly.Config{
 		Start:    t0,
 		Switches: map[string]vswitch.Config{"A": {Ports: tbl, Bridge: &bridge.Config{}}},
-		Hosts:    map[string]fabric.Host{"h1": {Address: netaddr.MAC{0x02, 0, 0, 0, 0, 0x01}}},
+		Hosts:    map[string]hostmodel.Config{"h1": {Address: netaddr.MAC{0x02, 0, 0, 0, 0, 0x01}}},
 		Cables:   []fabric.Cable{{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "A", Port: "1/1/1"}}},
 	}))
 	if err != nil {
@@ -930,5 +1027,45 @@ func TestMemberlessLagIsDown(t *testing.T) {
 		if p.Name == "lag1" && p.OperStatus != port.Down {
 			t.Fatalf("lag1 OperStatus = %v, want Down with no member", p.OperStatus)
 		}
+	}
+}
+
+// Configure reports every LAG member's link state to the rebuilt switch, and
+// the LACPDUs those reports emit enter the fabric at the configuration instant.
+func TestConfigureInjectsTheLACPDUsOfMemberReports(t *testing.T) {
+	t0 := time.Date(2026, 9, 11, 10, 0, 0, 0, time.UTC)
+	lagCfg := func(minLinks int) *lag.Config {
+		return &lag.Config{LAGs: map[string]lag.LAG{
+			"lag1": {Mode: lag.ActiveBackup, MinLinks: minLinks, LACP: lag.LACPConfig{Mode: lag.Active, Fast: true}},
+		}}
+	}
+	fab, _, _ := newLagTopology(t, t0, lagCfg(1), lagCfg(1))
+
+	target := t0.Add(5 * time.Second)
+	for !targetSettled(fab.Snapshot(), target) {
+		if _, ok := fab.Step(); !ok {
+			break
+		}
+	}
+
+	lacpdusFrom := func(node string) int {
+		n := 0
+		for _, j := range fab.Report() {
+			if j.Protocol && j.Origin.Kind == fabric.OriginInjection && j.Injection.Origin.Node == node {
+				n++
+			}
+		}
+		return n
+	}
+	before := lacpdusFrom("A")
+
+	cfg := fab.Device("A").(*vswitch.Switch).Config()
+	cfg.LAG = lagCfg(2)
+	if err := assembly.Configure(fab, "A", cfg); err != nil {
+		t.Fatalf("Configure: %v", err)
+	}
+
+	if after := lacpdusFrom("A"); after <= before {
+		t.Errorf("LACPDU journeys from A = %d after Configure, want more than the %d before", after, before)
 	}
 }

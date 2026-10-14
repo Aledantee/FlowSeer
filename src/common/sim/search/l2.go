@@ -8,6 +8,7 @@ import (
 	"slices"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
@@ -31,6 +32,23 @@ type L2TrafficDomainConfig struct {
 	At           time.Time
 }
 
+// Validate rejects empty source nodes, invalid VLAN IDs, and domain sizes that
+// exceed int. Empty dimensions are valid and yield an empty domain.
+func (c L2TrafficDomainConfig) Validate() error {
+	for i, source := range c.Sources {
+		if source.Node == "" {
+			return errs.Msgf("source %d node must be nonempty", i)
+		}
+	}
+	for i, vid := range c.VLANs {
+		if vid > 4094 {
+			return errs.Msgf("VLAN %d ID %d exceeds 4094", i, vid)
+		}
+	}
+	_, err := productSize(len(deduplicateAndSortEndpoints(c.Sources)), len(deduplicateAndSortMACs(c.Destinations)), len(deduplicateAndSortVLANs(c.VLANs)), len(deduplicateAndSortShapes(c.Shapes)))
+	return err
+}
+
 // L2TrafficDomain enumerates the cross product of declared sources, destinations,
 // VLANs, and frame shapes in a deterministic, total order.
 type L2TrafficDomain struct {
@@ -45,8 +63,11 @@ type L2TrafficDomain struct {
 
 // NewL2TrafficDomain validates, deduplicates, and deterministically sorts declared
 // inputs into an enumerable L2 search domain.
-func NewL2TrafficDomain(cfg L2TrafficDomainConfig) *L2TrafficDomain {
-	t0 := cfg.At
+func NewL2TrafficDomain(cfg L2TrafficDomainConfig) (*L2TrafficDomain, error) {
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
+	t0 := cfg.At.Round(0).UTC()
 	if t0.IsZero() {
 		t0 = time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	}
@@ -56,9 +77,9 @@ func NewL2TrafficDomain(cfg L2TrafficDomainConfig) *L2TrafficDomain {
 	vlans := deduplicateAndSortVLANs(cfg.VLANs)
 	shapes := deduplicateAndSortShapes(cfg.Shapes)
 
-	size := 0
-	if len(srcs) > 0 && len(dsts) > 0 && len(vlans) > 0 && len(shapes) > 0 {
-		size = len(srcs) * len(dsts) * len(vlans) * len(shapes)
+	size, err := productSize(len(srcs), len(dsts), len(vlans), len(shapes))
+	if err != nil {
+		return nil, err
 	}
 
 	sMACs := make(map[fabric.Endpoint]netaddr.MAC, len(cfg.SourceMACs))
@@ -74,7 +95,7 @@ func NewL2TrafficDomain(cfg L2TrafficDomainConfig) *L2TrafficDomain {
 		sourceMACs:   sMACs,
 		at:           t0,
 		size:         size,
-	}
+	}, nil
 }
 
 // Size returns the total count of distinct candidates in the domain.
@@ -140,8 +161,8 @@ func (d *L2TrafficDomain) buildCandidate(
 	tuple := formatL2Tuple(src, dst, vid, etype, shape.Payload)
 
 	return Candidate{
-		Tuple:    tuple,
-		Scenario: []fabric.Injection{inj},
+		Tuple:   tuple,
+		Actions: []fabric.Action{{ID: "inject", At: d.at, Index: 1, Kind: fabric.ActionInject, Inject: &inj}},
 	}
 }
 
@@ -152,10 +173,7 @@ func formatL2Tuple(
 	etype ethernet.EtherType,
 	payload []byte,
 ) Tuple {
-	srcStr := src.Node
-	if src.Port != "" {
-		srcStr += "/" + src.Port
-	}
+	srcStr := src.Canonical()
 	var tagStr string
 	if vid > 0 {
 		tagStr = fmt.Sprintf(" vlan:%d", vid)
@@ -169,9 +187,7 @@ func formatL2Tuple(
 
 func defaultSourceMAC(ep fabric.Endpoint) netaddr.MAC {
 	h := fnv.New64a()
-	_, _ = h.Write([]byte(ep.Node))
-	_, _ = h.Write([]byte("/"))
-	_, _ = h.Write([]byte(ep.Port))
+	_, _ = h.Write([]byte(ep.Canonical()))
 	sum := h.Sum64()
 
 	var mac netaddr.MAC

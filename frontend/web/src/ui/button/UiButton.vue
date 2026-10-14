@@ -37,7 +37,7 @@ useAiOrigin(
 )
 
 const buttonVariants = tv({
-  base: 'inline-flex items-center justify-center gap-1.5 font-medium !rounded-control transition-colors focus-visible:!outline-none focus-visible:!ring-1 focus-visible:!ring-ring disabled:!opacity-50 disabled:!cursor-not-allowed select-none text-center',
+  base: 'inline-flex items-center justify-center gap-1.5 font-mono font-medium !rounded-sm transition-colors focus-visible:!outline-none focus-visible:!ring-1 focus-visible:!ring-ring disabled:!opacity-50 disabled:!cursor-not-allowed select-none text-center',
   variants: {
     variant: {
       primary:

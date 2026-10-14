@@ -4,8 +4,12 @@ import (
 	"net/netip"
 	"testing"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+	"go.aledante.io/FlowSeer/src/common/sim/internal/simtest"
+
+	reflectormodel "go.aledante.io/FlowSeer/src/common/sim/device/reflector"
+
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
-	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
@@ -20,7 +24,7 @@ func TestReflectorDiffAdded(t *testing.T) {
 	a := base
 	a.Reflectors = nil
 
-	changes := fabric.Diff(a, base)
+	changes := assembly.Diff(a, base)
 	found := 0
 	for _, ch := range changes {
 		if ch.Subject.Kind != "reflector" {
@@ -54,7 +58,7 @@ func TestReflectorDiffRemoved(t *testing.T) {
 	b := base
 	b.Reflectors = nil
 
-	changes := fabric.Diff(base, b)
+	changes := assembly.Diff(base, b)
 	found := 0
 	for _, ch := range changes {
 		if ch.Subject.Kind != "reflector" {
@@ -87,21 +91,21 @@ func TestReflectorDiffChangedAttachmentVLAN(t *testing.T) {
 
 	a := reflectorBaseConfig(t)
 	b := a
-	b.Reflectors = map[string]fabric.Reflector{"r1": a.Reflectors["r1"].Clone()}
+	b.Reflectors = map[string]reflectormodel.Config{"r1": a.Reflectors["r1"].Clone()}
 	attach := b.Reflectors["r1"].Attachments["a"]
 	newVID := vlan.ID(20)
 	attach.VLAN = &newVID
 	b.Reflectors["r1"].Attachments["a"] = attach
 
-	changes := fabric.Diff(a, b)
+	changes := assembly.Diff(a, b)
 	var match *trace.Change
 	for i := range changes {
-		if changes[i].Subject == (trace.Subject{Kind: "reflector", Key: "r1"}) && changes[i].Field == "attachments.a.vlan" {
+		if changes[i].Subject == (trace.Subject{Kind: "reflector", Key: "r1"}) && changes[i].Field == `attachments["a"].vlan` {
 			match = &changes[i]
 		}
 	}
 	if match == nil {
-		t.Fatalf("changes = %+v, want a reflector r1 change on field attachments.a.vlan", changes)
+		t.Fatalf("changes = %+v, want a reflector r1 change on field attachments[\"a\"].vlan", changes)
 	}
 
 	fromID, toID := "", ""
@@ -111,12 +115,12 @@ func TestReflectorDiffChangedAttachmentVLAN(t *testing.T) {
 	if match.To != nil {
 		toID = match.To.Canonical()
 	}
-	if fromID != "10" || toID != "20" {
-		t.Errorf("attachments.a.vlan change = %q -> %q, want 10 -> 20", fromID, toID)
+	if fromID != "10" || toID != "20" || match.From.TypeID() != "fabric.vlan" || match.To.TypeID() != "fabric.vlan" {
+		t.Errorf("attachments[\"a\"].vlan change = %q -> %q, want 10 -> 20", fromID, toID)
 	}
 
 	for _, ch := range changes {
-		if ch.Subject.Kind == "reflector" && ch.Field != "attachments.a.vlan" {
+		if ch.Subject.Kind == "reflector" && ch.Field != `attachments["a"].vlan` {
 			t.Errorf("unexpected extra reflector change: %+v", ch)
 		}
 	}
@@ -124,7 +128,7 @@ func TestReflectorDiffChangedAttachmentVLAN(t *testing.T) {
 
 // TestReflectorDiffPortAdded proves that a reflector port present only in
 // the target configuration reports one change under the reflector subject,
-// field "ports.<name>", addition carried on To rather than From: a port and
+// field `ports["<name>"]`, addition carried on To rather than From: a port and
 // its cable decide link negotiation exactly as a host's do, so a diff that
 // only compared the reflector's address and attachments could never report
 // it.
@@ -133,24 +137,24 @@ func TestReflectorDiffPortAdded(t *testing.T) {
 
 	a := reflectorBaseConfig(t)
 	b := a
-	b.Reflectors = map[string]fabric.Reflector{"r1": a.Reflectors["r1"].Clone()}
+	b.Reflectors = map[string]reflectormodel.Config{"r1": a.Reflectors["r1"].Clone()}
 	b.Reflectors["r1"].Ports["p2"] = phy.Ethernet{}
 
-	changes := fabric.Diff(a, b)
+	changes := assembly.Diff(a, b)
 	var match *trace.Change
 	for i := range changes {
-		if changes[i].Subject == (trace.Subject{Kind: "reflector", Key: "r1"}) && changes[i].Field == "ports.p2" {
+		if changes[i].Subject == (trace.Subject{Kind: "reflector", Key: "r1"}) && changes[i].Field == `ports["p2"]` {
 			match = &changes[i]
 		}
 	}
 	if match == nil {
-		t.Fatalf("changes = %+v, want a reflector r1 change on field ports.p2", changes)
+		t.Fatalf("changes = %+v, want a reflector r1 change on field ports[\"p2\"]", changes)
 	}
 	if match.From != nil {
 		t.Errorf("from = %+v, want nil for an addition", match.From)
 	}
-	if match.To == nil {
-		t.Errorf("to = %+v, want a port snapshot", match.To)
+	if match.To == nil || match.To.TypeID() != "phy.ethernet" {
+		t.Errorf("to = %+v, want a phy.ethernet snapshot", match.To)
 	}
 }
 
@@ -165,18 +169,21 @@ func TestReflectorDiffChangedPortSpeed(t *testing.T) {
 	a.Reflectors["r1"] = r1
 
 	b := a
-	b.Reflectors = map[string]fabric.Reflector{"r1": a.Reflectors["r1"].Clone()}
+	b.Reflectors = map[string]reflectormodel.Config{"r1": a.Reflectors["r1"].Clone()}
 	b.Reflectors["r1"].Ports["p1"] = phy.Ethernet{Setting: &phy.Setting{SpeedBPS: 1_000_000_000, Duplex: phy.Full}}
 
-	changes := fabric.Diff(a, b)
+	changes := assembly.Diff(a, b)
 	found := 0
 	for _, ch := range changes {
 		if ch.Subject != (trace.Subject{Kind: "reflector", Key: "r1"}) {
 			continue
 		}
 		found++
-		if ch.Field != "ports.p1.speed_bps" {
-			t.Errorf("field = %q, want ports.p1.speed_bps", ch.Field)
+		if ch.Field != `ports["p1"].speed_bps` {
+			t.Errorf("field = %q, want ports[\"p1\"].speed_bps", ch.Field)
+		}
+		if ch.From == nil || ch.To == nil || ch.From.TypeID() != "phy.speed_bps" || ch.From.Canonical() != "100000000" || ch.To.TypeID() != "phy.speed_bps" || ch.To.Canonical() != "1000000000" {
+			t.Errorf("speed facts = %v -> %v, want phy.speed_bps 100000000 -> 1000000000", ch.From, ch.To)
 		}
 	}
 	if found != 1 {
@@ -184,31 +191,28 @@ func TestReflectorDiffChangedPortSpeed(t *testing.T) {
 	}
 }
 
-// TestReflectorDiffAttachmentAddressChangeReportsOnlyAddresses proves that an
-// address-only change on an unchanged attachment reports the addresses
-// sub-field alone, distinct from a VLAN change.
+// TestReflectorDiffAttachmentAddressChange checks removal before addition on a retained attachment.
 func TestReflectorDiffAttachmentAddressChange(t *testing.T) {
 	t.Parallel()
 
 	a := reflectorBaseConfig(t)
 	b := a
-	b.Reflectors = map[string]fabric.Reflector{"r1": a.Reflectors["r1"].Clone()}
+	b.Reflectors = map[string]reflectormodel.Config{"r1": a.Reflectors["r1"].Clone()}
 	attach := b.Reflectors["r1"].Attachments["a"]
 	attach.Addresses = []netip.Prefix{netip.MustParsePrefix("10.0.10.10/24")}
 	b.Reflectors["r1"].Attachments["a"] = attach
 
-	changes := fabric.Diff(a, b)
-	found := 0
-	for _, ch := range changes {
-		if ch.Subject.Kind != "reflector" {
-			continue
-		}
-		found++
-		if ch.Field != "attachments.a.addresses" {
-			t.Errorf("field = %q, want attachments.a.addresses", ch.Field)
-		}
+	changes := assembly.Diff(a, b)
+	want := []simtest.ChangeExpectation{
+		{Layer: "fabric", Subject: trace.Subject{Kind: "reflector", Key: "r1"}, Field: `attachments["a"].addresses["10.0.10.9/24"]`, From: &simtest.FactExpectation{TypeID: "fabric.prefix", Canonical: "10.0.10.9/24"}},
+		{Layer: "fabric", Subject: trace.Subject{Kind: "reflector", Key: "r1"}, Field: `attachments["a"].addresses["10.0.10.10/24"]`, To: &simtest.FactExpectation{TypeID: "fabric.prefix", Canonical: "10.0.10.10/24"}},
 	}
-	if found != 1 {
-		t.Fatalf("reflector changes = %d, want 1: %+v", found, changes)
+	if len(changes) != 2 {
+		t.Fatalf("reflector changes = %d, want 2: %+v", len(changes), changes)
+	}
+	for i, expected := range want {
+		if !expected.Matches(changes[i]) {
+			t.Errorf("change[%d] = %+v, want %+v", i, changes[i], expected)
+		}
 	}
 }

@@ -11,6 +11,7 @@ import (
 // to transmit RSTP BPDUs and restarting the migration delay. If the port is
 // unknown or down, Mcheck has no effect.
 func (l *Layer) Mcheck(now time.Time, port string) layer.Effects {
+	defer l.finishRecentRootDeadlines(now)
 	l.settleHelloTimers(now)
 	link, ok := l.links[port]
 	if !ok || !link.up {
@@ -48,6 +49,7 @@ func (l *Layer) Mcheck(now time.Time, port string) layer.Effects {
 // emissions. A link down clears received information and moves the port to
 // Disabled.
 func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, speedBPS uint64) layer.Effects {
+	defer l.finishRecentRootDeadlines(now)
 	l.settleHelloTimers(now)
 	t := l.cist()
 	p, ok := t.ports[port]
@@ -78,7 +80,9 @@ func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, sp
 				if tp == nil {
 					continue
 				}
+				oldRole := tp.role
 				tp.role = bpdu.RoleDisabled
+				tp.recordRoleChange(oldRole, now)
 				tp.state = StateDiscarding
 				tp.rcvInfoValid = false
 				tp.agreed = false
@@ -157,8 +161,11 @@ func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, sp
 			if !tp.pathCostFixed {
 				tp.pathCost = linkCost
 			}
+			oldRole := tp.role
 			tp.role = bpdu.RoleDesignated
+			tp.recordRoleChange(oldRole, now)
 			tp.agreed = false
+			tp.designatedVecSet = false
 			tp.proposing = link.pointToPoint && !link.edge && link.sendRSTP
 			if id == cistID && tp.proposing {
 				link.edgeDelayWhile = now.Add(l.edgeDelay(t, link))

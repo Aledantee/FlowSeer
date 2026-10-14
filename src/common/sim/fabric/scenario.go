@@ -5,11 +5,10 @@ import (
 	"cmp"
 	"fmt"
 	"slices"
-	"strconv"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
-	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
@@ -33,16 +32,23 @@ const (
 	ActionConfigure ActionKind = "Configure"
 )
 
-// ConfigureAction specifies a target virtual switch node and the new configuration to apply.
-type ConfigureAction struct {
-	Node   string
-	Config vswitch.Config
+// Operation applies a node change and compares its immutable inputs against
+// another operation. Implementations own their inputs so actions may share them.
+type Operation interface {
+	Apply(*Fabric, string) error
+	Diff(Operation) []trace.Change
 }
 
-// Validate verifies that the target node is non-empty.
+// ConfigureAction specifies a target node and its configuration operation.
+type ConfigureAction struct {
+	Node      string
+	Operation Operation
+}
+
+// Validate verifies that the target node is non-empty and the operation is non-nil.
 func (c ConfigureAction) Validate() error {
-	if c.Node == "" {
-		return errs.Msg("configure node cannot be empty")
+	if c.Node == "" || c.Operation == nil {
+		return errs.Msg("configure node and operation cannot be empty")
 	}
 	return nil
 }
@@ -51,33 +57,35 @@ func (c ConfigureAction) Validate() error {
 type FaultAction struct {
 	A     Endpoint
 	B     Endpoint
-	Fault Fault
+	Fault cablemodel.Fault
 }
 
-// Validate verifies that both endpoints of the cable fault are non-empty.
+// Validate rejects empty endpoint nodes and invalid fault parameters.
 func (f FaultAction) Validate() error {
 	if f.A.Node == "" || f.B.Node == "" {
 		return errs.Msg("fault endpoints must have node specified")
 	}
-	return nil
+	return cablemodel.ValidateFault(f.Fault)
 }
 
 // McheckAction specifies a target virtual switch port to run protocol migration check.
 type McheckAction struct {
-	Node string
-	Port string
+	Node      string
+	Operation Operation
 }
 
-// Validate verifies that the target node and port are non-empty.
+// Validate verifies that the target node is non-empty and the operation is non-nil.
 func (m McheckAction) Validate() error {
-	if m.Node == "" || m.Port == "" {
-		return errs.Msg("mcheck node and port cannot be empty")
+	if m.Node == "" || m.Operation == nil {
+		return errs.Msg("mcheck node and operation cannot be empty")
 	}
 	return nil
 }
 
 // Action represents a single timed mutation or frame introduction within a scenario.
 type Action struct {
+	// ID is required and unique within its scenario. It survives schedule edits.
+	ID        string
 	At        time.Time
 	Index     int
 	Kind      ActionKind
@@ -90,6 +98,9 @@ type Action struct {
 
 // Validate ensures exactly one payload is present matching Kind, and inner timestamps agree.
 func (a Action) Validate() error {
+	if a.ID == "" {
+		return errs.Msg("action id cannot be empty")
+	}
 	if a.At.IsZero() {
 		return errs.Msg("action timestamp cannot be zero")
 	}
@@ -203,22 +214,22 @@ func (a Action) Normalize() (Action, error) {
 	case ActionConfigure:
 		if cp.Configure != nil {
 			cCopy := *cp.Configure
-			cCopy.Config = cp.Configure.Config.Clone()
 			cp.Configure = &cCopy
 		}
 	}
 	return cp, nil
 }
 
-// Clone returns an independent deep copy of the Action.
+// Clone copies action storage and shares immutable frame tags and payload.
 func (a Action) Clone() Action {
 	cp := a
 	if a.Inject != nil {
-		injCopy := *a.Inject
+		injCopy := a.Inject.clone()
 		cp.Inject = &injCopy
 	}
 	if a.Fault != nil {
 		fCopy := *a.Fault
+		fCopy.Fault = a.Fault.Fault.Clone()
 		cp.Fault = &fCopy
 	}
 	if a.Mcheck != nil {
@@ -231,7 +242,6 @@ func (a Action) Clone() Action {
 	}
 	if a.Configure != nil {
 		cCopy := *a.Configure
-		cCopy.Config = a.Configure.Config.Clone()
 		cp.Configure = &cCopy
 	}
 	return cp
@@ -241,11 +251,6 @@ type actionKindFact string
 
 func (f actionKindFact) TypeID() string    { return "fabric.action.kind" }
 func (f actionKindFact) Canonical() string { return string(f) }
-
-type actionIndexFact int
-
-func (f actionIndexFact) TypeID() string    { return "fabric.action.index" }
-func (f actionIndexFact) Canonical() string { return strconv.Itoa(int(f)) }
 
 type actionTimeFact string
 
@@ -258,11 +263,11 @@ func (f actionStringFact) TypeID() string    { return "fabric.action.payload" }
 func (f actionStringFact) Canonical() string { return string(f) }
 
 // Diff returns changes between two Actions. A Configure payload diff keeps the
-// kind "scenario.action"; its key nests the action index and the inner vswitch
+// kind "scenario.action"; its key nests the action ID and the inner operation
 // subject, so two changes inside one switch configuration stay distinguishable.
 func (a Action) Diff(other Action) []trace.Change {
 	var changes []trace.Change
-	subject := trace.Subject{Kind: "scenario.action", Key: strconv.Itoa(a.Index)}
+	subject := trace.Subject{Kind: "scenario.action", Key: a.ID}
 
 	if !a.At.Equal(other.At) {
 		changes = append(changes, trace.Change{
@@ -273,13 +278,13 @@ func (a Action) Diff(other Action) []trace.Change {
 			To:      actionTimeFact(other.At.UTC().Format(time.RFC3339Nano)),
 		})
 	}
-	if a.Index != other.Index {
+	if a.ID != other.ID {
 		changes = append(changes, trace.Change{
 			Layer:   Layer,
 			Subject: subject,
-			Field:   "index",
-			From:    actionIndexFact(a.Index),
-			To:      actionIndexFact(other.Index),
+			Field:   "id",
+			From:    actionStringFact(a.ID),
+			To:      actionStringFact(other.ID),
 		})
 	}
 	if a.Kind != other.Kind {
@@ -309,14 +314,17 @@ func (a Action) Diff(other Action) []trace.Change {
 			To:      actionStringFact(faultSummary(other.Fault)),
 		})
 	}
-	if (a.Mcheck == nil) != (other.Mcheck == nil) || (a.Mcheck != nil && other.Mcheck != nil && *a.Mcheck != *other.Mcheck) {
-		changes = append(changes, trace.Change{
-			Layer:   Layer,
-			Subject: subject,
-			Field:   "mcheck",
-			From:    actionStringFact(mcheckSummary(a.Mcheck)),
-			To:      actionStringFact(mcheckSummary(other.Mcheck)),
-		})
+	if (a.Mcheck == nil) != (other.Mcheck == nil) {
+		changes = append(changes, trace.Change{Layer: Layer, Subject: subject, Field: "mcheck", From: actionStringFact(mcheckSummary(a.Mcheck)), To: actionStringFact(mcheckSummary(other.Mcheck))})
+	} else if a.Mcheck != nil && other.Mcheck != nil {
+		if a.Mcheck.Node != other.Mcheck.Node {
+			changes = append(changes, trace.Change{Layer: Layer, Subject: subject, Field: "mcheck.node", From: actionStringFact(a.Mcheck.Node), To: actionStringFact(other.Mcheck.Node)})
+		} else {
+			for _, d := range a.Mcheck.Operation.Diff(other.Mcheck.Operation) {
+				d.Subject = trace.Subject{Kind: "scenario.action", Key: trace.CompositeKey(a.ID, d.Subject.Kind, d.Subject.Key)}
+				changes = append(changes, d)
+			}
+		}
 	}
 	if (a.Record == nil) != (other.Record == nil) {
 		changes = append(changes, trace.Change{
@@ -347,11 +355,11 @@ func (a Action) Diff(other Action) []trace.Change {
 				To:      actionStringFact(other.Configure.Node),
 			})
 		} else {
-			diffs := vswitch.Diff(a.Configure.Config, other.Configure.Config)
+			diffs := a.Configure.Operation.Diff(other.Configure.Operation)
 			for _, d := range diffs {
 				d.Subject = trace.Subject{
 					Kind: "scenario.action",
-					Key:  nestedSubjectKey(strconv.Itoa(a.Index), nestedSubjectKey(d.Subject.Kind, d.Subject.Key)),
+					Key:  trace.CompositeKey(a.ID, d.Subject.Kind, d.Subject.Key),
 				}
 				changes = append(changes, d)
 			}
@@ -369,7 +377,13 @@ func configureSummary(c *ConfigureAction) string {
 }
 
 func sameInjection(a, b Injection) bool {
-	if !a.At.Equal(b.At) || a.Origin != b.Origin {
+	if !a.At.Equal(b.At) || a.Origin != b.Origin || a.Retention != b.Retention || a.Flow != b.Flow {
+		return false
+	}
+	if (a.Packet == nil) != (b.Packet == nil) {
+		return false
+	}
+	if a.Packet != nil && (a.Packet.To != b.Packet.To || a.Packet.Protocol != b.Packet.Protocol || !bytes.Equal(a.Packet.Payload, b.Packet.Payload)) {
 		return false
 	}
 	encA, _ := a.Frame.Encode()
@@ -388,21 +402,26 @@ func injectionSummary(inj *Injection) string {
 	if inj == nil {
 		return ""
 	}
-	return fmt.Sprintf("origin=%s:%s,at=%s", inj.Origin.Node, inj.Origin.Port, inj.At.UTC().Format(time.RFC3339Nano))
+	frame, _ := inj.Frame.Encode()
+	packet := "none"
+	if inj.Packet != nil {
+		packet = fmt.Sprintf("to=%s,protocol=%d,payload=%x", inj.Packet.To, inj.Packet.Protocol, inj.Packet.Payload)
+	}
+	return fmt.Sprintf("origin=%s,at=%s,frame=%x,packet={%s},retention=%d,flow=%d", inj.Origin.Canonical(), inj.At.UTC().Format(time.RFC3339Nano), frame, packet, inj.Retention, inj.Flow)
 }
 
 func faultSummary(f *FaultAction) string {
 	if f == nil {
 		return ""
 	}
-	return fmt.Sprintf("a=%s,b=%s,kind=%s", f.A.Canonical(), f.B.Canonical(), f.Fault.Kind)
+	return fmt.Sprintf("a=%s,b=%s,kind=%s,n=%d,sequence=%v", f.A.Canonical(), f.B.Canonical(), f.Fault.Kind, f.Fault.N, f.Fault.Sequence)
 }
 
 func mcheckSummary(m *McheckAction) string {
 	if m == nil {
 		return ""
 	}
-	return fmt.Sprintf("node=%s,port=%s", m.Node, m.Port)
+	return fmt.Sprintf("node=%s", m.Node)
 }
 
 func recordSummary(r *Record) string {
@@ -412,31 +431,29 @@ func recordSummary(r *Record) string {
 	return fmt.Sprintf("source=%s,origin=%s", r.Source, r.Origin.Canonical())
 }
 
-// Scenario encapsulates an entire reproducible network simulation with actions and budgets.
+// Scenario declares an action schedule with persistent action identities.
 type Scenario struct {
 	Name    string
-	Spec    ConstructionSpec
 	Actions []Action
-	Budget  int
-	Window  int
 }
 
-// Validate verifies that the scenario has a valid name, positive budget, non-negative window,
-// consistent action indices, unique (At, Index) pairs in numbered mode, and no actions scheduled
-// before the specification start time.
+// Validate requires a name, unique action IDs, consistent action indices,
+// and unique (At, Index) pairs in numbered mode.
 func (s Scenario) Validate() error {
 	numbered, err := s.validateHeader()
 	if err != nil {
 		return err
 	}
 
+	ids := make(map[string]int, len(s.Actions))
 	for i, a := range s.Actions {
 		if err := a.Validate(); err != nil {
 			return errs.Wrapf(err, "action %d invalid", i)
 		}
-		if !s.Spec.Start.IsZero() && a.At.Before(s.Spec.Start) {
-			return errs.Msgf("action %d at %s precedes spec start %s", i, a.At, s.Spec.Start)
+		if prev, ok := ids[a.ID]; ok {
+			return errs.Msgf("duplicate action id %q at actions %d and %d", a.ID, prev, i)
 		}
+		ids[a.ID] = i
 	}
 
 	if numbered {
@@ -463,12 +480,6 @@ func (s Scenario) validateHeader() (numbered bool, err error) {
 	if s.Name == "" {
 		return false, errs.Msg("scenario name cannot be empty")
 	}
-	if s.Budget <= 0 {
-		return false, errs.Msgf("scenario budget must be positive, got %d", s.Budget)
-	}
-	if s.Window < 0 {
-		return false, errs.Msgf("scenario window cannot be negative, got %d", s.Window)
-	}
 
 	var numCount, unnumCount int
 	for _, a := range s.Actions {
@@ -484,15 +495,10 @@ func (s Scenario) validateHeader() (numbered bool, err error) {
 	return numCount > 0, nil
 }
 
-// Normalize normalizes the underlying specification and actions, assigns 1-based indices
+// Normalize normalizes actions, assigns 1-based indices
 // to unnumbered actions, and sorts actions by At then Index to guarantee declaration order.
 func (s Scenario) Normalize() (Scenario, error) {
 	numbered, err := s.validateHeader()
-	if err != nil {
-		return Scenario{}, err
-	}
-
-	normSpec, err := s.Spec.Normalize()
 	if err != nil {
 		return Scenario{}, err
 	}
@@ -518,10 +524,7 @@ func (s Scenario) Normalize() (Scenario, error) {
 
 	norm := Scenario{
 		Name:    s.Name,
-		Spec:    normSpec,
 		Actions: actions,
-		Budget:  s.Budget,
-		Window:  s.Window,
 	}
 
 	if err := norm.Validate(); err != nil {
@@ -530,13 +533,10 @@ func (s Scenario) Normalize() (Scenario, error) {
 	return norm, nil
 }
 
-// Clone returns an independent deep copy of the Scenario.
+// Clone copies scenario storage and shares immutable frame tags and payload.
 func (s Scenario) Clone() Scenario {
 	cp := Scenario{
-		Name:   s.Name,
-		Spec:   s.Spec.Clone(),
-		Budget: s.Budget,
-		Window: s.Window,
+		Name: s.Name,
 	}
 	if s.Actions != nil {
 		cp.Actions = make([]Action, len(s.Actions))
@@ -552,18 +552,8 @@ type scenarioNameFact string
 func (f scenarioNameFact) TypeID() string    { return "fabric.scenario.name" }
 func (f scenarioNameFact) Canonical() string { return string(f) }
 
-type scenarioBudgetFact int
-
-func (f scenarioBudgetFact) TypeID() string    { return "fabric.scenario.budget" }
-func (f scenarioBudgetFact) Canonical() string { return strconv.Itoa(int(f)) }
-
-type scenarioWindowFact int
-
-func (f scenarioWindowFact) TypeID() string    { return "fabric.scenario.window" }
-func (f scenarioWindowFact) Canonical() string { return strconv.Itoa(int(f)) }
-
 // DiffScenarios compares two scenarios and returns semantic changes.
-// Both arguments are normalized before comparison so index assignment does not introduce false diffs.
+// Actions pair by ID. Declaration indices order execution and do not identify changes.
 func DiffScenarios(a, b Scenario) ([]trace.Change, error) {
 	normA, err := a.Normalize()
 	if err != nil {
@@ -586,56 +576,22 @@ func DiffScenarios(a, b Scenario) ([]trace.Change, error) {
 			To:      scenarioNameFact(normB.Name),
 		})
 	}
-	if normA.Budget != normB.Budget {
-		changes = append(changes, trace.Change{
-			Layer:   Layer,
-			Subject: subject,
-			Field:   "budget",
-			From:    scenarioBudgetFact(normA.Budget),
-			To:      scenarioBudgetFact(normB.Budget),
-		})
+	byID := make(map[string]Action, len(normB.Actions))
+	for _, action := range normB.Actions {
+		byID[action.ID] = action
 	}
-	if normA.Window != normB.Window {
-		changes = append(changes, trace.Change{
-			Layer:   Layer,
-			Subject: subject,
-			Field:   "window",
-			From:    scenarioWindowFact(normA.Window),
-			To:      scenarioWindowFact(normB.Window),
-		})
-	}
-
-	specChanges, err := DiffSpecs(normA.Spec, normB.Spec)
-	if err != nil {
-		return nil, err
-	}
-	changes = append(changes, specChanges...)
-
-	minLen := min(len(normA.Actions), len(normB.Actions))
-	for i := 0; i < minLen; i++ {
-		changes = append(changes, normA.Actions[i].Diff(normB.Actions[i])...)
-	}
-	if len(normA.Actions) < len(normB.Actions) {
-		for i := len(normA.Actions); i < len(normB.Actions); i++ {
-			act := normB.Actions[i]
-			changes = append(changes, trace.Change{
-				Layer:   Layer,
-				Subject: trace.Subject{Kind: "scenario.action", Key: strconv.Itoa(act.Index)},
-				Field:   "action",
-				To:      actionStringFact(fmt.Sprintf("%s:%d", act.Kind, act.Index)),
-			})
-		}
-	} else if len(normA.Actions) > len(normB.Actions) {
-		for i := len(normB.Actions); i < len(normA.Actions); i++ {
-			act := normA.Actions[i]
-			changes = append(changes, trace.Change{
-				Layer:   Layer,
-				Subject: trace.Subject{Kind: "scenario.action", Key: strconv.Itoa(act.Index)},
-				Field:   "action",
-				From:    actionStringFact(fmt.Sprintf("%s:%d", act.Kind, act.Index)),
-			})
+	for _, action := range normA.Actions {
+		if other, ok := byID[action.ID]; ok {
+			changes = append(changes, action.Diff(other)...)
+			delete(byID, action.ID)
+		} else {
+			changes = append(changes, trace.Change{Layer: Layer, Subject: trace.Subject{Kind: "scenario.action", Key: action.ID}, Field: "action", From: actionStringFact(fmt.Sprintf("%s:%s", action.Kind, action.ID))})
 		}
 	}
-
+	for _, action := range normB.Actions {
+		if _, ok := byID[action.ID]; ok {
+			changes = append(changes, trace.Change{Layer: Layer, Subject: trace.Subject{Kind: "scenario.action", Key: action.ID}, Field: "action", To: actionStringFact(fmt.Sprintf("%s:%s", action.Kind, action.ID))})
+		}
+	}
 	return changes, nil
 }

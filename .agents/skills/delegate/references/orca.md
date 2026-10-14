@@ -1,7 +1,7 @@
 # Orca workers and full handoffs
 
 Load this when a worker's state does not match what its tree says, when
-`scripts/orca-worker.sh` fails a step, when `wait` prints anything but
+`delegate orca-worker` fails a step, when `wait` prints anything but
 `idle` or `done`, or the screen shows an unexpected dialog, or for an orchestration run
 or a full handoff. `SKILL.md` names the lane; this file is the procedure.
 
@@ -71,7 +71,9 @@ Full handoff.
   quiet only after two reads five seconds apart show no "esc to interrupt"
   or "esc to cancel" hint and the same screen. It keeps waiting while a child
   works or its screen changes. When the lane is quiet and no child works,
-  `--until <command>` runs first in the lane checkout. Success prints `done`.
+  `--until <json-argv>` runs an argument list in the lane checkout. Success
+  prints `done`. A malformed or empty array exits 2 before Orca is queried.
+  The predicate timeout is bounded by the remaining `--max` deadline.
   Without `--until`, a quiet lane without children prints `idle`, or
   `limited` when the last 30 lines of its screen name a rate limit, a usage
   limit, an exceeded, exhausted, or reached quota, or a reset time. The word `quota`
@@ -103,13 +105,17 @@ Full handoff.
   message the worker must act on goes through `tell`, which submits it.
   Longer text through `keys` arrives with only its tail. `tell` copies a file into the
   checkout as `.orca-note.md` and submits a pointer to it, as `start` does
-  with the brief, and fails when no new pointer reaches the screen.
+  with the brief, and fails when no new pointer reaches the screen. A screen
+  read that fails counts as an empty screen. `read`, `keys`, and `tell` refuse
+  a kept lane, which has no terminal, before any Orca call, and `tell` refuses
+  a missing file before it writes anything.
 - `grade` appends a `grade` event (`accepted`, `amended`, `rejected`, or
   `blocked`, with verifier outcome `pass`, `fail`, or `none`) for the lane's
   `run` to the run log. Re-grading appends another; scorers read the last.
 - `stop` refuses a lane that has no `grade` event for its `run`, is
-  mid-turn (unless `--stalled`, after `wait` printed `stalled`),
-  whose checkout is dirty, whose branch is not merged into this one, or
+  mid-turn (unless `--stalled`, after `wait` printed `stalled`; a screen
+  read that fails counts as not mid-turn),
+  whose checkout is dirty (a checkout `git status` cannot read counts as clean), whose branch is not merged into this one, or
   whose worktree still has Orca child worktrees of its own: Orca drops a
   removed worktree's lineage, so those children would turn top-level. Before
   removing the lane, it writes an `end` event with the branch head to the run
@@ -145,7 +151,12 @@ the `codex`, `agy`, and `omp` lanes are unverified for a join.
 
 ## When a step fails
 
-- `start` says `--role is required`: pass a registry role name.
+`status` samples each live terminal five seconds apart, like `wait`.
+It prints `unknown` when the screens differ without a working hint.
+Read that lane's screen and wait for it before treating it as idle.
+
+- `start` says `the following arguments are required: --role`: pass a
+  registry role name.
 - `start` says a lane with that name exists: a previous lane was not
   stopped. `status` lists it; `stop` it or pick another slug.
 - `start` says the runtime is not reachable: the call ran sandboxed, or
@@ -155,7 +166,7 @@ the `codex`, `agy`, and `omp` lanes are unverified for a join.
   else is reported to the user with the screen text.
 - `wait` prints `limited`: the lane is quiet and its screen names a limit.
   Read the screen. A worker waiting for its pool's window to reset has not
-  finished: read the pool's row with `pool-usage.sh` and wait again with
+  finished: read the pool's row with `delegate pool-usage` and wait again with
   `--max` past the reset, or grade the lane `blocked` and dispatch the work
   on another pool. A finished report that only mentions a limit is handled
   as `idle`. The match is a broad pattern, since no CLI's wording of that
@@ -176,14 +187,14 @@ the `codex`, `agy`, and `omp` lanes are unverified for a join.
   `stop <slug> --stalled`, and dispatched again; a dirty or unmerged
   checkout still stops `stop`, for a person to read.
 - A Claude worker stops at a prompt to switch models or edit the prompt: a
-  safety classifier flagged its request, and `orca-worker.sh` turns
+  safety classifier flagged its request, and `delegate orca-worker` turns
   automatic switching off. Never pick switch. Report the flag and dispatch
   the work again on the next model in its own role's `fit` order, off
   Claude; an `execute` unit goes to `execute-sensitive`.
 - `keys` says it takes 200 characters at most: write the text to a file and
   send it with `tell <slug> <file>`.
 - `wait` keeps running on a quiet worker, or prints `timeout`: rule out
-  causes in cost order once. The provider's quota (`pool-usage.sh`), then
+  causes in cost order once. The provider's quota (`delegate pool-usage`), then
   the screen for a prompt or a mangled instruction, then `git status` in the
   worker's checkout, where a written file with no commit means the worker is
   still testing. Wait again after that check.
@@ -200,22 +211,26 @@ the `codex`, `agy`, and `omp` lanes are unverified for a join.
   proof, since both also follow a failed screen read on a live lane.
   Confirm it with the `terminal` handle from the lane's state file under
   `<git common dir>/orca-workers/`, unsandboxed:
-  `orca terminal show --terminal <handle> --json` reads status `exited`.
+  `orca terminal show --terminal <handle> --json` reads status `exited`,
+  or returns the structured error `terminal_handle_stale`.
   Without that, report the lane and leave it. With it, park the lane. Commit
   the tree in the child, keep the commit on `parked/<slug>`, grade the lane
   `blocked`, and stop it. The report names the branch, where the work stays
   for a person to read. Whether `orca terminal close` succeeds on a
   terminal that has already exited is unverified. When `stop` then says the
-  terminal close failed, report the lane and leave it.
+  terminal close failed, report the lane and leave it. `stop` accepts the
+  structured `terminal_handle_stale` error as an already closed terminal,
+  logs the end, and keeps or removes the checkout as requested. An unknown
+  error or failed screen read is not proof that a terminal is closed.
 
   ```bash
   git -C <child> add -A
   git -C <child> commit -m "wip: uncommitted work of exited lane <slug>"
   git branch parked/<slug> <lane branch>
-  .claude/skills/delegate/scripts/orca-worker.sh grade <slug> --outcome blocked --verify none --note "exited dirty; work on parked/<slug>"
-  .claude/skills/delegate/scripts/orca-worker.sh stop <slug>
+  uv run tools/scripts/run.py delegate orca-worker grade <slug> --outcome blocked --verify none --note "exited dirty; work on parked/<slug>"
+  uv run tools/scripts/run.py delegate orca-worker stop <slug>
   ```
-- `stop` says the lane has no grade event: grade the lane with `orca-worker.sh grade`
+- `stop` says the lane has no grade event: grade the lane with `delegate orca-worker grade`
   before stopping it.
 - `stop` says the lane has child worktrees: the worker started lanes and
   left them. Each child's branch is merged into the lane (or dropped with
@@ -225,9 +240,10 @@ the `codex`, `agy`, and `omp` lanes are unverified for a join.
 - `start` says the brief is empty: the brief file has no bytes. Write the
   brief and start the lane again.
 - `start` says the hooks review remains or has no "Trust all and
-  continue" option: Codex changed the dialog again. Its screen is in the
-  error; update the match in `orca-worker.sh`, or run `codex` in the
-  child once by hand and trust the hooks, then start the lane again.
+  continue" option: the error names the failed check in
+  [`orca_worker.py`](../../../../tools/scripts/skills/delegate/orca_worker.py).
+  After rollback removes the lane, `delegate orca-worker read` cannot
+  retrieve its screen. Update the dialog match before retrying.
 - `start` says Codex updated itself and exited, or showed its update
   offer despite `check_for_update_on_startup=false`: run `codex` by hand
   once to finish or dismiss the update, or set
@@ -288,4 +304,4 @@ orca worktree create --name <slug> --parent-worktree active --agent <agent> --pr
 
 `--agent` accepts no flags, so a handoff on a chosen model is a worktree
 without `--agent` followed by `orca terminal create --command "<launch
-line>"`, with the launch lines `orca-worker.sh` uses.
+line>"`, with the launch lines `delegate orca-worker` uses.

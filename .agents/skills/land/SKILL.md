@@ -120,7 +120,7 @@ cat "$(git rev-parse --git-common-dir)/HEAD"   # ref: refs/heads/main
 Do not inspect its working tree; the fast-forward in step 5 refuses on its own
 when a local change there overlaps the merge.
 
-Every worker, child worktree, and `orca-worker.sh` lane this task started must
+Every worker, child worktree, and `delegate orca-worker` lane this task started must
 be settled, released, or removed; load `references/orca-cleanup.md`, and
 `.claude/skills/delegate/references/orca.md` whole for the removal it
 points to, whenever `orca status --json` (unsandboxed) reports the runtime reachable,
@@ -196,7 +196,7 @@ Planless work skips the first retire and still runs the check.
 Verify the union, sandbox disabled:
 
 ```bash
-.claude/skills/verify-change/scripts/verify-change.sh --base main
+uv run tools/scripts/run.py verify change --base main
 ```
 
 This run clears the marks the merge left on files identical to `main`, and the

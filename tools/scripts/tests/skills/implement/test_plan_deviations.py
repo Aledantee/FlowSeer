@@ -2,6 +2,7 @@ import contextlib
 import io
 import os
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -163,6 +164,71 @@ class DiffTest(unittest.TestCase):
     def test_skills_symlink_path_argument_limits_the_diff(self):
         report = self.run_main("--", ".claude/skills/s")
         self.assertIn("Named by a unit, unchanged:\n  none\n", report)
+
+
+class UnitFormatsTest(unittest.TestCase):
+    """The command run against a repository holding a plan in each unit format."""
+
+    def test_plan_deviations_script_reads_both_unit_formats_braces_untracked_files_and_directory_entries(self):
+        """plan deviations script reads both unit formats, braces, untracked files, and directory entries"""
+        run_py = Path(__file__).resolve().parents[3] / "run.py"
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            env = {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
+            env.update(GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM="1")
+
+            def git(*args):
+                subprocess.run(
+                    ["git", "-c", "user.name=t", "-c", "user.email=t@example.com", *args],
+                    cwd=root,
+                    check=True,
+                    capture_output=True,
+                    env=env,
+                )
+
+            def deviations(plan):
+                done = subprocess.run(
+                    [sys.executable, str(run_py), "implement", "plan-deviations", plan, "HEAD"],
+                    cwd=root,
+                    env=env,
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                self.assertEqual(done.returncode, 0, done.stderr)
+                return done.stdout
+
+            for path, text in (
+                ("pkg/a/a.go", "package a\n"),
+                ("pkg/b/b.go", "package b\n"),
+                (
+                    "docs/plans/dot-plan.md",
+                    "### U1. Dotted heading with an inline Files line\n\n"
+                    "Files: `pkg/a/a.go`, `a_test.go`, `pkg/b/{b.go,b_test.go}` (`Symbol` aside)\nAfter: none\n",
+                ),
+                (
+                    "docs/plans/colon-plan.md",
+                    "### U1: Colon heading with a bullet Files field\n\n- **Files:**\n  `pkg/a/`\n- **After:** none\n",
+                ),
+            ):
+                target = root / path
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text(text)
+            git("init", "-q", "-b", "main")
+            git("add", ".")
+            git("commit", "-qm", "base")
+            (root / "pkg/a/a.go").write_text("package a // changed\n")
+            (root / "pkg/c.go").write_text("package c\n")
+
+            dotted = deviations("docs/plans/dot-plan.md")
+            self.assertRegex(dotted, r"Changed, named by no unit:[\s\S]*  pkg/c\.go")
+            for line in ("  U1: pkg/a/a_test.go", "  U1: pkg/b/b.go", "  U1: pkg/b/b_test.go"):
+                self.assertIn(line, dotted)
+            self.assertNotIn("Symbol", dotted)
+            self.assertNotIn("U1: pkg/a/a.go", dotted)
+            colon = deviations("docs/plans/colon-plan.md")
+            self.assertIn("  pkg/c.go", colon)
+            self.assertTrue(colon.rstrip("\n").endswith("Named by a unit, unchanged:\n  none"), colon)
 
 
 if __name__ == "__main__":

@@ -1,6 +1,7 @@
 package vswitch_test
 
 import (
+	"reflect"
 	"slices"
 	"testing"
 	"time"
@@ -84,8 +85,8 @@ func TestConformanceResultCanonicality(t *testing.T) {
 	}
 
 	// Current-first and candidate-first execution
-	resCur := swA.Forward(t0, "1/1/1", frame)
-	resCand := swB.Forward(t0, "1/1/1", frame)
+	resCur := swA.Receive(t0, "1/1/1", frame)
+	resCand := swB.Receive(t0, "1/1/1", frame)
 
 	if len(resCur.Egress) != len(resCand.Egress) {
 		t.Fatalf("egress counts mismatch: %d vs %d", len(resCur.Egress), len(resCand.Egress))
@@ -172,8 +173,8 @@ func TestConformanceTraceFactStability(t *testing.T) {
 
 	sw1 := buildSw()
 	sw2 := buildSw()
-	res1 := sw1.Forward(t0, "1/1/1", frame)
-	res2 := sw2.Forward(t0, "1/1/1", frame)
+	res1 := sw1.Receive(t0, "1/1/1", frame)
+	res2 := sw2.Receive(t0, "1/1/1", frame)
 
 	if len(res1.Steps) != len(res2.Steps) {
 		t.Fatalf("steps count mismatch: %d vs %d", len(res1.Steps), len(res2.Steps))
@@ -226,18 +227,41 @@ func TestConformanceDeriveInvalidation(t *testing.T) {
 	}
 
 	// 1. Initial state: port 1/1/2 is UP, flooded packet egresses out 1/1/2
-	resUp := sw.Forward(t0, "1/1/1", frame)
+	resUp := sw.Receive(t0, "1/1/1", frame)
 	if len(resUp.Egress) != 1 || resUp.Egress[0].Port != "1/1/2" {
 		t.Fatalf("initial egress = %+v, want egress on 1/1/2", resUp.Egress)
 	}
 
 	// 2. Invalidation: set port 1/1/2 Down
-	if err := sw.SetOperStatus("1/1/2", port.Down); err != nil {
-		t.Fatalf("SetOperStatus: %v", err)
+	target := sw.Spec()
+	builder := port.NewBuilder()
+	for _, p := range target.Config.Ports.Ports() {
+		if p.Name == "1/1/2" {
+			p.OperStatus = port.Down
+		}
+		builder.Add(p)
 	}
+	target.Config.Ports, err = builder.Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	next, _, err := vswitch.Derive(sw, target, fixedTime)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ret := reflect.ValueOf(next.Retention())
+	if !ret.FieldByName("Bridge").IsValid() || !ret.FieldByName("Filter").IsValid() {
+		t.Fatal("Retention omits bridge or filter")
+	}
+	for i := range ret.NumField() {
+		if got := ret.Field(i).Interface().(vswitch.LayerRetention); !got.Kept || got.Difference != "" {
+			t.Errorf("%s retention = %+v, want kept", ret.Type().Field(i).Name, got)
+		}
+	}
+	sw = next
 
 	// 3. Derived state invalidated: packet must not egress on down port
-	resDown := sw.Forward(t0, "1/1/1", frame)
+	resDown := sw.Receive(t0, "1/1/1", frame)
 	for _, eg := range resDown.Egress {
 		if eg.Port == "1/1/2" && eg.Dropped == "" {
 			t.Fatalf("egress on down port 1/1/2 was not invalidated: %+v", resDown.Egress)
@@ -268,27 +292,18 @@ func TestPlanningConformance(t *testing.T) {
 		t.Errorf("Expected outcome = %v, want %v", res.Comparison.Expected.Outcome, trace.Dropped)
 	}
 
-	// Verify typed facts in diff without string parsing.
-	var pvidFound, vlansFound bool
-	for _, chg := range res.Changes {
-		if chg.Subject.Kind == "port" && chg.Subject.Key == "1/1/1" {
-			if chg.Field == "pvid" {
-				if trace.EqualFact(chg.From, bridge.PVIDFact(10)) && trace.EqualFact(chg.To, bridge.PVIDFact(20)) {
-					pvidFound = true
-				}
-			}
-			if chg.Field == "untagged_vlan_ids" {
-				if trace.EqualFact(chg.From, bridge.VLANsFact([]vlan.ID{10})) && trace.EqualFact(chg.To, bridge.VLANsFact([]vlan.ID{20})) {
-					vlansFound = true
-				}
-			}
+	if len(res.Changes) != 3 {
+		t.Fatalf("diff records = %d, want 3", len(res.Changes))
+	}
+	want := []simtest.ChangeExpectation{
+		{Layer: "vlan", Subject: trace.Subject{Kind: "port", Key: "1/1/1"}, Field: "pvid", From: &simtest.FactExpectation{TypeID: "bridge.pvid", Canonical: "10"}, To: &simtest.FactExpectation{TypeID: "bridge.pvid", Canonical: "20"}},
+		{Layer: "vlan", Subject: trace.Subject{Kind: "port", Key: "1/1/1"}, Field: `untagged_vlan_ids["10"]`, From: &simtest.FactExpectation{TypeID: "bridge.vlan_id", Canonical: "10"}},
+		{Layer: "vlan", Subject: trace.Subject{Kind: "port", Key: "1/1/1"}, Field: `untagged_vlan_ids["20"]`, To: &simtest.FactExpectation{TypeID: "bridge.vlan_id", Canonical: "20"}},
+	}
+	for i, expected := range want {
+		if !expected.Matches(res.Changes[i]) {
+			t.Errorf("diff[%d] = %+v, want %+v", i, res.Changes[i], expected)
 		}
-	}
-	if !pvidFound {
-		t.Error("diff did not emit expected typed bridge.PVIDFact(10 -> 20)")
-	}
-	if !vlansFound {
-		t.Error("diff did not emit expected typed bridge.VLANsFact([10] -> [20])")
 	}
 }
 
@@ -483,7 +498,7 @@ func TestForwardResultSeparatesDomainOutcomeFromReadiness(t *testing.T) {
 		Payload:   []byte("test"),
 	}
 
-	res := sw.Forward(now, "1/1/1", f)
+	res := sw.Receive(now, "1/1/1", f)
 	if res.Outcome != trace.Dropped {
 		t.Errorf("Outcome = %v, want %v", res.Outcome, trace.Dropped)
 	}

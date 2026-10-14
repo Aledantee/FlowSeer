@@ -15,6 +15,11 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+	"go.aledante.io/FlowSeer/src/common/sim/flow"
+
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
@@ -22,6 +27,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/stream"
 	"go.aledante.io/FlowSeer/src/edge/simload"
@@ -134,7 +140,7 @@ func oneSwitchFabric(config labConfig) (*fabric.Fabric, error) {
 			Setting:                  &phy.Setting{AutoNegotiation: true},
 		}
 	}
-	return fabric.New(fabric.Config{
+	return assembly.New(assembly.Config{
 		Start: time.Date(2026, 9, 24, 0, 0, 0, 0, time.UTC),
 		Switches: map[string]vswitch.Config{"LABSW06": {
 			Ports: table,
@@ -146,15 +152,15 @@ func oneSwitchFabric(config labConfig) (*fabric.Fabric, error) {
 				},
 			}},
 		}},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"tx": {Address: config.txMAC, Ethernet: ethernetProfile(config.txSpeedBPS)},
 			"rx": {Address: config.rxMAC, Ethernet: ethernetProfile(config.rxSpeedBPS)},
 		},
 		Cables: []fabric.Cable{
-			{A: fabric.Endpoint{Node: "tx"}, B: fabric.Endpoint{Node: "LABSW06", Port: config.txPort}, Medium: fabric.TwistedPair, TopSpeedBPS: config.txSpeedBPS},
-			{A: fabric.Endpoint{Node: "LABSW06", Port: config.rxPort}, B: fabric.Endpoint{Node: "rx"}, Medium: fabric.TwistedPair, TopSpeedBPS: config.rxSpeedBPS},
+			{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair, TopSpeedBPS: config.txSpeedBPS}, A: fabric.Endpoint{Node: "tx"}, B: fabric.Endpoint{Node: "LABSW06", Port: config.txPort}},
+			{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair, TopSpeedBPS: config.rxSpeedBPS}, A: fabric.Endpoint{Node: "LABSW06", Port: config.rxPort}, B: fabric.Endpoint{Node: "rx"}},
 		},
-		PhyAssumption: &fabric.PhyAssumption{Medium: fabric.TwistedPair, Ethernet: phy.Ethernet{
+		PhyAssumption: &cablemodel.PhyAssumption{Medium: cablemodel.TwistedPair, Ethernet: phy.Ethernet{
 			SupportedSpeedsBPS:       []uint64{config.txSpeedBPS, config.rxSpeedBPS},
 			AutoNegotiationSupported: phy.CapabilitySupported,
 			Setting:                  &phy.Setting{AutoNegotiation: true},
@@ -186,21 +192,7 @@ func (span *captureSpan) duration() time.Duration {
 type timedSource struct {
 	rawsocket.Source
 	span *captureSpan
-	ids  map[fabric.FlowID]struct{}
-}
-
-type offsetSource struct {
-	stream.Source
-	offset time.Duration
-}
-
-func (source offsetSource) Next() (time.Duration, ethernet.Frame, bool) {
-	at, frame, ok := source.Source.Next()
-	return at + source.offset, frame, ok
-}
-
-func (source offsetSource) Clone() stream.Source {
-	return offsetSource{Source: source.Source.Clone(), offset: source.offset}
+	ids  map[flow.ID]struct{}
 }
 
 func (source timedSource) Receive(ctx context.Context) <-chan rawsocket.Frame {
@@ -285,7 +277,7 @@ func TestOneSwitchFabricDeliversClonedSource(t *testing.T) {
 	if err := lab.AttachStream(fabric.StreamAttachment{Origin: fabric.Endpoint{Node: "tx"}, Source: source.Clone(), Flow: 1, Retention: fabric.RetainAggregate}); err != nil {
 		t.Fatalf("attach source: %v", err)
 	}
-	if result := lab.Run(100); result.Stop != fabric.StopQueueDrained {
+	if result := lab.Run(fabric.RunOptions{Budget: 100, Window: 0}); result.Stop != fabric.StopQueueDrained {
 		t.Fatalf("simulator stop = %s, error %v; want %s", result.Stop, result.Err, fabric.StopQueueDrained)
 	}
 	stats := lab.Flows()[1]
@@ -303,8 +295,12 @@ func TestInterleavedSourcesAlternateEveryMillisecond(t *testing.T) {
 	if err != nil {
 		t.Fatalf("source: %v", err)
 	}
-	first := offsetSource{Source: base.Clone()}
-	second := offsetSource{Source: base.Clone(), offset: time.Millisecond}
+	first := base.Clone()
+	spec.Start = time.Millisecond
+	second, err := spec.Source()
+	if err != nil {
+		t.Fatal(err)
+	}
 	for i, source := range []stream.Source{first, second, first, second} {
 		at, _, ok := source.Next()
 		if !ok || at != time.Duration(i)*time.Millisecond {
@@ -345,7 +341,7 @@ func TestICX7150Comparison(t *testing.T) {
 
 	for _, tc := range []struct {
 		name    string
-		firstID fabric.FlowID
+		firstID flow.ID
 		counts  []int
 	}{
 		{name: "single", firstID: 1, counts: []int{10_000}},
@@ -357,14 +353,15 @@ func TestICX7150Comparison(t *testing.T) {
 				t.Fatalf("build one-switch fabric: %v", err)
 			}
 			flows := make([]simload.FlowSource, 0, len(tc.counts))
-			ids := make(map[fabric.FlowID]struct{}, len(tc.counts))
+			ids := make(map[flow.ID]struct{}, len(tc.counts))
 			for i, count := range tc.counts {
-				id := tc.firstID + fabric.FlowID(i)
+				id := tc.firstID + flow.ID(i)
 				ids[id] = struct{}{}
 				spec := stream.Spec{
 					Frame: ethernet.Frame{Src: config.txMAC, Dst: config.rxMAC, EtherType: ethernet.EtherType(0x88b5), Payload: make([]byte, 90)},
 					Rate:  stream.Rate{FramesPerSecond: uint64(1000 / len(tc.counts))},
 					Count: count,
+					Start: time.Duration(i) * time.Millisecond,
 				}
 				if got := spec.Frame.WireOctets(); got != 128 {
 					t.Fatalf("flow %d wire octets = %d, want 128", id, got)
@@ -373,13 +370,12 @@ func TestICX7150Comparison(t *testing.T) {
 				if err != nil {
 					t.Fatalf("flow %d source: %v", id, err)
 				}
-				source = offsetSource{Source: source, offset: time.Duration(i) * time.Millisecond}
 				if err := lab.AttachStream(fabric.StreamAttachment{Origin: fabric.Endpoint{Node: "tx"}, Source: source.Clone(), Flow: id, Retention: fabric.RetainAggregate}); err != nil {
 					t.Fatalf("attach flow %d: %v", id, err)
 				}
 				flows = append(flows, simload.FlowSource{ID: id, Source: source.Clone()})
 			}
-			if result := lab.Run(200_000); result.Stop != fabric.StopQueueDrained {
+			if result := lab.Run(fabric.RunOptions{Budget: 200_000, Window: 0}); result.Stop != fabric.StopQueueDrained {
 				t.Fatalf("simulator stop = %s, error %v; want %s", result.Stop, result.Err, fabric.StopQueueDrained)
 			}
 
@@ -401,7 +397,7 @@ func TestICX7150Comparison(t *testing.T) {
 				t.Errorf("capture interface drops = %d, want zero", observation.InterfaceDrops)
 			}
 			for i, count := range tc.counts {
-				id := tc.firstID + fabric.FlowID(i)
+				id := tc.firstID + flow.ID(i)
 				got := observation.Flows[id]
 				if got.Sent != uint64(count) {
 					t.Errorf("flow %d sent = %d, want %d", id, got.Sent, count)
@@ -423,7 +419,10 @@ func TestICX7150Comparison(t *testing.T) {
 			if delta > want/100 {
 				t.Errorf("receive pacing deviation = %s, want <= %s", delta, want/100)
 			}
-			report := simload.NewReport(lab.Flows(), lab.Metadata(), observation, "rx")
+			report, err := simload.NewReport(lab.Flows(), lab.Metadata(), observation, "rx")
+			if err != nil {
+				t.Fatalf("NewReport: %v", err)
+			}
 			if len(report.Simulator.Issues) != len(lab.Metadata().Issues()) {
 				t.Fatalf("report simulator issues = %d, want %d", len(report.Simulator.Issues), len(lab.Metadata().Issues()))
 			}

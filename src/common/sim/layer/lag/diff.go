@@ -189,186 +189,9 @@ func Diff(a, b Config) []trace.Change {
 			continue
 		}
 
-		if aLag.Mode != bLag.Mode {
-			changes = append(changes, trace.Change{
-				Layer:   lyr,
-				Subject: trace.Subject{Kind: "lag", Key: lagName},
-				Field:   "mode",
-				From:    aLag.Mode,
-				To:      bLag.Mode,
-			})
-		}
-
-		if aLag.Primary != bLag.Primary {
-			changes = append(changes, trace.Change{
-				Layer:   lyr,
-				Subject: trace.Subject{Kind: "lag", Key: lagName},
-				Field:   "primary",
-				From:    primaryFact(aLag.Primary),
-				To:      primaryFact(bLag.Primary),
-			})
-		}
-
-		if aLag.UpDelay != bLag.UpDelay {
-			changes = append(changes, trace.Change{
-				Layer:   lyr,
-				Subject: trace.Subject{Kind: "lag", Key: lagName},
-				Field:   "up_delay",
-				From:    durationFact(aLag.UpDelay),
-				To:      durationFact(bLag.UpDelay),
-			})
-		}
-
-		if aLag.DownDelay != bLag.DownDelay {
-			changes = append(changes, trace.Change{
-				Layer:   lyr,
-				Subject: trace.Subject{Kind: "lag", Key: lagName},
-				Field:   "down_delay",
-				From:    durationFact(aLag.DownDelay),
-				To:      durationFact(bLag.DownDelay),
-			})
-		}
-
-		if aLag.HashBasis != bLag.HashBasis {
-			changes = append(changes, trace.Change{
-				Layer:   lyr,
-				Subject: trace.Subject{Kind: "lag", Key: lagName},
-				Field:   "hash_basis",
-				From:    hashBasisFact(aLag.HashBasis),
-				To:      hashBasisFact(bLag.HashBasis),
-			})
-		}
-
-		if aLag.MinLinks != bLag.MinLinks {
-			changes = append(changes, trace.Change{
-				Layer:   lyr,
-				Subject: trace.Subject{Kind: "lag", Key: lagName},
-				Field:   "min_links",
-				From:    minLinksFact(aLag.MinLinks),
-				To:      minLinksFact(bLag.MinLinks),
-			})
-		}
-
-		aRebalance := snapshotRebalanceInterval(aLag.RebalanceInterval)
-		bRebalance := snapshotRebalanceInterval(bLag.RebalanceInterval)
-		if aRebalance != bRebalance {
-			changes = append(changes, trace.Change{
-				Layer:   lyr,
-				Subject: trace.Subject{Kind: "lag", Key: lagName},
-				Field:   "rebalance_interval",
-				From:    aRebalance,
-				To:      bRebalance,
-			})
-		}
-
-		if aLag.LACP.Mode != bLag.LACP.Mode {
-			changes = append(changes, trace.Change{
-				Layer:   lyr,
-				Subject: trace.Subject{Kind: "lag", Key: lagName},
-				Field:   "lacp_mode",
-				From:    aLag.LACP.Mode,
-				To:      bLag.LACP.Mode,
-			})
-		}
-
-		if aLag.LACP.Fast != bLag.LACP.Fast {
-			changes = append(changes, trace.Change{
-				Layer:   lyr,
-				Subject: trace.Subject{Kind: "lag", Key: lagName},
-				Field:   "lacp_fast",
-				From:    boolFact(aLag.LACP.Fast),
-				To:      boolFact(bLag.LACP.Fast),
-			})
-		}
-
-		if aLag.LACP.SystemPriority != bLag.LACP.SystemPriority {
-			changes = append(changes, trace.Change{
-				Layer:   lyr,
-				Subject: trace.Subject{Kind: "lag", Key: lagName},
-				Field:   "lacp_system_priority",
-				From:    uint16Fact(aLag.LACP.SystemPriority),
-				To:      uint16Fact(bLag.LACP.SystemPriority),
-			})
-		}
-
-		if aLag.LACP.SystemID != bLag.LACP.SystemID {
-			changes = append(changes, trace.Change{
-				Layer:   lyr,
-				Subject: trace.Subject{Kind: "lag", Key: lagName},
-				Field:   "lacp_system_id",
-				From:    macFact(aLag.LACP.SystemID),
-				To:      macFact(bLag.LACP.SystemID),
-			})
-		}
-
-		if aLag.LACP.Key != bLag.LACP.Key {
-			changes = append(changes, trace.Change{
-				Layer:   lyr,
-				Subject: trace.Subject{Kind: "lag", Key: lagName},
-				Field:   "lacp_key",
-				From:    uint16Fact(aLag.LACP.Key),
-				To:      uint16Fact(bLag.LACP.Key),
-			})
-		}
-
-		if aLag.LACP.Fallback != bLag.LACP.Fallback {
-			changes = append(changes, trace.Change{
-				Layer:   lyr,
-				Subject: trace.Subject{Kind: "lag", Key: lagName},
-				Field:   "lacp_fallback",
-				From:    boolFact(aLag.LACP.Fallback),
-				To:      boolFact(bLag.LACP.Fallback),
-			})
-		}
-
-		for _, memName := range sortedKeys(aLag.Members) {
-			am := aLag.Members[memName]
-			bm, memExists := bLag.Members[memName]
-			subject := trace.Subject{Kind: "lag_member", Key: memberSubjectKey(lagName, memName)}
-			if !memExists {
-				changes = append(changes, trace.Change{
-					Layer:   lyr,
-					Subject: subject,
-					Field:   "",
-					From:    am,
-					To:      nil,
-				})
-
-				continue
-			}
-
-			if am.Priority != bm.Priority {
-				changes = append(changes, trace.Change{
-					Layer:   lyr,
-					Subject: subject,
-					Field:   "priority",
-					From:    portPriorityFact(am.Priority),
-					To:      portPriorityFact(bm.Priority),
-				})
-			}
-
-			if am.Key != bm.Key {
-				changes = append(changes, trace.Change{
-					Layer:   lyr,
-					Subject: subject,
-					Field:   "key",
-					From:    uint16Fact(am.Key),
-					To:      uint16Fact(bm.Key),
-				})
-			}
-		}
-
-		for _, memName := range sortedKeys(bLag.Members) {
-			if _, memExists := aLag.Members[memName]; !memExists {
-				changes = append(changes, trace.Change{
-					Layer:   lyr,
-					Subject: trace.Subject{Kind: "lag_member", Key: memberSubjectKey(lagName, memName)},
-					Field:   "",
-					From:    nil,
-					To:      bLag.Members[memName],
-				})
-			}
-		}
+		changes = diffLAGSettings(changes, lagName, aLag, bLag)
+		changes = diffLACPSettings(changes, lagName, aLag, bLag)
+		changes = diffMembers(changes, lagName, aLag, bLag)
 	}
 
 	for _, lagName := range sortedKeys(b.LAGs) {
@@ -379,6 +202,205 @@ func Diff(a, b Config) []trace.Change {
 				Field:   "",
 				From:    nil,
 				To:      snapshotLAG(b.LAGs[lagName]),
+			})
+		}
+	}
+
+	return changes
+}
+
+func diffLAGSettings(changes []trace.Change, lagName string, aLag, bLag LAG) []trace.Change {
+	lyr := LayerName
+
+	if aLag.Mode != bLag.Mode {
+		changes = append(changes, trace.Change{
+			Layer:   lyr,
+			Subject: trace.Subject{Kind: "lag", Key: lagName},
+			Field:   "mode",
+			From:    aLag.Mode,
+			To:      bLag.Mode,
+		})
+	}
+
+	if aLag.Primary != bLag.Primary {
+		changes = append(changes, trace.Change{
+			Layer:   lyr,
+			Subject: trace.Subject{Kind: "lag", Key: lagName},
+			Field:   "primary",
+			From:    primaryFact(aLag.Primary),
+			To:      primaryFact(bLag.Primary),
+		})
+	}
+
+	if aLag.UpDelay != bLag.UpDelay {
+		changes = append(changes, trace.Change{
+			Layer:   lyr,
+			Subject: trace.Subject{Kind: "lag", Key: lagName},
+			Field:   "up_delay",
+			From:    durationFact(aLag.UpDelay),
+			To:      durationFact(bLag.UpDelay),
+		})
+	}
+
+	if aLag.DownDelay != bLag.DownDelay {
+		changes = append(changes, trace.Change{
+			Layer:   lyr,
+			Subject: trace.Subject{Kind: "lag", Key: lagName},
+			Field:   "down_delay",
+			From:    durationFact(aLag.DownDelay),
+			To:      durationFact(bLag.DownDelay),
+		})
+	}
+
+	if aLag.HashBasis != bLag.HashBasis {
+		changes = append(changes, trace.Change{
+			Layer:   lyr,
+			Subject: trace.Subject{Kind: "lag", Key: lagName},
+			Field:   "hash_basis",
+			From:    hashBasisFact(aLag.HashBasis),
+			To:      hashBasisFact(bLag.HashBasis),
+		})
+	}
+
+	if aLag.MinLinks != bLag.MinLinks {
+		changes = append(changes, trace.Change{
+			Layer:   lyr,
+			Subject: trace.Subject{Kind: "lag", Key: lagName},
+			Field:   "min_links",
+			From:    minLinksFact(aLag.MinLinks),
+			To:      minLinksFact(bLag.MinLinks),
+		})
+	}
+
+	aRebalance := snapshotRebalanceInterval(aLag.RebalanceInterval)
+	bRebalance := snapshotRebalanceInterval(bLag.RebalanceInterval)
+	if aRebalance != bRebalance {
+		changes = append(changes, trace.Change{
+			Layer:   lyr,
+			Subject: trace.Subject{Kind: "lag", Key: lagName},
+			Field:   "rebalance_interval",
+			From:    aRebalance,
+			To:      bRebalance,
+		})
+	}
+
+	return changes
+}
+
+func diffLACPSettings(changes []trace.Change, lagName string, aLag, bLag LAG) []trace.Change {
+	lyr := LayerName
+
+	if aLag.LACP.Mode != bLag.LACP.Mode {
+		changes = append(changes, trace.Change{
+			Layer:   lyr,
+			Subject: trace.Subject{Kind: "lag", Key: lagName},
+			Field:   "lacp_mode",
+			From:    aLag.LACP.Mode,
+			To:      bLag.LACP.Mode,
+		})
+	}
+
+	if aLag.LACP.Fast != bLag.LACP.Fast {
+		changes = append(changes, trace.Change{
+			Layer:   lyr,
+			Subject: trace.Subject{Kind: "lag", Key: lagName},
+			Field:   "lacp_fast",
+			From:    boolFact(aLag.LACP.Fast),
+			To:      boolFact(bLag.LACP.Fast),
+		})
+	}
+
+	if aLag.LACP.SystemPriority != bLag.LACP.SystemPriority {
+		changes = append(changes, trace.Change{
+			Layer:   lyr,
+			Subject: trace.Subject{Kind: "lag", Key: lagName},
+			Field:   "lacp_system_priority",
+			From:    uint16Fact(aLag.LACP.SystemPriority),
+			To:      uint16Fact(bLag.LACP.SystemPriority),
+		})
+	}
+
+	if aLag.LACP.SystemID != bLag.LACP.SystemID {
+		changes = append(changes, trace.Change{
+			Layer:   lyr,
+			Subject: trace.Subject{Kind: "lag", Key: lagName},
+			Field:   "lacp_system_id",
+			From:    macFact(aLag.LACP.SystemID),
+			To:      macFact(bLag.LACP.SystemID),
+		})
+	}
+
+	if aLag.LACP.Key != bLag.LACP.Key {
+		changes = append(changes, trace.Change{
+			Layer:   lyr,
+			Subject: trace.Subject{Kind: "lag", Key: lagName},
+			Field:   "lacp_key",
+			From:    uint16Fact(aLag.LACP.Key),
+			To:      uint16Fact(bLag.LACP.Key),
+		})
+	}
+
+	if aLag.LACP.Fallback != bLag.LACP.Fallback {
+		changes = append(changes, trace.Change{
+			Layer:   lyr,
+			Subject: trace.Subject{Kind: "lag", Key: lagName},
+			Field:   "lacp_fallback",
+			From:    boolFact(aLag.LACP.Fallback),
+			To:      boolFact(bLag.LACP.Fallback),
+		})
+	}
+
+	return changes
+}
+
+func diffMembers(changes []trace.Change, lagName string, aLag, bLag LAG) []trace.Change {
+	lyr := LayerName
+
+	for _, memName := range sortedKeys(aLag.Members) {
+		am := aLag.Members[memName]
+		bm, memExists := bLag.Members[memName]
+		subject := trace.Subject{Kind: "lag_member", Key: memberSubjectKey(lagName, memName)}
+		if !memExists {
+			changes = append(changes, trace.Change{
+				Layer:   lyr,
+				Subject: subject,
+				Field:   "",
+				From:    am,
+				To:      nil,
+			})
+
+			continue
+		}
+
+		if am.Priority != bm.Priority {
+			changes = append(changes, trace.Change{
+				Layer:   lyr,
+				Subject: subject,
+				Field:   "priority",
+				From:    portPriorityFact(am.Priority),
+				To:      portPriorityFact(bm.Priority),
+			})
+		}
+
+		if am.Key != bm.Key {
+			changes = append(changes, trace.Change{
+				Layer:   lyr,
+				Subject: subject,
+				Field:   "key",
+				From:    uint16Fact(am.Key),
+				To:      uint16Fact(bm.Key),
+			})
+		}
+	}
+
+	for _, memName := range sortedKeys(bLag.Members) {
+		if _, memExists := aLag.Members[memName]; !memExists {
+			changes = append(changes, trace.Change{
+				Layer:   lyr,
+				Subject: trace.Subject{Kind: "lag_member", Key: memberSubjectKey(lagName, memName)},
+				Field:   "",
+				From:    nil,
+				To:      bLag.Members[memName],
 			})
 		}
 	}

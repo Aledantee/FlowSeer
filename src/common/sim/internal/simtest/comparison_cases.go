@@ -6,7 +6,12 @@ import (
 	"slices"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+
 	"go.aledante.io/FlowSeer/src/common/errs"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
@@ -77,82 +82,202 @@ func buildPortTable(portList []port.Port, rng *rand.Rand) (port.Table, error) {
 // vswitch.Compare and fabric.Compare: determinism under randomized map and slice insertion order,
 // current-first versus candidate-first execution invariance, and the non-consuming simulation guarantee.
 func ComparisonCorpus() []ComparisonCase {
-	now := time.Unix(1700000000, 0)
-	mac1 := netaddr.MAC{0x02, 0x00, 0x00, 0x00, 0x01, 0x01}
-	mac2 := netaddr.MAC{0x02, 0x00, 0x00, 0x00, 0x01, 0x02}
-	vid10 := vlan.ID(10)
+	return []ComparisonCase{
+		caseComparisonSwitchEquivalentComplete(),
+		caseComparisonSwitchPortDownDifferent(),
+		caseComparisonSwitchUnknownStatus(),
+		caseComparisonFabricEquivalentComplete(),
+		caseComparisonFabricCableCutDifferent(),
+		caseComparisonFabricMediumPathDifferent(),
+		caseComparisonFabricBudgetExhausted(),
+	}
+}
 
-	testFrame := ethernet.Frame{
-		Dst:       mac2,
-		Src:       mac1,
+func comparisonFrame() ethernet.Frame {
+	return ethernet.Frame{
+		Dst:       netaddr.MAC{0x02, 0x00, 0x00, 0x00, 0x01, 0x02},
+		Src:       netaddr.MAC{0x02, 0x00, 0x00, 0x00, 0x01, 0x01},
 		EtherType: ethernet.EtherTypeIPv4,
 		Payload:   []byte("test-payload"),
 	}
+}
 
-	buildSwitchPair := func(
-		portsA, portsB []port.Port,
-		seedsA, seedsB []bridge.Seed,
-		vlanCfgA, vlanCfgB *bridge.VLAN,
-		rng *rand.Rand,
-	) (*vswitch.Switch, *vswitch.Switch, error) {
-		tblA, err := buildPortTable(portsA, rng)
-		if err != nil {
-			return nil, nil, err
-		}
-		tblB, err := buildPortTable(portsB, rng)
-		if err != nil {
-			return nil, nil, err
-		}
+func comparisonSwitchSeeds() []bridge.Seed {
+	return []bridge.Seed{{FID: 10, MAC: comparisonFrame().Dst, Port: "1/1/2", Lifetime: bridge.Static}}
+}
 
-		makeBridgeCfg := func(vc *bridge.VLAN) *bridge.Config {
-			if vc == nil {
-				return &bridge.Config{}
-			}
-			cloneVC := &bridge.VLAN{
-				Table:       shuffleMap(rng, vc.Table),
-				Switchports: shuffleMap(rng, vc.Switchports),
-			}
-			return &bridge.Config{VLAN: cloneVC}
-		}
-
-		swA, err := vswitch.NewWithSpec(vswitch.ConstructionSpec{
-			Config: vswitch.Config{Ports: tblA, Bridge: makeBridgeCfg(vlanCfgA)},
-			Seeds:  shuffleSlice(rng, seedsA),
-		})
-		if err != nil {
-			return nil, nil, err
-		}
-
-		swB, err := vswitch.NewWithSpec(vswitch.ConstructionSpec{
-			Config: vswitch.Config{Ports: tblB, Bridge: makeBridgeCfg(vlanCfgB)},
-			Seeds:  shuffleSlice(rng, seedsB),
-		})
-		if err != nil {
-			return nil, nil, err
-		}
-
-		return swA, swB, nil
-	}
-
-	// Case 1: vswitch/equivalent-complete
-	c1Ports := []port.Port{
-		{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up},
-		{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up},
-	}
-	c1Seeds := []bridge.Seed{{FID: 10, MAC: mac2, Port: "1/1/2", Lifetime: bridge.Static}}
-	c1VLAN := &bridge.VLAN{
+func comparisonSwitchVLAN() *bridge.VLAN {
+	vid10 := vlan.ID(10)
+	return &bridge.VLAN{
 		Table: map[vlan.ID]string{10: "prod"},
 		Switchports: map[string]bridge.Switchport{
 			"1/1/1": {PVID: &vid10, Untagged: []vlan.ID{10}},
 			"1/1/2": {PVID: &vid10, Untagged: []vlan.ID{10}},
 		},
 	}
+}
+
+func buildSwitchPair(
+	portsA, portsB []port.Port,
+	seedsA, seedsB []bridge.Seed,
+	vlanCfgA, vlanCfgB *bridge.VLAN,
+	rng *rand.Rand,
+) (*vswitch.Switch, *vswitch.Switch, error) {
+	tblA, err := buildPortTable(portsA, rng)
+	if err != nil {
+		return nil, nil, err
+	}
+	tblB, err := buildPortTable(portsB, rng)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	makeBridgeCfg := func(vc *bridge.VLAN) *bridge.Config {
+		if vc == nil {
+			return &bridge.Config{}
+		}
+		cloneVC := &bridge.VLAN{
+			Table:       shuffleMap(rng, vc.Table),
+			Switchports: shuffleMap(rng, vc.Switchports),
+		}
+		return &bridge.Config{VLAN: cloneVC}
+	}
+
+	swA, err := vswitch.NewWithSpec(vswitch.ConstructionSpec{
+		Config: vswitch.Config{Ports: tblA, Bridge: makeBridgeCfg(vlanCfgA)},
+		Seeds:  shuffleSlice(rng, seedsA),
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+
+	swB, err := vswitch.NewWithSpec(vswitch.ConstructionSpec{
+		Config: vswitch.Config{Ports: tblB, Bridge: makeBridgeCfg(vlanCfgB)},
+		Seeds:  shuffleSlice(rng, seedsB),
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return swA, swB, nil
+}
+
+func comparisonScenario() fabric.Scenario {
+	now := time.Unix(1700000000, 0)
+	testFrame := comparisonFrame()
+	return fabric.Scenario{
+		Name: "comparison-scenario",
+		Actions: []fabric.Action{
+			{
+				ID:   "offer",
+				At:   now,
+				Kind: fabric.ActionInject,
+				Inject: &fabric.Injection{
+					At:     now,
+					Origin: fabric.Endpoint{Node: "h1"},
+					Frame:  testFrame,
+				},
+			},
+		},
+	}
+}
+
+func buildFabricPair(
+	mutateCablesB func([]fabric.Cable) []fabric.Cable,
+	rng *rand.Rand,
+) (*fabric.Fabric, *fabric.Fabric, error) {
+	gigabit := gigabitAuto()
+	testFrame := comparisonFrame()
+	mac1, mac2 := testFrame.Src, testFrame.Dst
+
+	makeFab := func(mutateCables func([]fabric.Cable) []fabric.Cable) (*fabric.Fabric, error) {
+		baseCables := []fabric.Cable{
+			{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
+			{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "h2"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}},
+		}
+		if mutateCables != nil {
+			baseCables = mutateCables(baseCables)
+		}
+
+		portList := []port.Port{
+			{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up},
+			{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up},
+		}
+		for _, c := range baseCables {
+			if c.Fault.Kind == cablemodel.FaultCut {
+				for pi := range portList {
+					if (c.A.Node == "sw1" && c.A.Port == portList[pi].Name) ||
+						(c.B.Node == "sw1" && c.B.Port == portList[pi].Name) {
+						portList[pi].OperStatus = port.Down
+					}
+				}
+			}
+		}
+
+		tbl, err := buildPortTable(portList, rng)
+		if err != nil {
+			return nil, err
+		}
+
+		switches := map[string]vswitch.ConstructionSpec{
+			"sw1": {
+				NodeID: "sw1",
+				Config: vswitch.Config{
+					Ports:  tbl,
+					Bridge: &bridge.Config{},
+					Phy: &phy.Config{
+						Ethernet: shuffleMap(rng, map[string]phy.Ethernet{
+							"1/1/1": gigabit,
+							"1/1/2": gigabit,
+						}),
+					},
+				},
+				Seeds: shuffleSlice(rng, []bridge.Seed{{MAC: mac2, Port: "1/1/2", Lifetime: bridge.Static}}),
+			},
+		}
+
+		hosts := map[string]hostmodel.Config{
+			"h1": {Address: mac1, Ethernet: gigabit},
+			"h2": {Address: mac2, Ethernet: gigabit},
+		}
+
+		cables := shuffleSlice(rng, baseCables)
+
+		spec := assembly.ConstructionSpec{
+			Switches: shuffleMap(rng, switches),
+			Hosts:    shuffleMap(rng, hosts),
+			Cables:   cables,
+		}
+		return assembly.NewWithSpec(spec)
+	}
+
+	fabA, err := makeFab(nil)
+	if err != nil {
+		return nil, nil, err
+	}
+	fabB, err := makeFab(mutateCablesB)
+	if err != nil {
+		return nil, nil, err
+	}
+	return fabA, fabB, nil
+}
+
+func caseComparisonSwitchEquivalentComplete() ComparisonCase {
+	now := time.Unix(1700000000, 0)
+	testFrame := comparisonFrame()
+	c1Seeds := comparisonSwitchSeeds()
+	c1VLAN := comparisonSwitchVLAN()
+
+	c1Ports := []port.Port{
+		{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up},
+		{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up},
+	}
 	c1SwA, c1SwB, err := buildSwitchPair(c1Ports, c1Ports, c1Seeds, c1Seeds, c1VLAN, c1VLAN, nil)
 	mustNil(err)
 	c1InitSpecA, c1InitSpecB := c1SwA.Spec(), c1SwB.Spec()
 	c1InitEntriesA, c1InitEntriesB := c1SwA.Entries(), c1SwB.Entries()
 
-	case1 := ComparisonCase{
+	return ComparisonCase{
 		Name:                "vswitch/equivalent-complete",
 		ExpectedDisposition: analysis.Equivalent,
 		ExpectedObservable:  "",
@@ -170,6 +295,12 @@ func ComparisonCorpus() []ComparisonCase {
 				cmp = vswitch.Compare(swB, swA, now, "1/1/1", testFrame)
 			} else {
 				cmp = vswitch.Compare(swA, swB, now, "1/1/1", testFrame)
+			}
+			if err := validateReceiveResult(cmp.Current.Result); err != nil {
+				return ComparisonResult{}, err
+			}
+			if err := validateReceiveResult(cmp.Expected.Result); err != nil {
+				return ComparisonResult{}, err
 			}
 			return ComparisonResult{
 				Disposition: cmp.Disposition,
@@ -194,8 +325,14 @@ func ComparisonCorpus() []ComparisonCase {
 			return nil
 		},
 	}
+}
 
-	// Case 2: vswitch/port-down-different
+func caseComparisonSwitchPortDownDifferent() ComparisonCase {
+	now := time.Unix(1700000000, 0)
+	testFrame := comparisonFrame()
+	c1Seeds := comparisonSwitchSeeds()
+	c1VLAN := comparisonSwitchVLAN()
+
 	c2PortsA := []port.Port{
 		{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up},
 		{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up},
@@ -209,7 +346,7 @@ func ComparisonCorpus() []ComparisonCase {
 	c2InitSpecA, c2InitSpecB := c2SwA.Spec(), c2SwB.Spec()
 	c2InitEntriesA, c2InitEntriesB := c2SwA.Entries(), c2SwB.Entries()
 
-	case2 := ComparisonCase{
+	return ComparisonCase{
 		Name:                "vswitch/port-down-different",
 		ExpectedDisposition: analysis.Different,
 		ExpectedObservable:  "outcome",
@@ -227,6 +364,12 @@ func ComparisonCorpus() []ComparisonCase {
 				cmp = vswitch.Compare(swB, swA, now, "1/1/1", testFrame)
 			} else {
 				cmp = vswitch.Compare(swA, swB, now, "1/1/1", testFrame)
+			}
+			if err := validateReceiveResult(cmp.Current.Result); err != nil {
+				return ComparisonResult{}, err
+			}
+			if err := validateReceiveResult(cmp.Expected.Result); err != nil {
+				return ComparisonResult{}, err
 			}
 			return ComparisonResult{
 				Disposition: cmp.Disposition,
@@ -251,8 +394,14 @@ func ComparisonCorpus() []ComparisonCase {
 			return nil
 		},
 	}
+}
 
-	// Case 3: vswitch/inconclusive-unknown-status
+func caseComparisonSwitchUnknownStatus() ComparisonCase {
+	now := time.Unix(1700000000, 0)
+	testFrame := comparisonFrame()
+	c1Seeds := comparisonSwitchSeeds()
+	c1VLAN := comparisonSwitchVLAN()
+
 	c3Ports := []port.Port{
 		{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up},
 		{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Unknown},
@@ -262,7 +411,7 @@ func ComparisonCorpus() []ComparisonCase {
 	c3InitSpecA, c3InitSpecB := c3SwA.Spec(), c3SwB.Spec()
 	c3InitEntriesA, c3InitEntriesB := c3SwA.Entries(), c3SwB.Entries()
 
-	case3 := ComparisonCase{
+	return ComparisonCase{
 		Name:                "vswitch/inconclusive-unknown-status",
 		ExpectedDisposition: analysis.Inconclusive,
 		ExpectedObservable:  "",
@@ -280,6 +429,12 @@ func ComparisonCorpus() []ComparisonCase {
 				cmp = vswitch.Compare(swB, swA, now, "1/1/1", testFrame)
 			} else {
 				cmp = vswitch.Compare(swA, swB, now, "1/1/1", testFrame)
+			}
+			if err := validateReceiveResult(cmp.Current.Result); err != nil {
+				return ComparisonResult{}, err
+			}
+			if err := validateReceiveResult(cmp.Expected.Result); err != nil {
+				return ComparisonResult{}, err
 			}
 			return ComparisonResult{
 				Disposition: cmp.Disposition,
@@ -304,110 +459,19 @@ func ComparisonCorpus() []ComparisonCase {
 			return nil
 		},
 	}
+}
 
-	// Fabric helpers
-	gigabit := gigabitAuto()
-	fabScenario := fabric.Scenario{
-		Name: "comparison-scenario",
-		Actions: []fabric.Action{
-			{
-				At:   now,
-				Kind: fabric.ActionInject,
-				Inject: &fabric.Injection{
-					At:     now,
-					Origin: fabric.Endpoint{Node: "h1"},
-					Frame:  testFrame,
-				},
-			},
-		},
-		Budget: 50,
-	}
+func caseComparisonFabricEquivalentComplete() ComparisonCase {
+	fabScenario := comparisonScenario()
 
-	buildFabricPair := func(
-		mutateCablesB func([]fabric.Cable) []fabric.Cable,
-		rng *rand.Rand,
-	) (*fabric.Fabric, *fabric.Fabric, error) {
-		makeFab := func(mutateCables func([]fabric.Cable) []fabric.Cable) (*fabric.Fabric, error) {
-			baseCables := []fabric.Cable{
-				{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, Medium: fabric.TwistedPair},
-				{A: fabric.Endpoint{Node: "h2"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, Medium: fabric.TwistedPair},
-			}
-			if mutateCables != nil {
-				baseCables = mutateCables(baseCables)
-			}
-
-			portList := []port.Port{
-				{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up},
-				{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up},
-			}
-			for _, c := range baseCables {
-				if c.Fault.Kind == fabric.FaultCut {
-					for pi := range portList {
-						if (c.A.Node == "sw1" && c.A.Port == portList[pi].Name) ||
-							(c.B.Node == "sw1" && c.B.Port == portList[pi].Name) {
-							portList[pi].OperStatus = port.Down
-						}
-					}
-				}
-			}
-
-			tbl, err := buildPortTable(portList, rng)
-			if err != nil {
-				return nil, err
-			}
-
-			switches := map[string]vswitch.ConstructionSpec{
-				"sw1": {
-					NodeID: "sw1",
-					Config: vswitch.Config{
-						Ports:  tbl,
-						Bridge: &bridge.Config{},
-						Phy: &phy.Config{
-							Ethernet: shuffleMap(rng, map[string]phy.Ethernet{
-								"1/1/1": gigabit,
-								"1/1/2": gigabit,
-							}),
-						},
-					},
-					Seeds: shuffleSlice(rng, []bridge.Seed{{MAC: mac2, Port: "1/1/2", Lifetime: bridge.Static}}),
-				},
-			}
-
-			hosts := map[string]fabric.Host{
-				"h1": {Address: mac1, Ethernet: gigabit},
-				"h2": {Address: mac2, Ethernet: gigabit},
-			}
-
-			cables := shuffleSlice(rng, baseCables)
-
-			spec := fabric.ConstructionSpec{
-				Switches: shuffleMap(rng, switches),
-				Hosts:    shuffleMap(rng, hosts),
-				Cables:   cables,
-			}
-			return fabric.NewWithSpec(spec)
-		}
-
-		fabA, err := makeFab(nil)
-		if err != nil {
-			return nil, nil, err
-		}
-		fabB, err := makeFab(mutateCablesB)
-		if err != nil {
-			return nil, nil, err
-		}
-		return fabA, fabB, nil
-	}
-
-	// Case 4: fabric/equivalent-complete
 	c4FabA, c4FabB, err := buildFabricPair(nil, nil)
 	mustNil(err)
-	c4ClockA, c4ClockB := c4FabA.Snapshot().Clock, c4FabB.Snapshot().Clock
+	c4ClockA, c4ClockB := c4FabA.Clock(), c4FabB.Clock()
 	c4ReportA, c4ReportB := c4FabA.Report(), c4FabB.Report()
 	c4LinksA, c4LinksB := c4FabA.Links(), c4FabB.Links()
-	c4SpecA, c4SpecB := c4FabA.Spec(), c4FabB.Spec()
+	c4SpecA, c4SpecB := assembly.Spec(c4FabA), assembly.Spec(c4FabB)
 
-	case4 := ComparisonCase{
+	return ComparisonCase{
 		Name:                "fabric/equivalent-complete",
 		ExpectedDisposition: analysis.Equivalent,
 		ExpectedObservable:  "",
@@ -422,9 +486,15 @@ func ComparisonCorpus() []ComparisonCase {
 			}
 			var cmp fabric.Comparison
 			if candidateFirst {
-				cmp = fabric.Compare(fabB, fabA, fabScenario, 50)
+				cmp = fabric.Compare(fabB, fabA, fabScenario, fabric.RunOptions{Budget: 50, Window: 0})
 			} else {
-				cmp = fabric.Compare(fabA, fabB, fabScenario, 50)
+				cmp = fabric.Compare(fabA, fabB, fabScenario, fabric.RunOptions{Budget: 50, Window: 0})
+			}
+			if err := validateReceiveReport(cmp.Current); err != nil {
+				return ComparisonResult{}, err
+			}
+			if err := validateReceiveReport(cmp.Expected); err != nil {
+				return ComparisonResult{}, err
 			}
 			if cmp.Err != nil {
 				return ComparisonResult{}, cmp.Err
@@ -437,11 +507,11 @@ func ComparisonCorpus() []ComparisonCase {
 			}, nil
 		},
 		VerifyNonConsuming: func() error {
-			if !c4FabA.Snapshot().Clock.Equal(c4ClockA) {
-				return errs.Msgf("c4FabA clock advanced from %v to %v", c4ClockA, c4FabA.Snapshot().Clock)
+			if !c4FabA.Clock().Equal(c4ClockA) {
+				return errs.Msgf("c4FabA clock advanced from %v to %v", c4ClockA, c4FabA.Clock())
 			}
-			if !c4FabB.Snapshot().Clock.Equal(c4ClockB) {
-				return errs.Msgf("c4FabB clock advanced from %v to %v", c4ClockB, c4FabB.Snapshot().Clock)
+			if !c4FabB.Clock().Equal(c4ClockB) {
+				return errs.Msgf("c4FabB clock advanced from %v to %v", c4ClockB, c4FabB.Clock())
 			}
 			if !reflect.DeepEqual(c4FabA.Report(), c4ReportA) {
 				return errs.Msg("c4FabA report mutated")
@@ -455,35 +525,38 @@ func ComparisonCorpus() []ComparisonCase {
 			if !reflect.DeepEqual(c4FabB.Links(), c4LinksB) {
 				return errs.Msg("c4FabB links mutated")
 			}
-			if !reflect.DeepEqual(c4FabA.Spec(), c4SpecA) {
+			if !reflect.DeepEqual(assembly.Spec(c4FabA), c4SpecA) {
 				return errs.Msg("c4FabA spec mutated")
 			}
-			if !reflect.DeepEqual(c4FabB.Spec(), c4SpecB) {
+			if !reflect.DeepEqual(assembly.Spec(c4FabB), c4SpecB) {
 				return errs.Msg("c4FabB spec mutated")
 			}
 			return nil
 		},
 	}
+}
 
-	// Case 5: fabric/cable-cut-different
+func caseComparisonFabricCableCutDifferent() ComparisonCase {
+	fabScenario := comparisonScenario()
+
 	cutCableMutation := func(cables []fabric.Cable) []fabric.Cable {
 		res := make([]fabric.Cable, len(cables))
 		copy(res, cables)
 		for i := range res {
 			if res[i].A.Node == "h2" || res[i].B.Node == "h2" {
-				res[i].Fault = fabric.Fault{Kind: fabric.FaultCut}
+				res[i].Fault = cablemodel.Fault{Kind: cablemodel.FaultCut}
 			}
 		}
 		return res
 	}
 	c5FabA, c5FabB, err := buildFabricPair(cutCableMutation, nil)
 	mustNil(err)
-	c5ClockA, c5ClockB := c5FabA.Snapshot().Clock, c5FabB.Snapshot().Clock
+	c5ClockA, c5ClockB := c5FabA.Clock(), c5FabB.Clock()
 	c5ReportA, c5ReportB := c5FabA.Report(), c5FabB.Report()
 	c5LinksA, c5LinksB := c5FabA.Links(), c5FabB.Links()
-	c5SpecA, c5SpecB := c5FabA.Spec(), c5FabB.Spec()
+	c5SpecA, c5SpecB := assembly.Spec(c5FabA), assembly.Spec(c5FabB)
 
-	case5 := ComparisonCase{
+	return ComparisonCase{
 		Name:                "fabric/cable-cut-different",
 		ExpectedDisposition: analysis.Different,
 		ExpectedObservable:  "journey terminal",
@@ -498,9 +571,15 @@ func ComparisonCorpus() []ComparisonCase {
 			}
 			var cmp fabric.Comparison
 			if candidateFirst {
-				cmp = fabric.Compare(fabB, fabA, fabScenario, 50)
+				cmp = fabric.Compare(fabB, fabA, fabScenario, fabric.RunOptions{Budget: 50, Window: 0})
 			} else {
-				cmp = fabric.Compare(fabA, fabB, fabScenario, 50)
+				cmp = fabric.Compare(fabA, fabB, fabScenario, fabric.RunOptions{Budget: 50, Window: 0})
+			}
+			if err := validateReceiveReport(cmp.Current); err != nil {
+				return ComparisonResult{}, err
+			}
+			if err := validateReceiveReport(cmp.Expected); err != nil {
+				return ComparisonResult{}, err
 			}
 			if cmp.Err != nil {
 				return ComparisonResult{}, cmp.Err
@@ -513,10 +592,10 @@ func ComparisonCorpus() []ComparisonCase {
 			}, nil
 		},
 		VerifyNonConsuming: func() error {
-			if !c5FabA.Snapshot().Clock.Equal(c5ClockA) {
+			if !c5FabA.Clock().Equal(c5ClockA) {
 				return errs.Msg("c5FabA clock advanced")
 			}
-			if !c5FabB.Snapshot().Clock.Equal(c5ClockB) {
+			if !c5FabB.Clock().Equal(c5ClockB) {
 				return errs.Msg("c5FabB clock advanced")
 			}
 			if !reflect.DeepEqual(c5FabA.Report(), c5ReportA) {
@@ -531,35 +610,38 @@ func ComparisonCorpus() []ComparisonCase {
 			if !reflect.DeepEqual(c5FabB.Links(), c5LinksB) {
 				return errs.Msg("c5FabB links mutated")
 			}
-			if !reflect.DeepEqual(c5FabA.Spec(), c5SpecA) {
+			if !reflect.DeepEqual(assembly.Spec(c5FabA), c5SpecA) {
 				return errs.Msg("c5FabA spec mutated")
 			}
-			if !reflect.DeepEqual(c5FabB.Spec(), c5SpecB) {
+			if !reflect.DeepEqual(assembly.Spec(c5FabB), c5SpecB) {
 				return errs.Msg("c5FabB spec mutated")
 			}
 			return nil
 		},
 	}
+}
 
-	// Case 6: fabric/medium-path-different
+func caseComparisonFabricMediumPathDifferent() ComparisonCase {
+	fabScenario := comparisonScenario()
+
 	mediumMutation := func(cables []fabric.Cable) []fabric.Cable {
 		res := make([]fabric.Cable, len(cables))
 		copy(res, cables)
 		for i := range res {
 			if res[i].A.Node == "h2" || res[i].B.Node == "h2" {
-				res[i].Medium = fabric.SinglemodeFiber
+				res[i].Medium = cablemodel.SinglemodeFiber
 			}
 		}
 		return res
 	}
 	c6FabA, c6FabB, err := buildFabricPair(mediumMutation, nil)
 	mustNil(err)
-	c6ClockA, c6ClockB := c6FabA.Snapshot().Clock, c6FabB.Snapshot().Clock
+	c6ClockA, c6ClockB := c6FabA.Clock(), c6FabB.Clock()
 	c6ReportA, c6ReportB := c6FabA.Report(), c6FabB.Report()
 	c6LinksA, c6LinksB := c6FabA.Links(), c6FabB.Links()
-	c6SpecA, c6SpecB := c6FabA.Spec(), c6FabB.Spec()
+	c6SpecA, c6SpecB := assembly.Spec(c6FabA), assembly.Spec(c6FabB)
 
-	case6 := ComparisonCase{
+	return ComparisonCase{
 		Name:                "fabric/medium-path-different",
 		ExpectedDisposition: analysis.Different,
 		ExpectedObservable:  "path",
@@ -574,9 +656,15 @@ func ComparisonCorpus() []ComparisonCase {
 			}
 			var cmp fabric.Comparison
 			if candidateFirst {
-				cmp = fabric.Compare(fabB, fabA, fabScenario, 50)
+				cmp = fabric.Compare(fabB, fabA, fabScenario, fabric.RunOptions{Budget: 50, Window: 0})
 			} else {
-				cmp = fabric.Compare(fabA, fabB, fabScenario, 50)
+				cmp = fabric.Compare(fabA, fabB, fabScenario, fabric.RunOptions{Budget: 50, Window: 0})
+			}
+			if err := validateReceiveReport(cmp.Current); err != nil {
+				return ComparisonResult{}, err
+			}
+			if err := validateReceiveReport(cmp.Expected); err != nil {
+				return ComparisonResult{}, err
 			}
 			if cmp.Err != nil {
 				return ComparisonResult{}, cmp.Err
@@ -589,10 +677,10 @@ func ComparisonCorpus() []ComparisonCase {
 			}, nil
 		},
 		VerifyNonConsuming: func() error {
-			if !c6FabA.Snapshot().Clock.Equal(c6ClockA) {
+			if !c6FabA.Clock().Equal(c6ClockA) {
 				return errs.Msg("c6FabA clock advanced")
 			}
-			if !c6FabB.Snapshot().Clock.Equal(c6ClockB) {
+			if !c6FabB.Clock().Equal(c6ClockB) {
 				return errs.Msg("c6FabB clock advanced")
 			}
 			if !reflect.DeepEqual(c6FabA.Report(), c6ReportA) {
@@ -607,25 +695,28 @@ func ComparisonCorpus() []ComparisonCase {
 			if !reflect.DeepEqual(c6FabB.Links(), c6LinksB) {
 				return errs.Msg("c6FabB links mutated")
 			}
-			if !reflect.DeepEqual(c6FabA.Spec(), c6SpecA) {
+			if !reflect.DeepEqual(assembly.Spec(c6FabA), c6SpecA) {
 				return errs.Msg("c6FabA spec mutated")
 			}
-			if !reflect.DeepEqual(c6FabB.Spec(), c6SpecB) {
+			if !reflect.DeepEqual(assembly.Spec(c6FabB), c6SpecB) {
 				return errs.Msg("c6FabB spec mutated")
 			}
 			return nil
 		},
 	}
+}
 
-	// Case 7: fabric/inconclusive-budget-exhausted
+func caseComparisonFabricBudgetExhausted() ComparisonCase {
+	fabScenario := comparisonScenario()
+
 	c7FabA, c7FabB, err := buildFabricPair(nil, nil)
 	mustNil(err)
-	c7ClockA, c7ClockB := c7FabA.Snapshot().Clock, c7FabB.Snapshot().Clock
+	c7ClockA, c7ClockB := c7FabA.Clock(), c7FabB.Clock()
 	c7ReportA, c7ReportB := c7FabA.Report(), c7FabB.Report()
 	c7LinksA, c7LinksB := c7FabA.Links(), c7FabB.Links()
-	c7SpecA, c7SpecB := c7FabA.Spec(), c7FabB.Spec()
+	c7SpecA, c7SpecB := assembly.Spec(c7FabA), assembly.Spec(c7FabB)
 
-	case7 := ComparisonCase{
+	return ComparisonCase{
 		Name:                "fabric/inconclusive-budget-exhausted",
 		ExpectedDisposition: analysis.Inconclusive,
 		ExpectedObservable:  "",
@@ -640,9 +731,15 @@ func ComparisonCorpus() []ComparisonCase {
 			}
 			var cmp fabric.Comparison
 			if candidateFirst {
-				cmp = fabric.Compare(fabB, fabA, fabScenario, 1)
+				cmp = fabric.Compare(fabB, fabA, fabScenario, fabric.RunOptions{Budget: 1, Window: 0})
 			} else {
-				cmp = fabric.Compare(fabA, fabB, fabScenario, 1)
+				cmp = fabric.Compare(fabA, fabB, fabScenario, fabric.RunOptions{Budget: 1, Window: 0})
+			}
+			if err := validateReceiveReport(cmp.Current); err != nil {
+				return ComparisonResult{}, err
+			}
+			if err := validateReceiveReport(cmp.Expected); err != nil {
+				return ComparisonResult{}, err
 			}
 			if cmp.Err != nil {
 				return ComparisonResult{}, cmp.Err
@@ -655,10 +752,10 @@ func ComparisonCorpus() []ComparisonCase {
 			}, nil
 		},
 		VerifyNonConsuming: func() error {
-			if !c7FabA.Snapshot().Clock.Equal(c7ClockA) {
+			if !c7FabA.Clock().Equal(c7ClockA) {
 				return errs.Msg("c7FabA clock advanced")
 			}
-			if !c7FabB.Snapshot().Clock.Equal(c7ClockB) {
+			if !c7FabB.Clock().Equal(c7ClockB) {
 				return errs.Msg("c7FabB clock advanced")
 			}
 			if !reflect.DeepEqual(c7FabA.Report(), c7ReportA) {
@@ -673,23 +770,13 @@ func ComparisonCorpus() []ComparisonCase {
 			if !reflect.DeepEqual(c7FabB.Links(), c7LinksB) {
 				return errs.Msg("c7FabB links mutated")
 			}
-			if !reflect.DeepEqual(c7FabA.Spec(), c7SpecA) {
+			if !reflect.DeepEqual(assembly.Spec(c7FabA), c7SpecA) {
 				return errs.Msg("c7FabA spec mutated")
 			}
-			if !reflect.DeepEqual(c7FabB.Spec(), c7SpecB) {
+			if !reflect.DeepEqual(assembly.Spec(c7FabB), c7SpecB) {
 				return errs.Msg("c7FabB spec mutated")
 			}
 			return nil
 		},
-	}
-
-	return []ComparisonCase{
-		case1,
-		case2,
-		case3,
-		case4,
-		case5,
-		case6,
-		case7,
 	}
 }

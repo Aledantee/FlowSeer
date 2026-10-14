@@ -2,17 +2,26 @@ package fabric_test
 
 import (
 	"net/netip"
+	"reflect"
 	"slices"
 	"testing"
+
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
+	reflectormodel "go.aledante.io/FlowSeer/src/common/sim/device/reflector"
+
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
+	"go.aledante.io/FlowSeer/src/common/sim/device"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
@@ -39,7 +48,7 @@ func journeyFabric(t *testing.T, seedH2 bool) *fabric.Fabric {
 	observed := autoEthernet(1_000_000_000)
 	observed.Observed = &phy.Observed{SpeedBPS: 1_000_000_000, Duplex: phy.Full}
 
-	spec := constructionSpec(fabric.Config{
+	spec := constructionSpec(assembly.Config{
 		Switches: map[string]vswitch.Config{
 			"sw1": {
 				Ports:  mustTable(t, port.NewBuilder().Range("1/1/%d", 1, 3, port.Port{Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})),
@@ -47,15 +56,15 @@ func journeyFabric(t *testing.T, seedH2 bool) *fabric.Fabric {
 				Phy:    &phy.Config{Ethernet: map[string]phy.Ethernet{"1/1/1": gigabit, "1/1/2": observed, "1/1/3": gigabit}},
 			},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: journeyH1, Ethernet: gigabit},
 			"h2": {Address: journeyH2, Ethernet: observed},
 			"h3": {Address: netaddr.MAC{0x02, 0, 0, 0, 1, 0x03}},
 		},
 		Cables: []fabric.Cable{
-			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, Medium: fabric.TwistedPair},
-			{A: fabric.Endpoint{Node: "h2"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, LengthMeters: 2},
-			{A: fabric.Endpoint{Node: "h3"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/3"}, Medium: fabric.TwistedPair},
+			{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
+			{Cable: cablemodel.Cable{LengthMeters: 2}, A: fabric.Endpoint{Node: "h2"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}},
+			{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "h3"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/3"}},
 		},
 	})
 	if seedH2 {
@@ -63,7 +72,7 @@ func journeyFabric(t *testing.T, seedH2 bool) *fabric.Fabric {
 		sw1.Seeds = []bridge.Seed{{MAC: journeyH2, Port: "1/1/2", Lifetime: bridge.Static}}
 		spec.Switches["sw1"] = sw1
 	}
-	fab, err := fabric.NewWithSpec(spec)
+	fab, err := assembly.NewWithSpec(spec)
 	if err != nil {
 		t.Fatalf("NewWithSpec: %v", err)
 	}
@@ -74,14 +83,14 @@ func journeyFabric(t *testing.T, seedH2 bool) *fabric.Fabric {
 func sendH1ToH2(t *testing.T, fab *fabric.Fabric) fabric.Journey {
 	t.Helper()
 	fid, err := fab.Inject(fabric.Injection{
-		At:     fab.Snapshot().Clock,
+		At:     fab.Clock(),
 		Origin: fabric.Endpoint{Node: "h1"},
 		Frame:  ethernet.Frame{Dst: journeyH2, Src: journeyH1, EtherType: ethernet.EtherTypeIPv4},
 	})
 	if err != nil {
 		t.Fatalf("Inject: %v", err)
 	}
-	fab.Run(10)
+	fab.Run(fabric.RunOptions{Budget: 10, Window: 0})
 
 	return fab.Report()[fid-1]
 }
@@ -107,7 +116,7 @@ func TestJourneyMetadataHoldsTheIssuesOfWhatItCrossed(t *testing.T) {
 	if got := meta.Scope(); got.Compare(analysis.WholeScope()) != 0 {
 		t.Errorf("journey metadata scope = %s, want the whole analysis", got)
 	}
-	if !hasIssue(meta.IssuesFor(analysis.LinkScope(h2LinkKey)), fabric.IssuePropagationUnknown) {
+	if !hasIssue(meta.IssuesFor(analysis.LinkScope(h2LinkKey)), cablemodel.IssuePropagationUnknown) {
 		t.Errorf("journey issues = %+v, want propagation-unknown on the crossed h2 link", meta.Issues())
 	}
 	if got := meta.IssuesFor(analysis.LinkScope(h3LinkKey)); len(got) != 0 {
@@ -124,7 +133,7 @@ func TestJourneyMetadataHoldsTheIssuesOfWhatItCrossed(t *testing.T) {
 	}
 
 	before := meta.Issues()
-	if err := fab.SetFault(fabric.Endpoint{Node: "h2"}, fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, fabric.Fault{Kind: fabric.FaultCut}); err != nil {
+	if err := fab.SetFault(fabric.Endpoint{Node: "h2"}, fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, cablemodel.Fault{Kind: cablemodel.FaultCut}); err != nil {
 		t.Fatalf("SetFault: %v", err)
 	}
 	if got := fab.Metadata().IssuesFor(analysis.LinkScope(h2LinkKey)); len(got) != 0 {
@@ -148,7 +157,7 @@ func TestSwitchOriginInjectionEntryCarriesItsPortAndCable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inject: %v", err)
 	}
-	fab.Run(10)
+	fab.Run(fabric.RunOptions{Budget: 10, Window: 0})
 
 	injection := fab.Report()[fid-1].Entries[0]
 	if injection.Port != "1/1/1" || injection.Cable == nil || injection.Cable.B != (fabric.Endpoint{Node: "sw1", Port: "1/1/1"}) {
@@ -164,29 +173,29 @@ func TestSwitchOriginInjectionEntryCarriesItsPortAndCable(t *testing.T) {
 // source of the issue in the copy's journey, unlike a copy that is also
 // delivered over the same cable and could pick the issue up from either
 // side.
-func reflectMetadataConfig(t *testing.T) fabric.Config {
+func reflectMetadataConfig(t *testing.T) assembly.Config {
 	t.Helper()
 	gigabit := autoEthernet(1_000_000_000)
 	vid10, vid20 := vlan.ID(10), vlan.ID(20)
 
-	return fabric.Config{
-		Hosts: map[string]fabric.Host{
+	return assembly.Config{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: reflectH1Address, VLAN: &vid10, Ethernet: gigabit},
 			"h2": {Address: reflectH2Address, VLAN: &vid20},
 		},
-		Reflectors: map[string]fabric.Reflector{
+		Reflectors: map[string]reflectormodel.Config{
 			"r1": {
 				Address: reflectR1Address,
 				Ports:   map[string]phy.Ethernet{"rp1": gigabit, "rp2": {}},
-				Attachments: map[string]fabric.Attachment{
+				Attachments: map[string]reflectormodel.Attachment{
 					"a": {Port: "rp1", VLAN: &vid10, Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.9/24")}},
 					"b": {Port: "rp2", VLAN: &vid20, Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.20.9/24")}},
 				},
 			},
 		},
 		Cables: []fabric.Cable{
-			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "r1", Port: "rp1"}, Medium: fabric.TwistedPair},
-			{A: fabric.Endpoint{Node: "h2"}, B: fabric.Endpoint{Node: "r1", Port: "rp2"}, LengthMeters: 2},
+			{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "r1", Port: "rp1"}},
+			{Cable: cablemodel.Cable{LengthMeters: 2}, A: fabric.Endpoint{Node: "h2"}, B: fabric.Endpoint{Node: "r1", Port: "rp2"}},
 		},
 	}
 }
@@ -196,7 +205,7 @@ func reflectMetadataConfig(t *testing.T) fabric.Config {
 // host delivery's journey does, because both go through the same generic
 // [Fabric.record] dependency fold rather than a reflector-specific path.
 func TestReflectedCopyJourneyFoldsItsCableMetadata(t *testing.T) {
-	fab, err := fabric.NewWithSpec(constructionSpec(reflectMetadataConfig(t)))
+	fab, err := assembly.NewWithSpec(constructionSpec(reflectMetadataConfig(t)))
 	if err != nil {
 		t.Fatalf("NewWithSpec: %v", err)
 	}
@@ -209,16 +218,16 @@ func TestReflectedCopyJourneyFoldsItsCableMetadata(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inject: %v", err)
 	}
-	fab.Run(20)
+	fab.Run(fabric.RunOptions{Budget: 20, Window: 0})
 
 	var copyJourney fabric.Journey
 	for _, j := range fab.Report() {
-		if j.Origin.Kind == fabric.OriginMirror && j.Origin.Of == parentID {
+		if j.Origin.Kind == fabric.OriginReflection && j.Origin.Of == parentID {
 			copyJourney = j
 		}
 	}
 	if copyJourney.FrameID == 0 {
-		t.Fatalf("no copy journey found with OriginMirror of parent %d", parentID)
+		t.Fatalf("no copy journey found with OriginReflection of parent %d", parentID)
 	}
 	if len(copyJourney.Deliveries) != 0 {
 		t.Fatalf("copy deliveries = %+v, want none: the egress link to h2 is Unknown", copyJourney.Deliveries)
@@ -232,7 +241,7 @@ func TestFloodJourneyCarriesTheIssueOfAConsultedPortItDidNotEgress(t *testing.T)
 	fab := journeyFabric(t, false)
 
 	journey := sendH1ToH2(t, fab)
-	var hop *vswitch.ForwardResult
+	var hop *device.Result
 	for _, entry := range journey.Entries {
 		if entry.Kind == fabric.EntryHop {
 			hop = entry.Result
@@ -241,7 +250,7 @@ func TestFloodJourneyCarriesTheIssueOfAConsultedPortItDidNotEgress(t *testing.T)
 	if hop == nil || hop.Outcome != trace.Flooded {
 		t.Fatalf("entries = %+v, want a flooding hop", journey.Entries)
 	}
-	if slices.ContainsFunc(hop.Egress, func(e bridge.Egress) bool { return e.Port == "1/1/3" }) {
+	if slices.ContainsFunc(hop.Egress, func(e device.Egress) bool { return e.Port == "1/1/3" }) {
 		t.Fatalf("flood egress = %+v, want nothing onto the Unknown port 1/1/3", hop.Egress)
 	}
 	if !slices.ContainsFunc(hop.ConsultedPorts(), func(p port.Port) bool { return p.Name == "1/1/3" }) {
@@ -250,5 +259,37 @@ func TestFloodJourneyCarriesTheIssueOfAConsultedPortItDidNotEgress(t *testing.T)
 
 	if !hasIssue(journey.Metadata.IssuesFor(analysis.LinkScope(h3LinkKey)), analysis.IssueCode(phy.ReasonCapabilityUnknown)) {
 		t.Errorf("journey issues = %+v, want capability-unknown on the consulted h3 link", journey.Metadata.Issues())
+	}
+}
+
+func TestReportCopiesConsultedDependencies(t *testing.T) {
+	for _, field := range []string{"ports", "scopes"} {
+		t.Run(field, func(t *testing.T) {
+			fab := journeyFabric(t, false)
+			journey := sendH1ToH2(t, fab)
+			index := -1
+			for i, entry := range journey.Entries {
+				if entry.Kind == fabric.EntryHop {
+					index = i
+				}
+			}
+			if index < 0 {
+				t.Fatal("journey has no forwarding hop")
+			}
+			hop := journey.Entries[index].Result
+			ports, scopes := hop.ConsultedPorts(), hop.ConsultedScopes()
+			if hop.Outcome != trace.Flooded || !slices.ContainsFunc(ports, func(p port.Port) bool { return p.Name == "1/1/1" }) || len(scopes) == 0 {
+				t.Fatalf("hop = %+v, want flood with ingress dependency and consulted scopes", hop)
+			}
+			if field == "ports" {
+				hop.PortDependencies[0].Name = "mutated"
+			} else {
+				hop.ScopeDependencies[0] = analysis.NodeScope("mutated")
+			}
+			fresh := fab.Report()[journey.FrameID-1].Entries[index].Result
+			if !reflect.DeepEqual(fresh.ConsultedPorts(), ports) || !reflect.DeepEqual(fresh.ConsultedScopes(), scopes) {
+				t.Fatalf("report dependencies = %v/%v, want unchanged %v/%v", fresh.ConsultedPorts(), fresh.ConsultedScopes(), ports, scopes)
+			}
+		})
 	}
 }

@@ -23,7 +23,8 @@ type Record struct {
 }
 
 // Validate ensures the record's endpoints and payloads are well-formed.
-// If raw Bytes are provided, they must be decodable as an Ethernet frame.
+// Raw Bytes must decode as Ethernet and agree with Frame when both are supplied.
+// A zero length is unset, and CapturedLen cannot exceed a set OriginalLen.
 func (r Record) Validate() error {
 	if r.Origin.Node == "" {
 		return errs.Msg("record origin node cannot be empty")
@@ -35,6 +36,15 @@ func (r Record) Validate() error {
 		if _, err := ethernet.Decode(r.Bytes); err != nil {
 			return errs.Wrap(err, "decode record bytes")
 		}
+		if r.Frame != nil {
+			encoded, err := r.Frame.Encode()
+			if err != nil {
+				return errs.Wrap(err, "encode record frame")
+			}
+			if !bytes.Equal(encoded, r.Bytes) {
+				return errs.Msg("record Frame does not encode to Bytes")
+			}
+		}
 	}
 	if r.CapturedLen < 0 {
 		return errs.Msgf("record CapturedLen cannot be negative, got %d", r.CapturedLen)
@@ -42,10 +52,14 @@ func (r Record) Validate() error {
 	if r.OriginalLen < 0 {
 		return errs.Msgf("record OriginalLen cannot be negative, got %d", r.OriginalLen)
 	}
+	if r.OriginalLen != 0 && r.CapturedLen > r.OriginalLen {
+		return errs.Msgf("record CapturedLen %d exceeds OriginalLen %d", r.CapturedLen, r.OriginalLen)
+	}
 	return nil
 }
 
 // Normalize ensures Frame is decoded from Bytes if omitted and default lengths are populated.
+// It refuses a record whose defaulted CapturedLen exceeds a set OriginalLen.
 func (r Record) Normalize() (Record, error) {
 	if err := r.Validate(); err != nil {
 		return Record{}, err
@@ -72,13 +86,19 @@ func (r Record) Normalize() (Record, error) {
 	if cp.OriginalLen == 0 {
 		cp.OriginalLen = cp.CapturedLen
 	}
+	if err := cp.Validate(); err != nil {
+		return Record{}, err
+	}
 	return cp, nil
 }
 
-// Clone returns an independent deep copy of the Record.
-// Bytes are cloned, while Frame payloads are shared per immutability conventions.
+// Clone copies Bytes and the Frame value into independent storage.
+// Frame tags and payloads remain shared under the Ethernet immutability contract.
 func (r Record) Clone() Record {
 	cp := r
+	if r.Frame != nil {
+		cp.Frame = new(*r.Frame)
+	}
 	if len(r.Bytes) > 0 {
 		cp.Bytes = slices.Clone(r.Bytes)
 	}

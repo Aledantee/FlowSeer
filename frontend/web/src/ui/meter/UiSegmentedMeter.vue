@@ -105,6 +105,32 @@ const total = computed(() =>
   normalizedSegments.value.reduce((sum, s) => sum + s.count, 0),
 )
 
+const displaySegments = computed<MeterSegment[]>(() => {
+  if (total.value <= 0) return []
+
+  const ticks = Math.min(100, Math.max(1, Math.round(total.value)))
+  const allocations = normalizedSegments.value.map((segment, index) => {
+    const ideal = (segment.count / total.value) * ticks
+    const count = Math.floor(ideal)
+    return { segment, index, count, remainder: ideal - count }
+  })
+  const remainderOrder = allocations
+    .filter(({ segment }) => segment.count > 0)
+    .sort((a, b) => b.remainder - a.remainder || a.index - b.index)
+
+  let unallocated =
+    ticks - allocations.reduce((sum, item) => sum + item.count, 0)
+  for (const item of remainderOrder) {
+    if (unallocated === 0) break
+    item.count++
+    unallocated--
+  }
+
+  return allocations.flatMap(({ segment, count }) =>
+    Array.from({ length: count }, () => segment),
+  )
+})
+
 const summary = computed(() => {
   // Truthiness on purpose: the summary is the role="img" track's only name, and
   // an empty one fails axe's role-img-alt, so an empty label falls back.
@@ -141,22 +167,17 @@ function getToneClass(tone: SegmentTone): string {
     <div
       role="img"
       :aria-label="summary"
-      class="flex h-1.5 w-full overflow-hidden rounded-full bg-subtle gap-0.5"
+      class="grid h-2 w-full overflow-hidden bg-subtle gap-0.5"
+      :style="{
+        gridTemplateColumns: `repeat(${Math.max(1, displaySegments.length)}, minmax(0, 1fr))`,
+      }"
     >
-      <template v-if="total > 0">
-        <template v-for="seg in normalizedSegments" :key="seg.label">
-          <span
-            v-if="seg.count > 0"
-            :class="[
-              'health-segment h-full transition-all',
-              getToneClass(seg.tone),
-            ]"
-            :style="{ flexGrow: seg.count }"
-            :title="formatSegmentText(seg.count, seg.label)"
-          />
-        </template>
-      </template>
-      <span v-else class="health-segment empty h-full w-full bg-subtle" />
+      <span
+        v-for="(seg, index) in displaySegments"
+        :key="`${seg.label}-${index}`"
+        :class="['health-segment h-full', getToneClass(seg.tone)]"
+      />
+      <span v-if="total === 0" class="health-segment empty h-full bg-subtle" />
     </div>
 
     <ul

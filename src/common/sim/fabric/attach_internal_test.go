@@ -1,4 +1,4 @@
-package fabric
+package fabric_test
 
 import (
 	"reflect"
@@ -7,48 +7,37 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
+	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+	"go.aledante.io/FlowSeer/src/common/sim/fabric"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
+	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/stream"
 )
 
 type scriptedSource struct {
 	offsets []time.Duration
 	n       int
-}
-
-func init() {
-	fabricFieldClasses["attachments"] = classDeepCopied
-	fabricFieldClasses["pendingHosts"] = classDeepCopied
-	fabricDeepCopiedProbes["attachments"] = probeFabricAttachments
-	fabricDeepCopiedProbes["pendingHosts"] = probeFabricPendingHosts
+	invalid bool
 }
 
 func probeFabricAttachments(t *testing.T) {
 	fab := newTestFabricForFork(t)
-	fab.attachments = []attachedSource{{
-		attachment: StreamAttachment{Source: &scriptedSource{offsets: []time.Duration{time.Microsecond}}},
-		frame:      ethernet.Frame{Payload: []byte{1}},
-		peeked:     true,
-	}}
+	(*fabric.ExportFabricAttachments(fab)) = []fabric.ExportAttachedSource{fabric.MakeTestAttachedSource(fabric.ExportAttachedSourceFields{
+		Attachment: fabric.StreamAttachment{Source: &scriptedSource{offsets: []time.Duration{time.Microsecond}}},
+		Frame:      ethernet.Frame{Payload: []byte{1}},
+		Peeked:     true,
+	})}
 	fork := fab.Fork()
-	fork.attachments[0].frame.Payload[0] = 2
-	if got := fab.attachments[0].frame.Payload[0]; got != 1 {
-		t.Errorf("source peek payload = %d, want 1", got)
+	fabric.ExportAttachedSourceFrame(&(*fabric.ExportFabricAttachments(fork))[0]).Src[0] = 9
+	if fabric.ExportAttachedSourceFrame(&(*fabric.ExportFabricAttachments(fab))[0]).Src[0] != 0 {
+		t.Error("source peek frame value changed through fork")
 	}
-	if _, _, ok := fork.attachments[0].attachment.Source.Next(); !ok {
+	if _, _, ok := fabric.ExportAttachedSourceAttachment(&(*fabric.ExportFabricAttachments(fork))[0]).Source.Next(); !ok {
 		t.Fatal("fork source has no next frame")
 	}
-	if got := fab.attachments[0].attachment.Source.(*scriptedSource).n; got != 0 {
+	if got := fabric.ExportAttachedSourceAttachment(&(*fabric.ExportFabricAttachments(fab))[0]).Source.(*scriptedSource).n; got != 0 {
 		t.Errorf("source cursor = %d, want 0", got)
-	}
-}
-
-func probeFabricPendingHosts(t *testing.T) {
-	fab := newTestFabricForFork(t)
-	fab.pendingHosts = []pendingHostInjection{{frame: ethernet.Frame{Payload: []byte{1}}}}
-	fork := fab.Fork()
-	fork.pendingHosts[0].frame.Payload[0] = 2
-	if got := fab.pendingHosts[0].frame.Payload[0]; got != 1 {
-		t.Errorf("source pending frame payload = %d, want 1", got)
 	}
 }
 
@@ -58,10 +47,75 @@ func (s *scriptedSource) Next() (time.Duration, ethernet.Frame, bool) {
 	}
 	at := s.offsets[s.n]
 	s.n++
-	return at, ethernet.Frame{
+	frame := ethernet.Frame{
 		Src: netaddr.MAC{2, 0, 0, 0, 0, 1}, Dst: netaddr.MAC{2, 0, 0, 0, 0, 2},
 		Payload: make([]byte, 46),
-	}, true
+	}
+	if s.invalid && s.n == 2 {
+		frame.Tags = []vlan.Tag{{PCP: 8}}
+	}
+	return at, frame, true
+}
+
+func TestStreamFaultEndsOneStream(t *testing.T) {
+	for _, invalid := range []bool{false, true} {
+		t.Run(map[bool]string{false: "backward", true: "codec"}[invalid], func(t *testing.T) {
+			fab, src, dst := newTwoSwitchTopology(t, cablemodel.Fault{})
+			offsets := []time.Duration{time.Millisecond, 0, 3 * time.Millisecond}
+			if invalid {
+				offsets[1] = 2 * time.Millisecond
+			}
+			bad := &scriptedSource{offsets: offsets, invalid: invalid}
+			if err := fab.AttachStream(fabric.StreamAttachment{Origin: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, Source: bad, Flow: 1}); err != nil {
+				t.Fatal(err)
+			}
+			if err := fab.AttachStream(fabric.StreamAttachment{Origin: fabric.Endpoint{Node: "h1"}, Source: streamSource(t, flowFrame(src, dst), 2, 1000), Flow: 2}); err != nil {
+				t.Fatal(err)
+			}
+			res := fab.Run(fabric.RunOptions{Budget: 1000, Window: 0})
+			if res.Stop != fabric.StopQueueDrained || res.Err != nil {
+				t.Fatalf("result = %+v, want drained without scheduling fault", res)
+			}
+			flows := fab.Flows()
+			if flows[1].Offered != 1 || len(flows[1].Metadata.Issues()) != 1 || flows[2].Delivered["h2"] != 2 {
+				t.Fatalf("flows = %+v, want failed flow issue and two healthy deliveries", flows)
+			}
+			if bad.n != 2 {
+				t.Fatalf("faulted source pulled %d frames, want 2", bad.n)
+			}
+			if len(res.Issues) != 1 {
+				t.Fatalf("run issues = %+v, want stream issue", res.Issues)
+			}
+		})
+	}
+}
+
+func TestUnknownLinkPullsOne(t *testing.T) {
+	fab, _, _ := newTwoSwitchTopology(t, cablemodel.Fault{})
+	cfg := assembly.Spec(fab).Config()
+	cfg.PhyAssumption = nil
+	fab, err := assembly.New(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := fab.Links()[0].A.Oper; got != port.Unknown {
+		t.Fatalf("link = %s, want Unknown", got)
+	}
+	source := &scriptedSource{offsets: []time.Duration{0, 0, 0, 0}}
+	if err := fab.AttachStream(fabric.StreamAttachment{Origin: fabric.Endpoint{Node: "h1"}, Source: source, Flow: 1}); err != nil {
+		t.Fatal(err)
+	}
+	for i := 1; i <= 3; i++ {
+		if _, ok := fab.Step(); !ok {
+			t.Fatalf("Step %d failed", i)
+		}
+		if got := fab.Flows()[1].Unresolved; got != uint64(i) {
+			t.Fatalf("step %d unresolved = %d, want %d", i, got, i)
+		}
+		if source.n != i+1 {
+			t.Fatalf("step %d source pulls = %d, want %d including next queued frame", i, source.n, i+1)
+		}
+	}
 }
 
 func (s *scriptedSource) Clone() stream.Source {
@@ -69,18 +123,18 @@ func (s *scriptedSource) Clone() stream.Source {
 	return &clone
 }
 
-func attachScripted(t *testing.T, fab *Fabric, offsets ...time.Duration) {
+func attachScripted(t *testing.T, fab *fabric.Fabric, offsets ...time.Duration) {
 	t.Helper()
-	if err := fab.AttachStream(StreamAttachment{
-		Origin: Endpoint{Node: "sw1", Port: "1/1/1"},
-		Source: &scriptedSource{offsets: offsets}, Flow: 1, Retention: RetainJourney,
+	if err := fab.AttachStream(fabric.StreamAttachment{
+		Origin: fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
+		Source: &scriptedSource{offsets: offsets}, Flow: 1, Retention: fabric.RetainJourney,
 	}); err != nil {
 		t.Fatalf("AttachStream: %v", err)
 	}
 }
 
-func attachedJourneys(fab *Fabric) []Journey {
-	var out []Journey
+func attachedJourneys(fab *fabric.Fabric) []fabric.Journey {
+	var out []fabric.Journey
 	for _, journey := range fab.Report() {
 		if journey.Injection.Flow == 1 {
 			out = append(out, journey)
@@ -89,17 +143,23 @@ func attachedJourneys(fab *Fabric) []Journey {
 	return out
 }
 
-func TestPullSourcesUsesEarliestArrivalAsInclusiveBoundary(t *testing.T) {
+func TestStreamEventFollowsWakeAtSameTime(t *testing.T) {
 	t0 := time.Date(2026, 9, 23, 10, 0, 0, 0, time.UTC)
 	fab := newTestSTPFabric(t, t0, 4096, 8192)
-	fab.queue = nil
-	fab.wakeItems = nil
-	fab.wakes = nil
-	fab.enqueue(Arrival{At: t0.Add(10 * time.Microsecond), Kind: ArrivalWake, Device: "unused"})
+	(*fabric.ExportFabricQueue(fab)) = nil
+	(*fabric.ExportFabricWakeItems(fab)) = nil
+	(*fabric.ExportFabricWakes(fab)) = nil
+	fabric.ExportFabricEnqueue(fab, fabric.MakeTestArrival(fabric.ExportArrivalFields{At: t0.Add(10 * time.Microsecond), Kind: fabric.ArrivalWake, Device: "unused", Seq: 10}))
 	attachScripted(t, fab, 10*time.Microsecond, 11*time.Microsecond)
 
 	if _, ok := fab.Step(); !ok {
 		t.Fatal("Step returned no arrival")
+	}
+	if got := len(attachedJourneys(fab)); got != 0 {
+		t.Fatalf("journeys after wake = %d, want 0", got)
+	}
+	if _, ok := fab.Step(); !ok {
+		t.Fatal("Step returned no stream event")
 	}
 	got := attachedJourneys(fab)
 	if len(got) != 1 || !got[0].Injection.At.Equal(t0.Add(10*time.Microsecond)) {
@@ -107,12 +167,12 @@ func TestPullSourcesUsesEarliestArrivalAsInclusiveBoundary(t *testing.T) {
 	}
 }
 
-func TestStepPullsFromEmptyQueue(t *testing.T) {
+func TestStepAdvancesAttachedStreamWithNoOtherWork(t *testing.T) {
 	t0 := time.Date(2026, 9, 23, 10, 0, 0, 0, time.UTC)
 	fab := newTestSTPFabric(t, t0, 4096, 8192)
-	fab.queue = nil
-	fab.wakeItems = nil
-	fab.wakes = nil
+	(*fabric.ExportFabricQueue(fab)) = nil
+	(*fabric.ExportFabricWakeItems(fab)) = nil
+	(*fabric.ExportFabricWakes(fab)) = nil
 	attachScripted(t, fab, 5*time.Microsecond)
 
 	if _, ok := fab.Step(); !ok {
@@ -128,8 +188,8 @@ func TestConvergenceWaitsForAttachedSource(t *testing.T) {
 	fab := newTestSTPFabric(t, t0, 4096, 8192)
 	attachScripted(t, fab, 100*time.Second)
 
-	result := fab.run(20, 3)
-	if result.Stop != StopBudget {
+	result := fabric.ExportFabricRun(fab, 20, 3)
+	if result.Stop != fabric.StopBudget {
 		t.Errorf("Run stop = %s, want budget while source remains", result.Stop)
 	}
 	if got := len(attachedJourneys(fab)); got != 0 {
@@ -145,8 +205,8 @@ func TestForkClonesHalfPulledSource(t *testing.T) {
 		t.Fatal("Step returned no arrival")
 	}
 	left, right := fab.Fork(), fab.Fork()
-	left.Run(1000)
-	right.Run(1000)
+	left.Run(fabric.RunOptions{Budget: 1000, Window: 0})
+	right.Run(fabric.RunOptions{Budget: 1000, Window: 0})
 	if got, want := attachedJourneys(left), attachedJourneys(right); !reflect.DeepEqual(got, want) {
 		t.Errorf("left fork stream report = %+v, want %+v", got, want)
 	}

@@ -13,7 +13,13 @@ than a released, end-to-end FlowSeer distribution.
 
 ## Get the repository green
 
-FlowSeer requires Go 1.27. From the repository root, run the main module checks:
+FlowSeer requires Go 1.27 and uv, which runs the hooks, the verifier, and every
+script. Install uv with `curl -LsSf https://astral.sh/uv/install.sh | sh` on
+macOS and Linux, or with
+`powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"`
+on Windows. The
+[uv installation guide](https://docs.astral.sh/uv/getting-started/installation/)
+lists the other forms. From the repository root, run the main module checks:
 
 ```bash
 go build ./...
@@ -82,7 +88,7 @@ human contributors as much as to coding agents. The parts that catch people out:
   handoff:
 
   ```bash
-  .claude/skills/verify-change/scripts/verify-change.sh -- <changed paths>
+  uv run tools/scripts/run.py verify change -- <changed paths>
   ```
 
 Start with the [documentation map](docs/README.md) when you need architecture or

@@ -2,8 +2,13 @@ package simtest_test
 
 import (
 	"fmt"
+	"os"
 	"reflect"
+	"slices"
+	"strings"
 	"testing"
+
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
 
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
@@ -584,8 +589,8 @@ func TestRegistryDeterministicOrdering(t *testing.T) {
 	r := simtest.DefaultRegistry()
 	allCases := r.All()
 
-	if len(allCases) != 39 {
-		t.Fatalf("DefaultRegistry contains %d cases, want 39", len(allCases))
+	if len(allCases) != 41 {
+		t.Fatalf("DefaultRegistry contains %d cases, want 41", len(allCases))
 	}
 
 	for i := 1; i < len(allCases); i++ {
@@ -622,6 +627,8 @@ func TestRegistryDeterministicOrdering(t *testing.T) {
 	wantShadowing := []string{
 		"topology-shadowing/mst-region-boundary",
 		"topology-shadowing/mst-region-boundary-vlan20-crosses-l1",
+		"topology-shadowing/mstp-model-complete-region",
+		"topology-shadowing/mstp-model-incomplete-region",
 		"topology-shadowing/partial-model-unknown-port",
 		"topology-shadowing/uncabled-port-definite-drop",
 		"topology-shadowing/unknown-uplink-stp",
@@ -687,25 +694,33 @@ func TestExecutePlanningCase(t *testing.T) {
 		t.Errorf("Expected outcome = %v, want %v", res.Comparison.Expected.Outcome, trace.Dropped)
 	}
 
-	// Verify typed diff facts.
-	var foundPVID, foundUntagged bool
-	for _, chg := range res.Changes {
-		if chg.Field == "pvid" {
-			if trace.EqualFact(chg.From, bridge.PVIDFact(10)) && trace.EqualFact(chg.To, bridge.PVIDFact(20)) {
-				foundPVID = true
-			}
-		}
-		if chg.Field == "untagged_vlan_ids" {
-			if trace.EqualFact(chg.From, bridge.VLANsFact([]vlan.ID{10})) && trace.EqualFact(chg.To, bridge.VLANsFact([]vlan.ID{20})) {
-				foundUntagged = true
-			}
+	want := []simtest.ChangeExpectation{
+		{Layer: "vlan", Subject: trace.Subject{Kind: "port", Key: "1/1/1"}, Field: "pvid", From: &simtest.FactExpectation{TypeID: "bridge.pvid", Canonical: "10"}, To: &simtest.FactExpectation{TypeID: "bridge.pvid", Canonical: "20"}},
+		{Layer: "vlan", Subject: trace.Subject{Kind: "port", Key: "1/1/1"}, Field: `untagged_vlan_ids["10"]`, From: &simtest.FactExpectation{TypeID: "bridge.vlan_id", Canonical: "10"}},
+		{Layer: "vlan", Subject: trace.Subject{Kind: "port", Key: "1/1/1"}, Field: `untagged_vlan_ids["20"]`, To: &simtest.FactExpectation{TypeID: "bridge.vlan_id", Canonical: "20"}},
+	}
+	if len(res.Changes) != 3 {
+		t.Fatalf("diff records = %d, want 3", len(res.Changes))
+	}
+	for i, expected := range want {
+		if !expected.Matches(res.Changes[i]) {
+			t.Errorf("diff[%d] = %+v, want %+v", i, res.Changes[i], expected)
 		}
 	}
-	if !foundPVID {
-		t.Error("diff did not produce typed bridge.PVIDFact change from 10 to 20")
+}
+
+func TestPlanningFilterRuleAdditionKeepsSnapshot(t *testing.T) {
+	c, ok := simtest.DefaultRegistry().Get("planning/filter-rule-change")
+	if !ok {
+		t.Fatal("filter rule comparison case missing")
 	}
-	if !foundUntagged {
-		t.Error("diff did not produce typed bridge.VLANsFact change from [10] to [20]")
+	want := simtest.ChangeExpectation{Layer: "filter", Subject: trace.Subject{Kind: "rule", Key: `"lan-in"/"deny-mdns-unicast"`}, Field: "", To: &simtest.FactExpectation{TypeID: "filter.rule", Canonical: `name="deny-mdns-unicast";action="drop";proto=17;src=[];dst=[10.0.20.0/24];src_ports=[];dst_ports=[5353-5353];icmp=none;tcp_flags=none`}}
+	if len(c.ExpectedChanges) != 1 || !reflect.DeepEqual(c.ExpectedChanges[0], want) {
+		t.Fatalf("case expectation = %+v, want %+v", c.ExpectedChanges, want)
+	}
+	res := simtest.AssertCase(t, c)
+	if len(res.Changes) != 1 || !want.Matches(res.Changes[0]) {
+		t.Errorf("rule addition = %+v, want %+v", res.Changes, want)
 	}
 }
 
@@ -854,8 +869,8 @@ func TestHostRejectsForeignUnicastOverAFullyResolvedPath(t *testing.T) {
 		t.Errorf("deliveries = %+v, want none: h2 refused the foreign unicast", res.Journey.Deliveries)
 	}
 	last := res.Journey.Entries[len(res.Journey.Entries)-1]
-	if last.Kind != fabric.EntryRejection || last.Reason != fabric.ReasonHostUnicastNotAddressed {
-		t.Errorf("last entry = %s %q, want Rejection %q", last.Kind, last.Reason, fabric.ReasonHostUnicastNotAddressed)
+	if last.Kind != fabric.EntryRejection || last.Reason != hostmodel.ReasonUnicastNotAddressed {
+		t.Errorf("last entry = %s %q, want Rejection %q", last.Kind, last.Reason, hostmodel.ReasonUnicastNotAddressed)
 	}
 }
 
@@ -1493,4 +1508,166 @@ func stringContains(s, sub string) bool {
 		}
 	}
 	return false
+}
+
+func TestCorpusReceiveOutcomes(t *testing.T) {
+	checked := 0
+	for _, c := range simtest.DefaultRegistry().All() {
+		if t.Run(c.ID, func(t *testing.T) { simtest.AssertCase(t, c) }) {
+			checked++
+		}
+	}
+	if checked != 41 {
+		t.Errorf("cases reaching concrete expectations = %d, want 41", checked)
+	}
+}
+
+func TestCorpusAbsentRoutingNextHops(t *testing.T) {
+	checked := 0
+	for _, id := range []string{
+		"troubleshooting/neighbor-resolution-pending",
+		"troubleshooting/stateful-reply-allowed",
+		"planning/filter-rule-change",
+	} {
+		if t.Run(id, func(t *testing.T) {
+			c, ok := simtest.DefaultRegistry().Get(id)
+			if !ok {
+				t.Fatalf("missing case %s", id)
+			}
+			res := simtest.AssertCase(t, c)
+			steps := res.Steps
+			if id == "planning/filter-rule-change" {
+				if res.Comparison == nil {
+					t.Fatal("missing comparison")
+				}
+				steps = res.Comparison.Current.Steps
+			}
+			found := false
+			for _, step := range steps {
+				for _, fact := range step.Outputs {
+					if fact.TypeID() == "routing.lookup_decision" && strings.Contains(fact.Canonical(), `;next_hop="absent";`) {
+						found = true
+					}
+				}
+			}
+			if !found {
+				t.Error("no connected lookup with absent next hop")
+			}
+		}) {
+			checked++
+		}
+	}
+	if checked != 3 {
+		t.Errorf("cases reaching concrete expectations = %d, want 3", checked)
+	}
+}
+
+func checkAdmittedCaseIDs(readme string, expected []string) error {
+	const start = "## Admitted cases"
+	const end = "## Admission bar"
+	inside, closed := false, false
+	seen := make(map[string]bool)
+	var ids []string
+	for _, line := range strings.Split(readme, "\n") {
+		if line == start {
+			inside = true
+			continue
+		}
+		if inside && line == end {
+			closed = true
+			break
+		}
+		if !inside || !strings.HasPrefix(line, "- `") {
+			continue
+		}
+		id, _, ok := strings.Cut(strings.TrimPrefix(line, "- `"), "`")
+		if !ok {
+			return fmt.Errorf("admitted bullet lacks closing backtick: %q", line)
+		}
+		if seen[id] {
+			return fmt.Errorf("duplicate admitted ID %q", id)
+		}
+		seen[id] = true
+		ids = append(ids, id)
+	}
+	if !inside || !closed {
+		return fmt.Errorf("admitted case section headings absent")
+	}
+	slices.Sort(ids)
+	if !slices.Equal(ids, expected) {
+		return fmt.Errorf("admitted IDs = %v, want %v", ids, expected)
+	}
+	return nil
+}
+
+func TestCorpusREADMEIDs(t *testing.T) {
+	readme, err := os.ReadFile("README.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var ids []string
+	journeys, fabricMetadata := 0, 0
+	for _, c := range simtest.DefaultRegistry().All() {
+		ids = append(ids, c.ID)
+		result, err := c.Execute()
+		if err != nil {
+			t.Fatalf("%s: %v", c.ID, err)
+		}
+		if result.Journey != nil {
+			journeys++
+		}
+		if result.FabricMetadata != nil {
+			fabricMetadata++
+		}
+	}
+	if len(ids) != 41 {
+		t.Fatalf("executed registry cases = %d, want 41", len(ids))
+	}
+	if err := checkAdmittedCaseIDs(string(readme), ids); err != nil {
+		t.Error(err)
+	}
+	if journeys != 21 || fabricMetadata != 11 {
+		t.Errorf("journeys = %d, fabric metadata = %d, want 21 and 11", journeys, fabricMetadata)
+	}
+	if !strings.Contains(string(readme), "The twenty-one `fabric`-based cases") ||
+		!strings.Contains(string(readme), "[ExecutionResult.Journey], eleven of them alongside") {
+		t.Error("README journey and fabric metadata counts do not match the corpus")
+	}
+}
+
+func TestAdmittedCaseIDFixtures(t *testing.T) {
+	const first = "- `planning/one`: admitted\n"
+	const second = "- `planning/two`: admitted\n"
+	const before = "## Admitted cases\n"
+	const after = "## Admission bar\n"
+	want := []string{"planning/one", "planning/two"}
+	fixtures := []struct {
+		name    string
+		text    string
+		wantErr bool
+	}{
+		{"complete", before + first + second + after, false},
+		{"duplicate", before + first + first + second + after, true},
+		{"missing", before + first + after, true},
+		{"example prose", before + first + "Example: `planning/two`\n" + after, true},
+		{"other section", before + first + after + "## Example\n" + second, true},
+		{"before section", second + before + first + after, true},
+		{"noise ignored", "- `planning/noise`: elsewhere\n" + before + first + second + "Example: `planning/noise`\n" + after + "- `planning/noise`: elsewhere\n", false},
+		{"start heading absent", first + second + after, true},
+		{"end heading absent", before + first + second, true},
+	}
+	checked := 0
+	for _, tc := range fixtures {
+		if t.Run(tc.name, func(t *testing.T) {
+			err := checkAdmittedCaseIDs(tc.text, want)
+			if (err != nil) != tc.wantErr {
+				t.Fatalf("check IDs error = %v, want error %t", err, tc.wantErr)
+			}
+		}) {
+			checked++
+		}
+	}
+	if checked != 9 {
+		t.Errorf("fixtures reaching expectations = %d, want 9", checked)
+	}
 }

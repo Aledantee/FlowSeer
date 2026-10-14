@@ -5,6 +5,12 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/internal/simtest"
+
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+
 	"go.aledante.io/FlowSeer/src/common/net/arp"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
@@ -14,6 +20,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/traffic"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
@@ -33,19 +40,19 @@ func TestAggregateFlowFoldsOfferedDeliveriesAndLatency(t *testing.T) {
 	base := time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC)
 	const frames = 1000
 
-	single, src, dst := newTwoSwitchTopology(t, fabric.Fault{})
+	single, src, dst := newTwoSwitchTopology(t, cablemodel.Fault{})
 	frame := flowFrame(src, dst)
 	if _, err := single.Inject(fabric.Injection{At: base, Origin: fabric.Endpoint{Node: "h1"}, Frame: frame}); err != nil {
 		t.Fatalf("single Inject: %v", err)
 	}
-	single.Run(1000)
+	single.Run(fabric.RunOptions{Budget: 1000, Window: 0})
 	delivery := single.Report()[0].Deliveries
 	if len(delivery) != 1 {
 		t.Fatalf("single-frame deliveries = %+v, want one", delivery)
 	}
 	singleLatency := delivery[0].At.Sub(base)
 
-	fab, src, dst := newTwoSwitchTopology(t, fabric.Fault{})
+	fab, src, dst := newTwoSwitchTopology(t, cablemodel.Fault{})
 	frame = flowFrame(src, dst)
 	for range frames {
 		if _, err := fab.Inject(fabric.Injection{
@@ -58,7 +65,7 @@ func TestAggregateFlowFoldsOfferedDeliveriesAndLatency(t *testing.T) {
 			t.Fatalf("Inject: %v", err)
 		}
 	}
-	if res := fab.Run(1_000_000); res.Stop != fabric.StopQueueDrained {
+	if res := fab.Run(fabric.RunOptions{Budget: 1_000_000, Window: 0}); res.Stop != fabric.StopQueueDrained {
 		t.Fatalf("Run stop = %s, want %s", res.Stop, fabric.StopQueueDrained)
 	}
 
@@ -84,12 +91,12 @@ func TestAggregateFlowFoldsOfferedDeliveriesAndLatency(t *testing.T) {
 }
 
 // TestAggregateWithoutADestinationFoldsItsDrop covers an injection whose host
-// link is Down: with no step run, the frame folds its offered count and its
+// link is Down: stepping the host event folds its offered count and its
 // drop under the link's reason, and leaves no journey behind.
 func TestAggregateWithoutADestinationFoldsItsDrop(t *testing.T) {
 	base := time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC)
-	fab, src, dst := newTwoSwitchTopology(t, fabric.Fault{})
-	if err := fab.SetFault(fabric.Endpoint{Node: "h1"}, fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, fabric.Fault{Kind: fabric.FaultCut}); err != nil {
+	fab, src, dst := newTwoSwitchTopology(t, cablemodel.Fault{})
+	if err := fab.SetFault(fabric.Endpoint{Node: "h1"}, fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, cablemodel.Fault{Kind: cablemodel.FaultCut}); err != nil {
 		t.Fatalf("SetFault: %v", err)
 	}
 
@@ -107,15 +114,21 @@ func TestAggregateWithoutADestinationFoldsItsDrop(t *testing.T) {
 		}
 	}
 
+	if got := len(fab.Report()); got != frames {
+		t.Fatalf("pending journeys = %d, want %d", got, frames)
+	}
+	if got := fab.Run(fabric.RunOptions{Budget: frames + 1, Window: 0}).Steps; got != frames {
+		t.Fatalf("steps = %d, want %d", got, frames)
+	}
 	if reported := fab.Report(); len(reported) != 0 {
-		t.Errorf("Report held %d journeys before any step, want none", len(reported))
+		t.Errorf("Report held %d journeys after host events, want none", len(reported))
 	}
 	stats := fab.Flows()[4]
 	if stats.Offered != frames {
 		t.Errorf("Offered = %d, want %d", stats.Offered, frames)
 	}
-	if got := stats.Drops[fabric.ReasonCut]; got != frames {
-		t.Errorf("Drops[%s] = %d, want %d", fabric.ReasonCut, got, frames)
+	if got := stats.Drops[cablemodel.ReasonCut]; got != frames {
+		t.Errorf("Drops[%s] = %d, want %d", cablemodel.ReasonCut, got, frames)
 	}
 }
 
@@ -142,7 +155,7 @@ func TestPolicedFlowDropsAndDeliveriesMatchAdmissions(t *testing.T) {
 			t.Fatalf("Inject: %v", err)
 		}
 	}
-	if res := fab.Run(1_000_000); res.Stop != fabric.StopQueueDrained {
+	if res := fab.Run(fabric.RunOptions{Budget: 1_000_000, Window: 0}); res.Stop != fabric.StopQueueDrained {
 		t.Fatalf("Run stop = %s, want %s", res.Stop, fabric.StopQueueDrained)
 	}
 
@@ -168,7 +181,7 @@ func TestPolicedFlowDropsAndDeliveriesMatchAdmissions(t *testing.T) {
 			t.Fatalf("bulk Inject: %v", err)
 		}
 	}
-	if res := bulk.Run(1_000_000); res.Stop != fabric.StopQueueDrained {
+	if res := bulk.Run(fabric.RunOptions{Budget: 1_000_000, Window: 0}); res.Stop != fabric.StopQueueDrained {
 		t.Fatalf("bulk Run stop = %s, want %s", res.Stop, fabric.StopQueueDrained)
 	}
 
@@ -188,7 +201,7 @@ func TestPolicedFlowDropsAndDeliveriesMatchAdmissions(t *testing.T) {
 func TestFlowMetadataCarriesTheJourneyTrust(t *testing.T) {
 	fab := journeyFabric(t, true)
 	if _, err := fab.Inject(fabric.Injection{
-		At:        fab.Snapshot().Clock,
+		At:        fab.Clock(),
 		Origin:    fabric.Endpoint{Node: "h1"},
 		Frame:     ethernet.Frame{Dst: journeyH2, Src: journeyH1, EtherType: ethernet.EtherTypeIPv4},
 		Retention: fabric.RetainAggregate,
@@ -196,19 +209,16 @@ func TestFlowMetadataCarriesTheJourneyTrust(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("Inject: %v", err)
 	}
-	fab.Run(10)
+	fab.Run(fabric.RunOptions{Budget: 10, Window: 0})
 
 	stats := fab.Flows()[7]
-	if !hasIssue(stats.Metadata.Issues(), fabric.IssuePropagationUnknown) {
+	if !hasIssue(stats.Metadata.Issues(), cablemodel.IssuePropagationUnknown) {
 		t.Errorf("flow metadata issues = %+v, want propagation-unknown", stats.Metadata.Issues())
 	}
 }
 
-// TestAggregateHeldFrameReleaseKeepsItsProvenance covers the journey of an
-// aggregate frame a switch holds for neighbor resolution: the hold settles the
-// frame's own journey and folds Held once, but the journey is not freed until
-// the switch releases it, so the released frame links back through
-// OriginRelease instead of appearing as a fresh injection.
+// TestAggregateHeldFrameReleaseKeepsItsProvenance checks that release folds
+// the original flow's delivery and latency before freeing its journey.
 func TestAggregateHeldFrameReleaseKeepsItsProvenance(t *testing.T) {
 	b := port.NewBuilder()
 	b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
@@ -225,9 +235,9 @@ func TestAggregateHeldFrameReleaseKeepsItsProvenance(t *testing.T) {
 	macH2 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x77}
 	addrH2 := netip.MustParseAddr("10.0.20.7")
 
-	cfg := fabric.Config{
-		Start: time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC),
-		Switches: map[string]vswitch.Config{"sw1": {
+	cfg := simtest.RoutedFixture(
+		time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC),
+		map[string]vswitch.Config{"sw1": {
 			MAC:   swMAC,
 			Ports: ports,
 			Bridge: &bridge.Config{
@@ -250,10 +260,10 @@ func TestAggregateHeldFrameReleaseKeepsItsProvenance(t *testing.T) {
 				},
 			},
 		}},
-		Hosts: map[string]fabric.Host{
+		map[string]hostmodel.Config{
 			"h1": {
 				Address: macH1,
-				IP: &fabric.HostIP{
+				IP: &hostmodel.IP{
 					Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.7/24")},
 					Gateway:   netip.MustParseAddr("10.0.10.1"),
 					Neighbors: map[netip.Addr]netaddr.MAC{netip.MustParseAddr("10.0.10.1"): swMAC},
@@ -261,14 +271,14 @@ func TestAggregateHeldFrameReleaseKeepsItsProvenance(t *testing.T) {
 			},
 			"h2": {Address: macH2},
 		},
-		Cables: []fabric.Cable{
-			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, LengthMeters: 5},
-			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "h2"}, LengthMeters: 5},
+		[]fabric.Cable{
+			{Cable: cablemodel.Cable{LengthMeters: 5}, A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
+			{Cable: cablemodel.Cable{LengthMeters: 5}, A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "h2"}},
 		},
-	}
-	fab, err := fabric.New(statedPhysical(cfg))
+	)
+	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
-		t.Fatalf("fabric.New: %v", err)
+		t.Fatalf("assembly.New: %v", err)
 	}
 
 	heldID, err := fab.Inject(fabric.Injection{
@@ -294,7 +304,7 @@ func TestAggregateHeldFrameReleaseKeepsItsProvenance(t *testing.T) {
 	if err != nil {
 		t.Fatalf("encode ARP reply: %v", err)
 	}
-	replyID, err := fab.Inject(fabric.Injection{
+	_, err = fab.Inject(fabric.Injection{
 		At:     cfg.Start.Add(time.Second),
 		Origin: fabric.Endpoint{Node: "sw1", Port: "1/1/2"},
 		Frame:  replyFrame,
@@ -303,31 +313,16 @@ func TestAggregateHeldFrameReleaseKeepsItsProvenance(t *testing.T) {
 		t.Fatalf("Inject ARP reply: %v", err)
 	}
 
-	fab.Run(20)
+	fab.Run(fabric.RunOptions{Budget: 20, Window: 0})
 
-	if got := fab.Flows()[9].Held; got != 1 {
-		t.Fatalf("Held = %d, want the held frame counted once", got)
+	stats := fab.Flows()[9]
+	if stats.Held != 0 || stats.Delivered["h2"] != 1 || stats.Offered != 1 || stats.Latency.Count != 1 {
+		t.Fatalf("held frame flow = %+v, want Held=0, Delivered[h2]=1, Offered=1, Latency.Count=1", stats)
 	}
-
-	var released *fabric.Journey
 	for _, j := range fab.Report() {
-		if j.FrameID == heldID || j.FrameID == replyID {
-			continue
+		if j.FrameID == heldID {
+			t.Fatalf("settled aggregate holder %d survived", heldID)
 		}
-		if len(j.Deliveries) == 1 && j.Deliveries[0].Host == "h2" {
-			jj := j
-			released = &jj
-			break
-		}
-	}
-	if released == nil {
-		t.Fatalf("no released journey delivered to h2 among: %+v", fab.Report())
-	}
-	if released.Origin.Kind != fabric.OriginRelease {
-		t.Errorf("released origin kind = %s, want %s", released.Origin.Kind, fabric.OriginRelease)
-	}
-	if released.Origin.Of != heldID {
-		t.Errorf("released origin parent = %d, want the held frame %d", released.Origin.Of, heldID)
 	}
 }
 
@@ -335,12 +330,12 @@ func TestAggregateHeldFrameReleaseKeepsItsProvenance(t *testing.T) {
 // above RetainAggregate is refused rather than silently treated as
 // RetainJourney.
 func TestInjectRefusesUnknownRetention(t *testing.T) {
-	fab, src, dst := newTwoSwitchTopology(t, fabric.Fault{})
+	fab, src, dst := newTwoSwitchTopology(t, cablemodel.Fault{})
 	_, err := fab.Inject(fabric.Injection{
 		At:        time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC),
 		Origin:    fabric.Endpoint{Node: "h1"},
 		Frame:     flowFrame(src, dst),
-		Retention: fabric.Retention(2),
+		Retention: fabric.JourneyRetention(2),
 		Flow:      1,
 	})
 	if err == nil {
@@ -351,7 +346,7 @@ func TestInjectRefusesUnknownRetention(t *testing.T) {
 // TestAggregateRequiresAFlow covers the refusal: RetainAggregate with a zero
 // flow is an error from Inject.
 func TestAggregateRequiresAFlow(t *testing.T) {
-	fab, src, dst := newTwoSwitchTopology(t, fabric.Fault{})
+	fab, src, dst := newTwoSwitchTopology(t, cablemodel.Fault{})
 	_, err := fab.Inject(fabric.Injection{
 		At:        time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC),
 		Origin:    fabric.Endpoint{Node: "h1"},

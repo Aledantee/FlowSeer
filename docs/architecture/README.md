@@ -61,6 +61,7 @@ covering port tables and VLAN membership.
 | [FreeBSD Packet I/O](2026-10-12-freebsd-packet-io-direction.md) | Accepted direction | Capturing, sending, or receiving raw packets on FreeBSD, changing `src/common/net/bpfdev`, or running the FreeBSD VM test suite. |
 | [Repository Scripting](2026-10-05-repository-scripting-direction.md) | Proposed direction | Adding or moving a hook, a verifier check, a skill script, or any script run on the host, or choosing the language or location of one. |
 | [History Store](2026-10-08-history-store-direction.md) | Proposed direction | Adding a ClickHouse table, rollup, record type that lands in history, history query, row policy, or retention rule, or deciding how a domain's history is shaped. |
+| [Web Signal Design Language](2026-10-09-web-signal-design-direction.md) | Accepted direction | Applying Precision 01 Signal to the web app: panel geometry, typography, density, dashboard composition and preservation of the current shell. |
 
 Current source and tests show which parts of a direction have landed. When the
 tree and an accepted record disagree, do not silently choose one. Update or

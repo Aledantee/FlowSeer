@@ -14,15 +14,7 @@ func (l *Layer) isSynced(t *tree, rootPort string) bool {
 		}
 		link := l.links[name]
 		if p.role == bpdu.RoleDesignated && !link.edge {
-			if l.mst != nil && t.id != cistID && l.boundary(name) {
-				cistP := l.cist().ports[name]
-				if cistP != nil && cistP.state != StateDiscarding && !cistP.agreed {
-					return false
-				}
-
-				continue
-			}
-			if p.state != StateDiscarding && !p.agreed {
+			if !p.synced {
 				return false
 			}
 		}
@@ -82,7 +74,7 @@ func (l *Layer) recomputeAll(now time.Time, flushes *[]layer.FlushTarget) {
 
 // recompute runs one tree's root election and role and state assignment. On
 // a boundary port, an MSTI tree (t.id != cistID) takes the CIST port's role
-// and state outright rather than computing its own, which is the boundary
+// and bounds its state by the CIST's, which is the boundary
 // role rule (netsim reports the CIST's Root where the standard would say
 // Master). No separate Role value exists for it. A root change requests new
 // information on eligible designated ports. The later transmit pass decides
@@ -197,9 +189,11 @@ func (l *Layer) assignRoles(t *tree, now time.Time) {
 			}
 			oldRole := p.role
 			p.role = cistP.role
+			p.recordRoleChange(oldRole, now)
 			if p.role != oldRole {
 				p.agreed = false
 			}
+			l.trackDesignatedVector(t, p, oldRole, link.external)
 
 			continue
 		}
@@ -229,19 +223,90 @@ func (l *Layer) assignRoles(t *tree, now time.Time) {
 		default:
 			p.role = l.designatedOrBlocked(t, p, now)
 		}
-		// An agreement belongs to the role that earned it. Any role change
-		// requires a fresh handshake before the port can forward.
+		p.recordRoleChange(oldRole, now)
+		// An agreement belongs to the role that earned it.
 		if p.role != oldRole {
 			p.agreed = false
 		}
+		l.trackDesignatedVector(t, p, oldRole, link.external)
 		if t.id == cistID && p.role == bpdu.RoleDesignated && oldRole != bpdu.RoleDesignated && p.proposing {
 			link.edgeDelayWhile = now.Add(l.edgeDelay(t, link))
 		}
 	}
 }
 
+// trackDesignatedVector keeps the agreement and the synced flag of a Designated
+// port across a change of its designated priority vector. A vector that is
+// worse than the one the port last held costs it the agreement, since its
+// peer gave the agreement to the better vector, and a port that then forwards
+// without an agreement is no longer synced. A port that takes the Designated
+// role from another one starts over: synced only while Discarding.
+func (l *Layer) trackDesignatedVector(t *tree, p *portState, oldRole bpdu.Role, external bool) {
+	if p.role != bpdu.RoleDesignated {
+		return
+	}
+
+	vec := designatedVector(t, p, external)
+	switch {
+	case oldRole != bpdu.RoleDesignated:
+		p.synced = p.state == StateDiscarding
+	case !p.designatedVecSet || vec == p.designatedVec:
+	default:
+		if compareVectors(vec, p.designatedVec) > 0 {
+			p.agreed = false
+		}
+		p.synced = p.agreed || p.state == StateDiscarding
+	}
+	p.designatedVec = vec
+	p.designatedVecSet = true
+}
+
 func (l *Layer) updatePortStates(t *tree, now time.Time, flushes *[]layer.FlushTarget) {
 	_, _, fwdDelay := l.times(t)
+
+	// A Designated port is synced while it is Discarding, holds an agreement,
+	// or is an edge, and stays synced after it leaves Discarding.
+	for _, name := range l.portNames {
+		p, ok := t.ports[name]
+		if !ok {
+			continue
+		}
+		if !p.leftBackupAt.IsZero() && l.recentBackupDeadline(t, p, now).IsZero() {
+			p.leftBackupAt = time.Time{}
+		}
+		if p.role == bpdu.RoleDisabled || p.role == bpdu.RoleAlternate || p.role == bpdu.RoleBackup ||
+			(l.mst != nil && t.id != cistID && l.boundary(name)) {
+			p.clearRecentRoot()
+		}
+		if p.role == bpdu.RoleDesignated && (p.state == StateDiscarding || p.agreed || l.links[name].edge) {
+			p.synced = true
+			p.clearRecentRoot()
+		}
+	}
+
+	if root := t.ports[t.rootPort]; root != nil && root.role == bpdu.RoleRoot && root.state != StateForwarding &&
+		(l.mst == nil || t.id == cistID || !l.boundary(root.name)) {
+		for _, name := range l.portNames {
+			p := t.ports[name]
+			link := l.links[name]
+			if p == nil || p.role != bpdu.RoleDesignated || link.edge || p.state == StateDiscarding ||
+				(l.mst != nil && t.id != cistID && l.boundary(name)) || (!p.pendingRootDeadline && p.recentRootDeadline(now).IsZero()) {
+				continue
+			}
+			p.state = StateDiscarding
+			p.fwdDelayTimer = now.Add(fwdDelay)
+			p.agreed = false
+			p.synced = true
+			p.clearRecentRoot()
+			p.proposing = link.pointToPoint && link.sendRSTP
+			if p.proposing {
+				l.requestNewInfo(t, p)
+			}
+			if t.id == cistID && p.proposing {
+				link.edgeDelayWhile = now.Add(l.edgeDelay(t, link))
+			}
+		}
+	}
 
 	for _, name := range l.portNames {
 		p, ok := t.ports[name]
@@ -260,8 +325,20 @@ func (l *Layer) updatePortStates(t *tree, now time.Time, flushes *[]layer.FlushT
 			if !ok {
 				cistP = &portState{}
 			}
+			if p.role != bpdu.RoleDesignated || p.agreed || link.edge || p.boundarySyncState == StateForwarding {
+				p.boundarySyncState = ""
+			}
 			p.state = cistP.state
-			p.fwdDelayTimer = time.Time{}
+			if p.boundarySyncState != "" {
+				if p.boundarySyncState == StateDiscarding || cistP.state == StateForwarding {
+					p.state = p.boundarySyncState
+				}
+				if p.fwdDelayTimer.IsZero() || p.fwdDelayTimer.After(now.Add(fwdDelay)) {
+					p.fwdDelayTimer = now.Add(fwdDelay)
+				}
+			} else {
+				p.fwdDelayTimer = time.Time{}
+			}
 			if oldState != StateForwarding && p.state == StateForwarding {
 				p.forwardTransitions++
 				if !link.edge && (p.role == bpdu.RoleRoot || p.role == bpdu.RoleDesignated) {
@@ -274,6 +351,7 @@ func (l *Layer) updatePortStates(t *tree, now time.Time, flushes *[]layer.FlushT
 
 			continue
 		}
+		p.boundarySyncState = ""
 
 		switch p.role {
 		case bpdu.RoleDisabled, bpdu.RoleAlternate, bpdu.RoleBackup:
@@ -281,12 +359,10 @@ func (l *Layer) updatePortStates(t *tree, now time.Time, flushes *[]layer.FlushT
 			p.fwdDelayTimer = time.Time{}
 			l.deactivatePort(t, p, flushes)
 		case bpdu.RoleRoot:
-			if link.pointToPoint && l.isSynced(t, p.name) && link.sendRSTP {
+			if link.pointToPoint && l.recentBackupDeadline(t, p, now).IsZero() && link.sendRSTP {
 				p.state = StateForwarding
 				p.fwdDelayTimer = time.Time{}
 			} else if p.state == StateDiscarding && (p.fwdDelayTimer.IsZero() || p.fwdDelayTimer.After(now.Add(fwdDelay))) {
-				// No agreement path: the forward delay ladder carries the port
-				// through Learning and Forwarding as on a shared link.
 				p.fwdDelayTimer = now.Add(fwdDelay)
 			}
 		case bpdu.RoleDesignated:

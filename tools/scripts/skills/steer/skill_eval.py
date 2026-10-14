@@ -50,7 +50,7 @@ class Scenario:
 class Config:
     checkout: Path
     worktree_root: Path
-    bench: Path
+    bench: list[str]
     model: str
     keep: bool
 
@@ -170,22 +170,22 @@ def lane(cfg: Config, name: str, skill: str, variant: str) -> Iterator[Path]:
 
 
 def run_setup(scenario: Scenario, path: Path) -> str | None:
-    """Run the scenario's setup.sh in the lane, returning why it failed or None."""
-    setup = scenario.directory / "setup.sh"
+    """Run the scenario's setup.py in the lane, returning why it failed or None."""
+    setup = scenario.directory / "setup.py"
     if not setup.is_file():
         return None
-    result = proc.run(["bash", str(setup)], cwd=path)
+    result = proc.run(["uv", "run", "--script", str(setup)], cwd=path)
     if result.code != 0:
-        return f"setup.sh exited {result.code}: {result.stderr.strip()[-300:]}"
+        return f"setup.py exited {result.code}: {result.stderr.strip()[-300:]}"
     dirty = git(["status", "--porcelain"], path).strip()
     if dirty:
-        return f"setup.sh left the lane dirty:\n{dirty}"
+        return f"setup.py left the lane dirty:\n{dirty}"
     return None
 
 
 def run_check(scenario: Scenario, path: Path, base: str, text: str) -> list[dict]:
     done = subprocess.run(
-        [str(scenario.directory / "check.sh"), str(path), text],
+        ["uv", "run", "--script", str(scenario.directory / "check.py"), str(path), text],
         cwd=path,
         env={**os.environ, "EVAL_BASE": base},
         capture_output=True,
@@ -208,7 +208,7 @@ def run_bench(cfg: Config, name: str, path: Path, query: str, budget, workdir: P
     env["FLOWSEER_RUNLOG"] = str(Path(git(["rev-parse", "--absolute-git-dir"], path).strip()) / "runs.jsonl")
     done = subprocess.run(
         [
-            str(cfg.bench),
+            *cfg.bench,
             "--lane", name,
             "--cli", "claude",
             "--model", cfg.model,
@@ -341,15 +341,13 @@ def lint_scenario(cfg: Config, scenario: Scenario) -> list[str]:
     missing = [field for field in REQUIRED_FIELDS if field not in spec]
     if missing:
         problems.append(f"scenario.json lacks {', '.join(missing)}")
-    check = scenario.directory / "check.sh"
-    if not (check.is_file() and os.access(check, os.X_OK)):
-        return [*problems, "check.sh is missing or not executable"]
+    check = scenario.directory / "check.py"
+    if not check.is_file():
+        return [*problems, "check.py is missing"]
     try:
-        shellcheck = proc.run(["shellcheck", str(check)])
-    except FileNotFoundError:
-        return [*problems, "shellcheck is not installed"]
-    if shellcheck.code != 0:
-        problems.append(f"check.sh fails shellcheck:\n{shellcheck.stdout.strip()}")
+        compile(check.read_text(), str(check), "exec")
+    except (SyntaxError, ValueError) as error:
+        return [*problems, f"check.py does not compile: {error}"]
     name = lane_name(scenario.skill, scenario.name, "lint", 1)
     with lane(cfg, name, scenario.skill, "current") as path:
         failure = run_setup(scenario, path)
@@ -357,7 +355,7 @@ def lint_scenario(cfg: Config, scenario: Scenario) -> list[str]:
             return [*problems, failure]
         base = git(["rev-parse", "HEAD"], path).strip()
         if not any(not c["pass"] for c in run_check(scenario, path, base, "")):
-            problems.append("check.sh prints no FAIL on an untouched lane")
+            problems.append("check.py prints no FAIL on an untouched lane")
     return problems
 
 
@@ -392,7 +390,7 @@ def parse(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--model", default="claude-opus-5-5")
     parser.add_argument("--max-total-usd", type=float, default=30.0, help="launch no lane once reported cost reaches this")
     parser.add_argument("--worktree-root", type=Path, default=Path.home() / "Projects" / "worktrees" / "FlowSeer")
-    parser.add_argument("--bench", type=Path, help="bench.sh to call (default: the checkout's tune/scripts/bench.sh)")
+    parser.add_argument("--bench", type=Path, help="bench executable to call (default: the checkout's `run.py tune bench`)")
     parser.add_argument("--keep", action="store_true", help="keep lane worktrees and branches")
     parser.add_argument("--out", type=Path, help="JSONL file the rows are appended to")
     parser.add_argument("--lint", action="store_true", help="check every scenario's files instead of running lanes")
@@ -412,7 +410,7 @@ def main(argv: list[str]) -> int:
         cfg = Config(
             checkout=checkout,
             worktree_root=args.worktree_root,
-            bench=args.bench or checkout / ".agents/skills/tune/scripts/bench.sh",
+            bench=[str(args.bench)] if args.bench else [sys.executable, str(checkout / "tools/scripts/run.py"), "tune", "bench"],
             model=args.model,
             keep=args.keep,
         )

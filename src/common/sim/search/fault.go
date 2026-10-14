@@ -3,75 +3,88 @@ package search
 import (
 	"cmp"
 	"fmt"
+	"math"
 	"slices"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/sim/fabric"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 )
-
-// FaultSpec specifies a cable fault between two endpoints.
-type FaultSpec struct {
-	A     fabric.Endpoint
-	B     fabric.Endpoint
-	Fault fabric.Fault
-}
 
 // TimedFaultDomainConfig configures a finite timed cable fault exploration domain. Its
 // values are safe for concurrent reads but not for concurrent mutation.
 type TimedFaultDomainConfig struct {
-	Faults      []FaultSpec
+	Faults      []fabric.FaultAction
 	Times       []time.Time
-	BaseTraffic []fabric.Injection
+	BaseTraffic []fabric.Action
+}
+
+// Validate rejects invalid faults, zero times, invalid base injections, and
+// domain sizes beyond int. Empty fault or time dimensions yield an empty domain.
+func (c TimedFaultDomainConfig) Validate() error {
+	for i, fault := range c.Faults {
+		if err := fault.Validate(); err != nil {
+			return errs.Wrapf(err, "fault %d", i)
+		}
+	}
+	for i, at := range c.Times {
+		if at.IsZero() {
+			return errs.Msgf("fault time %d cannot be zero", i)
+		}
+	}
+	for i, action := range c.BaseTraffic {
+		if action.Kind != fabric.ActionInject {
+			return errs.Msgf("base traffic action %d must be injection", i)
+		}
+	}
+	if err := (Candidate{Actions: c.BaseTraffic}).Validate(); err != nil {
+		return errs.Wrap(err, "base traffic")
+	}
+	size, err := productSize(len(deduplicateAndSortFaults(c.Faults)), len(deduplicateAndSortTimes(c.Times)))
+	if err != nil {
+		return err
+	}
+	if size > 0 {
+		for _, action := range c.BaseTraffic {
+			if action.Index == math.MaxInt {
+				return errs.Msg("generated fault index exceeds int")
+			}
+		}
+	}
+	return nil
 }
 
 // TimedFaultDomain enumerates declared cable faults across declared simulation times
 // in a deterministic, total order.
 type TimedFaultDomain struct {
-	faults      []FaultSpec
+	faults      []fabric.FaultAction
 	times       []time.Time
-	baseTraffic []fabric.Injection
+	baseTraffic []fabric.Action
 	size        int
 }
 
 // NewTimedFaultDomain constructs, deduplicates, and deterministically sorts declared
 // cable faults and times into an enumerable fault domain.
-func NewTimedFaultDomain(cfg TimedFaultDomainConfig) *TimedFaultDomain {
-	faults := deduplicateAndSortFaultSpecs(cfg.Faults)
+func NewTimedFaultDomain(cfg TimedFaultDomainConfig) (*TimedFaultDomain, error) {
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
+	faults := deduplicateAndSortFaults(cfg.Faults)
 	times := deduplicateAndSortTimes(cfg.Times)
 
-	size := 0
-	if len(faults) > 0 && len(times) > 0 {
-		size = len(faults) * len(times)
+	size, err := productSize(len(faults), len(times))
+	if err != nil {
+		return nil, err
 	}
-
-	var baseTraffic []fabric.Injection
-	if cfg.BaseTraffic != nil {
-		baseTraffic = make([]fabric.Injection, len(cfg.BaseTraffic))
-		for i, inj := range cfg.BaseTraffic {
-			injCp := inj
-			if inj.Frame.Tags != nil {
-				injCp.Frame.Tags = slices.Clone(inj.Frame.Tags)
-			}
-			if inj.Frame.Payload != nil {
-				injCp.Frame.Payload = slices.Clone(inj.Frame.Payload)
-			}
-			if inj.Packet != nil {
-				pktCp := *inj.Packet
-				if inj.Packet.Payload != nil {
-					pktCp.Payload = slices.Clone(inj.Packet.Payload)
-				}
-				injCp.Packet = &pktCp
-			}
-			baseTraffic[i] = injCp
-		}
-	}
+	baseTraffic := (Candidate{Actions: cfg.BaseTraffic}).ToScenario().Actions
 
 	return &TimedFaultDomain{
 		faults:      faults,
 		times:       times,
 		baseTraffic: baseTraffic,
 		size:        size,
-	}
+	}, nil
 }
 
 // Size returns the total count of distinct candidates in the domain.
@@ -95,56 +108,21 @@ func (d *TimedFaultDomain) Enumerate(yield func(Candidate) bool) {
 	}
 }
 
-func (d *TimedFaultDomain) buildCandidate(f FaultSpec, at time.Time) Candidate {
-	var scenario []fabric.Injection
-	if len(d.baseTraffic) > 0 {
-		scenario = make([]fabric.Injection, len(d.baseTraffic))
-		for i, inj := range d.baseTraffic {
-			injCp := inj
-			if inj.Frame.Tags != nil {
-				injCp.Frame.Tags = slices.Clone(inj.Frame.Tags)
-			}
-			if inj.Frame.Payload != nil {
-				injCp.Frame.Payload = slices.Clone(inj.Frame.Payload)
-			}
-			if inj.Packet != nil {
-				pktCp := *inj.Packet
-				if inj.Packet.Payload != nil {
-					pktCp.Payload = slices.Clone(inj.Packet.Payload)
-				}
-				injCp.Packet = &pktCp
-			}
-			scenario[i] = injCp
-		}
+func (d *TimedFaultDomain) buildCandidate(f fabric.FaultAction, at time.Time) Candidate {
+	actions := (Candidate{Actions: d.baseTraffic}).Clone().Actions
+	index := 0
+	for _, action := range actions {
+		index = max(index, action.Index)
 	}
-
-	faults := []TimedFault{
-		{
-			At:    at,
-			A:     f.A,
-			B:     f.B,
-			Fault: f.Fault.Clone(),
-		},
-	}
-
-	tuple := formatFaultTuple(f, at)
-
-	return Candidate{
-		Tuple:    tuple,
-		Scenario: scenario,
-		Faults:   faults,
-	}
+	fault := f
+	fault.Fault = f.Fault.Clone()
+	actions = append(actions, fabric.Action{ID: fmt.Sprintf("fault-%d", index+1), At: at, Index: index + 1, Kind: fabric.ActionFault, Fault: &fault})
+	return Candidate{Tuple: formatFaultTuple(f, at), Actions: actions}
 }
 
-func formatFaultTuple(f FaultSpec, at time.Time) Tuple {
-	aStr := f.A.Node
-	if f.A.Port != "" {
-		aStr += ":" + f.A.Port
-	}
-	bStr := f.B.Node
-	if f.B.Port != "" {
-		bStr += ":" + f.B.Port
-	}
+func formatFaultTuple(f fabric.FaultAction, at time.Time) Tuple {
+	aStr := f.A.Canonical()
+	bStr := f.B.Canonical()
 
 	detail := string(f.Fault.Kind)
 	if f.Fault.N > 0 {
@@ -154,17 +132,17 @@ func formatFaultTuple(f FaultSpec, at time.Time) Tuple {
 		detail += fmt.Sprintf("(Seq=%v)", f.Fault.Sequence)
 	}
 
-	return Tuple(fmt.Sprintf("%s--%s@%s:%s", aStr, bStr, at.Format(time.RFC3339Nano), detail))
+	return Tuple(fmt.Sprintf("%s--%s@%s:%s", aStr, bStr, at.Round(0).UTC().Format(time.RFC3339Nano), detail))
 }
 
 func deduplicateAndSortTimes(in []time.Time) []time.Time {
-	seen := make(map[int64]bool, len(in))
+	seen := make(map[time.Time]bool, len(in))
 	var out []time.Time
 	for _, t := range in {
-		key := t.UnixNano()
+		key := t.Round(0).UTC()
 		if !seen[key] {
 			seen[key] = true
-			out = append(out, t)
+			out = append(out, key)
 		}
 	}
 	slices.SortFunc(out, func(a, b time.Time) int {
@@ -173,16 +151,16 @@ func deduplicateAndSortTimes(in []time.Time) []time.Time {
 	return out
 }
 
-func deduplicateAndSortFaultSpecs(in []FaultSpec) []FaultSpec {
+func deduplicateAndSortFaults(in []fabric.FaultAction) []fabric.FaultAction {
 	type key struct {
 		aNode, aPort string
 		bNode, bPort string
-		kind         fabric.FaultKind
+		kind         cablemodel.FaultKind
 		n            uint
 		seq          string
 	}
 	seen := make(map[key]bool, len(in))
-	var out []FaultSpec
+	var out []fabric.FaultAction
 	for _, f := range in {
 		k := key{
 			aNode: f.A.Node,
@@ -195,14 +173,14 @@ func deduplicateAndSortFaultSpecs(in []FaultSpec) []FaultSpec {
 		}
 		if !seen[k] {
 			seen[k] = true
-			out = append(out, FaultSpec{
+			out = append(out, fabric.FaultAction{
 				A:     f.A,
 				B:     f.B,
 				Fault: f.Fault.Clone(),
 			})
 		}
 	}
-	slices.SortFunc(out, func(a, b FaultSpec) int {
+	slices.SortFunc(out, func(a, b fabric.FaultAction) int {
 		if r := cmp.Compare(a.A.Node, b.A.Node); r != 0 {
 			return r
 		}

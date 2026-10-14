@@ -58,13 +58,13 @@ func TestTopologyShadowingConformance(t *testing.T) {
 
 	// The unknown sibling is a possible flood egress, so its state is relevant
 	// even when the frame arrived on the known-up port.
-	fwdKnown := res.Switch.Forward(now, "1/1/1", frame)
+	fwdKnown := res.Switch.Receive(now, "1/1/1", frame)
 	if fwdKnown.Metadata.Status() != analysis.Incomplete {
 		t.Errorf("fwdKnown.Metadata.Status() = %v, want %v", fwdKnown.Metadata.Status(), analysis.Incomplete)
 	}
 
 	// Unknown port forwarding drops with port-down and has Incomplete status.
-	fwdUnknown := res.Switch.Forward(now, "1/1/2", frame)
+	fwdUnknown := res.Switch.Receive(now, "1/1/2", frame)
 	if fwdUnknown.Outcome != trace.Dropped {
 		t.Errorf("fwdUnknown.Outcome = %v, want %v", fwdUnknown.Outcome, trace.Dropped)
 	}
@@ -81,7 +81,7 @@ func TestModelLoadErrorVsPartialResultSeparation(t *testing.T) {
 	src := netmodel.SourceContext{DeviceID: "sw1", Origin: "telemetry"}
 
 	// Empty interface slice is an unconstructible error.
-	_, err := netmodel.Load(now, src, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	_, err := netmodel.Load(now, src, netmodel.Input{})
 	if err == nil {
 		t.Error("Load with nil interfaces did not return an error")
 	}
@@ -93,7 +93,7 @@ func TestModelLoadErrorVsPartialResultSeparation(t *testing.T) {
 	p1A := interfacev1.Interface_builder{Name: &p1Name, AdminStatus: &adminUp, OperStatus: &operUp}.Build()
 	p1B := interfacev1.Interface_builder{Name: &p1Name, AdminStatus: &adminUp, OperStatus: &operUp}.Build()
 
-	_, err = netmodel.Load(now, src, []*interfacev1.Interface{p1A, p1B}, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	_, err = netmodel.Load(now, src, netmodel.Input{Interfaces: []*interfacev1.Interface{p1A, p1B}})
 	if err == nil {
 		t.Error("Load with duplicate interface names did not return an error")
 	}
@@ -103,7 +103,7 @@ func TestModelLoadErrorVsPartialResultSeparation(t *testing.T) {
 	p2Name := "1/1/2"
 	p2 := interfacev1.Interface_builder{Name: &p2Name, AdminStatus: &adminUp, OperStatus: &operUnknown}.Build()
 
-	res, err := netmodel.Load(now, src, []*interfacev1.Interface{p1A, p2}, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	res, err := netmodel.Load(now, src, netmodel.Input{Interfaces: []*interfacev1.Interface{p1A, p2}})
 	if err != nil {
 		t.Fatalf("Load with partial input returned unexpected error: %v", err)
 	}
@@ -172,13 +172,13 @@ func TestDeterministicReportAndMetadataOrdering(t *testing.T) {
 	}
 
 	ifaces1, vlans1 := buildInputs()
-	res1, err := netmodel.Load(now, src, ifaces1, vlans1, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	res1, err := netmodel.Load(now, src, netmodel.Input{Interfaces: ifaces1, VLANs: vlans1})
 	if err != nil {
 		t.Fatalf("first Load failed: %v", err)
 	}
 
 	ifaces2, vlans2 := buildInputs()
-	res2, err := netmodel.Load(now, src, ifaces2, vlans2, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	res2, err := netmodel.Load(now, src, netmodel.Input{Interfaces: ifaces2, VLANs: vlans2})
 	if err != nil {
 		t.Fatalf("second Load failed: %v", err)
 	}

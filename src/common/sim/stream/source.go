@@ -1,16 +1,19 @@
 package stream
 
 import (
+	"bytes"
 	"math/bits"
+	"slices"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 )
 
-// Source yields frames at offsets relative to the stream's start. An iterator
-// is not safe for concurrent Next calls; Clone gives another cursor.
+// Source yields encodable, independent frames at nondecreasing offsets from
+// the consumer epoch. Frames share no mutable tags or payload with other yields
+// or cursors. An iterator is not safe for concurrent Next calls.
 type Source interface {
-	// Next returns the next offset from the stream's start and its frame.
+	// Next returns the next offset from the consumer epoch and its frame.
 	// After exhaustion, ok stays false.
 	Next() (at time.Duration, frame ethernet.Frame, ok bool)
 	// Clone returns an independent iterator at the same cursor.
@@ -32,15 +35,21 @@ func (s *specSource) Next() (time.Duration, ethernet.Frame, bool) {
 	hi, lo := bits.Mul64(uint64(s.n), s.numerator)
 	base, _ := bits.Div64(hi, lo, s.rate)
 	gap := uint64(s.n/s.spec.Burst) * uint64(s.spec.Gap)
-	frame := s.spec.Frame
+	frame := copyFrame(s.spec.Frame)
 	for _, variation := range s.spec.Variations {
-		frame = variation.Apply(s.n, frame, &s.rng)
+		frame = variation.apply(s.n, frame, &s.rng)
 	}
 	s.n++
-	return time.Duration(base + gap), frame, true
+	return s.spec.Start + time.Duration(base+gap), frame, true
 }
 
 func (s *specSource) Clone() Source {
 	clone := *s
 	return &clone
+}
+
+func copyFrame(frame ethernet.Frame) ethernet.Frame {
+	frame.Tags = slices.Clone(frame.Tags)
+	frame.Payload = bytes.Clone(frame.Payload)
+	return frame
 }

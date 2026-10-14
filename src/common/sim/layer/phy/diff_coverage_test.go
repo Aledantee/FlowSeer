@@ -3,50 +3,53 @@ package phy_test
 import (
 	"testing"
 
-	"go.aledante.io/FlowSeer/src/common/sim/internal/simtest"
 	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
+	"go.aledante.io/FlowSeer/src/common/sim/trace"
+
+	"go.aledante.io/FlowSeer/src/common/sim/internal/simtest"
 )
 
 // TestDiffCoversEveryConfigField verifies that every exported phy.Config field reaches
 // phy.Diff.
 func TestDiffCoversEveryConfigField(t *testing.T) {
-	limit := uint64(5_000_000_000)
-	pdClass := uint8(4)
-	seed := phy.Config{
-		Ethernet: map[string]phy.Ethernet{
-			"1/1/1": {
-				SupportedSpeedsBPS:       []uint64{1_000_000_000},
-				AutoNegotiationSupported: phy.CapabilitySupported,
-				Setting: &phy.Setting{
-					SpeedBPS:        1_000_000_000,
-					Duplex:          phy.Full,
-					AutoNegotiation: true,
-				},
-				Observed: &phy.Observed{
-					SpeedBPS: 1_000_000_000,
-					Duplex:   phy.Full,
-				},
-			},
-		},
-		PoE: &phy.PoE{
-			Groups: map[string]phy.Group{
-				"g1": {PowerNanowatts: 370_000_000_000},
-			},
-			Ports: map[string]phy.PsePort{
-				"1/1/1": {
-					Group:    "g1",
-					MaxClass: 4,
-					Enabled:  true,
-					Limit:    &limit,
-					Priority: phy.PriorityHigh,
-					PD:       phy.PDAttached,
-					PDClass:  &pdClass,
-				},
-			},
-		},
-	}
+	simtest.AssertMappedDiffCoverage(t, "phy")
+}
 
-	normalize := func(c phy.Config) phy.Config { return c.Normalize(layer.Env{}) }
-	simtest.AssertDiffCoversConfig(t, seed, normalize, phy.Diff, nil)
+func TestDiffCollectionCorrespondence(t *testing.T) {
+	cases := []struct {
+		name string
+		a, b phy.Config
+		want []simtest.ChangeExpectation
+	}{
+		{name: "supported_speeds_bps/insert", a: phy.Config{Ethernet: map[string]phy.Ethernet{"1/1/1": {SupportedSpeedsBPS: []uint64{25000000000, 1000000000}}}}, b: phy.Config{Ethernet: map[string]phy.Ethernet{"1/1/1": {SupportedSpeedsBPS: []uint64{25000000000, 10000000000, 1000000000}}}}, want: []simtest.ChangeExpectation{{Layer: "ethernet", Subject: trace.Subject{Kind: "port", Key: "1/1/1"}, Field: "supported_speeds_bps[\"10000000000\"]", To: &simtest.FactExpectation{TypeID: "phy.speed_bps", Canonical: "10000000000"}}}},
+		{name: "supported_speeds_bps/delete", a: phy.Config{Ethernet: map[string]phy.Ethernet{"1/1/1": {SupportedSpeedsBPS: []uint64{25000000000, 10000000000, 1000000000}}}}, b: phy.Config{Ethernet: map[string]phy.Ethernet{"1/1/1": {SupportedSpeedsBPS: []uint64{25000000000, 1000000000}}}}, want: []simtest.ChangeExpectation{{Layer: "ethernet", Subject: trace.Subject{Kind: "port", Key: "1/1/1"}, Field: "supported_speeds_bps[\"10000000000\"]", From: &simtest.FactExpectation{TypeID: "phy.speed_bps", Canonical: "10000000000"}}}},
+		{name: "supported_speeds_bps/replace", a: phy.Config{Ethernet: map[string]phy.Ethernet{"1/1/1": {SupportedSpeedsBPS: []uint64{10000000000, 1000000000}}}}, b: phy.Config{Ethernet: map[string]phy.Ethernet{"1/1/1": {SupportedSpeedsBPS: []uint64{25000000000, 1000000000}}}}, want: []simtest.ChangeExpectation{{Layer: "ethernet", Subject: trace.Subject{Kind: "port", Key: "1/1/1"}, Field: "supported_speeds_bps[\"10000000000\"]", From: &simtest.FactExpectation{TypeID: "phy.speed_bps", Canonical: "10000000000"}}, {Layer: "ethernet", Subject: trace.Subject{Kind: "port", Key: "1/1/1"}, Field: "supported_speeds_bps[\"25000000000\"]", To: &simtest.FactExpectation{TypeID: "phy.speed_bps", Canonical: "25000000000"}}}},
+		{name: "supported_speeds_bps/reorder", a: phy.Config{Ethernet: map[string]phy.Ethernet{"1/1/1": {SupportedSpeedsBPS: []uint64{1000000000, 10000000000}}}}, b: phy.Config{Ethernet: map[string]phy.Ethernet{"1/1/1": {SupportedSpeedsBPS: []uint64{10000000000, 1000000000}}}}, want: []simtest.ChangeExpectation{}},
+		{name: "supported_speeds_bps/duplicate", a: phy.Config{Ethernet: map[string]phy.Ethernet{"1/1/1": {SupportedSpeedsBPS: []uint64{10000000000, 1000000000, 10000000000}}}}, b: phy.Config{Ethernet: map[string]phy.Ethernet{"1/1/1": {SupportedSpeedsBPS: []uint64{1000000000, 10000000000}}}}, want: []simtest.ChangeExpectation{}},
+	}
+	hits := 0
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			for _, normalized := range []bool{false, true} {
+				a, b := tc.a, tc.b
+				if normalized {
+					a, b = a.Normalize(layer.Env{}), b.Normalize(layer.Env{})
+				}
+				got := phy.Diff(a, b)
+				hits++
+				if len(got) != len(tc.want) {
+					t.Fatalf("normalized=%v: Diff records = %d, want %d: %+v", normalized, len(got), len(tc.want), got)
+				}
+				for i, expected := range tc.want {
+					if !expected.Matches(got[i]) {
+						t.Errorf("normalized=%v: Diff[%d] = %+v, want %+v", normalized, i, got[i], expected)
+					}
+				}
+			}
+		})
+	}
+	if hits != 10 {
+		t.Errorf("concrete correspondence expectations = %d, want 10", hits)
+	}
 }

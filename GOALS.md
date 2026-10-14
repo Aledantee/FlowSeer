@@ -52,7 +52,7 @@ waiting to land stays ahead of both, since it gates the branch it sits on.
 - A Site is a FlowSeer-owned inventory entity under a Tenant, and each Edge
   belongs to one. No record decides its shape yet.
 - Discovery and asynchronous ingestion (traps, webhooks, pollers) are planes
-  of their own that feed the inventory. Same record;
+  of their own that feed the inventory. Same record.
   [`src/services/README.md`](src/services/README.md) names where they land.
 - NATS is the integration fabric between edge and central, on the hardened
   profile from the first deployment. Same record.
@@ -109,7 +109,7 @@ waiting to land stays ahead of both, since it gates the branch it sits on.
   decides its shape yet.
 - A mutation is gated before apply by projecting it onto a full-network
   view. [`mutation-shadow-projection-direction`](docs/architecture/2026-09-09-mutation-shadow-projection-direction.md),
-  deferred; the virtual-device record leaves open who computes the
+  deferred. The virtual-device record leaves open who computes the
   projection.
 
 ## Edge
@@ -132,11 +132,11 @@ waiting to land stays ahead of both, since it gates the branch it sits on.
   import rule.
   [`network-model-structure-direction`](docs/architecture/2026-08-20-network-model-structure-direction.md)
 - Wireless (`net/wlan`: Radio, Bss, WirelessClient) is a peer of switching.
-  Same record; the location is reserved.
+  Same record. The location is reserved.
 - Routing (`net/routing`: RIB, network instance, VRF) lands when a real RIB
-  capability is ready. Same record; the location is reserved.
+  capability is ready. Same record. The location is reserved.
 - End hosts get a Host/Client entity family distinct from Device and
-  Interface. Same record; reserved, not in v1.
+  Interface. Same record. Reserved, not in v1.
 - The hardware component tree maps from ENTITY-MIB and links to the
   interface model. Same record.
 - Errors cross the wire as `errs` codes mapped to Connect codes.
@@ -156,6 +156,15 @@ waiting to land stays ahead of both, since it gates the branch it sits on.
 - A simulated local network includes a stateful firewall with a packet
   filter and tagged sub-interfaces, and an mDNS reflector across VLANs.
   [`local-network-analysis-direction`](docs/architecture/2026-09-16-local-network-analysis-direction.md),
+  proposed.
+
+- The simulation reports every frame's path, drop location, and reason at the
+  highest granularity it can report. Same virtual-device record,
+  [Reporting granularity](docs/architecture/2026-09-10-virtual-device-direction.md#reporting-granularity).
+- Offered load uses shared stream values and `sim/flow` statistics. Simulator
+  and lab reports preserve scoped flow trust and reject lab-only flow IDs
+  through error-returning constructors.
+  [offered-load-streams direction](docs/architecture/2026-09-18-offered-load-streams-direction.md),
   proposed.
 
 ## Web frontend

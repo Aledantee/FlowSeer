@@ -1,14 +1,18 @@
 package loopprotect_test
 
 import (
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/sim/internal/simtest"
 	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/loopprotect"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
+	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
 func testPortTable(t *testing.T) port.Table {
@@ -110,6 +114,41 @@ func TestValidate(t *testing.T) {
 			wantErr: true,
 		},
 		{
+			name: "VLAN 0 member",
+			cfg: loopprotect.Config{
+				Ports: map[string]loopprotect.Port{
+					"1/1/1": {Action: loopprotect.Block, VLANs: []vlan.ID{0}},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "VLAN 4095 member",
+			cfg: loopprotect.Config{
+				Ports: map[string]loopprotect.Port{
+					"1/1/1": {Action: loopprotect.Block, VLANs: []vlan.ID{4095}},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "VLAN 5000 member",
+			cfg: loopprotect.Config{
+				Ports: map[string]loopprotect.Port{
+					"1/1/1": {Action: loopprotect.Block, VLANs: []vlan.ID{5000}},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "valid VLAN members",
+			cfg: loopprotect.Config{
+				Ports: map[string]loopprotect.Port{
+					"1/1/1": {Action: loopprotect.Block, VLANs: []vlan.ID{1, 4094}},
+				},
+			},
+		},
+		{
 			name: "manual with disable is fine",
 			cfg: loopprotect.Config{
 				Ports: map[string]loopprotect.Port{
@@ -126,6 +165,32 @@ func TestValidate(t *testing.T) {
 			err := tc.cfg.Validate(layer.Env{Ports: tbl})
 			if (err != nil) != tc.wantErr {
 				t.Errorf("Validate() error = %v, wantErr %v", err, tc.wantErr)
+			}
+		})
+	}
+}
+
+func TestValidateRefusesVLANOutsideRange(t *testing.T) {
+	t.Parallel()
+
+	tbl := testPortTable(t)
+
+	for _, vid := range []vlan.ID{0, 4095, 5000} {
+		t.Run(strconv.Itoa(int(vid)), func(t *testing.T) {
+			t.Parallel()
+
+			cfg := loopprotect.Config{
+				Ports: map[string]loopprotect.Port{
+					"1/1/1": {Action: loopprotect.Block, VLANs: []vlan.ID{10, vid}},
+				},
+			}
+
+			err := cfg.Validate(layer.Env{Ports: tbl})
+			if err == nil {
+				t.Fatalf("Validate() = nil, want an error for VLAN %d", vid)
+			}
+			if got := errs.Attributes(err)["field"]; got != "ports.1/1/1.vlans" {
+				t.Errorf("field = %v, want ports.1/1/1.vlans", got)
 			}
 		})
 	}
@@ -344,5 +409,55 @@ func TestDiffAddedAndRemovedPorts(t *testing.T) {
 	added, ok := byKey["1/1/2"]
 	if !ok || added.hasFrom || !added.hasTo {
 		t.Errorf("added port change = %+v, want From nil and To set", added)
+	}
+}
+
+func TestDiffRecoveryDurationDependency(t *testing.T) {
+	cases := []struct {
+		name     string
+		duration time.Duration
+		want     []simtest.ChangeExpectation
+	}{
+		{name: "explicit", duration: 30 * time.Second, want: []simtest.ChangeExpectation{
+			{Layer: "loopprotect", Subject: trace.Subject{Kind: "bridge"}, Field: "interval", From: &simtest.FactExpectation{TypeID: "loopprotect.duration", Canonical: "1s"}, To: &simtest.FactExpectation{TypeID: "loopprotect.duration", Canonical: "2s"}},
+			{Layer: "loopprotect", Subject: trace.Subject{Kind: "port", Key: "1/1/1"}, Field: `vlans["10"]`, From: &simtest.FactExpectation{TypeID: "loopprotect.vlan_id", Canonical: "10"}},
+			{Layer: "loopprotect", Subject: trace.Subject{Kind: "port", Key: "1/1/1"}, Field: `vlans["20"]`, To: &simtest.FactExpectation{TypeID: "loopprotect.vlan_id", Canonical: "20"}},
+		}},
+		{name: "inherited", want: []simtest.ChangeExpectation{
+			{Layer: "loopprotect", Subject: trace.Subject{Kind: "bridge"}, Field: "interval", From: &simtest.FactExpectation{TypeID: "loopprotect.duration", Canonical: "1s"}, To: &simtest.FactExpectation{TypeID: "loopprotect.duration", Canonical: "2s"}},
+			{Layer: "loopprotect", Subject: trace.Subject{Kind: "port", Key: "1/1/1"}, Field: "recovery.duration", From: &simtest.FactExpectation{TypeID: "loopprotect.duration", Canonical: "3s"}, To: &simtest.FactExpectation{TypeID: "loopprotect.duration", Canonical: "6s"}},
+			{Layer: "loopprotect", Subject: trace.Subject{Kind: "port", Key: "1/1/1"}, Field: `vlans["10"]`, From: &simtest.FactExpectation{TypeID: "loopprotect.vlan_id", Canonical: "10"}},
+			{Layer: "loopprotect", Subject: trace.Subject{Kind: "port", Key: "1/1/1"}, Field: `vlans["20"]`, To: &simtest.FactExpectation{TypeID: "loopprotect.vlan_id", Canonical: "20"}},
+		}},
+	}
+	hits := 0
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			a := loopprotect.Config{Interval: time.Second, Ports: map[string]loopprotect.Port{"1/1/1": {Action: loopprotect.Block, Recovery: loopprotect.Recovery{Mode: loopprotect.Timer, Duration: tc.duration}, VLANs: []vlan.ID{10}}}}
+			b := a.Clone()
+			b.Interval = 2 * time.Second
+			p := b.Ports["1/1/1"]
+			p.VLANs = []vlan.ID{20}
+			b.Ports["1/1/1"] = p
+			for _, normalized := range []bool{false, true} {
+				from, to := a, b
+				if normalized {
+					from, to = from.Normalize(layer.Env{}), to.Normalize(layer.Env{})
+				}
+				got := loopprotect.Diff(from, to)
+				hits++
+				if len(got) != len(tc.want) {
+					t.Fatalf("Diff records = %d, want %d: %+v", len(got), len(tc.want), got)
+				}
+				for i, expected := range tc.want {
+					if !expected.Matches(got[i]) {
+						t.Errorf("Diff[%d] = %+v, want %+v", i, got[i], expected)
+					}
+				}
+			}
+		})
+	}
+	if hits != 4 {
+		t.Errorf("concrete dependency expectations = %d, want 4", hits)
 	}
 }

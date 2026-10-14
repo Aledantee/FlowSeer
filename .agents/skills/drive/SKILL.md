@@ -43,8 +43,8 @@ Before the first dispatch:
   phases that finished before it started.
 - Do not drive a line flagged `elsewhere:<branch>`; name the branch.
 - Load `delegate`, discover the host, and read the quota with its
-  `pool-usage.sh`. State all four rows (`claude`, `codex`, `google`,
-  `synthetic`) before the first dispatch; a quota line that names two pools
+  `delegate pool-usage`. State all five rows (`claude`, `codex`, `google`,
+  `synthetic`, `zai`) before the first dispatch. A quota line that names two pools
   routed on two pools. No usable pool means no drive: say which window is
   exhausted and when it resets.
 
@@ -57,7 +57,7 @@ worktree. Nothing merges here after a stage: a merge per stage would put a
 plan that later parks or goes back to `plan` on this branch in parts.
 
 The plan's first stage creates the worktree, branched from this branch's
-`HEAD`: start it with `orca-worker.sh start` with the table's `--role`,
+`HEAD`: start it with `delegate orca-worker start` with the table's `--role`,
 `--plan <path>`, and the stage name as `--unit`. A phase resumed from a
 parked branch starts with `--base parked/<slug>` instead
 (`references/parking.md`, Answer). Then record the `branch` that `start`
@@ -77,11 +77,11 @@ plan's worktree when run in this one.
 
 Each later stage joins the worktree under a lane name of its own, with the
 same flags and `--join <lane>`, the lane being any earlier lane of the
-plan. `orca-worker.sh status` prints those as `kept`, which is where a
+plan. `delegate orca-worker status` prints those as `kept`, which is where a
 resumed drive finds the lane to join:
 
 ```bash
-.claude/skills/delegate/scripts/orca-worker.sh start --lane <slug> --join <lane> --cli <cli> --model <id> --role <role> --plan <path> --unit <stage> --brief <file>
+uv run tools/scripts/run.py delegate orca-worker start --lane <slug> --join <lane> --cli <cli> --model <id> --role <role> --plan <path> --unit <stage> --brief <file>
 ```
 
 | Stage | Applies when | Worker runs | Role | Done when |
@@ -93,7 +93,7 @@ resumed drive finds the lane to join:
 
 `$base` is the commit the plan's branch forked from, read from the `start`
 event the plan's first lane logged, with `$run` the `run` that
-`orca-worker.sh start` printed for that lane. A joined lane's `start` event
+`delegate orca-worker start` printed for that lane. A joined lane's `start` event
 holds the worktree's `HEAD` at its join, which covers its own stage only:
 
 ```bash
@@ -110,6 +110,10 @@ The brief follows `delegate` and adds:
   skill is no reason to pick `claude`.
 - A decision the skill would put to the user is a blocker to state and stop
   on.
+- A report file under the session scratchpad directory for every stage,
+  including implement and compound (`delegate`, Write the brief, item 4).
+- When a unit's Files line names a policy surface, load
+  `references/policy-units.md` before dispatching it.
 - The worker budget: the stage's share of the cap from `delegate`'s Wave
   size, read just before the dispatch, less one for the stage worker, at
   least one. It may hold that many workers of its own (`implement`'s waves,
@@ -117,22 +121,32 @@ The brief follows `delegate` and adds:
   the share is the whole cap. The stage skill's own rules about workers
   stand; only the count is this drive's.
 
-Wait on the lane as `delegate` describes, with
-`wait <slug> --until '<test>'`, the test being the state command for the
-stage's "Done when":
+Wait on the lane with JSON argv for the stage's `drive stage-done` predicate.
+The command runs in the lane checkout, so its plan path is relative to that
+checkout:
 
-- re-plan: `uv run tools/scripts/run.py plan record is <plan> status!=implemented && uv run tools/scripts/run.py plan record is <plan> readiness=implementation-ready`
-- implement: `uv run tools/scripts/run.py plan record is <plan> status=implemented`
-- review: `uv run tools/scripts/run.py plan record is <plan> review=accept || uv run tools/scripts/run.py plan record is <plan> "review=accept after fixes"`
-- compound: `uv run tools/scripts/run.py plan record is <plan> compound!=null`
+```bash
+uv run tools/scripts/run.py delegate orca-worker wait <slug> --until '["uv","run","tools/scripts/run.py","drive","stage-done","<plan>","re-plan"]'
+uv run tools/scripts/run.py delegate orca-worker wait <slug> --until '["uv","run","tools/scripts/run.py","drive","stage-done","<plan>","implement"]'
+uv run tools/scripts/run.py delegate orca-worker wait <slug> --until '["uv","run","tools/scripts/run.py","drive","stage-done","<plan>","review"]'
+uv run tools/scripts/run.py delegate orca-worker wait <slug> --until '["uv","run","tools/scripts/run.py","drive","stage-done","<plan>","compound"]'
+```
 
-On `done` without the stage's report on the screen, wait again without
+`stage-done` returns 0 for done, 1 for pending, and 2 for invalid input or
+state. Re-plan needs both a non-implemented status and ready state. Review
+accepts both accepted verdicts. Compound checks `compound`, independently
+of `outcome`.
+
+On `done` without the stage's report file, wait again without
 `--until`.
+On an idle worker reporting an uncommitted policy unit, follow
+`references/policy-units.md` before the tree check or stage completion
+check below. Resume the stage after the approved unit is committed.
 
 After each stage:
 
 1. Check the worker's tree before its report, as `delegate` describes, and
-   run `.claude/skills/delegate/scripts/orca-worker.sh check <slug>`. A
+   run `uv run tools/scripts/run.py delegate orca-worker check <slug>`. A
    non-zero result stops this stage.
 2. After the implement stage, read the worker's ledger, which stays in the
    plan's worktree and never merges. Report every unit `passed` as the
@@ -146,8 +160,8 @@ After each stage:
    again.
 4. Unless this was the plan's last stage, grade the lane and end it with its
    worktree kept. Nothing was merged, so its verifier result is `none`:
-   `.claude/skills/delegate/scripts/orca-worker.sh grade <slug> --outcome accepted --verify none`
-   `.claude/skills/delegate/scripts/orca-worker.sh stop <slug> --keep-worktree`
+   `uv run tools/scripts/run.py delegate orca-worker grade <slug> --outcome accepted --verify none`
+   `uv run tools/scripts/run.py delegate orca-worker stop <slug> --keep-worktree`
 
 After the last stage, once the compound stage's "done when" reads done and
 before `land`:
@@ -167,14 +181,14 @@ before `land`:
    A non-zero result stops the drive. Carry every `missing` block in the
    report.
 3. Run the verifier once on the union of the plan's changed paths, sandbox
-   disabled: `.claude/skills/verify-change/scripts/verify-change.sh -- <changed paths>`
+   disabled: `uv run tools/scripts/run.py verify change -- <changed paths>`
 4. Grade the last lane, once, with that result: `accepted` when the branch
    merged as the workers left it, `amended` when the coordinator corrected
    the work, `--verify pass` when the verifier ran green. The plan's earlier
    lanes keep the grade "After each stage" gave them.
-   `.claude/skills/delegate/scripts/orca-worker.sh grade <slug> --outcome accepted|amended --verify pass|fail`
+   `uv run tools/scripts/run.py delegate orca-worker grade <slug> --outcome accepted|amended --verify pass|fail`
 5. Remove the plan's worktree, its branch, and the state file of every lane
-   that ran in it: `.claude/skills/delegate/scripts/orca-worker.sh stop <slug>`
+   that ran in it: `uv run tools/scripts/run.py delegate orca-worker stop <slug>`
 
 End a turn only while waiting on a started lane, with a started successor,
 at a parked question, or when a failed lane check after a stage or a failed
@@ -229,6 +243,11 @@ lane is live, run `land` once in this session on the phases owed. A phase that p
 land, since parking removes its worktree (`references/parking.md`). A
 fast-forward the harness refuses goes into step 5's
 report and the drive continues. Any other stop in `land` stops the drive.
+After a land merges `main`, inspect the merge's changed paths under
+`.agents/skills/` and `tools/scripts/`. When either changed, reload `drive`,
+`delegate`, `land`, and the next stage's skill before dispatch. Start no new
+lane from a branch older than that merge. A kept lane must merge this
+checkout's HEAD before running its next stage.
 A pending fast-forward can outlive this session, so step 5 reads it off
 the branch rather than from memory.
 
@@ -241,11 +260,11 @@ conditions hold:
 4. No plan in scope holds a `Parked by drive:` line.
 
 Resolve the `plan` role lane through `delegate` at this hand-off. Call
-`successor.sh`, sandbox disabled and `timeout: 180000`, with its CLI, model id,
+`drive successor`, sandbox disabled and `timeout: 180000`, with its CLI, model id,
 and effort:
 
 ```bash
-.claude/skills/drive/scripts/successor.sh <parent> --cli <cli> --model <id> --effort <level>
+uv run --quiet tools/scripts/run.py drive successor <parent> --cli <cli> --model <id> --effort <level>
 ```
 
 Exit handling:
@@ -253,8 +272,8 @@ Exit handling:
 - Exit 0: report in one line that the drive and its closing question continue
   in the named terminal, and end the turn.
 - Exit 1: continue the drive in this session.
-- Exit 2: stop the drive and report that a successor may be running with the
-  printed handle.
+- Exit 2: stop the drive and report that a successor may be running. Name the
+  handle when one was created.
 
 When no further phase can run, go to step 5. A coordinator on another
 runtime does not hand off.
@@ -264,8 +283,11 @@ runtime does not hand off.
 Park a plan when its worker stops on a decision that is the user's (a ruling
 that changes other units, the wire, or an accepted record; a design question
 in a re-plan; a direction record awaiting acceptance), on a `blocked` unit,
-on a review that ends in `rework` or `fixes needed` after its loop, or on a change to a policy
-surface. A `rework` that names the round limit parks with the options
+on a review that ends in `rework` or `fixes needed` after its loop.
+Policy-surface units follow `references/policy-units.md` instead.
+Test placement or setup that preserves the proof under
+`implement/references/test-placement.md` is a coordinator ruling to report,
+not a parked design question. A `rework` that names the round limit parks with the options
 `review/references/fix-loop.md`, When to stop, lists: `plan`, dropping or
 replacing the mechanism, or stopping. When both rounds were on one
 mechanism, it parks with `plan` or stopping. No park offers a further
@@ -280,8 +302,9 @@ Stop when every plan in scope has its three fields set, when only parked or
 waiting plans remain, when no pool is usable, or when the verifier is red on
 a merged union. Asking `drive` to run a parent is the user's answer for its
 phase lands (step 3). A plan without phases lands only from the question
-below, since a merge into `main` lands for every worktree; a policy-surface
-change stays a parked question.
+below, since a merge into `main` lands for every worktree.
+An unresolved policy-unit review retains its lanes and question as
+`references/policy-units.md` describes.
 
 Report, outcome first: plans landed with their commit ranges, review
 verdicts, and per-unit ledger result; plans parked with the question each

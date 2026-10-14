@@ -12,7 +12,7 @@ amends: docs/architecture/2026-09-10-virtual-device-direction.md
 ## Context
 
 A fabric run takes one frame per `Fabric.Inject` call
-(`src/common/sim/fabric/run.go`). The run already models what load acts
+(`src/common/sim/fabric/injection.go`). The run already models what load acts
 on: serialization at the negotiated rate, a busy clock per endpoint, strict
 priority egress queues with a per-queue maximum rate, ingress policers, and
 mirrors. It has no way to state load. A caller who wants 800 Mbit/s into a
@@ -47,17 +47,18 @@ be compared.
   `ethernet.Frame.WireOctets` gives and the fabric charges for
   serialization, so a stream at a link's full rate fits it exactly. A
   consumer reads a stream as a `stream.Source`, whose `Next` yields each
-  frame with its offset from the stream's start, never an absolute time:
+  independent, encodable frame with its offset from the consumer epoch,
+  including the spec's start offset, never an absolute time:
   the fabric and the transmitter each add their own epoch, and `Clone`
   lets a fork continue from the same position.
-- A stream is a source the run pulls from. The fabric holds attached sources
-  and, before each step, injects every source frame whose time is not after
-  the earliest queued arrival. Nothing expands a stream ahead of the clock.
-  Why: memory stays flat in the stream length, and a source can end when its
-  origin link goes down. When the queue is empty the run injects the
-  earliest source frame, so a stream alone keeps a run moving. `RunScenario`
-  refuses actions while a stream is attached, because its action loop does
-  not order actions against source frames.
+- A stream contributes one queue event at a time. Attachment reads its first
+  frame and queues that event. Stepping it introduces the frame and reads the
+  successor. Why: memory stays flat in the stream length, and an `Unknown`
+  link consumes one frame per event. A source ends when its host link goes
+  down. Codec refusals and backward offsets end that source with a flow
+  issue, while other sources continue. Scenario actions, host transmissions,
+  and stream frames share the order in `fabric/queue.go`, so `RunScenario`
+  accepts attached streams.
 - Variation is deterministic. A field steps by increment or decrement, or
   draws from a generator the package owns, seeded by the stream spec. The
   generator is SplitMix64, pinned by known-answer vectors. The virtual device
@@ -79,28 +80,41 @@ be compared.
   default would put a loss figure on the record that nothing measured.
 - A frame's journey has a retention. `Injection.Retention` is `RetainJourney`
   (the zero value, today's behavior) or `RetainAggregate`. An aggregated frame
-  names a flow; when its last copy settles, the fabric folds its outcome into
+  names a flow. When its last copy settles, the fabric folds its outcome into
   that flow's statistics and frees the journey. Statistics per flow: frames
   offered, deliveries per host, drops per reason, cable losses, unresolved
   fates, host rejections, frames held for neighbor resolution, latency from
   injection to each delivery as minimum, maximum, sum and count, and the
-  merged trust metadata of every folded journey. A held frame settles at the
-  hold and the frame the switch later releases carries no flow. Mirror and
+  merged trust metadata of every folded journey. A hold keeps its frame in
+  flight. Release continues that frame's journey and folds its delivery into
+  the original flow. Timeout, overflow, filter refusal, and routing rebuild
+  fold a drop into that flow. `flow.Stats.Held` is a gauge of frames in the
+  fabric's device-and-token hold map at `Flows()` time. The simload report
+  exposes the end-of-run reading as `HeldAtEnd` (`held_at_end`). Mirror and
   reflector copies are counted apart, per mirror name or `reflection`, and
-  never as deliveries of the stream. Why: the planning answer is the
-  aggregate, and the trust metadata has to survive the fold or an `Unknown`
-  uplink would yield a confident throughput.
+  never as deliveries of the stream. `flow.ID`, `flow.Stats`, and
+  `flow.LatencyStats` live in `src/common/sim/flow`. Fabric owns folding and
+  the held gauge ([flow values](../../src/common/sim/flow/flow.go),
+  [folding](../../src/common/sim/fabric/flow.go)). Trust metadata survives the
+  fold so an `Unknown` uplink cannot yield a confident throughput.
+  Aggregate statistics currently omit each settled frame's path and drop
+  location. The virtual-device record's
+  [Reporting granularity](2026-09-10-virtual-device-direction.md#reporting-granularity)
+  requires that detail under aggregate and protocol retention too. Its export,
+  ownership, and memory measurements remain separately scoped fabric work in
+  the [follow-up plan](../plans/2026-10-10-1624-refactor-simulation-followups-plan.md).
+  The min/max/sum/count latency contract remains unchanged.
 - Stream identity is metadata, not payload. The fabric knows each frame's flow
   from its injection. The on-wire transmitter needs a payload signature
-  because a NIC does not; that signature belongs to the transmitter. It
+  because a NIC does not. That signature belongs to the transmitter. It
   occupies the first 32 payload octets without changing the frame's length
   (magic `FSLD`, a version, the flow, a sequence, and the submission time),
   so a stream the transmitter runs must carry at least 32 payload octets and
   a size variation must keep them.
 - A capture file is a stream source. `src/common/net/pcap` reads classic pcap
   and pcapng into timestamped byte records that carry their link type, with
-  no generated types, so `netsim` and the edge can both import it. The capture
-  module's pcapng writer stays where it is; it renders `PacketRecord`
+  no generated types, so `sim` and the edge can both import it. The capture
+  module's pcapng writer stays where it is. It renders `PacketRecord`
   protobufs and cannot move under `src/common`. `stream.NewCaptureSource`
   takes records the caller has already read, accepts only
   `LINKTYPE_ETHERNET` frames without a declared FCS, and validates and
@@ -108,10 +122,10 @@ be compared.
   A read error therefore surfaces before the run, and capture memory scales
   with the file.
 - The on-wire transmitter is an edge application, `src/edge/simload`, not
-  part of `netsim` and not a netpen subcommand. It executes the same `stream`
+  part of `sim` and not a netpen subcommand. It executes the same `stream`
   values with wall-clock pacing through a packet socket on one named
-  interface and counts what a second named interface receives; neither
-  interface has a default. `netsim` keeps its rule: no goroutines, no wall
+  interface and counts what a second named interface receives. Neither
+  interface has a default. `sim` keeps its rule: no goroutines, no wall
   clock, no I/O.
 - The engine scales by structure, not by approximation. The arrival queue
   becomes a heap with the same total order, and `record` reads a cached fabric
@@ -129,7 +143,7 @@ be compared.
   caps a run near 100,000 frames.
 - A default buffer size as an opt-in assumption, in the manner of
   `PhyAssumption`. It gives every run a loss figure. It lost because no
-  standard supplies the default; `PhyAssumption` fills values IEEE 802.3
+  standard supplies the default. `PhyAssumption` fills values IEEE 802.3
   defines, and a buffer depth has no such source.
 - A fluid model that moves rates instead of frames. It reaches 10 Gbit/s for
   minutes, and it cannot answer which frame a policer dropped or how a LAG
@@ -152,7 +166,7 @@ be compared.
   per-flow statistics, becomes the validation of the queue and policer model.
   Transmitting on the lab network needs the owner's approval per run. The
   comparison report keeps the two observation domains apart: a sequence the
-  lab receiver missed is reported as missing, never as `FlowStats.Lost`
+  lab receiver missed is reported as missing, never as `flow.Stats.Lost`
   (cable loss) or as a switch drop reason.
 
 Landed 2026-09-23: the heap arrival queue, journey retention, and per-flow
@@ -163,3 +177,32 @@ corpus cases, the `src/common/net/pcap` reader with the capture source, and
 the `src/edge/simload` transmitter with its opt-in ICX7150 comparison
 test. The live comparison run is an owner-run step and had not run when the
 transmitter landed.
+
+### Held-frame accounting (2026-10-09)
+
+[`TestHeldIsAGauge`](../../src/common/sim/fabric/flow_internal_test.go) reads
+two frames held in one flow, then one held and one delivered after release.
+[`TestReleaseWithMirrorUnderAggregate`](../../src/common/sim/fabric/flow_internal_test.go)
+checks that a released frame and its egress mirror contribute one delivery,
+one copy, and one latency sample. A held frame retains its journey until its
+hold and transmissions end. Aggregate retention frees that journey at settle.
+
+### Scoped simulator and lab reports
+
+[`simload.NewReport`](../../src/edge/simload/report.go) returns `(Report, error)`
+from `map[flow.ID]flow.Stats`, whole-fabric metadata, a lab `Observation`, and
+a destination host name. Each simulator flow keeps its folded journey status,
+issues, scopes, and evidence, including copy-derived metadata. Whole-fabric
+issues remain in the simulator summary. `NewReportFromSimulator` returns the
+same pair from a `SimulatorReport` and preserves its flow rows. Both reject a
+lab-only flow ID with an error and a zero report. Simulator-only rows remain
+visible with zero lab counters.
+
+The constructors' literal-input checks are
+`TestReportPreservesScopedFlowTrust`,
+`TestReportFromSimulatorKeepsMatchingAndSimulatorOnlyFlows`, and
+`TestReportRejectsLabOnlyFlows` in
+[`report_test.go`](../../src/edge/simload/report_test.go).
+Lab missing sequences carry no observed switch drop location or reason.
+Harness PASS does not establish simulator/lab delivery or latency equality
+([owner-run criteria](../../src/edge/simload/test/integration/README.md)).

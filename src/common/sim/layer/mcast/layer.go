@@ -62,8 +62,8 @@ type Entry struct {
 type Origin string
 
 const (
-	// Configured is the zero value: cfg.RouterPorts installed the record.
-	Configured Origin = ""
+	// Configured indicates that cfg.RouterPorts installed the record.
+	Configured Origin = "configured"
 
 	// Observed is a record a learned query installed.
 	Observed Origin = "observed"
@@ -73,9 +73,9 @@ const (
 type Lifetime string
 
 const (
-	// Aging is the zero value: [Layer.Advance] removes the record once its
+	// Aging indicates that [Layer.Advance] removes the record once its
 	// Expires has passed.
-	Aging Lifetime = ""
+	Aging Lifetime = "aging"
 
 	// Static is a record [Layer.Advance] never removes; its Expires is the
 	// zero value.
@@ -115,8 +115,53 @@ type vlanState struct {
 // The caller must serialize calls.
 type Layer struct {
 	cfg    Config
-	ports  port.Table
+	ports  map[string]struct{}
 	byVLAN map[vlan.ID]*vlanState
+}
+
+// Restore copies group state and observed router ports from prev for VLANs both
+// layers snoop, restricted to this layer's logical ports that keep admits.
+// It preserves every deadline and pending query without sharing mutable state.
+// Configured router ports are not copied, and this layer's static ports prevail.
+// The target configuration governs subsequent learning. Restore returns the
+// number of source group and router records absent from the target afterwards.
+// A record whose deadline has passed but that the source has not yet aged out
+// counts like any other. A nil target loses every record. A nil source loses none.
+func (l *Layer) Restore(prev *Layer, keep func(vlan.ID, string) bool) int {
+	if prev == nil {
+		return 0
+	}
+	lost := 0
+	for vid, old := range prev.byVLAN {
+		var state *vlanState
+		if l != nil {
+			state = l.byVLAN[vid]
+		}
+		for key, gps := range old.groups {
+			if state == nil {
+				lost++
+				continue
+			}
+			if _, ok := l.ports[key.port]; !ok || !keep(vid, key.port) {
+				lost++
+				continue
+			}
+			state.groups[key] = cloneGroupPortState(gps)
+		}
+		for name, router := range old.routers {
+			if state == nil {
+				lost++
+				continue
+			}
+			if _, ok := l.ports[name]; ok && keep(vid, name) && router.origin == Observed && state.routers[name].lifetime != Static {
+				state.routers[name] = router
+			}
+			if _, ok := state.routers[name]; !ok {
+				lost++
+			}
+		}
+	}
+	return lost
 }
 
 // New builds an empty snooping layer and installs valid static router ports from cfg.
@@ -131,8 +176,13 @@ func New(cfg Config, env layer.Env) (*Layer, error) {
 func newLayer(cfg Config, ports port.Table) *Layer {
 	l := &Layer{
 		cfg:    cfg.Clone(),
-		ports:  ports.Clone(),
+		ports:  make(map[string]struct{}),
 		byVLAN: make(map[vlan.ID]*vlanState, len(cfg.VLANs)),
+	}
+	for _, p := range ports.Ports() {
+		if p.LagParent == "" {
+			l.ports[p.Name] = struct{}{}
+		}
 	}
 
 	for vid, vlanCfg := range cfg.VLANs {
@@ -145,7 +195,7 @@ func newLayer(cfg Config, ports port.Table) *Layer {
 			routers:            make(map[string]routerPortState, len(vlanCfg.RouterPorts)),
 		}
 		for _, name := range vlanCfg.RouterPorts {
-			if logicalPort(ports, name) {
+			if _, ok := l.ports[name]; ok {
 				state.routers[name] = routerPortState{origin: Configured, lifetime: Static}
 			}
 		}
@@ -159,7 +209,7 @@ func newLayer(cfg Config, ports port.Table) *Layer {
 func (l *Layer) Clone() *Layer {
 	cp := &Layer{
 		cfg:    l.cfg.Clone(),
-		ports:  l.ports.Clone(),
+		ports:  maps.Clone(l.ports),
 		byVLAN: make(map[vlan.ID]*vlanState, len(l.byVLAN)),
 	}
 	for vid, state := range l.byVLAN {
@@ -192,7 +242,8 @@ func (l *Layer) Snooped(vid vlan.ID) bool {
 // Messages for unsnooped VLANs, unknown ports, and physical LAG members have no effect.
 func (l *Layer) Learn(now time.Time, vid vlan.ID, portName string, source netip.Addr, message igmp.Message) {
 	state, ok := l.byVLAN[vid]
-	if !ok || !logicalPort(l.ports, portName) {
+	_, logical := l.ports[portName]
+	if !ok || !logical {
 		return
 	}
 
@@ -202,8 +253,10 @@ func (l *Layer) Learn(now time.Time, vid vlan.ID, portName string, source netip.
 			learnRouter(now, portName, state)
 		}
 		observeQuery(now, message.Group, message.Sources, message.Suppress, state)
-	case igmp.ReportV1, igmp.ReportV2:
-		learnLegacyJoin(now, message.Group, portName, state)
+	case igmp.ReportV1:
+		learnLegacyJoin(now, message.Group, portName, state, 1)
+	case igmp.ReportV2:
+		learnLegacyJoin(now, message.Group, portName, state, 2)
 	case igmp.Leave:
 		learnLeave(now, message.Group, portName, state)
 	case igmp.ReportV3:
@@ -217,7 +270,8 @@ func (l *Layer) Learn(now time.Time, vid vlan.ID, portName string, source netip.
 // Router-port learning requires an IPv6 link-local source.
 func (l *Layer) LearnMLD(now time.Time, vid vlan.ID, portName string, source netip.Addr, message mld.Message) {
 	state, ok := l.byVLAN[vid]
-	if !ok || !logicalPort(l.ports, portName) {
+	_, logical := l.ports[portName]
+	if !ok || !logical {
 		return
 	}
 
@@ -228,7 +282,7 @@ func (l *Layer) LearnMLD(now time.Time, vid vlan.ID, portName string, source net
 		}
 		observeQuery(now, message.Group, message.Sources, message.Suppress, state)
 	case mld.ReportV1:
-		learnLegacyJoin(now, message.Group, portName, state)
+		learnLegacyJoin(now, message.Group, portName, state, 2)
 	case mld.Done:
 		learnLeave(now, message.Group, portName, state)
 	case mld.ReportV2:
@@ -239,9 +293,8 @@ func (l *Layer) LearnMLD(now time.Time, vid vlan.ID, portName string, source net
 }
 
 // Advance applies the RFC 3376 §6.5 timer-expiry rules and removes learned router ports whose
-// expiry is not after now. The returned layer.Effects is always empty. It is the only place aging
-// mutates stored state; Resolve computes the same rules lazily against the now it is given,
-// so a caller need not call Advance first.
+// expiry is not after now. The returned layer.Effects is always empty. Reads ignore expired
+// state without requiring Advance, and learning ages a port's state before applying a record.
 func (l *Layer) Advance(now time.Time) layer.Effects {
 	for _, state := range l.byVLAN {
 		for key, gps := range state.groups {
@@ -264,6 +317,7 @@ func ageGroupPortState(gps *groupPortState, now time.Time) {
 		for addr, expires := range gps.sources {
 			if !expires.After(now) {
 				delete(gps.sources, addr)
+				delete(gps.queriedSources, addr)
 			}
 		}
 
@@ -285,6 +339,7 @@ func ageGroupPortState(gps *groupPortState, now time.Time) {
 	for addr, expires := range gps.sources {
 		if expires.IsZero() || !expires.After(now) {
 			delete(gps.sources, addr)
+			delete(gps.queriedSources, addr)
 		}
 	}
 }
@@ -301,13 +356,15 @@ func (l *Layer) Resolve(vid vlan.ID, group netip.Addr, source netip.Addr, now ti
 	}
 
 	admitted := make(map[string]struct{}, len(state.routers))
-	for name := range state.routers {
-		admitted[name] = struct{}{}
+	for name, router := range state.routers {
+		if router.lifetime == Static || router.expires.After(now) {
+			admitted[name] = struct{}{}
+		}
 	}
 
-	hasRouter := len(state.routers) > 0
+	hasRouter := len(admitted) > 0
 	for key, gps := range state.groups {
-		if key.group != group {
+		if key.group != group || !groupPortActive(gps, now) {
 			continue
 		}
 		registered = true
@@ -328,15 +385,33 @@ func (l *Layer) Resolve(vid vlan.ID, group netip.Addr, source netip.Addr, now ti
 	return resolved, registered, pending
 }
 
-// Groups returns a deterministic snapshot of router state on vid.
-func (l *Layer) Groups(vid vlan.ID) []Entry {
+func groupPortActive(gps *groupPortState, now time.Time) bool {
+	if gps.mode == Exclude && gps.groupExpires.After(now) {
+		return true
+	}
+	for _, expires := range gps.sources {
+		if !expires.IsZero() && expires.After(now) {
+			return true
+		}
+	}
+	return false
+}
+
+// Groups returns a deterministic snapshot of router state on vid as of now, without
+// changing stored state. Expired sources and groups follow the same rules as Advance.
+func (l *Layer) Groups(vid vlan.ID, now time.Time) []Entry {
 	state, ok := l.byVLAN[vid]
 	if !ok || len(state.groups) == 0 {
 		return nil
 	}
 
-	entries := make([]Entry, 0, len(state.groups))
+	var entries []Entry
 	for key, gps := range state.groups {
+		if !groupPortActive(gps, now) {
+			continue
+		}
+		gps = cloneGroupPortState(gps)
+		ageGroupPortState(gps, now)
 		sources := make([]SourceEntry, 0, len(gps.sources))
 		for addr, expires := range gps.sources {
 			sources = append(sources, SourceEntry{Address: addr, Expires: expires})
@@ -362,15 +437,19 @@ func (l *Layer) Groups(vid vlan.ID) []Entry {
 	return entries
 }
 
-// RouterPorts returns a deterministic snapshot of static and learned router ports on vid.
-func (l *Layer) RouterPorts(vid vlan.ID) []RouterPort {
+// RouterPorts returns a deterministic snapshot of static and unexpired learned router
+// ports on vid as of now, without changing stored state.
+func (l *Layer) RouterPorts(vid vlan.ID, now time.Time) []RouterPort {
 	state, ok := l.byVLAN[vid]
 	if !ok || len(state.routers) == 0 {
 		return nil
 	}
 
-	entries := make([]RouterPort, 0, len(state.routers))
+	var entries []RouterPort
 	for name, router := range state.routers {
+		if router.lifetime != Static && !router.expires.After(now) {
+			continue
+		}
 		entries = append(entries, RouterPort{Port: name, Expires: router.expires, Origin: router.origin, Lifetime: router.lifetime})
 	}
 	slices.SortFunc(entries, func(a, b RouterPort) int {
@@ -380,94 +459,55 @@ func (l *Layer) RouterPorts(vid vlan.ID) []RouterPort {
 	return entries
 }
 
-// Retain replaces the port table and drops entries for which keep reports false.
-// Timers of retained entries are preserved.
-func (l *Layer) Retain(ports port.Table, keep func(vid vlan.ID, port string) bool) {
-	l.ports = ports.Clone()
-	for vid, state := range l.byVLAN {
-		for key := range state.groups {
-			if !keep(vid, key.port) {
-				delete(state.groups, key)
-			}
-		}
-		for name := range state.routers {
-			if !keep(vid, name) {
-				delete(state.routers, name)
-			}
-		}
-	}
-}
-
-// InstallObserved installs a router port record carrying its own expiry,
-// reported as [Observed] and [Aging]. It does nothing for an unsnooped vid, a
-// non-logical port, or a port a static [Config] entry already claims: a
-// caller reconstructing runtime state after a derive should not be able to
-// override configuration. Unlike [Layer.Learn], the expiry is not computed
-// from the VLAN's RouterPortInterval, so a caller carrying forward a record
-// from another layer can preserve its original deadline.
-func (l *Layer) InstallObserved(vid vlan.ID, portName string, expires time.Time) {
-	state, ok := l.byVLAN[vid]
-	if !ok || !logicalPort(l.ports, portName) {
-		return
-	}
-	if router := state.routers[portName]; router.lifetime == Static {
-		return
-	}
-
-	state.routers[portName] = routerPortState{expires: expires, origin: Observed, lifetime: Aging}
-}
-
-// learnLegacyJoin applies an IGMPv1/v2 or MLDv1 report, which RFC 3810 §8.3.2 maps to
-// IS_EX({}), and (re)starts the older-version-host timer for the group on the port.
-func learnLegacyJoin(now time.Time, group netip.Addr, portName string, state *vlanState) {
-	applyToPort(now, group, portName, state, recIsExclude, nil, true)
+// learnLegacyJoin maps reports to IS_EX({}) and starts only that version's timer
+// (RFC 3376 §7.3.2 for IGMP, RFC 3810 §8.3.2 for MLD).
+func learnLegacyJoin(now time.Time, group netip.Addr, portName string, state *vlanState, version uint8) {
+	applyToPort(now, group, portName, state, recIsExclude, nil, version)
 }
 
 // learnLeave applies an IGMPv2 leave or MLDv1 done message, which maps to TO_IN({}) and
-// (re)starts the older-version-host timer. Fast leave bypasses the table and deletes the
+// starts no compatibility timer. IGMPv1 compatibility ignores it. Fast leave deletes the
 // port's group state outright, since that is the state the table would reach once the
 // source and group timers expired.
 func learnLeave(now time.Time, group netip.Addr, portName string, state *vlanState) {
-	if state.fastLeave {
-		delete(state.groups, groupKey{group: group, port: portName})
-
-		return
-	}
-	applyToPort(now, group, portName, state, recToInclude, nil, true)
+	applyToPort(now, group, portName, state, recToInclude, nil, 0)
 }
 
 // learnGroupRecord applies one IGMPv3 group record or MLDv2 address record. A record that
 // is shaped like a leave — a MODE_IS_INCLUDE or CHANGE_TO_INCLUDE_MODE carrying no sources —
 // gets the same fast-leave shortcut as a legacy leave.
 func learnGroupRecord(now time.Time, portName string, kind recordKind, group netip.Addr, sources []netip.Addr, state *vlanState) {
-	if state.fastLeave && len(sources) == 0 && (kind == recIsInclude || kind == recToInclude) {
-		delete(state.groups, groupKey{group: group, port: portName})
-
-		return
-	}
-	applyToPort(now, group, portName, state, kind, sources, false)
+	applyToPort(now, group, portName, state, kind, sources, 0)
 }
 
-func applyToPort(now time.Time, group netip.Addr, portName string, state *vlanState, kind recordKind, sources []netip.Addr, startsOlderHost bool) {
+func applyToPort(now time.Time, group netip.Addr, portName string, state *vlanState, kind recordKind, sources []netip.Addr, legacyVersion uint8) {
 	key := groupKey{group: group, port: portName}
 	gps := state.groups[key]
+	if gps != nil {
+		ageGroupPortState(gps, now)
+		if gps.isEmptyInclude() {
+			gps = nil
+		}
+	}
 	if gps == nil {
 		gps = newGroupPortState()
 	}
+	if kind == recToInclude && gps.igmpV1HostUntil.After(now) {
+		return
+	}
+	if state.fastLeave && len(sources) == 0 && (kind == recIsInclude || kind == recToInclude) {
+		delete(state.groups, key)
 
-	applyRecord(now, state.membershipInterval, gps, kind, sources, startsOlderHost)
+		return
+	}
+
+	applyRecord(now, state.membershipInterval, gps, kind, sources, legacyVersion)
 
 	if gps.isEmptyInclude() {
 		delete(state.groups, key)
 	} else {
 		state.groups[key] = gps
 	}
-}
-
-func logicalPort(ports port.Table, name string) bool {
-	p, ok := ports.Port(name)
-
-	return ok && p.LagParent == ""
 }
 
 func learnRouter(now time.Time, portName string, state *vlanState) {

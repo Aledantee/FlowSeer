@@ -42,7 +42,7 @@ followed by `@<level>`. Every step below matches the model id before the
 `@` against pool rows, `exclude`, vendors, and executors. Resolve each
 lane in this order:
 
-1. Drop models whose pool row, as `scripts/pool-usage.sh` printed it for
+1. Drop models whose pool row, as `delegate pool-usage` printed it for
    this wave (`~/.claude/models/host.yaml` holds the session-start rows),
    shows `signed_in` false or null, or at or over the pool's limit on a window that applies to
    the model. Drop a model that a row carrying `models` does not list, or
@@ -69,7 +69,7 @@ and why, since they are paid for either way.
 
 Name the model on every worker, never `inherit` or unset, one model per
 task start to finish; the coordinator's model is an ordinary candidate.
-`scripts/orca-worker.sh` builds the launch line from `--cli`, `--model`,
+`delegate orca-worker` builds a POSIX launch line from `--cli`, `--model`,
 and `--effort`; the Agent tool takes `model`. `claude` and `codex` take
 `--model` and `--effort`; `google` takes `--model gemini-3.8-flash-<effort>`
 on `agy`; `synthetic` and `zai` take `--model <pool_id>` on `omp`, which
@@ -114,7 +114,7 @@ Before the first dispatch of a session, unsandboxed:
 
 ```bash
 mkdir -p ~/.claude/models
-.claude/skills/tune/scripts/discover-host.sh > ~/.claude/models/host.yaml
+uv run tools/scripts/run.py tune discover-host > ~/.claude/models/host.yaml
 ```
 
 It records the agent CLIs, Orca reachability (`orca: reachable: true`
@@ -128,7 +128,7 @@ Run this immediately before each wave, and first on `timeout` (the
 quiet-worker check) or whenever a delegated session goes quiet:
 
 ```bash
-.claude/skills/delegate/scripts/pool-usage.sh    # unsandboxed
+uv run tools/scripts/run.py delegate pool-usage    # unsandboxed
 ```
 
 A pool is usable when signed in and every window that applies to the lane
@@ -149,7 +149,7 @@ every host when its resolved model is a Claude model a native subagent can
 be pinned to. A native lane runs at its agent's frontmatter `effort`,
 which overrides the role's, since the Agent tool takes a model but no
 effort. One that resolves to any other model runs on its pool's CLI
-through `orca-worker.sh start --role <role>`. Editing work, including every stage
+through `delegate orca-worker start --role <role>`. Editing work, including every stage
 worker of `land` or `drive`, goes to an Orca worker. When `orca status
 --json` does not report `runtime.reachable: true`, load
 `references/no-orca.md` before routing any lane, review lanes included. Run every `orca` command with the sandbox
@@ -158,22 +158,25 @@ disabled; a sandboxed call reports the runtime as not running.
 ### Orca worker
 
 ```bash
-s=.claude/skills/delegate/scripts/orca-worker.sh
-$s line --cli <cli> --model <id> [--effort <level>]
-$s start --lane <slug> --cli <claude|codex|agy> --model <id> [--effort <level>] --role <role> [--plan <path>] [--unit <unit>] --brief <file> [--join <lane>]
-$s start --lane <slug> --cli omp --model <pool_id> [--effort <level>] --role <role> [--plan <path>] [--unit <unit>] --brief <file> [--join <lane>]
-$s wait <slug> [--until <command>] [--max <seconds>]  # blocks; prints idle, limited, done, stalled, timeout, exited, or idle-children, then the screen
-$s read <slug>            # the worker's report, from its screen
-$s keys <slug> <text>     # a dialog answer, at most 200 characters; presses no Enter
-$s tell <slug> <file>     # any message the worker must act on; submits it
-$s status                 # one line per live lane
-$s grade <slug> --outcome <accepted|amended|rejected|blocked> --verify <pass|fail|none> [--note <text>]
-$s stop <slug> [--keep-worktree]  # after grade and merge: closes the terminal, removes checkout and branch
+uv run tools/scripts/run.py delegate orca-worker line --cli <cli> --model <id> [--effort <level>]
+uv run tools/scripts/run.py delegate orca-worker start --lane <slug> --cli <claude|codex|agy> --model <id> [--effort <level>] --role <role> [--plan <path>] [--unit <unit>] --brief <file> [--join <lane>]
+uv run tools/scripts/run.py delegate orca-worker start --lane <slug> --cli omp --model <pool_id> [--effort <level>] --role <role> [--plan <path>] [--unit <unit>] --brief <file> [--join <lane>]
+uv run tools/scripts/run.py delegate orca-worker wait <slug> [--until <json-argv>] [--max <seconds>]  # blocks; prints idle, limited, done, stalled, timeout, exited, or idle-children, then the screen
+uv run tools/scripts/run.py delegate orca-worker read <slug>            # the worker's report, from its screen
+uv run tools/scripts/run.py delegate orca-worker keys <slug> <text>     # a dialog answer, at most 200 characters; presses no Enter
+uv run tools/scripts/run.py delegate orca-worker tell <slug> <file>     # any message the worker must act on; submits it
+uv run tools/scripts/run.py delegate orca-worker status                 # one line per live lane
+uv run tools/scripts/run.py delegate orca-worker grade <slug> --outcome <accepted|amended|rejected|blocked> --verify <pass|fail|none> [--note <text>]
+uv run tools/scripts/run.py delegate orca-worker stop <slug> [--keep-worktree]  # after grade and merge: closes the terminal, removes checkout and branch
 ```
 
 `start` exits 0 only when the worker runs in a child worktree branched from
 this branch with the brief on its screen; its JSON line names the branch
 (prefixed with the git user) and `run`.
+
+For a policy-surface unit, use `drive/references/policy-units.md`.
+Launcher permission prompts do not replace its review of the uncommitted
+diff, since the worker launch flags can bypass prompts.
 
 `stop <slug> --keep-worktree` closes the terminal and logs the lane's `end`
 but leaves the checkout, the branch, and the lane's state file, which
@@ -223,7 +226,7 @@ verifier. Before reading the report as fact or merging its branch, run the
 lane check:
 
 ```bash
-.claude/skills/delegate/scripts/orca-worker.sh check <slug>
+uv run tools/scripts/run.py delegate orca-worker check <slug>
 ```
 
 A non-zero check stops the merge. Grade the lane `rejected`, leave it
@@ -254,7 +257,7 @@ work first (`references/orca.md`, When a step fails).
 ## Write the brief
 
 Write the brief in the session scratchpad directory and pass its absolute
-path, never `$TMPDIR`: `orca-worker.sh` runs unsandboxed, where `$TMPDIR`
+path, never `$TMPDIR`: `delegate orca-worker` runs unsandboxed, where `$TMPDIR`
 is shared and a stale brief of the same name dispatches without error. In
 order:
 
@@ -281,22 +284,21 @@ order:
    A review lane's brief always carries that line, written `Checks already
    run: none` when empty, since a reviewer that finds no check named runs
    one itself.
-   A lane whose product is a report (`critique`, `research`, a review lane,
-   a review stage that also commits its verdict) gets a file path
+   Every stage worker, and every lane whose product is a report
+   (`critique`, `research`, a review lane), gets a file path
    under the session scratchpad directory: it writes the whole report
    there and prints only the path and the finding count, a review stage
    also its verdict. Read that file,
-   since `orca-worker.sh read` returns the terminal's last screens and a
+   since `delegate orca-worker read` returns the terminal's last screens and a
    long report scrolls out of them.
 5. For a unit of a plan with a ledger (`verify-change`'s `SKILL.md`
    documents it), the `note` line of every landed unit, verbatim, and
    nothing else from the ledger.
 6. The boundaries: no edits outside the named files; no changes to
-   the policy surfaces `AGENTS.md`, Hard boundaries, names, to
-   `generated/`, or to `buf.lock`; no edit to a plan Decision marked
+   `generated/` or `buf.lock`; no edit to a plan Decision marked
    `decided by the user` (a finding or unit that needs one changed is a
-   blocker); no plan labels in code; no running a script
-   under `tools/hooks/` (it blocks on stdin). A unit worker's checks are
+   blocker); no plan labels in code; no running a `run.py hooks` command by
+   hand (it waits on stdin). A unit worker's checks are
    the focused tests and `go tool -modfile=tools/buf/go.mod buf lint`, and
    the coordinator runs the verifier after the merge. A stage worker (a
    `drive` stage) runs the verifier its skill names, since `verify ledger`
@@ -320,6 +322,10 @@ order:
    allowed by `fix-loop.md` step 1 reports a blocker naming the file and
    reason. A comment, skipped or weakened test, or partial change is not a
    fix.
+   Ordinary briefs forbid changes to policy surfaces named in `AGENTS.md`,
+   Hard boundaries. When a unit is explicitly authorized to edit one,
+   its brief follows `drive/references/policy-units.md` and requires an
+   uncommitted stop before that unit's commit.
 7. For every runtime: no questions; state a blocker and stop. A blocker
    or a claimed limit ("the API cannot", "this needs a credential") quotes
    the error, the documented statement, or the probe that showed it. A requirement

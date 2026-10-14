@@ -112,6 +112,24 @@ both initialized to the group budget.
 `subSat` saturates subtraction at zero. `GroupAllocation` exposes both
 `RemainderMinNanowatts` and `RemainderMaxNanowatts`.
 
+PSE groups allocate against their nominal capacity, which
+`spec/mib/ietf/POWER-ETHERNET-MIB:420` defines as `pethMainPsePower`. Class
+power comes from `classPowerLevels` in `poe.go`: classes 0 and 3 draw 15.4 W,
+class 1 draws 4.0 W, class 2 draws 7.0 W, class 4 draws 30.0 W, and classes 5
+through 8 draw 45 W, 60 W, 75 W, and 90 W. Those values are unverified against
+IEEE Std 802.3 (see Limits).
+
+## Files
+
+| File | Holds |
+| --- | --- |
+| [phy.go](phy.go) | Capability configuration, cloning, and normalization |
+| [ethernet.go](ethernet.go) | Ethernet settings and observed port facts |
+| [negotiate.go](negotiate.go) | Speed and duplex resolution between two ends |
+| [poe.go](poe.go) | Power classes, group budgets, and allocation states |
+| [validate.go](validate.go) | Configuration checks against the port environment |
+| [diff.go](diff.go) | Normalized configuration comparison and typed facts |
+
 ## Sources
 
 - UNH: UNH-IOL Clause 28 Auto-Negotiation Management System Test Suite,
@@ -126,3 +144,27 @@ both initialized to the group budget.
   one stays unsupported.
 - The class power table (`classPowerLevels` in `poe.go`) is unverified against
   IEEE Std 802.3.
+
+## PoE allocation states
+
+`Config.Allocate` reports granted power as `PowerDelivered`. A port with no
+attached device is `PowerNoDevice` and draws nothing from the group budget.
+An enabled port denied power receives `PowerDenied` with a `budget`,
+`limit`, or `class-unsupported` reason. A disabled port with an attached or
+unreported device receives `PowerDenied` with reason `disabled`
+([poe.go](poe.go), `Config.Allocate`).
+
+## Configuration diffs
+
+`Diff` compares normalized Ethernet and PoE configurations in owner order
+([diff.go](diff.go)). Supported speeds use quoted decimal member coordinates
+and `phy.speed_bps` facts. Replacing 1 Gb/s with 10 Gb/s emits
+`supported_speeds_bps["1000000000"]: 1000000000 -> nil` followed by
+`supported_speeds_bps["10000000000"]: nil -> 10000000000`. Reordering and
+duplicate-only edits produce no records ([diff_coverage_test.go](diff_coverage_test.go)).
+
+Setting and Observed have separate scalar fields. Removing Setting reports
+its effective speed, duplex, and autonegotiation changes. Removing Observed
+reports observed speed and duplex changes. An absent pointer projects typed
+zero speed and empty duplex, while an absent Setting projects false
+autonegotiation. Port addition and removal retain complete Ethernet snapshots.

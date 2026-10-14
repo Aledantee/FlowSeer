@@ -36,7 +36,7 @@ The example schedules sequences 0 through 9,999 over 9.999 seconds. A real
 run needs an isolated interface pair, an interface that is up, and the
 capability to open raw packet sockets, normally `CAP_NET_RAW`. The transmit and
 receive interfaces must be distinct. `packetio` writes with a send-only
-`AF_PACKET` socket; capture uses the existing non-promiscuous raw-socket source.
+`AF_PACKET` socket. Capture uses the existing non-promiscuous raw-socket source.
 
 The first 32 payload octets are reserved as follows:
 
@@ -52,13 +52,40 @@ The first 32 payload octets are reserved as follows:
 The report keeps simulator counters and lab observations separate. A transmit
 timestamp proves submission to the kernel, not physical departure from the
 NIC. A capture timestamp is when the receive path observed the frame. A missing
-sequence is an observation; it is not assigned a switch drop reason or cable
+sequence is an observation. It is not assigned a switch drop reason or cable
 loss without evidence.
+
+Shutdown retains every frame the capture channel accepted, including data
+queued before a receiver failure. [`run.go`](run.go) completes this boundary:
+
+```mermaid
+flowchart LR
+    cancel[Cancel capture] --> drain[Consume through channel closure]
+    drain --> stats[Read capture statistics]
+    stats --> freeze[Freeze observations]
+    freeze --> sockets[Close receiver and sender]
+```
+
+Internal capture cancellation is normal shutdown. A statistics failure still
+returns an error when capture emits a cancellation frame. An existing run
+error takes precedence over receiver and statistics errors, followed by receiver
+close and sender close errors. Socket write failures carry
+`packetio.ErrCodeSenderOpen` while retaining their cause for `errors.Is`.
 
 `compare` reads a version-one document containing a simulator report, a lab
 observation, and the named simulator destination host. It writes deterministic
 JSON with the raw counters, simulator status and issues, lab counters, and
-normalized offered/delivered/unreceived rows.
+normalized offered/delivered/unreceived rows. A lab flow ID absent from the
+simulator input is refused before any JSON is written. Simulator-only rows
+remain visible with zero lab counters.
+
+[`NewReport`](report.go) and `NewReportFromSimulator` return `(Report, error)`.
+Both return an error and a zero report for a lab-only flow ID. `NewReport`
+keeps each flow's folded journey status and issues, including copy-derived
+issues, while the simulator summary retains whole-fabric metadata. An unrelated
+fabric issue leaves a complete flow complete, so the report preserves where
+trust was lost. [`report_test.go`](report_test.go) pins issue scopes and evidence
+references separately for flows and the whole summary.
 
 ## Live switch runs
 

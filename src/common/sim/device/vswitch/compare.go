@@ -2,6 +2,7 @@ package vswitch
 
 import (
 	"bytes"
+	"cmp"
 	"fmt"
 	"slices"
 	"strconv"
@@ -10,24 +11,28 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
-	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
-	"go.aledante.io/FlowSeer/src/common/sim/layer/traffic"
+	"go.aledante.io/FlowSeer/src/common/sim/device"
 )
 
 // Comparison holds the forwarding results from evaluating the same frame arrival
 // on two switches, and reports the derived comparison disposition and the first
 // differing behavioral observable.
 type Comparison struct {
-	Current     ForwardResult
-	Expected    ForwardResult
+	Current     device.Output
+	Expected    device.Output
 	Disposition analysis.Disposition
 	Difference  analysis.Difference
 }
 
-// compareResults compares two [ForwardResult] values directly and reports their exact
-// behavioral disposition ([analysis.Equivalent], [analysis.Different], or [analysis.Inconclusive]).
-func compareResults(cur, exp ForwardResult) Comparison {
-	diff, hasDiff := diffForwardResult(cur, exp)
+func compareResults(cur, exp device.Output) Comparison {
+	diff, hasDiff := diffForwardResult(cur.Result, exp.Result)
+	if !hasDiff {
+		copiesA, copiesB := mirrorCopies(cur.Copies), mirrorCopies(exp.Copies)
+		if !slices.Equal(copiesA, copiesB) {
+			diff = analysis.Difference{Observable: "mirror", Current: strings.Join(copiesA, ","), Expected: strings.Join(copiesB, ",")}
+			hasDiff = true
+		}
+	}
 	var disp analysis.Disposition
 	switch {
 	case cur.Metadata.Status() != analysis.Complete || exp.Metadata.Status() != analysis.Complete:
@@ -49,7 +54,8 @@ func compareResults(cur, exp ForwardResult) Comparison {
 // Compare evaluates a frame arrival on both switches using [Switch.Peek] without mutating
 // their forwarding tables, returning both results and reporting their exact behavioral
 // disposition ([analysis.Equivalent], [analysis.Different], or [analysis.Inconclusive]).
-// On [analysis.Different], Difference names the first differing observable in declared order:
+// Difference names the first differing observable even when incomplete input
+// makes the disposition [analysis.Inconclusive]. Its declared order is:
 // typed forwarding outcome and reason, classified FID, egress ports and per-port drops,
 // rewritten frame fields (dst, src, ethertype, tags, payload), selected LAG member,
 // egress PCP, and mirror copies. Semantic traces and metadata are diagnostic and never
@@ -58,7 +64,7 @@ func Compare(a, b *Switch, now time.Time, port string, f ethernet.Frame) Compari
 	return compareResults(a.Peek(now, port, f), b.Peek(now, port, f))
 }
 
-func diffForwardResult(cur, exp ForwardResult) (analysis.Difference, bool) {
+func diffForwardResult(cur, exp device.Result) (analysis.Difference, bool) {
 	if cur.Outcome != exp.Outcome {
 		return analysis.Difference{
 			Observable: "outcome",
@@ -84,11 +90,11 @@ func diffForwardResult(cur, exp ForwardResult) (analysis.Difference, bool) {
 	// The bridge guarantees at most one Egress entry per logical port (unicast resolves to
 	// at most one destination port, and flooding/replication deduplicates candidate ports
 	// via a seen set), so keying by eg.Port preserves all egress records without collapse.
-	curByPort := make(map[string]bridge.Egress, len(cur.Egress))
+	curByPort := make(map[string]device.Egress, len(cur.Egress))
 	for _, eg := range cur.Egress {
 		curByPort[eg.Port] = eg
 	}
-	expByPort := make(map[string]bridge.Egress, len(exp.Egress))
+	expByPort := make(map[string]device.Egress, len(exp.Egress))
 	for _, eg := range exp.Egress {
 		expByPort[eg.Port] = eg
 	}
@@ -179,33 +185,24 @@ func diffForwardResult(cur, exp ForwardResult) (analysis.Difference, bool) {
 		}
 	}
 
-	mirrorsA := mirrorCopies(cur)
-	mirrorsB := mirrorCopies(exp)
-	if !slices.Equal(mirrorsA, mirrorsB) {
-		return analysis.Difference{
-			Observable: "mirror",
-			Current:    strings.Join(mirrorsA, ","),
-			Expected:   strings.Join(mirrorsB, ","),
-		}, true
-	}
-
 	return analysis.Difference{}, false
 }
 
-func mirrorCopies(res ForwardResult) []string {
-	var out []string
-	for _, step := range res.Steps {
-		if step.RuleID == traffic.RuleMirrorCopy {
-			desc := step.Subject.Key
-			for _, fact := range step.Outputs {
-				if fact.TypeID() == traffic.FactTypeMirrorDecision {
-					desc = fact.Canonical()
-					break
-				}
-			}
-			out = append(out, desc)
+func mirrorCopies(copies []device.Copy) []string {
+	ordered := slices.Clone(copies)
+	slices.SortFunc(ordered, func(a, b device.Copy) int {
+		if order := cmp.Compare(a.Mirror, b.Mirror); order != 0 {
+			return order
 		}
+		if order := cmp.Compare(a.Port, b.Port); order != 0 {
+			return order
+		}
+		return cmp.Compare(a.VLAN, b.VLAN)
+	})
+	out := make([]string, len(ordered))
+	for i, copy := range ordered {
+		out[i] = fmt.Sprintf("mirror=%q;port=%q;vlan=%d;member=%q;src=%s;dst=%s;ether_type=%d;tags=%v;payload=%x",
+			copy.Mirror, copy.Port, copy.VLAN, copy.Member, copy.Frame.Src, copy.Frame.Dst, copy.Frame.EtherType, copy.Frame.Tags, copy.Frame.Payload)
 	}
-	slices.Sort(out)
 	return out
 }

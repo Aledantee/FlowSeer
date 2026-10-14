@@ -14,6 +14,46 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
+// AdmitEgress decides admission using encoded frame octets and the depth before
+// enqueue. An unstated buffer is unbounded. Its threshold is mtu plus 18 octets,
+// or 1518 when mtu is zero. The caller applies the returned step serially.
+func (c Config) AdmitEgress(name string, pcp vlan.PCP, depth, octets uint64, mtu int) QueueDecision {
+	rate, _ := c.MaxRate(name, pcp)
+	decision := QueueDecision{Admitted: true, MaxRateBPS: rate}
+	subject := trace.Subject{Kind: "port", Key: trace.CompositeKey(name, strconv.Itoa(int(pcp)))}
+	if buffer, stated := c.QueueBuffer(name, pcp); stated {
+		if depth+octets > buffer {
+			decision.Admitted = false
+			decision.Reason = ReasonQueueFull
+			decision.Step = &trace.Step{
+				Layer: LayerName, Op: trace.OpDrop, RuleID: RuleQueueDrop,
+				Subject: subject, Inputs: []trace.Fact{QueueDropFact(depth, buffer, int(octets))},
+			}
+		}
+		return decision
+	}
+	threshold := uint64(1518)
+	if mtu > 0 {
+		threshold = uint64(mtu + 18)
+	}
+	if depth <= threshold && depth+octets > threshold {
+		decision.Step = &trace.Step{
+			Layer: LayerName, Op: trace.OpQueue, RuleID: RuleQueueBufferUnstated,
+			Subject: subject, Inputs: []trace.Fact{QueueThresholdFact(depth, octets, threshold)},
+		}
+	}
+	return decision
+}
+
+// QueueDecision reports admission, a drop or threshold step, and the maximum
+// bit rate (zero means unlimited). QueueDecision is safe for concurrent reads.
+type QueueDecision struct {
+	Admitted   bool
+	Reason     trace.Reason
+	Step       *trace.Step
+	MaxRateBPS uint64
+}
+
 const (
 	// LayerName identifies traffic configuration changes.
 	LayerName trace.Layer = "traffic"
@@ -143,9 +183,20 @@ func (c Config) Normalize(_ layer.Env) Config {
 
 // Validate checks mirror names and destinations, logical selector ports and
 // VLANs, policer bursts, and queue rates and buffers against the supplied
-// environment.
+// environment. A policer names a port that is no LAG, and a queue names a
+// port that is no LAG member.
 func (c Config) Validate(env layer.Env) error {
-	ports := env.Ports
+	if err := c.validateMirrors(env.Ports); err != nil {
+		return err
+	}
+	if err := c.validatePolicers(env.Ports); err != nil {
+		return err
+	}
+
+	return c.validateQueues(env.Ports)
+}
+
+func (c Config) validateMirrors(ports port.Table) error {
 	mirrorNames := make(map[string]struct{}, len(c.Mirrors))
 	outputPorts := make(map[string]struct{}, len(c.Mirrors))
 	for mirrorIndex, mirror := range c.Mirrors {
@@ -268,13 +319,24 @@ func (c Config) Validate(env layer.Env) error {
 		}
 	}
 
+	return nil
+}
+
+func (c Config) validatePolicers(ports port.Table) error {
 	for _, name := range sortedKeys(c.Policers) {
 		policer := c.Policers[name]
-		if _, ok := ports.Port(name); !ok {
+		named, ok := ports.Port(name)
+		if !ok {
 			return errs.New().
 				Attr("field", "policers."+name).
 				Attr("port", name).
 				Msgf("policer port %q absent from port table", name)
+		}
+		if named.Kind == port.LAG {
+			return errs.New().
+				Attr("field", "policers."+name).
+				Attr("port", name).
+				Msgf("policer port %q is a LAG, which polices no ingress", name)
 		}
 		if policer.RateBPS > 0 && policer.BurstOctets < 1 {
 			return errs.New().
@@ -286,13 +348,25 @@ func (c Config) Validate(env layer.Env) error {
 		}
 	}
 
+	return nil
+}
+
+func (c Config) validateQueues(ports port.Table) error {
 	for _, name := range sortedKeys(c.Queues) {
 		queues := c.Queues[name]
-		if _, ok := ports.Port(name); !ok {
+		named, ok := ports.Port(name)
+		if !ok {
 			return errs.New().
 				Attr("field", "queues."+name).
 				Attr("port", name).
 				Msgf("queue port %q absent from port table", name)
+		}
+		if named.LagParent != "" {
+			return errs.New().
+				Attr("field", "queues."+name).
+				Attr("port", name).
+				Attr("lag", named.LagParent).
+				Msgf("queue port %q is a LAG member, whose queue is its LAG's", name)
 		}
 		for _, pcp := range unionPCPs(queues.MaxRateBPS, queues.BufferOctets) {
 			field := "queues." + name + ".max_rate_bps." + strconv.Itoa(int(pcp))

@@ -3,6 +3,7 @@ package routing
 import (
 	"fmt"
 	"net/netip"
+	"strings"
 	"testing"
 	"time"
 
@@ -347,6 +348,10 @@ func TestOriginateSelectsOverTheCandidateSet(t *testing.T) {
 		if len(first.candidates) != 3 {
 			t.Fatalf("candidates = %d for %s, want 3", len(first.candidates), dst)
 		}
+		if !strings.Contains(first.Steps[0].Outputs[0].Canonical(), `hash_src="0.0.0.0";`) {
+			t.Fatalf("lookup = %s, want unspecified IPv4 hash source", first.Steps[0].Outputs[0].Canonical())
+		}
+
 		reached[first.Interface]++
 		for range 10 {
 			again := l.Originate(testCandidateTime, DefaultVRF, dst, 17, []byte("data"), true)

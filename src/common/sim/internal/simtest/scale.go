@@ -5,6 +5,11 @@ import (
 	"net/netip"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+	"go.aledante.io/FlowSeer/src/common/sim/device"
+
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
@@ -14,6 +19,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer/lag"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/stp"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
@@ -68,6 +74,17 @@ func RepresentativeFabric() *fabric.Fabric {
 // cannot be constructed. The panic uses the proven handling answer:
 // TestRepresentativeFabricEnvelope rebuilds the topology on every test run.
 func RepresentativeFabricAtQueueDepth(queueDepth int) *fabric.Fabric {
+	cfg, vlanList := representativeFabricConfig()
+	fab, err := assembly.New(cfg)
+	mustNil(err)
+	primeRepresentativeEntries(fab, vlanList)
+	primeRepresentativeQueue(fab, cfg.Start, queueDepth)
+	return fab
+}
+
+// representativeFabricConfig panics if the fixed port tables cannot be built.
+// TestRepresentativeFabricEnvelope proves those inputs on every test run.
+func representativeFabricConfig() (assembly.Config, []vlan.ID) {
 	tStart := time.Date(2026, 9, 14, 12, 0, 0, 0, time.UTC)
 
 	vlanTable := make(map[vlan.ID]string, RepresentativeScaleVLANCount)
@@ -78,6 +95,72 @@ func RepresentativeFabricAtQueueDepth(queueDepth int) *fabric.Fabric {
 		vlanList[v] = vid
 	}
 
+	switches := representativeSwitches(vlanTable, vlanList)
+
+	hosts := make(map[string]hostmodel.Config, RepresentativeScaleHostCount)
+	for h := 1; h <= RepresentativeScaleHostCount; h++ {
+		hName := fmt.Sprintf("h%d", h)
+		hMAC := netaddr.MAC{0x02, 0x00, 0x00, 0x00, byte(h >> 8), byte(h)}
+		hIP := netip.MustParseAddr(fmt.Sprintf("10.100.0.%d", h))
+		hosts[hName] = hostmodel.Config{
+			Address: hMAC,
+			VLAN:    &vlanList[0],
+			IP: &hostmodel.IP{
+				Addresses: []netip.Prefix{netip.PrefixFrom(hIP, 24)},
+			},
+		}
+	}
+
+	var cables []fabric.Cable
+	// 8 hosts per switch connected to ports 1/1/3 .. 1/1/10
+	for s := 1; s <= RepresentativeScaleNodeCount; s++ {
+		swName := fmt.Sprintf("sw%d", s)
+		for k := range 8 {
+			hIndex := (s-1)*8 + k + 1
+			hName := fmt.Sprintf("h%d", hIndex)
+			cables = append(cables, fabric.Cable{
+				Cable: cablemodel.Cable{LengthMeters: 5, Medium: cablemodel.TwistedPair},
+				A:     fabric.Endpoint{Node: hName, Port: ""},
+				B:     fabric.Endpoint{Node: swName, Port: fmt.Sprintf("1/1/%d", k+3)},
+			})
+		}
+	}
+
+	// Inter-switch trunks in a ring: sw1:1/1/11 <-> sw2:1/1/12, etc.
+	for s := 1; s <= RepresentativeScaleNodeCount; s++ {
+		nextS := (s % RepresentativeScaleNodeCount) + 1
+		cables = append(cables, fabric.Cable{
+			Cable: cablemodel.Cable{LengthMeters: 10, Medium: cablemodel.TwistedPair},
+			A:     fabric.Endpoint{Node: fmt.Sprintf("sw%d", s), Port: "1/1/11"},
+			B:     fabric.Endpoint{Node: fmt.Sprintf("sw%d", nextS), Port: "1/1/12"},
+		})
+	}
+
+	// Uncabled ports: 1/1/13 .. 1/1/32 on each switch
+	var uncabled []fabric.Uncabled
+	for s := 1; s <= RepresentativeScaleNodeCount; s++ {
+		swName := fmt.Sprintf("sw%d", s)
+		for p := 13; p <= RepresentativeScalePortsPerNode; p++ {
+			uncabled = append(uncabled, fabric.Uncabled{
+				Endpoint: fabric.Endpoint{Node: swName, Port: fmt.Sprintf("1/1/%d", p)},
+			})
+		}
+	}
+
+	fabCfg := assembly.Config{
+		Start:    tStart,
+		Switches: switches,
+		Hosts:    hosts,
+		Cables:   cables,
+		Uncabled: uncabled,
+	}
+
+	return fabCfg, vlanList
+}
+
+// representativeSwitches panics if the fixed port tables cannot be built.
+// TestRepresentativeFabricEnvelope proves those inputs on every test run.
+func representativeSwitches(vlanTable map[vlan.ID]string, vlanList []vlan.ID) map[string]vswitch.Config {
 	switches := make(map[string]vswitch.Config, RepresentativeScaleNodeCount)
 	for s := 1; s <= RepresentativeScaleNodeCount; s++ {
 		swName := fmt.Sprintf("sw%d", s)
@@ -174,73 +257,16 @@ func RepresentativeFabricAtQueueDepth(queueDepth int) *fabric.Fabric {
 		}
 	}
 
-	hosts := make(map[string]fabric.Host, RepresentativeScaleHostCount)
-	for h := 1; h <= RepresentativeScaleHostCount; h++ {
-		hName := fmt.Sprintf("h%d", h)
-		hMAC := netaddr.MAC{0x02, 0x00, 0x00, 0x00, byte(h >> 8), byte(h)}
-		hIP := netip.MustParseAddr(fmt.Sprintf("10.100.0.%d", h))
-		hosts[hName] = fabric.Host{
-			Address: hMAC,
-			VLAN:    &vlanList[0],
-			IP: &fabric.HostIP{
-				Addresses: []netip.Prefix{netip.PrefixFrom(hIP, 24)},
-			},
-		}
-	}
+	return switches
+}
 
-	var cables []fabric.Cable
-	// 8 hosts per switch connected to ports 1/1/3 .. 1/1/10
-	for s := 1; s <= RepresentativeScaleNodeCount; s++ {
-		swName := fmt.Sprintf("sw%d", s)
-		for k := range 8 {
-			hIndex := (s-1)*8 + k + 1
-			hName := fmt.Sprintf("h%d", hIndex)
-			cables = append(cables, fabric.Cable{
-				A:            fabric.Endpoint{Node: hName, Port: ""},
-				B:            fabric.Endpoint{Node: swName, Port: fmt.Sprintf("1/1/%d", k+3)},
-				LengthMeters: 5,
-				Medium:       fabric.TwistedPair,
-			})
-		}
-	}
-
-	// Inter-switch trunks in a ring: sw1:1/1/11 <-> sw2:1/1/12, etc.
-	for s := 1; s <= RepresentativeScaleNodeCount; s++ {
-		nextS := (s % RepresentativeScaleNodeCount) + 1
-		cables = append(cables, fabric.Cable{
-			A:            fabric.Endpoint{Node: fmt.Sprintf("sw%d", s), Port: "1/1/11"},
-			B:            fabric.Endpoint{Node: fmt.Sprintf("sw%d", nextS), Port: "1/1/12"},
-			LengthMeters: 10,
-			Medium:       fabric.TwistedPair,
-		})
-	}
-
-	// Uncabled ports: 1/1/13 .. 1/1/32 on each switch
-	var uncabled []fabric.Uncabled
-	for s := 1; s <= RepresentativeScaleNodeCount; s++ {
-		swName := fmt.Sprintf("sw%d", s)
-		for p := 13; p <= RepresentativeScalePortsPerNode; p++ {
-			uncabled = append(uncabled, fabric.Uncabled{
-				Endpoint: fabric.Endpoint{Node: swName, Port: fmt.Sprintf("1/1/%d", p)},
-			})
-		}
-	}
-
-	fabCfg := fabric.Config{
-		Start:    tStart,
-		Switches: switches,
-		Hosts:    hosts,
-		Cables:   cables,
-		Uncabled: uncabled,
-	}
-
-	fab, err := fabric.New(fabCfg)
-	mustNil(err)
-
+// primeRepresentativeEntries panics if the fixed learned entries cannot be applied.
+// TestRepresentativeFabricEnvelope proves those inputs on every test run.
+func primeRepresentativeEntries(fab *fabric.Fabric, vlanList []vlan.ID) {
 	// Prime 2048 learned forwarding entries (256 per switch)
 	entriesPerSwitch := RepresentativeScaleLearnedEntries / RepresentativeScaleNodeCount
 	for s := 1; s <= RepresentativeScaleNodeCount; s++ {
-		sw := fab.Switch(fmt.Sprintf("sw%d", s))
+		name := fmt.Sprintf("sw%d", s)
 		seeds := make([]bridge.Seed, entriesPerSwitch)
 		for e := range entriesPerSwitch {
 			fid := vlanList[e%len(vlanList)]
@@ -253,9 +279,15 @@ func RepresentativeFabricAtQueueDepth(queueDepth int) *fabric.Fabric {
 				Lifetime: bridge.Aging,
 			}
 		}
-		mustNil(sw.Learn(seeds))
+		mustNil(fabric.Operate(fab, name, func(d device.Device, _ time.Time) (device.Output, error) {
+			return device.Output{}, d.(*vswitch.Switch).Learn(seeds)
+		}))
 	}
+}
 
+// primeRepresentativeQueue panics if a fixed queued arrival cannot be injected.
+// TestRepresentativeFabricEnvelope proves those inputs on every test run.
+func primeRepresentativeQueue(fab *fabric.Fabric, tStart time.Time, queueDepth int) {
 	// Prime queued arrivals up to queueDepth
 	initialQueueLen := len(fab.Snapshot().Queue)
 	for i := initialQueueLen; i < queueDepth; i++ {
@@ -273,8 +305,6 @@ func RepresentativeFabricAtQueueDepth(queueDepth int) *fabric.Fabric {
 		_, err := fab.Inject(inj)
 		mustNil(err)
 	}
-
-	return fab
 }
 
 // mustNil panics if an in-package fixture built from fixed constants violates a

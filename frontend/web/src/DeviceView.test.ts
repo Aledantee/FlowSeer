@@ -118,6 +118,30 @@ describe('DeviceView status typography', () => {
 
     expect(severity?.classList).toContain('text-sm')
   })
+
+  it('renders monospace page heading and uppercase section headings with card framing', async () => {
+    const ap = devices.find((device) => device.name === 'berlin-ap-01')
+    if (!ap) throw new Error('Missing fixture')
+
+    const host = await mountDeviceView(ap, devices)
+    const title = host.querySelector('h1')
+    expect(title?.classList).toContain('font-mono')
+    expect(title?.classList).toContain('text-3xl')
+
+    const sectionHeadings = [
+      host.querySelector('#issues-title'),
+      host.querySelector('#paths-title'),
+      host.querySelector('#clients-title'),
+      host.querySelector('#links-title'),
+    ]
+    for (const heading of sectionHeadings) {
+      expect(heading?.classList).toContain('font-mono')
+      expect(heading?.classList).toContain('uppercase')
+    }
+
+    const factsCard = host.querySelector('dl')
+    expect(factsCard?.classList).toContain('ui-card')
+  })
 })
 
 describe('DeviceView AI targets', () => {

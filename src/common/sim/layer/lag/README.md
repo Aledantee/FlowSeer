@@ -165,6 +165,13 @@ member names separately, for example `"lag1"/"1/1/1"`, so names containing
 separators remain distinct (`TestDiffMemberSubjectKeysAreInjectiveAcrossLAGs`
 in [diff_injectivity_test.go](diff_injectivity_test.go)).
 
+Changing a member's map key reports its removal followed by its addition,
+with empty fields and `lag.member` facts. Delay changes retain `up_delay`
+and `down_delay`, with `lag.duration` facts such as `2s` to `3s`.
+[diff_coverage_test.go](diff_coverage_test.go) checks every configuration
+leaf against an independent ordered sequence, including member identity
+replacement and normalized defaults.
+
 ## BalanceSLB hash input
 
 The distribution choice is left open by `AX` 6.2.4. `hashSLB` in
@@ -368,6 +375,13 @@ A newly selected member enters the Mux `WAITING` state for the two-second
 same deadline, so a member learned one second later does not attach early, while
 already-attached members remain forwarding.
 
+When a late `Advance(now)` processes receive timeouts and newly selects a
+member, its aggregate wait starts at `now`, not at the expired receive
+deadline. For example, reselection at 7s waits until 9s. `Advance` sets
+`l.now` before selection, and `updateSelection` adds two seconds to that
+instant ([layer.go](layer.go), [lacp.go](lacp.go)). This late-call timing is
+the layer's rule, without a claim that the standard prescribes it.
+
 Mux uses the coupled control diagram (`AX` 6.4.15, Figure 6-22), because one
 `enabled` flag controls both collection and distribution. `MinLinks` gates
 collection and distribution while attachment and synchronization proceed, so
@@ -478,3 +492,14 @@ not read, so equivalence to its text remains unverified.
 [ovs-bond]: https://raw.githubusercontent.com/openvswitch/ovs/73e38c8dfd9ff5f95a92e583780cd996ac11bca7/ofproto/bond.c
 [ovs-lacp]: https://raw.githubusercontent.com/openvswitch/ovs/73e38c8dfd9ff5f95a92e583780cd996ac11bca7/lib/lacp.c
 [ovs-bridge]: https://raw.githubusercontent.com/openvswitch/ovs/73e38c8dfd9ff5f95a92e583780cd996ac11bca7/vswitchd/bridge.c
+
+## Switch integration
+
+The switch [intercepts](../../device/vswitch/forward.go) Slow Protocols
+frames on up physical members before relay processing. Subtype 1 decodes
+as LACP and subtype 2 as Marker. A valid LACPDU is consumed. An invalid
+LACPDU drops with `unsupported-lacpdu`. A Slow Protocols group frame on a
+nonmember follows reserved-address handling
+([LACP tests](../../device/vswitch/lag_test.go)). Member link reports update
+the logical LAG's state and the link and speed supplied to spanning tree
+([link.go](../../device/vswitch/link.go)).

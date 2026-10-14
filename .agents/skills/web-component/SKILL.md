@@ -38,12 +38,12 @@ does not repeat.
 From the worktree root:
 
 ```bash
-.agents/skills/web-component/scripts/check-tools.sh
+uv run tools/scripts/run.py web-component check-tools
 ```
 
-- **Exit 1** means a required tool is missing. Stop and ask the user
-  whether to install it, naming the tool, its purpose, and the install
-  line the script printed.
+- **Exit 1** stops work. For a missing, outdated, or invalid required tool,
+  ask whether to install it, naming its purpose and printed install line.
+  An unreadable manifest or unsupported engines floor prints a `check-tools:` diagnostic without an install line. Report it.
 - **An optional tool missing** means only its review step is skipped. Say
   which one in the report, and ask before installing it.
 - **Nothing is ever installed without the user's yes.**
@@ -187,7 +187,7 @@ over every changed path, from the worktree root, and update the README's
 component list in the same change:
 
 ```bash
-.claude/skills/verify-change/scripts/verify-change.sh -- <changed paths>
+uv run tools/scripts/run.py verify change -- <changed paths>
 ```
 
 Never add a lint, stylelint, or detector suppression to make the

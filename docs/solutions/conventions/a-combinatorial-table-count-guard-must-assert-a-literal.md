@@ -1,6 +1,7 @@
 ---
 title: A Combinatorial Table Count Guard Must Assert a Literal, Not a Partition Identity
 date: 2026-10-03
+last_verified: 2026-10-07
 category: conventions
 module: src/services/device/internal/authn
 problem_type: convention
@@ -9,7 +10,7 @@ severity: high
 applies_when:
   - "Writing or reviewing a combinatorial matrix, table-driven property test, or fuzzer that skips impossible or unsupported combinations."
   - "Checking whether a loop-terminating count guard proves that all intended test cases actually executed."
-  - "Asserting that dynamic test actions, such as mid-request context cancellations or mock handler triggers, actually fired during test execution."
+  - "Asserting that dynamic test actions, such as concrete-expectation branches, mid-request context cancellations, or mock handler triggers, actually fired during test execution."
 related_components: [testing, property-tests]
 tags: [testing, property-tests, tautology, count-guards, combinatorial-matrix]
 ---
@@ -64,7 +65,7 @@ Assert row counts against independent literal constants, verify that the set of
 impossible cases matches its expected size, and count dynamic side effects:
 
 ```go
-// src/services/device/internal/authn/verifier_test.go:2067-2125
+// src/services/device/internal/authn/verifier_test.go:1992-2049
 const (
     wantRowsRun      = 1632
     wantImpossible   = 384
@@ -99,10 +100,52 @@ The three checks enforce three distinct properties:
 
 ## Evidence
 
-- The fixed assertions: `src/services/device/internal/authn/verifier_test.go:2086-2125`.
+- The fixed assertions: `src/services/device/internal/authn/verifier_test.go:2011-2049`.
 - Mutation proof: deleting `tokenExpired` from the `tokens` slice drops
   `runCount` from 1,632 to 1,408 and produces:
-  `verifier_test.go:2120: ran 1408 rows, want 1632`.
+  `ran 1408 rows, want 1632`.
+
+## Count concrete-expectation branches
+
+A row count can hold while every row misses a conditional expectation.
+`TestFDBFrameTimeMatchesPriorAdvance` increments `concreteCount` inside its
+expired-seed expectation (`src/common/sim/layer/bridge/fdb_time_test.go:89-95`)
+and checks a literal at `:143-145`:
+
+```go
+if concreteCount != 2 {
+    t.Errorf("concrete expectations ran %d times, want 2", concreteCount)
+}
+```
+
+Commit `6e752071` records disabling that block with `false &&` and the result:
+
+```text
+--- FAIL: TestFDBFrameTimeMatchesPriorAdvance (0.16s)
+```
+
+The same test independently requires 4,128 rows and two boundary-expectation
+hits (`:140-147`). Count the cases that reach each concrete oracle even when
+all generated rows execute.
+
+## Count representation axes and successful yields separately
+
+`TestUDPSizeValidationInEitherOrder` crosses value versus pointer variations,
+declaration order, and a size below versus at the UDP packet boundary. Four of
+its eight rows refuse, and each accepted row yields two frames.
+`src/common/sim/stream/stream_test.go:169-170` pins both counts independently:
+
+```go
+if cases != 8 || yields != 8 {
+    t.Fatalf("cases/yields = %d/%d, want 8/8", cases, yields)
+}
+```
+
+Commit `412266d2` records that dropping the pointer axis produced `4/4` and:
+
+```text
+--- FAIL: TestUDPSizeValidationInEitherOrder (0.00s)
+```
 
 ## What this does not cover
 

@@ -4,6 +4,12 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
+
 	"buf.build/go/protovalidate"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
@@ -18,7 +24,7 @@ import (
 )
 
 func TestPortCountersForwardingAndEgressDropExport(t *testing.T) {
-	fab, macH1, macH2 := newTwoSwitchTopology(t, fabric.Fault{Kind: fabric.FaultNone})
+	fab, macH1, macH2 := newTwoSwitchTopology(t, cablemodel.Fault{Kind: cablemodel.FaultNone})
 
 	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
 	payload := []byte("ping-unicast")
@@ -37,9 +43,9 @@ func TestPortCountersForwardingAndEgressDropExport(t *testing.T) {
 		t.Fatalf("Inject: %v", err)
 	}
 
-	steps := fab.Run(10).Steps
-	if steps != 2 {
-		t.Fatalf("steps = %d, want 2", steps)
+	steps := fab.Run(fabric.RunOptions{Budget: 10, Window: 0}).Steps
+	if steps != 4 {
+		t.Fatalf("steps = %d, want 4", steps)
 	}
 
 	snap := fab.Snapshot()
@@ -51,7 +57,7 @@ func TestPortCountersForwardingAndEgressDropExport(t *testing.T) {
 		t.Errorf("sw1:1/1/1 InUnicast = %d, want %d", got, want)
 	}
 
-	exp1 := netmodel.InterfaceCounters(c1, fab.Config().Start)
+	exp1 := netmodel.InterfaceCounters(c1, assembly.Spec(fab).Config().Start)
 	if got, want := exp1.GetInUnicastPackets(), uint64(1); got != want {
 		t.Errorf("sw1:1/1/1 GetInUnicastPackets() = %d, want %d", got, want)
 	}
@@ -67,7 +73,7 @@ func TestPortCountersForwardingAndEgressDropExport(t *testing.T) {
 		t.Errorf("sw1:1/1/24 OutUnicast = %d, want %d", got, want)
 	}
 
-	exp24 := netmodel.InterfaceCounters(c24, fab.Config().Start)
+	exp24 := netmodel.InterfaceCounters(c24, assembly.Spec(fab).Config().Start)
 	if got, want := exp24.GetOutUnicastPackets(), uint64(1); got != want {
 		t.Errorf("sw1:1/1/24 GetOutUnicastPackets() = %d, want %d", got, want)
 	}
@@ -85,7 +91,7 @@ func TestPortCountersForwardingAndEgressDropExport(t *testing.T) {
 	}
 
 	vid10 := vlan.ID(10)
-	cfgDrop := fabric.Config{
+	cfgDrop := assembly.Config{
 		Switches: map[string]vswitch.Config{
 			"sw1": {
 				Ports: pTableDrop,
@@ -100,7 +106,7 @@ func TestPortCountersForwardingAndEgressDropExport(t *testing.T) {
 				},
 			},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: macH1},
 			"h2": {Address: macH2},
 		},
@@ -116,7 +122,7 @@ func TestPortCountersForwardingAndEgressDropExport(t *testing.T) {
 		},
 	}
 
-	fabDrop, err := fabric.New(statedPhysical(cfgDrop))
+	fabDrop, err := assembly.New(statedPhysical(cfgDrop))
 	if err != nil {
 		t.Fatalf("New drop fabric: %v", err)
 	}
@@ -130,7 +136,7 @@ func TestPortCountersForwardingAndEgressDropExport(t *testing.T) {
 		t.Fatalf("Inject oversized: %v", err)
 	}
 
-	fabDrop.Run(5)
+	fabDrop.Run(fabric.RunOptions{Budget: 5, Window: 0})
 
 	snapDrop := fabDrop.Snapshot()
 	cEgressDrop := snapDrop.Devices["sw1"].Counters["1/1/24"]
@@ -141,7 +147,7 @@ func TestPortCountersForwardingAndEgressDropExport(t *testing.T) {
 		t.Errorf("sw1:1/1/24 Discards[ReasonMTUExceeded] = %d, want %d", got, want)
 	}
 
-	expDrop := netmodel.InterfaceCounters(cEgressDrop, fabDrop.Config().Start)
+	expDrop := netmodel.InterfaceCounters(cEgressDrop, assembly.Spec(fabDrop).Config().Start)
 	if got, want := expDrop.GetOutDiscards(), uint64(1); got != want {
 		t.Errorf("exported OutDiscards = %d, want %d", got, want)
 	}
@@ -186,12 +192,12 @@ func TestStormGrowthAcrossSimulationRuns(t *testing.T) {
 	macH1 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}
 	macUnknown := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x99}
 
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Switches: map[string]vswitch.Config{
 			"sw1": {Ports: pTable1, Bridge: newBridgeCfg()},
 			"sw2": {Ports: pTable2, Bridge: newBridgeCfg()},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: macH1},
 		},
 		Cables: []fabric.Cable{
@@ -200,20 +206,19 @@ func TestStormGrowthAcrossSimulationRuns(t *testing.T) {
 				B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
 			},
 			{
-				A:            fabric.Endpoint{Node: "sw1", Port: "1/1/2"},
-				B:            fabric.Endpoint{Node: "sw2", Port: "1/1/2"},
-				LengthMeters: 100,
+				Cable: cablemodel.Cable{LengthMeters: 100},
+				A:     fabric.Endpoint{Node: "sw1", Port: "1/1/2"},
+				B:     fabric.Endpoint{Node: "sw2", Port: "1/1/2"},
 			},
 			{
-				A:            fabric.Endpoint{Node: "sw1", Port: "1/1/3"},
-				B:            fabric.Endpoint{Node: "sw2", Port: "1/1/3"},
-				LengthMeters: 200,
-				Medium:       fabric.MultimodeFiber,
+				Cable: cablemodel.Cable{LengthMeters: 200, Medium: cablemodel.MultimodeFiber},
+				A:     fabric.Endpoint{Node: "sw1", Port: "1/1/3"},
+				B:     fabric.Endpoint{Node: "sw2", Port: "1/1/3"},
 			},
 		},
 	}
 
-	fab, err := fabric.New(statedPhysical(cfg))
+	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
@@ -232,7 +237,7 @@ func TestStormGrowthAcrossSimulationRuns(t *testing.T) {
 		t.Fatalf("Inject: %v", err)
 	}
 
-	steps1 := fab.Run(5).Steps
+	steps1 := fab.Run(fabric.RunOptions{Budget: 5, Window: 0}).Steps
 	if steps1 != 5 {
 		t.Fatalf("steps1 = %d, want 5", steps1)
 	}
@@ -246,7 +251,7 @@ func TestStormGrowthAcrossSimulationRuns(t *testing.T) {
 		t.Fatal("expected non-zero traffic on uplinks after first run")
 	}
 
-	steps2 := fab.Run(5).Steps
+	steps2 := fab.Run(fabric.RunOptions{Budget: 5, Window: 0}).Steps
 	if steps2 != 5 {
 		t.Fatalf("steps2 = %d, want 5", steps2)
 	}
@@ -314,12 +319,12 @@ func TestDeadDirectionCableLossAndDelivery(t *testing.T) {
 	macH1 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}
 	macH2 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02}
 
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Switches: map[string]vswitch.Config{
 			"sw1": {Ports: pTable1, Bridge: newBridgeCfg(), Phy: forcedPhy()},
 			"sw2": {Ports: pTable2, Bridge: newBridgeCfg(), Phy: forcedPhy()},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: macH1},
 			"h2": {Address: macH2},
 		},
@@ -329,10 +334,9 @@ func TestDeadDirectionCableLossAndDelivery(t *testing.T) {
 				B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
 			},
 			{
-				A:            fabric.Endpoint{Node: "sw1", Port: "1/1/24"},
-				B:            fabric.Endpoint{Node: "sw2", Port: "1/1/24"},
-				LengthMeters: 100,
-				Fault:        fabric.Fault{Kind: fabric.FaultDeadAToB},
+				Cable: cablemodel.Cable{LengthMeters: 100, Fault: cablemodel.Fault{Kind: cablemodel.FaultDeadAToB}},
+				A:     fabric.Endpoint{Node: "sw1", Port: "1/1/24"},
+				B:     fabric.Endpoint{Node: "sw2", Port: "1/1/24"},
 			},
 			{
 				A: fabric.Endpoint{Node: "sw2", Port: "1/1/1"},
@@ -341,7 +345,7 @@ func TestDeadDirectionCableLossAndDelivery(t *testing.T) {
 		},
 	}
 
-	fab, err := fabric.New(statedPhysical(cfg))
+	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
@@ -374,7 +378,7 @@ func TestDeadDirectionCableLossAndDelivery(t *testing.T) {
 		t.Fatalf("Inject A to B: %v", err)
 	}
 
-	fab.Run(10)
+	fab.Run(fabric.RunOptions{Budget: 10, Window: 0})
 
 	journeys := fab.Report()
 	var j1 *fabric.Journey
@@ -393,7 +397,7 @@ func TestDeadDirectionCableLossAndDelivery(t *testing.T) {
 
 	foundLoss := false
 	for _, entry := range j1.Entries {
-		if entry.Kind == fabric.EntryLoss && entry.Reason == fabric.ReasonCableLoss {
+		if entry.Kind == fabric.EntryLoss && entry.Reason == cablemodel.ReasonCableLoss {
 			foundLoss = true
 			break
 		}
@@ -413,7 +417,7 @@ func TestDeadDirectionCableLossAndDelivery(t *testing.T) {
 		t.Fatalf("Inject B to A: %v", err)
 	}
 
-	fab.Run(10)
+	fab.Run(fabric.RunOptions{Budget: 10, Window: 0})
 
 	journeys = fab.Report()
 	var j2 *fabric.Journey
@@ -444,7 +448,7 @@ func TestFrameClassesAndCorruptArrivalCounters(t *testing.T) {
 	}
 
 	vid10 := vlan.ID(10)
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Switches: map[string]vswitch.Config{
 			"sw1": {
 				Ports: pTable,
@@ -459,7 +463,7 @@ func TestFrameClassesAndCorruptArrivalCounters(t *testing.T) {
 				},
 			},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}},
 		},
 		Cables: []fabric.Cable{
@@ -470,7 +474,7 @@ func TestFrameClassesAndCorruptArrivalCounters(t *testing.T) {
 		},
 	}
 
-	fab, err := fabric.New(statedPhysical(cfg))
+	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
@@ -486,7 +490,7 @@ func TestFrameClassesAndCorruptArrivalCounters(t *testing.T) {
 	if _, err := fab.Inject(fabric.Injection{At: t0, Origin: fabric.Endpoint{Node: "h1"}, Frame: bcastFrame}); err != nil {
 		t.Fatalf("Inject bcast: %v", err)
 	}
-	fab.Run(5)
+	fab.Run(fabric.RunOptions{Budget: 5, Window: 0})
 
 	snapBcast := fab.Snapshot()
 	cBcast := snapBcast.Devices["sw1"].Counters["1/1/1"]
@@ -503,7 +507,7 @@ func TestFrameClassesAndCorruptArrivalCounters(t *testing.T) {
 	if _, err := fab.Inject(fabric.Injection{At: t0.Add(time.Second), Origin: fabric.Endpoint{Node: "h1"}, Frame: mcastFrame}); err != nil {
 		t.Fatalf("Inject mcast: %v", err)
 	}
-	fab.Run(5)
+	fab.Run(fabric.RunOptions{Budget: 5, Window: 0})
 
 	snapMcast := fab.Snapshot()
 	cMcast := snapMcast.Devices["sw1"].Counters["1/1/1"]
@@ -514,22 +518,22 @@ func TestFrameClassesAndCorruptArrivalCounters(t *testing.T) {
 		t.Errorf("InBytes = %d, want %d", got, want)
 	}
 
-	// 3. Corrupt arrival across a cable with FaultCorruptEveryNth: 1.
+	// 3. Corrupt arrival across a cable with cablemodel.FaultCorruptEveryNth: 1.
 	// Connect two switches so the cable crossing applies the fault.
-	cfgCorrupt := fabric.Config{
+	cfgCorrupt := assembly.Config{
 		Switches: map[string]vswitch.Config{
 			"sw1": {Ports: pTable, Bridge: &bridge.Config{VLAN: &bridge.VLAN{Table: map[vlan.ID]string{10: "VLAN10"}, Switchports: map[string]bridge.Switchport{"1/1/1": {PVID: &vid10, Untagged: []vlan.ID{10}}, "1/1/2": {Tagged: []vlan.ID{10}}}}}},
 			"sw2": {Ports: pTable, Bridge: &bridge.Config{VLAN: &bridge.VLAN{Table: map[vlan.ID]string{10: "VLAN10"}, Switchports: map[string]bridge.Switchport{"1/1/2": {Tagged: []vlan.ID{10}}}}}},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: macSrc},
 		},
 		Cables: []fabric.Cable{
 			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
-			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/2"}, LengthMeters: 100, Fault: fabric.Fault{Kind: fabric.FaultCorruptEveryNth, N: 1}},
+			{Cable: cablemodel.Cable{LengthMeters: 100, Fault: cablemodel.Fault{Kind: cablemodel.FaultCorruptEveryNth, N: 1}}, A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/2"}},
 		},
 	}
-	fabCorrupt, err := fabric.New(statedPhysical(cfgCorrupt))
+	fabCorrupt, err := assembly.New(statedPhysical(cfgCorrupt))
 	if err != nil {
 		t.Fatalf("New corrupt fabric: %v", err)
 	}
@@ -537,7 +541,7 @@ func TestFrameClassesAndCorruptArrivalCounters(t *testing.T) {
 	if _, err := fabCorrupt.Inject(fabric.Injection{At: t0, Origin: fabric.Endpoint{Node: "h1"}, Frame: bcastFrame}); err != nil {
 		t.Fatalf("Inject into corrupt fab: %v", err)
 	}
-	fabCorrupt.Run(5)
+	fabCorrupt.Run(fabric.RunOptions{Budget: 5, Window: 0})
 
 	snapCorrupt := fabCorrupt.Snapshot()
 	cSw2Port2 := snapCorrupt.Devices["sw2"].Counters["1/1/2"]
@@ -547,7 +551,7 @@ func TestFrameClassesAndCorruptArrivalCounters(t *testing.T) {
 	if got, want := cSw2Port2.InDiscards, uint64(0); got != want {
 		t.Errorf("sw2:1/1/2 InDiscards = %d, want %d: a corrupt arrival is an error, not a discard", got, want)
 	}
-	if got, want := cSw2Port2.Discards[fabric.ReasonBadFrame], uint64(1); got != want {
+	if got, want := cSw2Port2.Discards[cablemodel.ReasonBadFrame], uint64(1); got != want {
 		t.Errorf("sw2:1/1/2 Discards[ReasonBadFrame] = %d, want %d", got, want)
 	}
 	if cSw2Port2.InBroadcast != 0 || cSw2Port2.InMulticast != 0 || cSw2Port2.InUnicast != 0 {
@@ -581,11 +585,11 @@ func TestLagPortAndMemberCounters(t *testing.T) {
 	macH1 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}
 	macH2 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02}
 
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Switches: map[string]vswitch.Config{
 			"sw1": {Ports: pTable, Bridge: brCfg},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: macH1},
 			"h2": {Address: macH2},
 		},
@@ -595,7 +599,7 @@ func TestLagPortAndMemberCounters(t *testing.T) {
 		},
 	}
 
-	fab, err := fabric.New(statedPhysical(cfg))
+	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
@@ -611,7 +615,7 @@ func TestLagPortAndMemberCounters(t *testing.T) {
 		t.Fatalf("Inject: %v", err)
 	}
 
-	fab.Run(5)
+	fab.Run(fabric.RunOptions{Budget: 5, Window: 0})
 
 	snap := fab.Snapshot()
 	cLag := snap.Devices["sw1"].Counters["lag1"]
@@ -640,7 +644,7 @@ func TestLagPortAndMemberCounters(t *testing.T) {
 		t.Fatalf("Inject reverse: %v", err)
 	}
 
-	fab.Run(5)
+	fab.Run(fabric.RunOptions{Budget: 5, Window: 0})
 
 	snapReverse := fab.Snapshot()
 	cLagRev := snapReverse.Devices["sw1"].Counters["lag1"]
@@ -667,7 +671,7 @@ func TestWholeFrameDropCounters(t *testing.T) {
 		t.Fatalf("build ports: %v", err)
 	}
 
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Switches: map[string]vswitch.Config{
 			"sw1": {
 				Ports: pTable,
@@ -682,7 +686,7 @@ func TestWholeFrameDropCounters(t *testing.T) {
 				},
 			},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}},
 		},
 		Cables: []fabric.Cable{
@@ -690,7 +694,7 @@ func TestWholeFrameDropCounters(t *testing.T) {
 		},
 	}
 
-	fab, err := fabric.New(statedPhysical(cfg))
+	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
@@ -706,7 +710,7 @@ func TestWholeFrameDropCounters(t *testing.T) {
 		t.Fatalf("Inject: %v", err)
 	}
 
-	fab.Run(5)
+	fab.Run(fabric.RunOptions{Budget: 5, Window: 0})
 
 	snap := fab.Snapshot()
 	c := snap.Devices["sw1"].Counters["1/1/1"]

@@ -1,9 +1,7 @@
 package stp
 
 import (
-	"slices"
 	"strconv"
-	"strings"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
@@ -102,24 +100,10 @@ func (f maxHopsFact) TypeID() string { return "stp.mst.max_hops" }
 // Canonical returns the decimal string of the maximum hop count.
 func (f maxHopsFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
 
-// vlanListFact wraps a set of VLAN identifiers as a trace.Fact.
-type vlanListFact []vlan.ID
+type vlanIDFact vlan.ID
 
-// TypeID returns the fact type identifier for vlanListFact.
-func (f vlanListFact) TypeID() string { return "stp.mst.vlans" }
-
-// Canonical returns the VLAN identifiers sorted and joined with commas.
-func (f vlanListFact) Canonical() string {
-	sorted := slices.Clone(f)
-	slices.Sort(sorted)
-
-	ids := make([]string, len(sorted))
-	for i, vid := range sorted {
-		ids[i] = strconv.FormatUint(uint64(vid), 10)
-	}
-
-	return strings.Join(ids, ",")
-}
+func (f vlanIDFact) TypeID() string    { return "stp.mst.vlan_id" }
+func (f vlanIDFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
 
 // Diff computes the difference between two spanning tree configurations,
 // reporting changes to bridge priority, hello time, max age, forward delay,
@@ -200,7 +184,7 @@ func Diff(a, b Config) []trace.Change {
 			changes = append(changes, trace.Change{
 				Layer:   lyr,
 				Subject: trace.Subject{Kind: "bridge", Key: ""},
-				Field:   "mst",
+				Field:   "mst.presence",
 				From:    boolFact(a.MST != nil),
 				To:      boolFact(b.MST != nil),
 			})
@@ -213,7 +197,7 @@ func Diff(a, b Config) []trace.Change {
 	if a.PVST != nil || b.PVST != nil {
 		if (a.PVST == nil) != (b.PVST == nil) {
 			changes = append(changes, trace.Change{
-				Layer: lyr, Subject: trace.Subject{Kind: "bridge", Key: ""}, Field: "pvst",
+				Layer: lyr, Subject: trace.Subject{Kind: "bridge", Key: ""}, Field: "pvst.presence",
 				From: boolFact(a.PVST != nil), To: boolFact(b.PVST != nil),
 			})
 		}
@@ -408,10 +392,32 @@ func diffMSTInstance(a, b Instance, key string, lyr trace.Layer) []trace.Change 
 			From: priorityFact(a.Priority), To: priorityFact(b.Priority),
 		})
 	}
-	if !slices.Equal(a.VLANs, b.VLANs) {
+	newCounts := make(map[vlan.ID]int, len(b.VLANs))
+	for _, vid := range b.VLANs {
+		newCounts[vid]++
+	}
+	for _, vid := range a.VLANs {
+		if newCounts[vid] > 0 {
+			newCounts[vid]--
+			continue
+		}
 		changes = append(changes, trace.Change{
-			Layer: lyr, Subject: subject, Field: "vlans",
-			From: vlanListFact(a.VLANs), To: vlanListFact(b.VLANs),
+			Layer: lyr, Subject: subject, Field: "vlans[" + strconv.Quote(strconv.Itoa(int(vid))) + "]",
+			From: vlanIDFact(vid),
+		})
+	}
+	oldCounts := make(map[vlan.ID]int, len(a.VLANs))
+	for _, vid := range a.VLANs {
+		oldCounts[vid]++
+	}
+	for _, vid := range b.VLANs {
+		if oldCounts[vid] > 0 {
+			oldCounts[vid]--
+			continue
+		}
+		changes = append(changes, trace.Change{
+			Layer: lyr, Subject: subject, Field: "vlans[" + strconv.Quote(strconv.Itoa(int(vid))) + "]",
+			To: vlanIDFact(vid),
 		})
 	}
 

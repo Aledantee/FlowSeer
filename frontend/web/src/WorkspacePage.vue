@@ -404,7 +404,7 @@ async function handleUndo() {
       ref="notice"
       role="status"
       tabindex="-1"
-      class="flex items-center justify-between gap-3 px-3.5 py-2.5 bg-card border border-border rounded-panel text-xs text-foreground mb-6 shadow-xs"
+      class="flex items-center justify-between gap-3 px-3.5 py-2.5 bg-card border border-border rounded-panel text-xs text-foreground mb-6"
     >
       <span>
         <span v-if="message">{{ t(message) }}</span>
@@ -470,7 +470,11 @@ async function handleUndo() {
       class="page-heading flex justify-between items-center gap-5 mb-6 max-[800px]:items-start max-[560px]:block"
     >
       <div>
-        <h1 class="text-2xl font-bold text-foreground">{{ title }}</h1>
+        <h1
+          class="font-mono text-3xl font-semibold text-foreground tracking-tight"
+        >
+          {{ title }}
+        </h1>
         <p
           v-if="!scopeError"
           class="text-sm text-muted-foreground tabular-nums mt-1.5 max-[800px]:max-w-[330px]"
@@ -522,7 +526,7 @@ async function handleUndo() {
       ref="notice"
       role="status"
       tabindex="-1"
-      class="flex items-center justify-between gap-3 px-3.5 py-2.5 bg-card border border-border rounded-panel text-xs text-foreground mb-6 shadow-xs"
+      class="flex items-center justify-between gap-3 px-3.5 py-2.5 bg-card border border-border rounded-panel text-xs text-foreground mb-6"
     >
       <span>
         <span v-if="message">{{ t(message) }}</span>
@@ -562,20 +566,20 @@ async function handleUndo() {
         <UiAiTarget
           as="section"
           :ai="inventoryTarget"
-          class="bg-card border border-border rounded-panel overflow-hidden shadow-xs"
+          class="ui-card relative bg-card border border-border rounded-panel overflow-hidden"
           aria-labelledby="inventory-title"
         >
           <div
-            class="px-6 py-5 pb-4 flex items-center justify-between gap-3 max-[560px]:p-[18px_14px]"
+            class="px-6 py-4 border-b border-border flex items-center justify-between gap-3 max-[560px]:p-[14px_14px]"
           >
             <div>
               <h2
                 id="inventory-title"
-                class="text-base font-semibold text-foreground"
+                class="font-mono text-xs font-semibold uppercase tracking-wide text-foreground"
               >
                 {{ t('view.devices.inventory') }}
                 <span
-                  class="text-xs bg-subtle px-1.5 py-0.5 rounded text-muted-foreground ml-1.5 font-medium"
+                  class="font-mono text-2xs bg-subtle px-1.5 py-0.5 rounded text-muted-foreground ml-1.5 font-medium"
                 >
                   {{ n(scope.length, 'integer') }}
                 </span>
@@ -583,7 +587,7 @@ async function handleUndo() {
             </div>
           </div>
           <div
-            class="flex items-center gap-3 px-6 pb-5 max-[560px]:flex-wrap max-[560px]:p-[0_14px_15px] max-[560px]:gap-2.5"
+            class="flex items-center gap-3 px-6 py-3 border-b border-border max-[560px]:flex-wrap max-[560px]:p-[10px_14px] max-[560px]:gap-2.5"
           >
             <div
               class="relative flex items-center w-[340px] max-[560px]:w-full"
@@ -610,7 +614,9 @@ async function handleUndo() {
                 "
               />
             </div>
-            <span class="ml-auto text-xs text-muted-foreground">
+            <span
+              class="ml-auto text-xs text-muted-foreground font-mono tabular-nums"
+            >
               {{ format.counted('view.common.results', filtered.length) }}
             </span>
           </div>
@@ -634,7 +640,7 @@ async function handleUndo() {
               >
                 <strong
                   translate="no"
-                  class="font-semibold text-foreground self-center break-words text-sm"
+                  class="font-mono font-medium text-foreground self-center break-words text-sm"
                 >
                   {{ device.name }}
                 </strong>
@@ -677,12 +683,7 @@ async function handleUndo() {
                     "
                     @sort="sortBy('name')"
                   >
-                    <button
-                      class="sort-button font-medium inline-flex items-center gap-1 cursor-pointer"
-                      @click="sortBy('name')"
-                    >
-                      {{ t('view.devices.deviceName') }}
-                    </button>
+                    {{ t('view.devices.deviceName') }}
                   </UiTableHead>
                   <UiTableHead
                     sortable
@@ -695,12 +696,7 @@ async function handleUndo() {
                     "
                     @sort="sortBy('status')"
                   >
-                    <button
-                      class="sort-button font-medium inline-flex items-center gap-1 cursor-pointer"
-                      @click="sortBy('status')"
-                    >
-                      {{ t('view.common.status') }}
-                    </button>
+                    {{ t('view.common.status') }}
                   </UiTableHead>
                   <UiTableHead
                     sortable
@@ -713,12 +709,7 @@ async function handleUndo() {
                     "
                     @sort="sortBy('seen')"
                   >
-                    <button
-                      class="sort-button font-medium inline-flex items-center gap-1 cursor-pointer"
-                      @click="sortBy('seen')"
-                    >
-                      {{ t('view.devices.lastAnswered') }}
-                    </button>
+                    {{ t('view.devices.lastAnswered') }}
                   </UiTableHead>
                   <UiTableHead
                     sortable
@@ -731,12 +722,7 @@ async function handleUndo() {
                     "
                     @sort="sortBy('site')"
                   >
-                    <button
-                      class="sort-button font-medium inline-flex items-center gap-1 cursor-pointer"
-                      @click="sortBy('site')"
-                    >
-                      {{ t('view.devices.siteTenant') }}
-                    </button>
+                    {{ t('view.devices.siteTenant') }}
                   </UiTableHead>
                   <UiTableHead>{{ t('view.common.ipAddress') }}</UiTableHead>
                   <UiTableHead align="numeric">{{
@@ -771,7 +757,7 @@ async function handleUndo() {
                       <span>
                         <strong
                           translate="no"
-                          class="font-semibold text-foreground group-hover:text-accent-foreground block text-xs"
+                          class="font-mono font-medium text-foreground group-hover:text-accent-foreground block text-xs"
                         >
                           {{ device.name }}
                         </strong>
@@ -826,7 +812,7 @@ async function handleUndo() {
                         n(device.throughput, 'decimal')
                       }}</template>
                       <template #unit>
-                        <span class="text-2xs text-muted-foreground">{{
+                        <span class="text-2xs text-muted-foreground ml-1">{{
                           t('view.common.units.mbps')
                         }}</span>
                       </template>
@@ -839,7 +825,7 @@ async function handleUndo() {
                         :hint="t('view.devices.peekHint')"
                       >
                         <button
-                          class="inline-flex items-center justify-center p-1.5 rounded hover:bg-hover text-muted-foreground hover:text-foreground cursor-pointer"
+                          class="inline-flex items-center justify-center p-1.5 rounded-control hover:bg-hover text-muted-foreground hover:text-foreground cursor-pointer"
                           :aria-label="
                             t('view.devices.peekAt', { name: device.name })
                           "
@@ -849,7 +835,7 @@ async function handleUndo() {
                         </button>
                       </UiTooltip>
                       <AppLink
-                        class="inline-flex items-center justify-center p-1.5 rounded hover:bg-hover text-muted-foreground hover:text-foreground"
+                        class="inline-flex items-center justify-center p-1.5 rounded-control hover:bg-hover text-muted-foreground hover:text-foreground"
                         :to="deviceLink(device)"
                         :aria-label="
                           t('view.devices.detailsFor', { name: device.name })
@@ -917,14 +903,19 @@ async function handleUndo() {
         v-else-if="view === 'sites'"
         as="section"
         :ai="sitesViewTarget"
-        class="bg-card border border-border rounded-panel overflow-hidden shadow-xs"
+        class="ui-card relative bg-card border border-border rounded-panel overflow-hidden"
         aria-labelledby="sites-title"
       >
-        <div class="px-6 py-5 pb-4 flex items-center justify-between gap-3">
-          <h2 id="sites-title" class="text-base font-semibold text-foreground">
+        <div
+          class="px-6 py-4 border-b border-border flex items-center justify-between gap-3"
+        >
+          <h2
+            id="sites-title"
+            class="font-mono text-xs font-semibold uppercase tracking-wide text-foreground"
+          >
             {{ labels.page('sites') }}
             <span
-              class="text-xs bg-subtle px-1.5 py-0.5 rounded text-muted-foreground ml-1.5 font-medium"
+              class="font-mono text-2xs bg-subtle px-1.5 py-0.5 rounded text-muted-foreground ml-1.5 font-medium"
             >
               {{ n(visibleSites.length, 'integer') }}
             </span>
@@ -970,7 +961,7 @@ async function handleUndo() {
                   >
                     <strong
                       translate="no"
-                      class="font-semibold text-foreground group-hover:text-accent-foreground block text-xs"
+                      class="font-mono font-medium text-foreground group-hover:text-accent-foreground block text-xs"
                     >
                       {{ rollup.site.name }}
                     </strong>
@@ -1017,7 +1008,7 @@ async function handleUndo() {
                 </UiTableCell>
                 <UiTableCell>
                   <AppLink
-                    class="text-xs text-accent-foreground hover:underline"
+                    class="text-xs text-accent-foreground hover:underline rounded-control"
                     :to="{
                       path: '/devices',
                       query: {

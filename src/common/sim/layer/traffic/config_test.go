@@ -11,6 +11,49 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
+func TestQueueAdmit(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		depth    uint64
+		stated   bool
+		admitted bool
+		rule     trace.RuleID
+		fact     string
+	}{
+		{"at limit", 900, true, true, "", ""},
+		{"one under", 899, true, true, "", ""},
+		{"one over", 901, true, false, traffic.RuleQueueDrop, "depth_octets=901;buffer_octets=1000;frame_octets=100"},
+		{"empty unstated", 0, false, true, traffic.RuleQueueBufferUnstated, "depth_before_octets=0;frame_octets=9018;threshold_octets=1518"},
+		{"unstated at threshold", 1518, false, true, traffic.RuleQueueBufferUnstated, "depth_before_octets=1518;frame_octets=9018;threshold_octets=1518"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := traffic.Config{Queues: map[string]traffic.PortQueues{"out": {MaxRateBPS: map[vlan.PCP]uint64{5: 100000000}, BufferOctets: map[vlan.PCP]uint64{5: 1000}}}}
+			octets := uint64(9018)
+			if tc.stated {
+				octets = 100
+			} else {
+				delete(cfg.Queues["out"].BufferOctets, 5)
+			}
+			got := cfg.AdmitEgress("out", 5, tc.depth, octets, 0)
+			if got.Admitted != tc.admitted || got.MaxRateBPS != 100000000 {
+				t.Fatalf("decision = %+v, want admitted %t and rate 100000000", got, tc.admitted)
+			}
+			if tc.rule == "" {
+				if got.Step != nil || got.Reason != "" {
+					t.Fatalf("admission = %+v, want no step or reason", got)
+				}
+				return
+			}
+			if got.Step == nil || got.Step.RuleID != tc.rule || len(got.Step.Inputs) != 1 || got.Step.Inputs[0].Canonical() != tc.fact {
+				t.Fatalf("step = %+v, want rule %s and fact %q", got.Step, tc.rule, tc.fact)
+			}
+			if !tc.admitted && got.Reason != traffic.ReasonQueueFull {
+				t.Fatalf("reason = %s, want queue-full", got.Reason)
+			}
+		})
+	}
+}
+
 func trafficPortTable(t *testing.T) port.Table {
 	t.Helper()
 	table, err := port.NewBuilder().
@@ -154,6 +197,20 @@ func TestConfigValidate(t *testing.T) {
 			wantField: "policers.1/1/1.burst_octets",
 		},
 		{
+			name: "policer on LAG",
+			cfg: traffic.Config{Policers: map[string]traffic.Policer{
+				"lag1": {RateBPS: 1_000_000, BurstOctets: 10_000},
+			}},
+			wantField: "policers.lag1",
+		},
+		{
+			name: "queue on LAG member",
+			cfg: traffic.Config{Queues: map[string]traffic.PortQueues{
+				"1/1/2": {MaxRateBPS: map[vlan.PCP]uint64{0: 100_000_000}},
+			}},
+			wantField: "queues.1/1/2",
+		},
+		{
 			name:      "unknown queue port",
 			cfg:       traffic.Config{Queues: map[string]traffic.PortQueues{"missing": {}}},
 			wantField: "queues.missing",
@@ -198,6 +255,48 @@ func TestConfigValidate(t *testing.T) {
 				t.Errorf("field = %v, want %q", got, tt.wantField)
 			}
 		})
+	}
+}
+
+func TestConfigValidateAcceptsPolicerOnMemberAndQueueOnLAG(t *testing.T) {
+	t.Parallel()
+
+	cfg := traffic.Config{
+		Policers: map[string]traffic.Policer{"1/1/2": {RateBPS: 1_000_000, BurstOctets: 10_000}},
+		Queues: map[string]traffic.PortQueues{
+			"lag1": {MaxRateBPS: map[vlan.PCP]uint64{0: 100_000_000}, BufferOctets: map[vlan.PCP]uint64{0: 3000}},
+		},
+	}
+	if err := cfg.Validate(layer.Env{Ports: trafficPortTable(t)}); err != nil {
+		t.Errorf("Validate refused a policer on a member and a queue on a LAG: %v", err)
+	}
+}
+
+func TestLayerQueueLookupsAnswerMemberWithLAGStatement(t *testing.T) {
+	t.Parallel()
+
+	env := layer.Env{Ports: trafficPortTable(t)}
+	cfg := traffic.Config{Queues: map[string]traffic.PortQueues{
+		"lag1":  {MaxRateBPS: map[vlan.PCP]uint64{0: 100_000_000}, BufferOctets: map[vlan.PCP]uint64{0: 3000}},
+		"1/1/1": {BufferOctets: map[vlan.PCP]uint64{0: 1500}},
+	}}
+	l, err := traffic.New(cfg, env)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	for name, lay := range map[string]*traffic.Layer{"new": l, "clone": l.Clone()} {
+		if got, ok := lay.QueueBuffer("1/1/2", 0); !ok || got != 3000 {
+			t.Errorf("%s QueueBuffer(member) = %d, %t, want 3000, true", name, got, ok)
+		}
+		if got, ok := lay.MaxRate("1/1/2", 0); !ok || got != 100_000_000 {
+			t.Errorf("%s MaxRate(member) = %d, %t, want 100000000, true", name, got, ok)
+		}
+		if _, ok := lay.QueueBuffer("1/1/2", 1); ok {
+			t.Errorf("%s QueueBuffer(member) reported an absent PCP", name)
+		}
+		if got, ok := lay.QueueBuffer("1/1/1", 0); !ok || got != 1500 {
+			t.Errorf("%s QueueBuffer(non-member) = %d, %t, want 1500, true", name, got, ok)
+		}
 	}
 }
 

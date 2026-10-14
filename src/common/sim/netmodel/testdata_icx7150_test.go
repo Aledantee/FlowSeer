@@ -1,6 +1,7 @@
 package netmodel_test
 
 import (
+	"bytes"
 	"fmt"
 	"slices"
 	"testing"
@@ -13,6 +14,10 @@ import (
 	phyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1"
 	stpv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/stp/v1"
 	switchingv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/switching/v1"
+	"go.aledante.io/FlowSeer/src/common/net/ethernet"
+	"go.aledante.io/FlowSeer/src/common/net/netaddr"
+	"go.aledante.io/FlowSeer/src/common/sim/device"
+	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/lag"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
@@ -379,7 +384,7 @@ func TestICX7150Load(t *testing.T) {
 	ifaces, vlans, budgets, bridgeState, stpPorts := icx7150Fixture(t)
 	now := time.Date(2026, 9, 10, 18, 0, 0, 0, time.UTC)
 
-	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "icx7150"}, ifaces, vlans, nil, budgets, bridgeState, stpPorts, nil, nil, nil, nil, nil, nil)
+	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "icx7150"}, netmodel.Input{Interfaces: ifaces, VLANs: vlans, Budgets: budgets, BridgeState: bridgeState, STPPorts: stpPorts})
 	if err != nil {
 		t.Fatalf("netmodel.Load failed: %v", err)
 	}
@@ -417,11 +422,7 @@ func TestICX7150Load(t *testing.T) {
 	if _, ok := cfg.STP.Ports["lg1"]; !ok {
 		t.Errorf("expected cfg.STP.Ports[lg1] to exist")
 	}
-	if rootPort := bridgeState.GetRootPortInterfaceName(); rootPort != "lg1" {
-		t.Errorf("root port = %q, want lg1", rootPort)
-	}
-
-	// The capture reports no powered device on any port and 0 W allocated.
+	// The fixture reports no powered device on any port and 0 W allocated.
 	alloc := cfg.Phy.Allocate()
 	if g := alloc.Groups["1"]; g.AllocatedNanowatts != 0 || g.RemainderMinNanowatts != 370_000_000_000 || g.RemainderMaxNanowatts != 370_000_000_000 {
 		t.Errorf("group 1 allocation = %+v, want nothing allocated from 370 W", g)
@@ -440,4 +441,40 @@ func TestICX7150Load(t *testing.T) {
 	if searchingAssumptions != 24 {
 		t.Errorf("searching assumptions count = %d, want 24", searchingAssumptions)
 	}
+
+	t.Run("forwarding", func(t *testing.T) {
+		sw, err := vswitch.NewWithSpec(res.Spec)
+		if err != nil {
+			t.Fatalf("vswitch.NewWithSpec: %v", err)
+		}
+		frame := ethernet.Frame{
+			Src:     netaddr.MAC{0x02, 0, 0, 0, 0, 1},
+			Dst:     netaddr.MAC{0x02, 0, 0, 0, 0, 2},
+			Payload: []byte("fixture forwarding"),
+		}
+		forward := sw.Receive(now, "1/1/1", frame)
+		if forward.Err != nil || forward.FID != 4000 || forward.Outcome != trace.Flooded {
+			t.Fatalf("forward = %+v, want VLAN 4000 flood without error", forward)
+		}
+		index := slices.IndexFunc(forward.Egress, func(egress device.Egress) bool {
+			return egress.Port == "1/1/2"
+		})
+		if index < 0 {
+			t.Fatalf("egress = %+v, want 1/1/2", forward.Egress)
+		}
+		egress := forward.Egress[index]
+		if egress.Dropped != "" || len(egress.Frame.Tags) != 0 || egress.Frame.Src != frame.Src || egress.Frame.Dst != frame.Dst || !bytes.Equal(egress.Frame.Payload, frame.Payload) {
+			t.Fatalf("egress = %+v, want untagged transmission of the input frame", egress)
+		}
+
+		reply := ethernet.Frame{Src: frame.Dst, Dst: frame.Src, Payload: []byte("fixture reply")}
+		reverse := sw.Receive(now, "1/1/2", reply)
+		if reverse.Err != nil || reverse.FID != 4000 || reverse.Outcome != trace.Forwarded || len(reverse.Egress) != 1 {
+			t.Fatalf("reverse = %+v, want VLAN 4000 learned unicast with exactly one egress", reverse)
+		}
+		back := reverse.Egress[0]
+		if back.Port != "1/1/1" || back.Dropped != "" || len(back.Frame.Tags) != 0 || back.Frame.Src != reply.Src || back.Frame.Dst != reply.Dst || !bytes.Equal(back.Frame.Payload, reply.Payload) {
+			t.Errorf("reverse egress = %+v, want untagged reply only on 1/1/1", back)
+		}
+	})
 }

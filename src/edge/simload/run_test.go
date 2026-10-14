@@ -1,15 +1,19 @@
 package simload
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"fmt"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
-	"go.aledante.io/FlowSeer/src/common/sim/fabric"
+	"go.aledante.io/FlowSeer/src/common/sim/analysis"
+	"go.aledante.io/FlowSeer/src/common/sim/flow"
 	"go.aledante.io/FlowSeer/src/common/sim/stream"
 	"go.aledante.io/FlowSeer/src/edge/simload/packetio"
 	"go.aledante.io/FlowSeer/src/modules/capture/rawsocket"
@@ -113,6 +117,8 @@ func (s *fakeSender) Close() error {
 }
 
 type fakeReceiver struct {
+	beforeClose    func()
+	onStats        func()
 	frames         chan rawsocket.Frame
 	interfaceDrops uint64
 	statsErr       error
@@ -132,12 +138,18 @@ func newFakeReceiver(frames ...rawsocket.Frame) *fakeReceiver {
 func (r *fakeReceiver) Receive(ctx context.Context) <-chan rawsocket.Frame {
 	go func() {
 		<-ctx.Done()
+		if r.beforeClose != nil {
+			r.beforeClose()
+		}
 		r.close()
 	}()
 	return r.frames
 }
 
 func (r *fakeReceiver) Stats() (uint64, uint64, error) {
+	if r.onStats != nil {
+		r.onStats()
+	}
 	return 0, r.interfaceDrops, r.statsErr
 }
 
@@ -196,7 +208,7 @@ func TestRunPacesOneEpochAndBreaksEqualOffsetsByFlowID(t *testing.T) {
 	if len(sender.writes) != 3 {
 		t.Fatalf("writes = %d, want 3", len(sender.writes))
 	}
-	var flowIDs []fabric.FlowID
+	var flowIDs []flow.ID
 	for _, wire := range sender.writes {
 		signature, decodeErr := DecodeWireSignature(wire)
 		if decodeErr != nil {
@@ -204,7 +216,7 @@ func TestRunPacesOneEpochAndBreaksEqualOffsetsByFlowID(t *testing.T) {
 		}
 		flowIDs = append(flowIDs, signature.FlowID)
 	}
-	want := []fabric.FlowID{1, 2, 1}
+	want := []flow.ID{1, 2, 1}
 	for i := range want {
 		if flowIDs[i] != want[i] {
 			t.Fatalf("write %d flow = %d, want %d", i, flowIDs[i], want[i])
@@ -510,5 +522,246 @@ func TestRunStopsOnReceiveErrorBeforeSending(t *testing.T) {
 	}
 	if len(sender.writes) != 0 || observation.Flows[1].Sent != 0 {
 		t.Fatalf("sender was used after receive failure: writes=%d observation=%+v", len(sender.writes), observation)
+	}
+}
+
+func streamConfig(t *testing.T, ids ...flow.ID) Config {
+	t.Helper()
+	config := Config{TXInterface: "tx0", RXInterface: "rx0"}
+	for _, id := range ids {
+		source, err := (stream.Spec{Frame: ethernet.Frame{EtherType: 0x88b5, Payload: make([]byte, SignatureSize)}, Rate: stream.Rate{FramesPerSecond: 1000}, Count: 1}).Source()
+		if err != nil {
+			t.Fatal(err)
+		}
+		config.Flows = append(config.Flows, FlowSource{ID: id, Source: source})
+	}
+	return config
+}
+
+func awaitSignal(t *testing.T, signal <-chan struct{}) {
+	t.Helper()
+	select {
+	case <-signal:
+	case <-time.After(time.Second):
+		t.Fatal("signal did not arrive within one second")
+	}
+}
+
+func TestExecuteDrainsAcceptedFramesBeforeFreeze(t *testing.T) {
+	for _, mode := range []string{"normal", "parent cancellation", "receiver failure", "cancellation after data"} {
+		t.Run(mode, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			t.Cleanup(cancel)
+			receiver := newFakeReceiver()
+			receiver.frames = make(chan rawsocket.Frame, 1)
+			if mode == "cancellation after data" || mode == "receiver failure" {
+				receiver.frames = make(chan rawsocket.Frame, 3)
+			}
+			entered, release, sent := make(chan struct{}), make(chan struct{}), make(chan struct{})
+			receiver.beforeClose = func() { <-sent }
+			var releaseOnce sync.Once
+			t.Cleanup(func() { releaseOnce.Do(func() { close(release) }) })
+			var hookOnce sync.Once
+			hook := func() { hookOnce.Do(func() { close(entered); <-release }) }
+			failureBlocked := make(chan struct{})
+			if mode == "receiver failure" {
+				calls := 0
+				hook = func() {
+					calls++
+					if calls == 1 {
+						close(entered)
+					}
+					if calls == 2 {
+						close(failureBlocked)
+						<-release
+					}
+				}
+			}
+			start := time.Unix(1700000000, 0)
+			receiveErr := errors.New("first capture failure")
+			clock := &fakeClock{now: start}
+			clock.onWait = func(_ context.Context, _ time.Time) error {
+				if len(clock.waits) == 1 {
+					awaitSignal(t, sent)
+					if mode == "parent cancellation" {
+						cancel()
+						return context.Canceled
+					}
+				}
+				return nil
+			}
+			sender := &fakeSender{onSend: func(_ context.Context, wire []byte) error {
+				awaitSignal(t, entered)
+				signed, err := Sign(ethernet.Frame{EtherType: 0x88b5, Payload: make([]byte, SignatureSize)}, 7, 0, start)
+				if err != nil {
+					return err
+				}
+				expected, err := signed.Encode()
+				if err != nil {
+					return err
+				}
+				if !bytes.Equal(wire, expected) {
+					return errors.New("unexpected signed send")
+				}
+				if mode == "receiver failure" {
+					receiver.frames <- rawsocket.Frame{Err: receiveErr}
+					awaitSignal(t, failureBlocked)
+				}
+				receiver.frames <- rawsocket.Frame{Data: wire, CapturedAt: start.Add(time.Microsecond)}
+				if mode == "cancellation after data" {
+					receiver.frames <- rawsocket.Frame{Err: context.Canceled}
+				}
+				if mode == "receiver failure" {
+					receiver.frames <- rawsocket.Frame{Err: errors.New("later capture failure")}
+				}
+				close(sent)
+				return nil
+			}}
+			if mode == "receiver failure" {
+				clock.onWait = func(runCtx context.Context, _ time.Time) error {
+					if len(clock.waits) == 1 {
+						<-runCtx.Done()
+						return runCtx.Err()
+					}
+					return nil
+				}
+			}
+			type result struct {
+				observation Observation
+				err         error
+			}
+			done := make(chan result, 1)
+			go func() {
+				observation, err := executeWithReceiveHook(ctx, streamConfig(t, 7), clock, sender, receiver, hook)
+				done <- result{observation, err}
+			}()
+			awaitSignal(t, receiver.closed)
+			releaseOnce.Do(func() { close(release) })
+			select {
+			case got := <-done:
+				wantErr := error(nil)
+				if mode == "parent cancellation" {
+					wantErr = context.Canceled
+				}
+				if mode == "receiver failure" {
+					wantErr = receiveErr
+				}
+				if !errors.Is(got.err, wantErr) {
+					t.Fatalf("error = %v, want %v", got.err, wantErr)
+				}
+				row := got.observation.Flows[7]
+				if row.Sent != 1 || row.UniqueReceived != 1 || row.Missing != 0 || row.LateAfterClose != 0 || row.Latency.Count != 1 || row.Latency.Sum != time.Microsecond {
+					t.Fatalf("observation = %+v, want sent=1 unique=1 missing=0 late=0 latency=1us", row)
+				}
+			case <-time.After(time.Second):
+				t.Fatal("execute did not finish within one second")
+			}
+		})
+	}
+}
+
+func TestExecuteStatisticsFailureIgnoresCancellationFrame(t *testing.T) {
+	statsErr := errors.New("statistics failed")
+	for _, terminal := range []bool{false, true} {
+		t.Run(fmt.Sprint(terminal), func(t *testing.T) {
+			receiver := newFakeReceiver()
+			receiver.statsErr = statsErr
+			if terminal {
+				receiver.beforeClose = func() { receiver.frames <- rawsocket.Frame{Err: context.Canceled} }
+			}
+			_, err := RunWith(context.Background(), streamConfig(t, 7), testDependencies(&fakeClock{now: time.Unix(1700000000, 0)}, &fakeSender{}, receiver, upInterface))
+			if !errors.Is(err, statsErr) || !strings.Contains(err.Error(), "read capture statistics") {
+				t.Fatalf("error = %v, want wrapped statistics failure", err)
+			}
+		})
+	}
+}
+
+func TestExecuteErrorPrecedence(t *testing.T) {
+	sendErr, statsErr := errors.New("send failed"), errors.New("statistics failed")
+	receiveClose, sendClose := errors.New("receive close"), errors.New("send close")
+	for _, tc := range []struct {
+		name                                          string
+		send, stats, receiverClose, senderClose, want error
+	}{
+		{"run", sendErr, statsErr, receiveClose, sendClose, sendErr},
+		{"statistics", nil, statsErr, receiveClose, sendClose, statsErr},
+		{"both closes", nil, nil, receiveClose, sendClose, receiveClose},
+		{"sender close", nil, nil, nil, sendClose, sendClose},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			receiver := newFakeReceiver()
+			receiver.statsErr, receiver.closeErr = tc.stats, tc.receiverClose
+			sender := &fakeSender{writeErr: tc.send, closeErr: tc.senderClose}
+			_, err := RunWith(context.Background(), streamConfig(t, 7), testDependencies(&fakeClock{now: time.Unix(1700000000, 0)}, sender, receiver, upInterface))
+			if !errors.Is(err, tc.want) || !sender.closed {
+				t.Fatalf("error = %v, closed = %t, want %v and closed", err, sender.closed, tc.want)
+			}
+		})
+	}
+}
+
+func TestRunSenderFedReceiverReportsInterleavedFlows(t *testing.T) {
+	receiver := newFakeReceiver()
+	receiver.frames = make(chan rawsocket.Frame, 8)
+	var order []flow.ID
+	sender := &fakeSender{onSend: func(_ context.Context, wire []byte) error {
+		signature, err := DecodeWireSignature(wire)
+		if err != nil {
+			return err
+		}
+		order = append(order, signature.FlowID)
+		receiver.frames <- rawsocket.Frame{Data: append([]byte(nil), wire...), CapturedAt: signature.SubmittedAt.Add(time.Microsecond)}
+		return nil
+	}}
+	config := streamConfig(t, 9, 7)
+	for i := range config.Flows {
+		source, err := (stream.Spec{Frame: ethernet.Frame{EtherType: 0x88b5, Payload: make([]byte, SignatureSize)}, Rate: stream.Rate{FramesPerSecond: 1000}, Count: 2}).Source()
+		if err != nil {
+			t.Fatal(err)
+		}
+		config.Flows[i].Source = source
+	}
+	observation, err := RunWith(context.Background(), config, testDependencies(&fakeClock{now: time.Unix(1700000000, 0)}, sender, receiver, upInterface))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(order, []flow.ID{7, 9, 7, 9}) {
+		t.Fatalf("order = %v, want [7 9 7 9]", order)
+	}
+	report, err := NewReport(map[flow.ID]flow.Stats{7: {Offered: 2, Delivered: map[string]uint64{"host": 2}}, 9: {Offered: 2, Delivered: map[string]uint64{"host": 2}}}, analysis.Metadata{}, observation, "host")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Contract != "simload/report/v1" || len(report.Normalized) != 2 {
+		t.Fatalf("report = %+v", report)
+	}
+	for _, id := range []flow.ID{7, 9} {
+		row := observation.Flows[id]
+		if row.Sent != 2 || row.UniqueReceived != 2 || row.Missing != 0 || row.LateAfterClose != 0 || row.Latency.Count != 2 {
+			t.Fatalf("flow %d = %+v", id, row)
+		}
+	}
+	for _, row := range report.Normalized {
+		if row.LabOffered != 2 || row.LabDelivered != 2 || row.LabUnreceived != 0 {
+			t.Fatalf("normalized row = %+v", row)
+		}
+	}
+}
+
+func TestExecuteRejectsPrematureChannelClosureWithoutTerminalFrame(t *testing.T) {
+	receiver := newFakeReceiver()
+	receiver.close()
+	statisticsRead := make(chan struct{})
+	receiver.onStats = func() { close(statisticsRead) }
+	clock := &fakeClock{now: time.Unix(1700000000, 0)}
+	clock.onWait = func(context.Context, time.Time) error {
+		awaitSignal(t, statisticsRead)
+		return nil
+	}
+	sender := &fakeSender{}
+	observation, err := RunWith(context.Background(), streamConfig(t, 7), testDependencies(clock, sender, receiver, upInterface))
+	if err == nil || !strings.Contains(err.Error(), "capture receiver closed before the run completed") || observation.Flows[7].Sent != 0 || !sender.closed {
+		t.Fatalf("error = %v, observation = %+v, closed = %t, want closure error, zero sends and closed sender", err, observation, sender.closed)
 	}
 }

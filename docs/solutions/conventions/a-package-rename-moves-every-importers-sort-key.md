@@ -63,7 +63,7 @@ one always does: the hook never saw the file.
 ## Evidence
 
 - `.golangci.yml:76-78` sets `local-prefixes: go.aledante.io/FlowSeer`, and
-  `.claude/skills/verify-change/scripts/verify-change.sh:388-398` runs
+  `Verification.check_format` in `tools/scripts/verify/change.py` runs
   `goimports -d` over the changed files.
 - The envelope move's verifier run named
   `src/edge/agent/internal/dispatch/registry.go:8:1` and

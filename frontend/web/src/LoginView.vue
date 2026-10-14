@@ -77,7 +77,7 @@ async function submit() {
       @submit.prevent="submit"
     >
       <div>
-        <h1 class="m-0 text-2xl font-semibold tracking-tight">
+        <h1 class="m-0 font-mono text-2xl font-semibold tracking-tight">
           {{ t('view.login.title', { brand: BRAND }) }}
         </h1>
         <p class="mt-1.5 mb-0 text-md text-muted-foreground">
@@ -137,13 +137,15 @@ async function submit() {
     >
       <div class="login-overview">
         <header class="login-intro">
-          <p class="login-eyebrow text-accent-foreground">
+          <p
+            class="login-eyebrow font-mono text-xs font-semibold uppercase tracking-wide text-accent-foreground"
+          >
             <AppIcon name="topology" />
             {{ t('view.login.overview.eyebrow') }}
           </p>
           <h2
             id="login-overview-title"
-            class="m-0 text-3xl font-semibold tracking-tight text-balance"
+            class="m-0 font-mono text-3xl font-semibold tracking-tight text-balance"
           >
             {{ t('view.login.overview.title') }}
           </h2>
@@ -154,15 +156,18 @@ async function submit() {
           </p>
         </header>
 
-        <figure class="login-network m-0">
-          <figcaption class="login-network-caption">
-            <span class="inline-flex items-center gap-2 font-semibold">
+        <figure class="ui-card relative login-network m-0">
+          <figcaption
+            class="login-network-caption font-mono text-xs font-semibold uppercase tracking-wide"
+          >
+            <span class="inline-flex items-center gap-2">
               <AppIcon name="sites" />
               {{ t('view.login.overview.site') }}
             </span>
-            <span class="text-muted-foreground">{{
-              t('view.login.overview.example')
-            }}</span>
+            <span
+              class="text-xs text-muted-foreground normal-case tracking-normal"
+              >{{ t('view.login.overview.example') }}</span
+            >
           </figcaption>
           <ol class="login-path">
             <li v-for="node in PATH" :key="node" class="login-node">
@@ -170,7 +175,9 @@ async function submit() {
                 <AppIcon :name="PATH_ICONS[node]" />
               </div>
               <div class="login-node-copy">
-                <h3 class="m-0 text-lg font-semibold">
+                <h3
+                  class="m-0 font-mono text-base font-semibold tracking-tight"
+                >
                   {{ t(`view.login.overview.path.${node}.title`) }}
                 </h3>
                 <p class="mt-1 mb-0 text-md text-muted-foreground">
@@ -181,7 +188,9 @@ async function submit() {
           </ol>
           <div class="login-traffic">
             <div>
-              <p class="m-0 text-md font-semibold">
+              <p
+                class="m-0 font-mono text-xs font-semibold uppercase tracking-wide"
+              >
                 {{ t('view.login.overview.trafficTitle') }}
               </p>
               <p class="mt-1 mb-0 text-md text-muted-foreground">
@@ -198,7 +207,9 @@ async function submit() {
                 })
               "
             />
-            <p class="login-traffic-value m-0 text-xl font-semibold">
+            <p
+              class="login-traffic-value m-0 font-mono text-display font-normal tabular-nums"
+            >
               {{ fmt.rate(84) }}
             </p>
           </div>
@@ -206,7 +217,7 @@ async function submit() {
 
         <div class="login-notes">
           <section v-for="topic in ['trace', 'inspect'] as const" :key="topic">
-            <h3 class="m-0 text-lg font-semibold">
+            <h3 class="m-0 font-mono text-base font-semibold tracking-tight">
               {{ t(`view.login.overview.${topic}.title`) }}
             </h3>
             <p class="mt-2 mb-0 text-md text-muted-foreground text-pretty">
@@ -249,12 +260,12 @@ async function submit() {
 }
 
 .login-network {
+  position: relative;
   margin-top: 40px;
-  overflow: hidden;
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--radius-panel);
-  box-shadow: var(--shadow-sm);
+  box-shadow: none;
 }
 
 .login-network-caption {
@@ -265,7 +276,6 @@ async function submit() {
   gap: 8px 16px;
   padding: 16px 24px;
   border-bottom: 1px solid var(--border);
-  font-size: var(--text-md);
 }
 
 .login-path {
@@ -301,7 +311,7 @@ async function submit() {
   color: var(--accent-foreground);
   background: var(--subtle);
   border: 1px solid var(--border);
-  border-radius: var(--radius-panel);
+  border-radius: var(--radius-control);
 }
 
 .login-node-icon svg {

@@ -26,7 +26,7 @@ trace that is a value, and no state between frames.
 ## Decision
 
 - **Filtering is a capability of the virtual switch.** Package
-  `src/common/sim/layer/filter` holds rule sets and bindings; a
+  `src/common/sim/layer/filter` holds rule sets and bindings. A
   binding attaches a set to a routed interface in one direction. First
   match wins and a set carries an explicit default action, the RFC 8519
   shape. A drop by a filter is a Complete domain outcome, as a port-down
@@ -44,7 +44,7 @@ trace that is a value, and no state between frames.
   remembered, so the answer stays a function of configuration and frame.
   The reversed packet is only a 5-tuple, so the reverse match tests a
   rule's protocol, prefixes, and ports. An accept rule qualified by TCP
-  flags or an ICMP type accepts on its tuple alone; a drop or reject rule
+  flags or an ICMP type accepts on its tuple alone. A drop or reject rule
   qualified by one is skipped, because a condition the search cannot
   evaluate must not end it and shadow a later accept.
 - **A filter binding rides on the interface in the schema.**
@@ -58,19 +58,18 @@ trace that is a value, and no state between frames.
   facet, loads with a non-fatal issue (`netmodel.filter.missing_set`,
   `netmodel.filter.unbound_interface`).
 - **`reject` drops and generates nothing.** The reason distinguishes it
-  from `drop`; no ICMP error leaves the switch.
+  from `drop`. No ICMP error leaves the switch.
 - **A routed sub-interface is a routing interface with a port and a VLAN.**
   It is classified on the routed-port path by the outer C-TAG and tagged on
-  egress; its parent port stays outside the bridge and the spanning tree,
+  egress. Its parent port stays outside the bridge and the spanning tree,
   as a routed port does today. The schema's `Subinterface` kind with one
   C-TAG loads as one.
-- **The mDNS reflector is a fabric node kind.** `fabric.Reflector` has
-  attachments over cabled ports; on an mDNS datagram it originates one copy
+- **The mDNS reflector is a fabric node kind.** `device/reflector.Config` has
+  attachments over cabled ports. On an mDNS datagram it originates one copy
   per other attachment with its own source, hop limit 255, and source port
-  5353. Hosts stay passive; the reflector is the one endpoint kind that
-  reacts, and it reacts only to mDNS.
+  5353. The reflector reacts only to mDNS.
 - **A reflected copy is a journey with a parent, and loops are detected on
-  the frame, not the root.** The copy carries `Parent`; re-entry detection
+  the frame, not the root.** The copy carries `Origin.Of`. Re-entry detection
   keys on the frame, with a reflected copy's re-entry set seeded from a copy
   of its parent's. A root key cannot work: it cannot tell a sibling copy
   from an ancestor, so a reflector with three attachments would report a
@@ -79,7 +78,7 @@ trace that is a value, and no state between frames.
   a real loop, and two reflectors sharing two VLANs still produce a
   recorded loop and a budget halt rather than a silent exhaustion.
 - **Transport codecs are common packages.** `src/common/net/udp`, `tcp`,
-  and `icmp` sit beside `igmp` and `mld`; the filter matches on them and
+  and `icmp` sit beside `igmp` and `mld`. The filter matches on them and
   the reflector recomputes the UDP checksum with them.
 - **The multicast flooding rules stand.** The resolver floods 224.0.0.0/24
   regardless of membership (RFC 4541 section 2.1.2) and snoops IPv6
@@ -89,8 +88,8 @@ trace that is a value, and no state between frames.
 ## Alternatives
 
 - **Filter as a fabric-level policy between nodes.** Rejected: the rules
-  belong to one device and take part in its trace, diff, and comparison;
-  a fabric policy would have no place in a single-switch planning question.
+  belong to one device and take part in its trace, diff, and comparison.
+  A fabric policy would have no place in a single-switch planning question.
 - **A connection table for stateful sets.** Rejected: it would make the
   answer depend on frames the caller never injected and break the rule that
   a run is a function of configuration, frame, and time. The reverse match
@@ -98,14 +97,14 @@ trace that is a value, and no state between frames.
   accept, and the trace shows why.
 - **The reflector as a switch capability.** Rejected: it would sit on the
   firewall's virtual switch only, and a dedicated reflector host could not
-  be modeled; a node kind covers both, with the firewall-hosted case cabled
+  be modeled. A node kind covers both, with the firewall-hosted case cabled
   to a spare port.
 - **The reflector as a host with a behavior hook.** Rejected: the virtual
-  device record keeps hosts as endpoints that accept or reject; a general
+  device record keeps hosts as endpoints that accept or reject. A general
   behavior hook would invite protocol engines into hosts one at a time.
   A named node kind with one reaction is the smaller commitment.
 - **Sub-interfaces classified through the bridge.** Rejected: a firewall's
-  trunk is not a bridge member; the VLAN interface already covers a router
+  trunk is not a bridge member. The VLAN interface already covers a router
   on a stick over the bridge, and the routed-port path keeps the parent
   port's existing bans in force.
 - **Filter bindings as device-level rows**, in the manner of
@@ -123,7 +122,7 @@ trace that is a value, and no state between frames.
   record leaves out: NAT, connection tracking, ICMP error generation,
   DNS-aware reflection, and a snooping schema in the network model.
 - `netmodel` gains a translation for `flowseer.net.filter.v1` and for the
-  `Subinterface` kind; it still rejects the multicast capability until a
+  `Subinterface` kind. It still rejects the multicast capability until a
   collector reports snooping state.
 - The fabric has two endpoint kinds. Adding a third that reacts is a new
   decision against this record, not an extension of the reflector.
@@ -135,3 +134,27 @@ and routed sub-interfaces in `src/common/sim/layer/routing` and
 `src/common/sim/fabric`. Landed 2026-09-19: the filter capability in
 `src/common/sim/layer/filter`, the `flowseer.net.filter.v1` schema, its
 `netmodel` translation, and the filter corpus cases.
+
+The reflector device lives in `src/common/sim/device/reflector`. Its
+`Receive` accepts matching MAC and IP mDNS families and returns each rebuilt
+datagram as a `device.Copy`. `fabric` assigns `OriginReflection` and preserves
+`Origin.Of` when recording those copies (`src/common/sim/fabric/output.go`).
+
+### Current construction and trace ownership
+
+[`reflector.New`](../../src/common/sim/device/reflector/reflector.go) constructs
+the device from `reflector.Config`. `Receive` returns copies in attachment
+name order. The fabric's
+[`applyDeviceOutput`](../../src/common/sim/fabric/output.go) assigns ancestry.
+The reflector emits no fabric journey itself.
+
+The two reverse-match paths remain `ResolveDeferred` and `EvaluateEgress` in
+[`filter.go`](../../src/common/sim/layer/filter/filter.go).
+`TestStatefulReverseMatchRuleEnumeration` in
+[`filter_test.go`](../../src/common/sim/layer/filter/filter_test.go) pins the
+qualified-rule skip and first-match refusal.
+`TestLoad_SubInterfacesRouteOverPhysicalParent` and
+`TestLoad_SubInterfaceRoutesOverLAGParent` in
+[`load_routing_test.go`](../../src/common/sim/netmodel/load_routing_test.go)
+construct the supported parent forms through `netmodel.Load`.
+These APIs preserve the reverse-match and sub-interface decisions above.

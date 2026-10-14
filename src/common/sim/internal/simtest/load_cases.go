@@ -3,7 +3,13 @@ package simtest
 import (
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+	"go.aledante.io/FlowSeer/src/common/sim/flow"
+
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+
 	"go.aledante.io/FlowSeer/src/common/errs"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
@@ -24,11 +30,19 @@ var (
 	loadH2 = netaddr.MAC{0x02, 0, 0, 0, 0x13, 2}
 )
 
-func loadCaseSpec(buffer *uint64, policed bool) (fabric.ConstructionSpec, error) {
+// RegisterLoadCases populates registry with the stated-buffer, unstated-buffer,
+// and policer cases.
+func RegisterLoadCases(registry *Registry) {
+	registry.MustRegister(casePlanningOversubscribedTrunkStatedBuffer())
+	registry.MustRegister(casePlanningOversubscribedTrunkUnstatedBuffer())
+	registry.MustRegister(casePlanningPolicedStream())
+}
+
+func loadCaseSpec(buffer *uint64, policed bool) (assembly.ConstructionSpec, error) {
 	ports, err := port.NewBuilder().Range("1/1/%d", 1, 2,
 		port.Port{Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).Build()
 	if err != nil {
-		return fabric.ConstructionSpec{}, err
+		return assembly.ConstructionSpec{}, err
 	}
 	vid10 := vlan.ID(10)
 	physical := func(speed uint64) phy.Ethernet {
@@ -49,7 +63,7 @@ func loadCaseSpec(buffer *uint64, policed bool) (fabric.ConstructionSpec, error)
 			"1/1/1": {RateBPS: 1_000_000, BurstOctets: 1518},
 		}
 	}
-	return fabric.ConstructionSpec{
+	return assembly.ConstructionSpec{
 		Start: time.Unix(0, 0).UTC(),
 		Switches: map[string]vswitch.ConstructionSpec{
 			"sw1": {
@@ -72,13 +86,13 @@ func loadCaseSpec(buffer *uint64, policed bool) (fabric.ConstructionSpec, error)
 				Seeds: []bridge.Seed{{FID: 10, MAC: loadH2, Port: "1/1/2", Lifetime: bridge.Static}},
 			},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: loadH1, Ethernet: physical(1_000_000_000)},
 			"h2": {Address: loadH2, VLAN: &vid10, Ethernet: physical(10_000_000)},
 		},
 		Cables: []fabric.Cable{
-			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, Medium: fabric.TwistedPair, TopSpeedBPS: 1_000_000_000},
-			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "h2"}, Medium: fabric.TwistedPair, TopSpeedBPS: 10_000_000},
+			{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair, TopSpeedBPS: 1_000_000_000}, A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
+			{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair, TopSpeedBPS: 10_000_000}, A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "h2"}},
 		},
 	}, nil
 }
@@ -88,7 +102,7 @@ func executeLoadCase(buffer *uint64, policed bool, decisive trace.RuleID) (Execu
 	if err != nil {
 		return ExecutionResult{}, err
 	}
-	fab, err := fabric.NewWithSpec(spec)
+	fab, err := assembly.NewWithSpec(spec)
 	if err != nil {
 		return ExecutionResult{}, err
 	}
@@ -99,13 +113,17 @@ func executeLoadCase(buffer *uint64, policed bool, decisive trace.RuleID) (Execu
 	if err != nil {
 		return ExecutionResult{}, err
 	}
-	const flow = fabric.FlowID(13)
+	const flow = flow.ID(13)
 	if err := fab.AttachStream(fabric.StreamAttachment{
 		Origin: fabric.Endpoint{Node: "h1"}, Source: source, Flow: flow, Retention: fabric.RetainJourney,
 	}); err != nil {
 		return ExecutionResult{}, err
 	}
-	if run := fab.Run(10_000); run.Err != nil || run.Pending.Journeys != 0 {
+	run := fab.Run(fabric.RunOptions{Budget: 10_000, Window: 0})
+	if err := validateReceiveReport(fab.Report()); err != nil {
+		return ExecutionResult{}, err
+	}
+	if run.Err != nil || run.Pending.Journeys != 0 {
 		return ExecutionResult{}, errs.Msgf("load run did not settle: %+v", run)
 	}
 	stats, ok := fab.Flows()[flow]

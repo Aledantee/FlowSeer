@@ -49,6 +49,11 @@ func (f macFact) Canonical() string { return netaddr.MAC(f).String() }
 
 type prefixesFact string
 
+type prefixFact netip.Prefix
+
+func (f prefixFact) TypeID() string    { return "routing.prefix" }
+func (f prefixFact) Canonical() string { return netip.Prefix(f).String() }
+
 func (f prefixesFact) TypeID() string    { return "routing.prefixes" }
 func (f prefixesFact) Canonical() string { return string(f) }
 
@@ -122,14 +127,14 @@ func (f reachableTimeFact) TypeID() string { return "routing.neighbor_policy.rea
 // Canonical returns the duration string.
 func (f reachableTimeFact) Canonical() string { return time.Duration(f).String() }
 
-// resolutionTimeoutFact wraps a neighbor policy ResolutionTimeout as a trace.Fact.
-type resolutionTimeoutFact time.Duration
+// retransTimerFact wraps a neighbor policy RetransTimer as a trace.Fact.
+type retransTimerFact time.Duration
 
-// TypeID returns the fact type identifier for resolutionTimeoutFact.
-func (f resolutionTimeoutFact) TypeID() string { return "routing.neighbor_policy.resolution_timeout" }
+// TypeID returns the fact type identifier for retransTimerFact.
+func (f retransTimerFact) TypeID() string { return "routing.neighbor_policy.retrans_timer" }
 
 // Canonical returns the duration string.
-func (f resolutionTimeoutFact) Canonical() string { return time.Duration(f).String() }
+func (f retransTimerFact) Canonical() string { return time.Duration(f).String() }
 
 // holdDepthFact wraps a neighbor policy HoldDepth as a trace.Fact.
 type holdDepthFact int
@@ -185,7 +190,7 @@ func snapshotVRF(vrf VRF) vrfSnapshotFact {
 		b.WriteString(";metric=")
 		b.WriteString(strconv.FormatUint(uint64(route.Metric), 10))
 		b.WriteString(";next_hop=")
-		b.WriteString(strconv.Quote(route.NextHop.String()))
+		b.WriteString(strconv.Quote(addressText(route.NextHop, "absent")))
 		b.WriteString(";interface=")
 		b.WriteString(strconv.Quote(route.Interface))
 		b.WriteByte('}')
@@ -207,8 +212,8 @@ func snapshotVRF(vrf VRF) vrfSnapshotFact {
 	b.WriteString(strconv.Quote(string(vrf.NeighborPolicy.Mode)))
 	b.WriteString(";reachable_time=")
 	b.WriteString(vrf.NeighborPolicy.ReachableTime.String())
-	b.WriteString(";resolution_timeout=")
-	b.WriteString(vrf.NeighborPolicy.ResolutionTimeout.String())
+	b.WriteString(";retrans_timer=")
+	b.WriteString(vrf.NeighborPolicy.RetransTimer.String())
 	b.WriteString(";hold_depth=")
 	b.WriteString(strconv.Itoa(vrf.NeighborPolicy.HoldDepth))
 	b.WriteString("}")
@@ -238,6 +243,9 @@ func Diff(a, b Config) []trace.Change {
 	b = b.Normalize(layer.Env{})
 
 	var changes []trace.Change
+	if a.ClearRouterFlag != b.ClearRouterFlag {
+		changes = append(changes, trace.Change{Layer: LayerName, Subject: trace.Subject{Kind: "routing"}, Field: "clear_router_flag", From: routerFlagFact(a.ClearRouterFlag), To: routerFlagFact(b.ClearRouterFlag)})
+	}
 
 	vrfNames := make(map[string]struct{})
 	for name := range a.VRFs {
@@ -280,254 +288,294 @@ func Diff(a, b Config) []trace.Change {
 				To:    snapshotVRF(bVRF),
 			})
 		case inA && inB:
-			ifaceNames := make(map[string]struct{})
-			for name := range aVRF.Interfaces {
-				ifaceNames[name] = struct{}{}
-			}
-			for name := range bVRF.Interfaces {
-				ifaceNames[name] = struct{}{}
-			}
-			sortedIfaces := make([]string, 0, len(ifaceNames))
-			for name := range ifaceNames {
-				sortedIfaces = append(sortedIfaces, name)
-			}
-			slices.Sort(sortedIfaces)
+			changes = diffVRF(vrfName, aVRF, bVRF, changes)
+		}
+	}
 
-			for _, ifName := range sortedIfaces {
-				ifA, ifInA := aVRF.Interfaces[ifName]
-				ifB, ifInB := bVRF.Interfaces[ifName]
-				key := trace.CompositeKey(vrfName, ifName)
+	return changes
+}
 
-				switch {
-				case ifInA && !ifInB:
-					changes = append(changes, trace.Change{
-						Layer:   LayerName,
-						Subject: trace.Subject{Kind: "interface", Key: key},
-						Field:   "",
-						From:    snapshotInterface(ifA),
-						To:      nil,
-					})
-				case !ifInA && ifInB:
-					changes = append(changes, trace.Change{
-						Layer:   LayerName,
-						Subject: trace.Subject{Kind: "interface", Key: key},
-						Field:   "",
-						From:    nil,
-						To:      snapshotInterface(ifB),
-					})
-				case ifInA && ifInB:
-					if ifA.VLAN != ifB.VLAN {
-						changes = append(changes, trace.Change{
-							Layer:   LayerName,
-							Subject: trace.Subject{Kind: "interface", Key: key},
-							Field:   "vlan",
-							From:    vlanFact(ifA.VLAN),
-							To:      vlanFact(ifB.VLAN),
-						})
-					}
-					if ifA.Port != ifB.Port {
-						changes = append(changes, trace.Change{
-							Layer:   LayerName,
-							Subject: trace.Subject{Kind: "interface", Key: key},
-							Field:   "port",
-							From:    portFact(ifA.Port),
-							To:      portFact(ifB.Port),
-						})
-					}
-					if ifA.MAC != ifB.MAC {
-						changes = append(changes, trace.Change{
-							Layer:   LayerName,
-							Subject: trace.Subject{Kind: "interface", Key: key},
-							Field:   "mac",
-							From:    macFact(ifA.MAC),
-							To:      macFact(ifB.MAC),
-						})
-					}
-					if !slices.Equal(ifA.Prefixes, ifB.Prefixes) {
-						changes = append(changes, trace.Change{
-							Layer:   LayerName,
-							Subject: trace.Subject{Kind: "interface", Key: key},
-							Field:   "prefixes",
-							From:    PrefixesFact(slices.Clone(ifA.Prefixes)),
-							To:      PrefixesFact(slices.Clone(ifB.Prefixes)),
-						})
-					}
-				}
-			}
+type routerFlagFact bool
 
-			aRoutes := make(map[routeKey]Route, len(aVRF.Routes))
-			for _, r := range aVRF.Routes {
-				aRoutes[keyOfRoute(r)] = r
-			}
-			bRoutes := make(map[routeKey]Route, len(bVRF.Routes))
-			for _, r := range bVRF.Routes {
-				bRoutes[keyOfRoute(r)] = r
-			}
-			routeSet := make(map[routeKey]struct{})
-			for k := range aRoutes {
-				routeSet[k] = struct{}{}
-			}
-			for k := range bRoutes {
-				routeSet[k] = struct{}{}
-			}
-			sortedRoutes := make([]routeKey, 0, len(routeSet))
-			for k := range routeSet {
-				sortedRoutes = append(sortedRoutes, k)
-			}
-			slices.SortFunc(sortedRoutes, func(x, y routeKey) int {
-				if c := comparePrefix(x.prefix, y.prefix); c != 0 {
-					return c
-				}
-				if c := x.nextHop.Compare(y.nextHop); c != 0 {
-					return c
-				}
-				return cmp.Compare(x.iface, y.iface)
+func (f routerFlagFact) TypeID() string    { return "routing.clear_router_flag" }
+func (f routerFlagFact) Canonical() string { return strconv.FormatBool(bool(f)) }
+
+func diffVRF(vrfName string, aVRF, bVRF VRF, changes []trace.Change) []trace.Change {
+	changes = diffInterfaces(vrfName, aVRF, bVRF, changes)
+	changes = diffRoutes(vrfName, aVRF, bVRF, changes)
+	changes = diffNeighbors(vrfName, aVRF, bVRF, changes)
+	return diffNeighborPolicy(vrfName, aVRF, bVRF, changes)
+}
+
+func diffInterfaces(vrfName string, aVRF, bVRF VRF, changes []trace.Change) []trace.Change {
+	ifaceNames := make(map[string]struct{})
+	for name := range aVRF.Interfaces {
+		ifaceNames[name] = struct{}{}
+	}
+	for name := range bVRF.Interfaces {
+		ifaceNames[name] = struct{}{}
+	}
+	sortedIfaces := make([]string, 0, len(ifaceNames))
+	for name := range ifaceNames {
+		sortedIfaces = append(sortedIfaces, name)
+	}
+	slices.Sort(sortedIfaces)
+
+	for _, ifName := range sortedIfaces {
+		ifA, ifInA := aVRF.Interfaces[ifName]
+		ifB, ifInB := bVRF.Interfaces[ifName]
+		key := trace.CompositeKey(vrfName, ifName)
+
+		switch {
+		case ifInA && !ifInB:
+			changes = append(changes, trace.Change{
+				Layer:   LayerName,
+				Subject: trace.Subject{Kind: "interface", Key: key},
+				Field:   "",
+				From:    snapshotInterface(ifA),
+				To:      nil,
 			})
-
-			for _, k := range sortedRoutes {
-				rA, rInA := aRoutes[k]
-				rB, rInB := bRoutes[k]
-				key := trace.CompositeKey(vrfName, k.prefix.String(), k.nextHop.String(), k.iface)
-
-				switch {
-				case rInA && !rInB:
-					changes = append(changes, trace.Change{
-						Layer:   LayerName,
-						Subject: trace.Subject{Kind: "route", Key: key},
-						Field:   "",
-						From:    rA,
-						To:      nil,
-					})
-				case !rInA && rInB:
-					changes = append(changes, trace.Change{
-						Layer:   LayerName,
-						Subject: trace.Subject{Kind: "route", Key: key},
-						Field:   "",
-						From:    nil,
-						To:      rB,
-					})
-				case rInA && rInB:
-					if rA.Preference != rB.Preference {
-						changes = append(changes, trace.Change{
-							Layer:   LayerName,
-							Subject: trace.Subject{Kind: "route", Key: key},
-							Field:   "preference",
-							From:    routePreferenceFact(rA.Preference),
-							To:      routePreferenceFact(rB.Preference),
-						})
-					}
-					if rA.Metric != rB.Metric {
-						changes = append(changes, trace.Change{
-							Layer:   LayerName,
-							Subject: trace.Subject{Kind: "route", Key: key},
-							Field:   "metric",
-							From:    routeMetricFact(rA.Metric),
-							To:      routeMetricFact(rB.Metric),
-						})
-					}
-				}
-			}
-
-			aNeighbors := make(map[neighborKey]Neighbor, len(aVRF.Neighbors))
-			for _, n := range aVRF.Neighbors {
-				aNeighbors[neighborKey{iface: n.Interface, addr: n.Addr}] = n
-			}
-			bNeighbors := make(map[neighborKey]Neighbor, len(bVRF.Neighbors))
-			for _, n := range bVRF.Neighbors {
-				bNeighbors[neighborKey{iface: n.Interface, addr: n.Addr}] = n
-			}
-			neighborSet := make(map[neighborKey]struct{})
-			for k := range aNeighbors {
-				neighborSet[k] = struct{}{}
-			}
-			for k := range bNeighbors {
-				neighborSet[k] = struct{}{}
-			}
-			sortedNeighbors := make([]neighborKey, 0, len(neighborSet))
-			for k := range neighborSet {
-				sortedNeighbors = append(sortedNeighbors, k)
-			}
-			slices.SortFunc(sortedNeighbors, func(x, y neighborKey) int {
-				if c := cmp.Compare(x.iface, y.iface); c != 0 {
-					return c
-				}
-				return x.addr.Compare(y.addr)
+		case !ifInA && ifInB:
+			changes = append(changes, trace.Change{
+				Layer:   LayerName,
+				Subject: trace.Subject{Kind: "interface", Key: key},
+				Field:   "",
+				From:    nil,
+				To:      snapshotInterface(ifB),
 			})
-
-			for _, k := range sortedNeighbors {
-				nA, nInA := aNeighbors[k]
-				nB, nInB := bNeighbors[k]
-				key := trace.CompositeKey(vrfName, k.iface, k.addr.String())
-
-				switch {
-				case nInA && !nInB:
-					changes = append(changes, trace.Change{
-						Layer:   LayerName,
-						Subject: trace.Subject{Kind: "neighbor", Key: key},
-						Field:   "",
-						From:    nA,
-						To:      nil,
-					})
-				case !nInA && nInB:
-					changes = append(changes, trace.Change{
-						Layer:   LayerName,
-						Subject: trace.Subject{Kind: "neighbor", Key: key},
-						Field:   "",
-						From:    nil,
-						To:      nB,
-					})
-				case nInA && nInB:
-					if nA.MAC != nB.MAC {
-						changes = append(changes, trace.Change{
-							Layer:   LayerName,
-							Subject: trace.Subject{Kind: "neighbor", Key: key},
-							Field:   "mac",
-							From:    macFact(nA.MAC),
-							To:      macFact(nB.MAC),
-						})
-					}
+		case ifInA && ifInB:
+			if ifA.VLAN != ifB.VLAN {
+				changes = append(changes, trace.Change{
+					Layer:   LayerName,
+					Subject: trace.Subject{Kind: "interface", Key: key},
+					Field:   "vlan",
+					From:    vlanFact(ifA.VLAN),
+					To:      vlanFact(ifB.VLAN),
+				})
+			}
+			if ifA.Port != ifB.Port {
+				changes = append(changes, trace.Change{
+					Layer:   LayerName,
+					Subject: trace.Subject{Kind: "interface", Key: key},
+					Field:   "port",
+					From:    portFact(ifA.Port),
+					To:      portFact(ifB.Port),
+				})
+			}
+			if ifA.MAC != ifB.MAC {
+				changes = append(changes, trace.Change{
+					Layer:   LayerName,
+					Subject: trace.Subject{Kind: "interface", Key: key},
+					Field:   "mac",
+					From:    macFact(ifA.MAC),
+					To:      macFact(ifB.MAC),
+				})
+			}
+			i, j := 0, 0
+			var removed, added []netip.Prefix
+			for i < len(ifA.Prefixes) && j < len(ifB.Prefixes) {
+				switch c := comparePrefix(ifA.Prefixes[i], ifB.Prefixes[j]); {
+				case c < 0:
+					removed = append(removed, ifA.Prefixes[i])
+					i++
+				case c > 0:
+					added = append(added, ifB.Prefixes[j])
+					j++
+				default:
+					i++
+					j++
 				}
 			}
+			removed = append(removed, ifA.Prefixes[i:]...)
+			added = append(added, ifB.Prefixes[j:]...)
+			for _, p := range removed {
+				changes = append(changes, trace.Change{Layer: LayerName, Subject: trace.Subject{Kind: "interface", Key: key}, Field: "prefixes[" + strconv.Quote(p.String()) + "]", From: prefixFact(p)})
+			}
+			for _, p := range added {
+				changes = append(changes, trace.Change{Layer: LayerName, Subject: trace.Subject{Kind: "interface", Key: key}, Field: "prefixes[" + strconv.Quote(p.String()) + "]", To: prefixFact(p)})
+			}
+		}
+	}
+	return changes
+}
 
-			policySubject := trace.Subject{Kind: "neighbor-policy", Key: vrfName}
-			if aVRF.NeighborPolicy.Mode != bVRF.NeighborPolicy.Mode {
+func diffRoutes(vrfName string, aVRF, bVRF VRF, changes []trace.Change) []trace.Change {
+	aRoutes := make(map[routeKey]Route, len(aVRF.Routes))
+	for _, r := range aVRF.Routes {
+		aRoutes[keyOfRoute(r)] = r
+	}
+	bRoutes := make(map[routeKey]Route, len(bVRF.Routes))
+	for _, r := range bVRF.Routes {
+		bRoutes[keyOfRoute(r)] = r
+	}
+	routeSet := make(map[routeKey]struct{})
+	for k := range aRoutes {
+		routeSet[k] = struct{}{}
+	}
+	for k := range bRoutes {
+		routeSet[k] = struct{}{}
+	}
+	sortedRoutes := make([]routeKey, 0, len(routeSet))
+	for k := range routeSet {
+		sortedRoutes = append(sortedRoutes, k)
+	}
+	slices.SortFunc(sortedRoutes, func(x, y routeKey) int {
+		if c := comparePrefix(x.prefix, y.prefix); c != 0 {
+			return c
+		}
+		if c := x.nextHop.Compare(y.nextHop); c != 0 {
+			return c
+		}
+		return cmp.Compare(x.iface, y.iface)
+	})
+
+	for _, k := range sortedRoutes {
+		rA, rInA := aRoutes[k]
+		rB, rInB := bRoutes[k]
+		key := trace.CompositeKey(vrfName, k.prefix.String(), addressText(k.nextHop, "absent"), k.iface)
+
+		switch {
+		case rInA && !rInB:
+			changes = append(changes, trace.Change{
+				Layer:   LayerName,
+				Subject: trace.Subject{Kind: "route", Key: key},
+				Field:   "",
+				From:    rA,
+				To:      nil,
+			})
+		case !rInA && rInB:
+			changes = append(changes, trace.Change{
+				Layer:   LayerName,
+				Subject: trace.Subject{Kind: "route", Key: key},
+				Field:   "",
+				From:    nil,
+				To:      rB,
+			})
+		case rInA && rInB:
+			if rA.Preference != rB.Preference {
 				changes = append(changes, trace.Change{
 					Layer:   LayerName,
-					Subject: policySubject,
-					Field:   "mode",
-					From:    neighborModeFact(aVRF.NeighborPolicy.Mode),
-					To:      neighborModeFact(bVRF.NeighborPolicy.Mode),
+					Subject: trace.Subject{Kind: "route", Key: key},
+					Field:   "preference",
+					From:    routePreferenceFact(rA.Preference),
+					To:      routePreferenceFact(rB.Preference),
 				})
 			}
-			if aVRF.NeighborPolicy.ReachableTime != bVRF.NeighborPolicy.ReachableTime {
+			if rA.Metric != rB.Metric {
 				changes = append(changes, trace.Change{
 					Layer:   LayerName,
-					Subject: policySubject,
-					Field:   "reachable_time",
-					From:    reachableTimeFact(aVRF.NeighborPolicy.ReachableTime),
-					To:      reachableTimeFact(bVRF.NeighborPolicy.ReachableTime),
-				})
-			}
-			if aVRF.NeighborPolicy.ResolutionTimeout != bVRF.NeighborPolicy.ResolutionTimeout {
-				changes = append(changes, trace.Change{
-					Layer:   LayerName,
-					Subject: policySubject,
-					Field:   "resolution_timeout",
-					From:    resolutionTimeoutFact(aVRF.NeighborPolicy.ResolutionTimeout),
-					To:      resolutionTimeoutFact(bVRF.NeighborPolicy.ResolutionTimeout),
-				})
-			}
-			if aVRF.NeighborPolicy.HoldDepth != bVRF.NeighborPolicy.HoldDepth {
-				changes = append(changes, trace.Change{
-					Layer:   LayerName,
-					Subject: policySubject,
-					Field:   "hold_depth",
-					From:    holdDepthFact(aVRF.NeighborPolicy.HoldDepth),
-					To:      holdDepthFact(bVRF.NeighborPolicy.HoldDepth),
+					Subject: trace.Subject{Kind: "route", Key: key},
+					Field:   "metric",
+					From:    routeMetricFact(rA.Metric),
+					To:      routeMetricFact(rB.Metric),
 				})
 			}
 		}
 	}
+	return changes
+}
 
+func diffNeighbors(vrfName string, aVRF, bVRF VRF, changes []trace.Change) []trace.Change {
+	aNeighbors := make(map[neighborKey]Neighbor, len(aVRF.Neighbors))
+	for _, n := range aVRF.Neighbors {
+		aNeighbors[neighborKey{iface: n.Interface, addr: n.Addr}] = n
+	}
+	bNeighbors := make(map[neighborKey]Neighbor, len(bVRF.Neighbors))
+	for _, n := range bVRF.Neighbors {
+		bNeighbors[neighborKey{iface: n.Interface, addr: n.Addr}] = n
+	}
+	neighborSet := make(map[neighborKey]struct{})
+	for k := range aNeighbors {
+		neighborSet[k] = struct{}{}
+	}
+	for k := range bNeighbors {
+		neighborSet[k] = struct{}{}
+	}
+	sortedNeighbors := make([]neighborKey, 0, len(neighborSet))
+	for k := range neighborSet {
+		sortedNeighbors = append(sortedNeighbors, k)
+	}
+	slices.SortFunc(sortedNeighbors, func(x, y neighborKey) int {
+		if c := cmp.Compare(x.iface, y.iface); c != 0 {
+			return c
+		}
+		return x.addr.Compare(y.addr)
+	})
+
+	for _, k := range sortedNeighbors {
+		nA, nInA := aNeighbors[k]
+		nB, nInB := bNeighbors[k]
+		key := trace.CompositeKey(vrfName, k.iface, k.addr.String())
+
+		switch {
+		case nInA && !nInB:
+			changes = append(changes, trace.Change{
+				Layer:   LayerName,
+				Subject: trace.Subject{Kind: "neighbor", Key: key},
+				Field:   "",
+				From:    nA,
+				To:      nil,
+			})
+		case !nInA && nInB:
+			changes = append(changes, trace.Change{
+				Layer:   LayerName,
+				Subject: trace.Subject{Kind: "neighbor", Key: key},
+				Field:   "",
+				From:    nil,
+				To:      nB,
+			})
+		case nInA && nInB:
+			if nA.MAC != nB.MAC {
+				changes = append(changes, trace.Change{
+					Layer:   LayerName,
+					Subject: trace.Subject{Kind: "neighbor", Key: key},
+					Field:   "mac",
+					From:    macFact(nA.MAC),
+					To:      macFact(nB.MAC),
+				})
+			}
+		}
+	}
+	return changes
+}
+
+func diffNeighborPolicy(vrfName string, aVRF, bVRF VRF, changes []trace.Change) []trace.Change {
+	policySubject := trace.Subject{Kind: "neighbor-policy", Key: vrfName}
+	if aVRF.NeighborPolicy.Mode != bVRF.NeighborPolicy.Mode {
+		changes = append(changes, trace.Change{
+			Layer:   LayerName,
+			Subject: policySubject,
+			Field:   "mode",
+			From:    neighborModeFact(aVRF.NeighborPolicy.Mode),
+			To:      neighborModeFact(bVRF.NeighborPolicy.Mode),
+		})
+	}
+	if aVRF.NeighborPolicy.ReachableTime != bVRF.NeighborPolicy.ReachableTime {
+		changes = append(changes, trace.Change{
+			Layer:   LayerName,
+			Subject: policySubject,
+			Field:   "reachable_time",
+			From:    reachableTimeFact(aVRF.NeighborPolicy.ReachableTime),
+			To:      reachableTimeFact(bVRF.NeighborPolicy.ReachableTime),
+		})
+	}
+	if aVRF.NeighborPolicy.RetransTimer != bVRF.NeighborPolicy.RetransTimer {
+		changes = append(changes, trace.Change{
+			Layer:   LayerName,
+			Subject: policySubject,
+			Field:   "retrans_timer",
+			From:    retransTimerFact(aVRF.NeighborPolicy.RetransTimer),
+			To:      retransTimerFact(bVRF.NeighborPolicy.RetransTimer),
+		})
+	}
+	if aVRF.NeighborPolicy.HoldDepth != bVRF.NeighborPolicy.HoldDepth {
+		changes = append(changes, trace.Change{
+			Layer:   LayerName,
+			Subject: policySubject,
+			Field:   "hold_depth",
+			From:    holdDepthFact(aVRF.NeighborPolicy.HoldDepth),
+			To:      holdDepthFact(bVRF.NeighborPolicy.HoldDepth),
+		})
+	}
 	return changes
 }

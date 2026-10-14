@@ -25,7 +25,7 @@ useAiOrigin(
 <template>
   <span
     ref="shortcut"
-    class="ml-auto text-xs tracking-widest text-muted-foreground"
+    class="ml-auto font-mono text-2xs tracking-widest text-muted-foreground"
   >
     <slot />
   </span>

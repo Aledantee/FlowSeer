@@ -10,7 +10,7 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
-	"go.aledante.io/FlowSeer/src/common/sim/fabric"
+	"go.aledante.io/FlowSeer/src/common/sim/flow"
 	"go.aledante.io/FlowSeer/src/common/sim/stream"
 	"go.aledante.io/FlowSeer/src/common/spawn"
 	"go.aledante.io/FlowSeer/src/edge/simload/packetio"
@@ -20,7 +20,7 @@ import (
 // FlowSource pairs a nonzero flow identity with a fresh finite source. The
 // runner advances Source only after the previous frame was sent successfully.
 type FlowSource struct {
-	ID     fabric.FlowID
+	ID     flow.ID
 	Source stream.Source
 }
 
@@ -90,7 +90,7 @@ func RunWith(ctx context.Context, config Config, dependencies Dependencies) (Obs
 }
 
 type sourceHead struct {
-	flowID   fabric.FlowID
+	flowID   flow.ID
 	source   stream.Source
 	sequence uint64
 	at       time.Duration
@@ -180,7 +180,7 @@ func validateConfig(config Config, resolve func(string) (InterfaceInfo, error)) 
 		}
 	}
 
-	seen := make(map[fabric.FlowID]struct{}, len(config.Flows))
+	seen := make(map[flow.ID]struct{}, len(config.Flows))
 	for _, flow := range config.Flows {
 		if flow.ID == 0 {
 			return errs.Msg("flow ID must be nonzero")
@@ -221,6 +221,10 @@ func preflightSources(flows []FlowSource) error {
 }
 
 func execute(ctx context.Context, config Config, clock Clock, sender packetio.Sender, receiver rawsocket.Source) (observation Observation, runErr error) {
+	return executeWithReceiveHook(ctx, config, clock, sender, receiver, nil)
+}
+
+func executeWithReceiveHook(ctx context.Context, config Config, clock Clock, sender packetio.Sender, receiver rawsocket.Source, beforeNextFrame func()) (observation Observation, runErr error) {
 	runCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -247,35 +251,7 @@ func execute(ctx context.Context, config Config, clock Clock, sender packetio.Se
 
 	frames := receiver.Receive(runCtx)
 	spawn.Go(runCtx, "simload capture receiver", func() {
-		var receiveErr error
-		for {
-			select {
-			case frame, ok := <-frames:
-				if !ok {
-					if runCtx.Err() == nil {
-						receiveErr = errs.Msg("capture receiver closed before the run completed")
-						signalReceiverError(receiveErr)
-					}
-					goto done
-				}
-				if frame.Err != nil {
-					receiveErr = frame.Err
-					signalReceiverError(receiveErr)
-					goto done
-				}
-				withAccumulator(&observationMu, func() { accumulator.RecordFrame(frame) })
-			case <-runCtx.Done():
-				goto done
-			}
-		}
-
-	done:
-		_, drops, statsErr := receiver.Stats()
-		if statsErr != nil && receiveErr == nil {
-			receiveErr = errs.Wrap(statsErr, "read capture statistics")
-			signalReceiverError(receiveErr)
-		}
-		finishReceiver(receiverOutcome{err: receiveErr, interfaceDrops: drops})
+		finishReceiver(consumeCapture(runCtx, receiver, frames, accumulator, &observationMu, signalReceiverError, beforeNextFrame))
 	}, spawn.ReportTo(func(err error) {
 		signalReceiverError(err)
 		finishReceiver(receiverOutcome{err: err})
@@ -335,9 +311,9 @@ func execute(ctx context.Context, config Config, clock Clock, sender packetio.Se
 		}
 	}
 
-	withAccumulator(&observationMu, func() { accumulator.Close() })
 	cancel()
 	outcome := <-receiverDone
+	withAccumulator(&observationMu, func() { accumulator.Close() })
 	closeErr := receiver.Close()
 	senderErr := sender.Close()
 
@@ -361,14 +337,45 @@ func execute(ctx context.Context, config Config, clock Clock, sender packetio.Se
 	return observation, runErr
 }
 
+func consumeCapture(ctx context.Context, receiver rawsocket.Source, frames <-chan rawsocket.Frame, accumulator *Accumulator, mu *sync.Mutex, signalError func(error), beforeNextFrame func()) receiverOutcome {
+	var receiveErr error
+	for {
+		if beforeNextFrame != nil {
+			beforeNextFrame()
+		}
+		frame, ok := <-frames
+		if !ok {
+			if ctx.Err() == nil && receiveErr == nil {
+				receiveErr = errs.Msg("capture receiver closed before the run completed")
+				signalError(receiveErr)
+			}
+			break
+		}
+		if frame.Err != nil {
+			if !errors.Is(frame.Err, context.Canceled) && receiveErr == nil {
+				receiveErr = frame.Err
+				signalError(receiveErr)
+			}
+			continue
+		}
+		withAccumulator(mu, func() { accumulator.RecordFrame(frame) })
+	}
+	_, drops, statsErr := receiver.Stats()
+	if statsErr != nil && receiveErr == nil {
+		receiveErr = errs.Wrap(statsErr, "read capture statistics")
+		signalError(receiveErr)
+	}
+	return receiverOutcome{err: receiveErr, interfaceDrops: drops}
+}
+
 func withAccumulator(mu *sync.Mutex, record func()) {
 	mu.Lock()
 	defer mu.Unlock()
 	record()
 }
 
-func flowIDs(flows []FlowSource) []fabric.FlowID {
-	ids := make([]fabric.FlowID, 0, len(flows))
+func flowIDs(flows []FlowSource) []flow.ID {
+	ids := make([]flow.ID, 0, len(flows))
 	for _, flow := range flows {
 		ids = append(ids, flow.ID)
 	}
