@@ -61,7 +61,7 @@ func TestEveryWhereOfEveryStatementStartsWithTheTenantCondition(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			var after *cursor
 			if tt.after {
-				after = &cursor{ts: windowTo, recordID: uuid.New()}
+				after = &cursor{ts: windowTo, tenantID: tenantA, recordID: uuid.New()}
 			}
 
 			stmt := buildStatement("flowseer", tt.query, []string{tenantA, tenantB}, after, 101)
@@ -86,8 +86,9 @@ func TestEveryStatementKeepsOneRowPerRecord(t *testing.T) {
 			if !strings.Contains(stmt.text, "LIMIT 1 BY tenant_id, record_id") {
 				t.Errorf("statement has no LIMIT 1 BY on the record key:\n%s", stmt.text)
 			}
-			if !strings.Contains(stmt.text, "ORDER BY ts DESC, record_id DESC") {
-				t.Errorf("statement does not order newest first:\n%s", stmt.text)
+			orders := strings.Count(stmt.text, "ORDER BY ts DESC, tenant_id DESC, record_id DESC")
+			if want := strings.Count(stmt.text, "ORDER BY "); orders != want || want == 0 {
+				t.Errorf("%d of %d ORDER BY clauses are ts, tenant_id, record_id descending in:\n%s", orders, want, stmt.text)
 			}
 		})
 	}
@@ -122,10 +123,13 @@ func TestASeverityFilterLeavesOutMessagesWithoutAPriority(t *testing.T) {
 
 func TestACursorAddsTheKeysetConditionAndItsParameters(t *testing.T) {
 	record := uuid.New()
-	stmt := buildStatement("flowseer", deviceQuery(), []string{tenantA}, &cursor{ts: windowTo, recordID: record}, 101)
+	stmt := buildStatement("flowseer", deviceQuery(), []string{tenantA}, &cursor{ts: windowTo, tenantID: tenantB, recordID: record}, 101)
 
-	if !strings.Contains(stmt.text, "(ts, record_id) < ({after_ts:DateTime64(3)}, {after_id:UUID})") {
+	if !strings.Contains(stmt.text, "(ts, tenant_id, record_id) < ({after_ts:DateTime64(3)}, {after_tenant:String}, {after_id:UUID})") {
 		t.Errorf("statement:\n%s\nwant the keyset condition", stmt.text)
+	}
+	if got := namedValue(t, stmt.args, "after_tenant"); got != tenantB {
+		t.Errorf("after_tenant = %v, want %s", got, tenantB)
 	}
 	if got := namedValue(t, stmt.args, "after_id"); got != record.String() {
 		t.Errorf("after_id = %v, want %s", got, record)
@@ -244,8 +248,8 @@ func TestAPageHoldsPageSizeEntriesAndATokenWhenMoreRemain(t *testing.T) {
 		t.Fatalf("decode the token: %v", err)
 	}
 	last := result.Entries[2]
-	if !position.ts.Equal(last.ReceivedAt) || position.recordID != last.RecordID {
-		t.Errorf("token position = %v, want the last entry %v %v", position, last.ReceivedAt, last.RecordID)
+	if !position.ts.Equal(last.ReceivedAt) || position.tenantID != last.TenantID || position.recordID != last.RecordID {
+		t.Errorf("token position = %v, want the last entry %v %v %v", position, last.ReceivedAt, last.TenantID, last.RecordID)
 	}
 }
 
@@ -339,20 +343,28 @@ func TestACancelledReadReturnsTheContextError(t *testing.T) {
 }
 
 func TestATokenRoundTripsAndABadOneIsRefused(t *testing.T) {
-	want := cursor{ts: time.UnixMilli(1790899200123).UTC(), recordID: uuid.MustParse("018f0000-0000-7000-8000-000000000101")}
+	record := uuid.MustParse("018f0000-0000-7000-8000-000000000101")
+	for _, tenantID := range []string{tenant.DefaultTenant, tenantA} {
+		want := cursor{ts: time.UnixMilli(1790899200123).UTC(), tenantID: tenantID, recordID: record}
 
-	got, err := decodeToken(encodeToken(want))
-	if err != nil || !got.ts.Equal(want.ts) || got.recordID != want.recordID {
-		t.Fatalf("round trip = %v, %v, want %v", got, err, want)
+		got, err := decodeToken(encodeToken(want))
+		if err != nil || !got.ts.Equal(want.ts) || got.tenantID != want.tenantID || got.recordID != want.recordID {
+			t.Fatalf("round trip of tenant %q = %v, %v, want %v", tenantID, got, err, want)
+		}
 	}
 
 	for name, token := range map[string]string{
-		"not base64":     "***",
-		"no separator":   encodeRaw("1790899200123"),
-		"bad millis":     encodeRaw("x." + want.recordID.String()),
-		"bad record id":  encodeRaw("1790899200123.not-a-uuid"),
-		"empty payload":  encodeRaw(""),
-		"truncated uuid": encodeRaw("1790899200123.018f0000-0000"),
+		"not base64":       "***",
+		"no separator":     encodeRaw("1790899200123"),
+		"no record":        encodeRaw("1790899200123." + tenantA),
+		"bad millis":       encodeRaw("x." + tenantA + "." + record.String()),
+		"bad record id":    encodeRaw("1790899200123." + tenantA + ".not-a-uuid"),
+		"empty payload":    encodeRaw(""),
+		"truncated uuid":   encodeRaw("1790899200123." + tenantA + ".018f0000-0000"),
+		"invalid tenant":   encodeRaw("1790899200123.not-a-tenant." + record.String()),
+		"empty tenant":     encodeRaw("1790899200123.." + record.String()),
+		"uppercase tenant": encodeRaw("1790899200123." + strings.ToUpper(tenantA) + "." + record.String()),
+		"two part token":   encodeRaw("1790899200123." + record.String()),
 	} {
 		t.Run(name, func(t *testing.T) {
 			_, err := decodeToken(token)

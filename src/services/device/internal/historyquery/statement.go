@@ -49,7 +49,7 @@ func buildStatement(database string, q Query, tenants []string, after *cursor, l
 		text = "SELECT " + syslogColumns + " FROM " + db + ".syslog\n" +
 			"WHERE " + tenantCondition + "\n" +
 			"  AND device_id = {device:UUID}\n" + filters +
-			"ORDER BY ts DESC, record_id DESC\n" +
+			"ORDER BY ts DESC, tenant_id DESC, record_id DESC\n" +
 			"LIMIT 1 BY tenant_id, record_id\n" +
 			"LIMIT {limit:UInt32}"
 	} else {
@@ -61,11 +61,11 @@ func buildStatement(database string, q Query, tenants []string, after *cursor, l
 			"    SELECT tenant_id, device_id, ts, record_id FROM " + db + ".syslog_by_location\n" +
 			"    WHERE " + tenantCondition + "\n" +
 			"      AND location_id = {location:UUID}\n" + indent(filters) +
-			"    ORDER BY ts DESC, record_id DESC\n" +
+			"    ORDER BY ts DESC, tenant_id DESC, record_id DESC\n" +
 			"    LIMIT 1 BY tenant_id, record_id\n" +
 			"    LIMIT {limit:UInt32}\n" +
 			"  )\n" +
-			"ORDER BY ts DESC, record_id DESC\n" +
+			"ORDER BY ts DESC, tenant_id DESC, record_id DESC\n" +
 			"LIMIT 1 BY tenant_id, record_id"
 	}
 	return statement{text: text, args: args}
@@ -85,9 +85,10 @@ func windowAndFilters(q Query, args *[]any, after *cursor) string {
 	if after != nil {
 		*args = append(*args,
 			clickhouse.DateNamed("after_ts", after.ts, clickhouse.MilliSeconds),
+			clickhouse.Named("after_tenant", after.tenantID),
 			clickhouse.Named("after_id", after.recordID.String()),
 		)
-		b.WriteString("  AND (ts, record_id) < ({after_ts:DateTime64(3)}, {after_id:UUID})\n")
+		b.WriteString("  AND (ts, tenant_id, record_id) < ({after_ts:DateTime64(3)}, {after_tenant:String}, {after_id:UUID})\n")
 	}
 	return b.String()
 }
@@ -96,8 +97,11 @@ func indent(lines string) string {
 	return "    " + strings.ReplaceAll(strings.TrimSuffix(lines, "\n"), "\n", "\n    ") + "\n"
 }
 
-// cursor is the keyset position after the last row of a page.
+// cursor is the keyset position after the last row of a page. The tenant is
+// part of it because two admitted tenants may hold one record id at one receive
+// time, and a position without the tenant skips the second.
 type cursor struct {
 	ts       time.Time
+	tenantID string
 	recordID uuid.UUID
 }
