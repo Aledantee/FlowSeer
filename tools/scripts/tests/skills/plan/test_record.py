@@ -397,6 +397,20 @@ class PlanRecordTest(unittest.TestCase):
         self.assertIn(f"{plans.state_path(PHASE)} is not a legal state file", refused.stderr)
         self.assertTrue((self.root / PLAIN).exists())
 
+    def test_transition_accepts_a_prerequisite_main_retired_as_implemented(self):
+        self.git("checkout", "-q", "main")
+        self.record("init", PLAIN)
+        self.phases()
+        self.record("after", PHASE, FIRST, PLAIN)
+        self.commit("plans")
+        self.git("rm", "-q", PLAIN, plans.state_path(PLAIN))
+        self.git("commit", "-q", "-m", "docs(plans): retire plain", "-m", "> Implemented. 1 units, 2026-01-05T10:00Z to 2026-01-05T11:30:00Z.")
+        self.git("checkout", "-q", "work")
+        self.git("merge", "-q", "main")
+        self.land(FIRST, self.on_work)
+        self.record("implemented", PHASE, *RUN, "--landed", f"{self.on_work}..{self.on_work}")
+        self.assertEqual(self.state(PHASE)["status"], "implemented")
+
     def test_retire_refuses_a_plan_with_work_left(self):
         self.record("init", PLAIN)
         self.commit("state")

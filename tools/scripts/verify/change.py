@@ -1015,7 +1015,7 @@ class Verification:
                 out(quoted_line(retry))
                 code, _ = spawn(retry, cwd=cwd)
                 if code == 0:
-                    out("The retry alone passed. The first failure did not repeat; a race that fires on some runs can pass a retry too, so a package that fails this way across runs is a finding.")
+                    out("The retry alone passed. The first failure did not repeat. A race that fires on some runs can pass a retry too, so a package that fails this way across runs is a finding.")
                 else:
                     out("The retry alone failed too.")
         self.end_gate(started, code)

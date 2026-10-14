@@ -232,7 +232,7 @@ class PhaseTest(StatusCase):
         self.git(self.repo, "commit", "-qm", "docs(plans): retire plain", "-m", "> Abandoned.")
         done = self.check()
         self.assertEqual(done.returncode, 1)
-        self.assertIn("no retire commit on main", done.stdout)
+        self.assertIn("main did not retire it as implemented", done.stdout)
         (self.repo / "docs/plans/plain-plan.md").write_text("# plain\n")
         self.git(self.repo, "add", "docs")
         self.git(self.repo, "commit", "-qm", "plain again")

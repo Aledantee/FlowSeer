@@ -139,7 +139,7 @@ def check_phase_ancestry(plan: str) -> None:
         else:
             expect(
                 plans.finished(prerequisite, root),
-                f"plan {prerequisite} has no state, no retired entry, and no retire commit on main, and plan {plan!r} runs after it",
+                f"plan {prerequisite} has no state, no retired entry, and main did not retire it as implemented, and plan {plan!r} runs after it",
             )
             continue
         expect(
