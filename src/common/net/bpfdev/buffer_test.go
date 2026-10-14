@@ -2,9 +2,9 @@ package bpfdev
 
 import (
 	"bytes"
+	_ "embed"
 	"encoding/binary"
 	"errors"
-	"os"
 	"testing"
 	"time"
 
@@ -141,12 +141,8 @@ type pcapFrame struct {
 // global header whose magic 0xa1b2c3d4 (microsecond timestamps) fixes the byte
 // order, then records of a 16-byte header (ts_sec, ts_usec, incl_len,
 // orig_len) and incl_len bytes.
-func readPcap(t *testing.T, path string) []pcapFrame {
+func readPcap(t *testing.T, path string, raw []byte) []pcapFrame {
 	t.Helper()
-	raw, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
 	if len(raw) < 24 {
 		t.Fatalf("%s is %d bytes, shorter than the 24-byte global header", path, len(raw))
 	}
@@ -176,20 +172,25 @@ func readPcap(t *testing.T, path string) []pcapFrame {
 	return frames
 }
 
+// The fixtures are embedded so the test binary carries them into the FreeBSD
+// guest, where the suite runs without the source tree.
+var (
+	//go:embed testdata/freebsd14-arm64-read.bin
+	fixtureReadBuffer []byte
+	//go:embed testdata/freebsd14-arm64.pcap
+	fixturePcap []byte
+)
+
 // TestParseBufferMatchesTcpdump parses one read(2) buffer captured in a
 // FreeBSD 14 guest and checks it against what tcpdump, which reads the same
 // kernel through libpcap, wrote for the same three frames.
 func TestParseBufferMatchesTcpdump(t *testing.T) {
-	raw, err := os.ReadFile("testdata/freebsd14-arm64-read.bin")
-	if err != nil {
-		t.Fatalf("read buffer fixture: %v", err)
-	}
-	want := readPcap(t, "testdata/freebsd14-arm64.pcap")
+	want := readPcap(t, "testdata/freebsd14-arm64.pcap", fixturePcap)
 	if len(want) != 3 {
 		t.Fatalf("pcap holds %d frames, want 3", len(want))
 	}
 
-	got, err := parseBuffer(raw, hdrLayout64)
+	got, err := parseBuffer(fixtureReadBuffer, hdrLayout64)
 	if err != nil {
 		t.Fatalf("parseBuffer: %v", err)
 	}

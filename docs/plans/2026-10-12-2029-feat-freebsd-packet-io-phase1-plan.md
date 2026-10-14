@@ -118,6 +118,16 @@ This phase adds:
   record "says who publishes it and stops there". Chef's Bento project
   publishes this box.
 
+- Ruled: setup scripts under `test/freebsd/` stay POSIX `sh` and the
+  scripting gate exempts the directory. Why: they run inside the guest,
+  which holds no uv, and the user approved the exemption as a policy
+  change. Cost if wrong: moving each suite's setup into `vmtest.py`'s table.
+- Ruled: a zero `Config` applies `DirectionIn`, the plan's value 0, rather
+  than leaving the kernel's in-out default. Why: the plan fixes the
+  constants to `enum bpf_direction` and every field to optional with a zero
+  default. Cost if wrong: a later phase that wants both directions sets
+  `DirectionInOut`, or `Direction` gains an unset value.
+
 ## Requirements
 
 1. The agent builds for FreeBSD. Example: `CGO_ENABLED=0 GOOS=freebsd
@@ -310,10 +320,7 @@ Waves: U1 U2 | U3 | U4 U5 | U6
 
 ## Open questions
 
-- Which provider the host runs. The README names the four. U5's command
-  does not pass `--provider`, so Vagrant's default applies.
-- Whether `bento/freebsd-14` `202510.26.0` is 14.3. The catalogue lists
-  `bento/freebsd-14.3` at the same version. The implementer records the
-  guest's `freebsd-version` in the README.
-- Whether the guest has `tcpdump`. FreeBSD ships it in base. Unverified
-  for the box.
+None. The three this plan opened with are answered in
+`test/freebsd/README.md`: the provider is `utm` through the `vagrant_utm`
+plugin on the host that ran it, the box's guest is 14.3-RELEASE, and
+`/usr/sbin/tcpdump` is installed.
