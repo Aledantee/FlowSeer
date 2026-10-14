@@ -209,3 +209,15 @@ func TestParseBufferMatchesTcpdump(t *testing.T) {
 		}
 	}
 }
+
+func TestParseBufferShortRemainderBeforeHeader(t *testing.T) {
+	// Ten bytes cannot hold the smallest header, so the parser must refuse
+	// them before it reads a header field.
+	recs, err := parseBuffer(make([]byte, 10), hdrLayout64)
+	if !errors.Is(err, errs.New().Code(ErrCodeBuffer).Msg("")) {
+		t.Fatalf("error = %v, want code %q", err, ErrCodeBuffer)
+	}
+	if recs != nil {
+		t.Errorf("got %d records with the error, want none", len(recs))
+	}
+}
