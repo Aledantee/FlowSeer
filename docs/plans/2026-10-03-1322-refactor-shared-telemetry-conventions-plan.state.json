@@ -4,7 +4,7 @@
   "readiness": "implementation-ready",
   "review": "accept after fixes",
   "review_rounds": 0,
-  "compound": "compound: docs/solutions/conventions/the-otel-collector-gate-on-colima-needs-the-socket-and-a-home-tmpdir.md",
+  "compound": "docs/solutions/conventions/the-otel-collector-gate-on-colima-needs-the-socket-and-a-home-tmpdir.md",
   "outcome": {
     "units": 5,
     "from": "2026-10-14T18:13:30Z",
