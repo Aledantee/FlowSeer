@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -23,6 +24,10 @@ import (
 const (
 	envA = "FLOWSEER_BPFDEV_A"
 	envB = "FLOWSEER_BPFDEV_B"
+	// envFixtureDir names the directory the fixture test writes the read
+	// buffer to, and the one test/freebsd/bpfdev-setup.sh makes tcpdump
+	// write its capture to.
+	envFixtureDir = "FLOWSEER_BPFDEV_FIXTURE_DIR"
 )
 
 // testEtherType is IEEE 802 local experimental, so no stack answers it.
@@ -219,6 +224,79 @@ func TestDeviceBufferLenIsKernelValue(t *testing.T) {
 	// readUntil fails on any ReadBatch error, which is where EINVAL shows up
 	// when the read size is not the kernel's.
 	readUntil(t, rx, 2*time.Second)
+}
+
+// TestWriteReadBufferFixture is a capture tool, not a regression test. It
+// sends three frames of 60, 98, and 1514 bytes across the epair while tcpdump
+// records the same frames, and writes the one read(2) buffer that holds them.
+// TestParseBufferMatchesTcpdump compares the two files.
+func TestWriteReadBufferFixture(t *testing.T) {
+	dir := os.Getenv(envFixtureDir)
+	if dir == "" {
+		t.Skipf("%s is not set: this test writes the buffer fixture", envFixtureDir)
+	}
+	a, b := ifaceFromEnv(t, envA), ifaceFromEnv(t, envB)
+	tx := openDevice(t, a, Config{HeaderComplete: true})
+	// Immediate stays off, so the read returns when the timeout expires and
+	// the buffer then holds all three frames.
+	rx := openDevice(t, b, Config{ReadTimeout: time.Second, ReadFilter: etherTypeFilter(t, 0x88b5)})
+
+	for i, size := range []int{60, 98, 1514} {
+		frame := make([]byte, size)
+		copy(frame[0:6], []byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff})
+		copy(frame[6:12], []byte{0x02, 0, 0, 0, 0, 0x99})
+		copy(frame[12:14], testEtherType)
+		for j := 14; j < size; j++ {
+			frame[j] = byte(i<<6 + j)
+		}
+		if err := tx.Write(frame); err != nil {
+			t.Fatalf("Write frame %d: %v", i, err)
+		}
+	}
+
+	// ReadBatch hides the byte count of the read, so this reads the
+	// descriptor itself, once.
+	rx.readMu.Lock()
+	n, err := unix.Read(rx.fd, rx.buf)
+	rx.readMu.Unlock()
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	raw := rx.buf[:n]
+
+	recs, err := parseBuffer(raw, hdrLayout64)
+	if err != nil {
+		t.Fatalf("parseBuffer: %v", err)
+	}
+	var lengths []int
+	for _, r := range recs {
+		lengths = append(lengths, r.CapturedLength)
+	}
+	if len(lengths) != 3 || lengths[0] != 60 || lengths[1] != 98 || lengths[2] != 1514 {
+		t.Fatalf("one read holds frames of lengths %v, want [60 98 1514]", lengths)
+	}
+
+	path := filepath.Join(dir, "freebsd14-arm64-read.bin")
+	if err := os.WriteFile(path, raw, 0o644); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+	t.Logf("wrote %d bytes to %s", n, path)
+}
+
+// etherTypeFilter accepts frames of one EtherType: ldh [12]; jeq etherType; ret
+// 0xffff; ret 0.
+func etherTypeFilter(t *testing.T, etherType uint32) []bpf.RawInstruction {
+	t.Helper()
+	prog, err := bpf.Assemble([]bpf.Instruction{
+		bpf.LoadAbsolute{Off: 12, Size: 2},
+		bpf.JumpIf{Cond: bpf.JumpEqual, Val: etherType, SkipFalse: 1},
+		bpf.RetConstant{Val: 0xffff},
+		bpf.RetConstant{Val: 0},
+	})
+	if err != nil {
+		t.Fatalf("assemble filter: %v", err)
+	}
+	return prog
 }
 
 // nothingFilter is a program that rejects every packet: return 0.
