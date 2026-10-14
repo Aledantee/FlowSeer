@@ -2,7 +2,9 @@ package historysink
 
 import (
 	"context"
+	"errors"
 	"sync/atomic"
+	"time"
 
 	"go.opentelemetry.io/otel/metric"
 	semconv "go.opentelemetry.io/otel/semconv/v1.43.0"
@@ -11,19 +13,19 @@ import (
 const scopeName = "go.aledante.io/FlowSeer/src/services/device/internal/historysink"
 
 type sinkMetrics struct {
-	inserted metric.Int64Counter
-	refused  metric.Int64Counter
-	retried  metric.Int64Counter
-	batch    metric.Float64Histogram
-	age      metric.Float64Histogram
-
-	// discarded holds the last sampled gap between the stream's oldest record
-	// and the consumer's acknowledged floor. The gauge callback reads it, so a
-	// metric collection never calls the server.
-	discarded atomic.Int64
+	inserted    metric.Int64Counter
+	refused     metric.Int64Counter
+	retried     metric.Int64Counter
+	redelivered metric.Int64Counter
+	batch       metric.Float64Histogram
+	cleanup     metric.Float64Histogram
+	age         metric.Float64Histogram
 }
 
-func newMetrics(provider metric.MeterProvider) (*sinkMetrics, error) {
+// newMetrics registers the sink's instruments. The four stream gauges read
+// gauges, which a cleanup pass fills, so a metric collection never calls the
+// server.
+func newMetrics(provider metric.MeterProvider, gauges *streamGauges) (*sinkMetrics, error) {
 	meter := provider.Meter(scopeName, metric.WithSchemaURL(semconv.SchemaURL))
 	m := &sinkMetrics{}
 	var err error
@@ -52,14 +54,53 @@ func newMetrics(provider metric.MeterProvider) (*sinkMetrics, error) {
 		metric.WithDescription("Age of a record in the ingest stream when the sink receives it")); err != nil {
 		return nil, err
 	}
-	if _, err = meter.Int64ObservableGauge("flowseer.history.records.discarded",
+	if m.redelivered, err = meter.Int64Counter("flowseer.history.records.redelivered",
 		metric.WithUnit("{record}"),
-		metric.WithDescription("Records the ingest stream removed before the sink acknowledged them: the stream's first sequence minus one, minus the consumer's acknowledged floor"),
-		metric.WithInt64Callback(func(_ context.Context, o metric.Int64Observer) error {
-			o.Observe(m.discarded.Load())
-			return nil
-		})); err != nil {
+		metric.WithDescription("Deliveries of a record the stream had already delivered at least once")); err != nil {
+		return nil, err
+	}
+	if m.cleanup, err = meter.Float64Histogram("flowseer.history.cleanup.duration",
+		metric.WithUnit("s"),
+		metric.WithDescription("Time one cleanup pass takes to read the stream and purge the resolved prefix, with the error type when it failed")); err != nil {
+		return nil, err
+	}
+	err = errors.Join(
+		observeInt(meter, "flowseer.history.records.pending", "{record}",
+			"Records the stream holds that the member has not resolved, read at the last cleanup pass", &gauges.pending, gauges),
+		observeInt(meter, "flowseer.history.stream.usage", "By",
+			"Bytes the ingest stream stores, read at the last cleanup pass", &gauges.usage, gauges),
+		observeInt(meter, "flowseer.history.stream.limit", "By",
+			"Byte bound of the ingest stream, read at the last cleanup pass", &gauges.limit, gauges),
+		observeOldestAge(meter, gauges),
+	)
+	if err != nil {
 		return nil, err
 	}
 	return m, nil
+}
+
+func observeInt(meter metric.Meter, name, unit, description string, value *atomic.Int64, gauges *streamGauges) error {
+	_, err := meter.Int64ObservableGauge(name,
+		metric.WithUnit(unit),
+		metric.WithDescription(description),
+		metric.WithInt64Callback(func(_ context.Context, o metric.Int64Observer) error {
+			if gauges.reported.Load() {
+				o.Observe(value.Load())
+			}
+			return nil
+		}))
+	return err
+}
+
+func observeOldestAge(meter metric.Meter, gauges *streamGauges) error {
+	_, err := meter.Float64ObservableGauge("flowseer.history.stream.oldest.age",
+		metric.WithUnit("s"),
+		metric.WithDescription("Age of the oldest record the ingest stream stores, read at the last cleanup pass"),
+		metric.WithFloat64Callback(func(_ context.Context, o metric.Float64Observer) error {
+			if gauges.reported.Load() {
+				o.Observe(time.Duration(gauges.oldest.Load()).Seconds())
+			}
+			return nil
+		}))
+	return err
 }
