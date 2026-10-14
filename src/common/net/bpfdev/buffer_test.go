@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"os"
 	"testing"
 	"time"
 
@@ -127,5 +128,83 @@ func TestParseBufferShortHdrlen(t *testing.T) {
 	}
 	if len(recs) != 0 {
 		t.Errorf("got %d records, want none", len(recs))
+	}
+}
+
+// pcapFrame is one record of a classic pcap file.
+type pcapFrame struct {
+	data    []byte
+	origLen int
+}
+
+// readPcap reads the classic libpcap format that tcpdump -w writes: a 24-byte
+// global header whose magic 0xa1b2c3d4 (microsecond timestamps) fixes the byte
+// order, then records of a 16-byte header (ts_sec, ts_usec, incl_len,
+// orig_len) and incl_len bytes.
+func readPcap(t *testing.T, path string) []pcapFrame {
+	t.Helper()
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+	if len(raw) < 24 {
+		t.Fatalf("%s is %d bytes, shorter than the 24-byte global header", path, len(raw))
+	}
+	var order binary.ByteOrder
+	switch {
+	case binary.LittleEndian.Uint32(raw) == 0xa1b2c3d4:
+		order = binary.LittleEndian
+	case binary.BigEndian.Uint32(raw) == 0xa1b2c3d4:
+		order = binary.BigEndian
+	default:
+		t.Fatalf("%s has magic %x, want 0xa1b2c3d4 in either byte order", path, raw[:4])
+	}
+	var frames []pcapFrame
+	for off := 24; off < len(raw); {
+		if len(raw)-off < 16 {
+			t.Fatalf("%s ends inside a record header at offset %d", path, off)
+		}
+		inclLen := int(order.Uint32(raw[off+8:]))
+		origLen := int(order.Uint32(raw[off+12:]))
+		off += 16
+		if inclLen > len(raw)-off {
+			t.Fatalf("%s record at offset %d has incl_len %d past the end", path, off-16, inclLen)
+		}
+		frames = append(frames, pcapFrame{data: raw[off : off+inclLen], origLen: origLen})
+		off += inclLen
+	}
+	return frames
+}
+
+// TestParseBufferMatchesTcpdump parses one read(2) buffer captured in a
+// FreeBSD 14 guest and checks it against what tcpdump, which reads the same
+// kernel through libpcap, wrote for the same three frames.
+func TestParseBufferMatchesTcpdump(t *testing.T) {
+	raw, err := os.ReadFile("testdata/freebsd14-arm64-read.bin")
+	if err != nil {
+		t.Fatalf("read buffer fixture: %v", err)
+	}
+	want := readPcap(t, "testdata/freebsd14-arm64.pcap")
+	if len(want) != 3 {
+		t.Fatalf("pcap holds %d frames, want 3", len(want))
+	}
+
+	got, err := parseBuffer(raw, hdrLayout64)
+	if err != nil {
+		t.Fatalf("parseBuffer: %v", err)
+	}
+	if len(got) != len(want) {
+		t.Fatalf("parseBuffer returned %d records, want %d", len(got), len(want))
+	}
+	for i := range want {
+		if !bytes.Equal(got[i].Data, want[i].data) {
+			t.Errorf("record %d data differs from the pcap frame (%d bytes parsed, %d in pcap)", i, len(got[i].Data), len(want[i].data))
+		}
+		if got[i].CapturedLength != len(want[i].data) {
+			t.Errorf("record %d CapturedLength = %d, want %d", i, got[i].CapturedLength, len(want[i].data))
+		}
+		if got[i].WireLength != want[i].origLen {
+			t.Errorf("record %d WireLength = %d, want %d (orig_len)", i, got[i].WireLength, want[i].origLen)
+		}
 	}
 }
