@@ -30,6 +30,7 @@ supplies lessons (scale, the insert stall, set-table volume) and no pattern.
 | [10 WAN, physical layer, planned](10-wan-phy-future.md) | PoE, optics, path quality and ICMP probes, cellular, flows, VPN, SD-WAN, discovery, and the five table patterns the store needs | Any new domain, to pick its pattern |
 | [11 OLAP](11-olap.md) | The five patterns checked against fleet analytics: 24 analyst queries with cost models, stamped versus dictionary dimensions, the cross-domain join contract, daily rollups, the analyst workload | Any analytics query, dashboard, or dimension |
 | [12 Benchmark](12-benchmark.md) | Measured on ClickHouse 26.8: query cost flat from 1x to 16x total data, row-policy forms, provider queries, rollup size, deduplication after redelivery. The suite is in [`benchmark/`](benchmark/README.md) | Checking a cost claim or rerunning the measurement |
+| [15 Bounded backpressure](15-bounded-backpressure.md) | Ingest streams that refuse when full and remove nothing themselves: the pinned server facts, two probes, the cleanup rule and its members, the buffers ahead of the central stream, how their bounds meet the central horizon, and the per-edge split that would move loss to the edge | Changing an ingest stream's limits, its consumers, the cleanup pass, or an upstream buffer |
 
 Each of 04 to 10 ends with a schema gaps section: the fields, messages, and
 record carriers the protobuf model lacks for its domains, with the proposed

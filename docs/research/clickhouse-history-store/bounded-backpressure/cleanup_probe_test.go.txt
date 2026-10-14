@@ -1,0 +1,235 @@
+package probe_test
+
+import (
+	"context"
+	"errors"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/nats-io/nats-server/v2/server"
+	"github.com/nats-io/nats.go"
+	"github.com/nats-io/nats.go/jetstream"
+)
+
+func startServer(t *testing.T, dir string) *server.Server {
+	t.Helper()
+	s, err := server.NewServer(&server.Options{DontListen: true, NoSigs: true, NoLog: true, JetStream: true, StoreDir: dir, SyncAlways: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.Start()
+	if !s.ReadyForConnections(5 * time.Second) {
+		t.Fatal("not ready")
+	}
+	return s
+}
+
+func connect(t *testing.T, s *server.Server) (*nats.Conn, jetstream.JetStream) {
+	t.Helper()
+	nc, err := nats.Connect("nats://probe", nats.InProcessServer(s))
+	if err != nil {
+		t.Fatal(err)
+	}
+	js, err := jetstream.New(nc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return nc, js
+}
+
+var payload = []byte(strings.Repeat("x", 200))
+
+// An existing rolling stream becomes a bounded one in place, keeps its
+// records, accepts a ten minute duplicate window without a maximum age, and
+// refuses a publication at its byte bound with a code and text a client reads.
+func TestRollingStreamUpdatesInPlaceAndRefusesAtTheByteBound(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	s := startServer(t, t.TempDir())
+	defer func() { s.Shutdown(); s.WaitForShutdown() }()
+	nc, js := connect(t, s)
+	defer nc.Close()
+
+	old := jetstream.StreamConfig{Name: "INGEST", Subjects: []string{"ingest.*"}, Storage: jetstream.FileStorage, Retention: jetstream.LimitsPolicy, Discard: jetstream.DiscardOld, MaxBytes: 1200, MaxAge: 72 * time.Hour, Duplicates: 10 * time.Minute}
+	if _, err := js.CreateOrUpdateStream(ctx, old); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 2; i++ {
+		if _, err := js.Publish(ctx, "ingest.a", payload); err != nil {
+			t.Fatal(err)
+		}
+	}
+	bounded := old
+	bounded.Discard, bounded.MaxAge = jetstream.DiscardNew, 0
+	st, err := js.CreateOrUpdateStream(ctx, bounded)
+	if err != nil {
+		t.Fatalf("update in place: %v", err)
+	}
+	info, _ := st.Info(ctx)
+	if info.State.Msgs != 2 || info.Config.MaxAge != 0 || info.Config.Duplicates != 10*time.Minute || info.Config.Discard != jetstream.DiscardNew {
+		t.Fatalf("after update: msgs=%d cfg=%+v", info.State.Msgs, info.Config)
+	}
+	var refusal error
+	accepted := 2
+	for i := 0; i < 20; i++ {
+		if _, refusal = js.Publish(ctx, "ingest.a", payload); refusal != nil {
+			break
+		}
+		accepted++
+	}
+	var api *jetstream.APIError
+	if !errors.As(refusal, &api) {
+		t.Fatalf("refusal is not an API error: %v", refusal)
+	}
+	t.Logf("accepted=%d refusal code=%d err_code=%d description=%q", accepted, api.Code, api.ErrorCode, api.Description)
+	if api.ErrorCode != 10077 || api.Description != "maximum bytes exceeded" {
+		t.Fatalf("unexpected refusal %+v", api)
+	}
+	info, _ = st.Info(ctx)
+	if info.State.FirstSeq != 1 || int(info.State.Msgs) != accepted {
+		t.Fatalf("refusal evicted a record: %+v", info.State)
+	}
+}
+
+// Purge sequence 1 is a no-op and purge sequence 0 removes every record, so a
+// cleaner that computes floor+1 must refuse a zero floor's neighbour itself.
+func TestPurgeSequenceZeroRemovesEverythingAndOneRemovesNothing(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	s := startServer(t, t.TempDir())
+	defer func() { s.Shutdown(); s.WaitForShutdown() }()
+	nc, js := connect(t, s)
+	defer nc.Close()
+	st, err := js.CreateStream(ctx, jetstream.StreamConfig{Name: "INGEST", Subjects: []string{"ingest.*"}, Storage: jetstream.FileStorage, Discard: jetstream.DiscardNew, MaxBytes: 1 << 20})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 3; i++ {
+		if _, err := js.Publish(ctx, "ingest.a", payload); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := st.Purge(ctx, jetstream.WithPurgeSequence(1)); err != nil {
+		t.Fatal(err)
+	}
+	info, _ := st.Info(ctx)
+	if info.State.Msgs != 3 {
+		t.Fatalf("sequence 1 removed records: %d left", info.State.Msgs)
+	}
+	if err := st.Purge(ctx, jetstream.WithPurgeSequence(0)); err != nil {
+		t.Fatal(err)
+	}
+	info, _ = st.Info(ctx)
+	if info.State.Msgs != 0 {
+		t.Fatalf("sequence 0 kept %d records", info.State.Msgs)
+	}
+}
+
+// Two cleaners purge the acknowledged prefix at once, a terminated record
+// counts as resolved, a restart keeps the purge and the pending record, and a
+// recreated consumer starts at floor zero and is offered what is still stored.
+func TestConcurrentCleanersTerminationRestartAndRecreation(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	dir := t.TempDir()
+	s := startServer(t, dir)
+	nc, js := connect(t, s)
+	st, err := js.CreateStream(ctx, jetstream.StreamConfig{Name: "INGEST", Subjects: []string{"ingest.*"}, Storage: jetstream.FileStorage, Discard: jetstream.DiscardNew, MaxBytes: 1 << 20})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 5; i++ {
+		if _, err := js.Publish(ctx, "ingest.a", payload); err != nil {
+			t.Fatal(err)
+		}
+	}
+	cfg := jetstream.ConsumerConfig{Durable: "sink", AckPolicy: jetstream.AckExplicitPolicy, DeliverPolicy: jetstream.DeliverAllPolicy, MaxDeliver: -1, AckWait: time.Minute}
+	c, err := st.CreateOrUpdateConsumer(ctx, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	batch, err := c.Fetch(4, jetstream.FetchMaxWait(time.Second))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var msgs []jetstream.Msg
+	for m := range batch.Messages() {
+		msgs = append(msgs, m)
+	}
+	if len(msgs) != 4 {
+		t.Fatalf("fetched %d", len(msgs))
+	}
+	if err := msgs[0].DoubleAck(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if err := msgs[1].TermWithReason("refused"); err != nil {
+		t.Fatal(err)
+	}
+	if err := msgs[3].DoubleAck(ctx); err != nil { // sparse: 3 stays pending
+		t.Fatal(err)
+	}
+	var floor uint64
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		ci, err := c.Info(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		floor = ci.AckFloor.Stream
+		if floor == 2 || time.Now().After(deadline) {
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if floor != 2 {
+		t.Fatalf("floor=%d want 2 (ack 1, term 2, 3 pending, 4 acked)", floor)
+	}
+	errsCh := make(chan error, 2)
+	for i := 0; i < 2; i++ {
+		go func() { errsCh <- st.Purge(ctx, jetstream.WithPurgeSequence(floor+1)) }()
+	}
+	for i := 0; i < 2; i++ {
+		if err := <-errsCh; err != nil {
+			t.Fatal(err)
+		}
+	}
+	info, _ := st.Info(ctx)
+	if info.State.FirstSeq != 3 || info.State.Msgs != 3 {
+		t.Fatalf("after cleanup: %+v", info.State)
+	}
+	nc.Close()
+	s.Shutdown()
+	s.WaitForShutdown()
+
+	s = startServer(t, dir)
+	defer func() { s.Shutdown(); s.WaitForShutdown() }()
+	nc, js = connect(t, s)
+	defer nc.Close()
+	st, err = js.Stream(ctx, "INGEST")
+	if err != nil {
+		t.Fatal(err)
+	}
+	info, _ = st.Info(ctx)
+	c, err = st.Consumer(ctx, "sink")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ci, _ := c.Info(ctx)
+	t.Logf("after restart: first=%d msgs=%d floor=%d ackPending=%d pending=%d", info.State.FirstSeq, info.State.Msgs, ci.AckFloor.Stream, ci.NumAckPending, ci.NumPending)
+	if info.State.FirstSeq != 3 || info.State.Msgs != 3 || ci.AckFloor.Stream != 2 {
+		t.Fatalf("restart changed state")
+	}
+	if err := st.DeleteConsumer(ctx, "sink"); err != nil {
+		t.Fatal(err)
+	}
+	c, err = st.CreateOrUpdateConsumer(ctx, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ci, _ = c.Info(ctx)
+	t.Logf("recreated: floor=%d pending=%d", ci.AckFloor.Stream, ci.NumPending)
+	if ci.AckFloor.Stream > 2 || ci.NumPending != 3 {
+		t.Fatalf("recreated consumer floor=%d pending=%d", ci.AckFloor.Stream, ci.NumPending)
+	}
+}
