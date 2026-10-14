@@ -45,10 +45,11 @@ This phase adds:
   the `net.bpf.maxbufsize` default per bpf(4)), `ReadTimeout` (default
   100ms, the `pollTimeout` of `local_linux.go`, negative refused),
   `Immediate`, `Promiscuous`, `HeaderComplete`, `Direction`, and
-  `ReadFilter` (`[]bpf.RawInstruction`, nil accepts all). A zero
-  `ReadTimeout` is never passed through, since a zero timeval means no
-  timeout and `Close` would then wait on a read that never returns. `Close`
-  waits up to one `ReadTimeout`.
+  `ReadFilter` (`[]bpf.RawInstruction`, nil accepts all). A
+  `ReadTimeout` under one kernel clock tick is raised to one tick (read
+  from `kern.hz`), since the kernel truncates the timeout to whole ticks
+  and a result of zero means no timeout, and `Close` would then wait on a
+  read that never returns. `Close` waits up to one `ReadTimeout`.
 - `Open` runs the ioctls in this order: `BIOCSBLEN`, `BIOCSETIF`,
   `BIOCGDLT`, `BIOCIMMEDIATE`, `BIOCSRTIMEOUT`, `BIOCSHDRCMPLT`,
   `BIOCSDIRECTION`, `BIOCPROMISC`, `BIOCSETF`. Why: bpf(4) requires

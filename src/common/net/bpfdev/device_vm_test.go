@@ -157,6 +157,45 @@ func TestDeviceReadTimeoutReturnsEmpty(t *testing.T) {
 	}
 }
 
+// A timeout under one kernel clock tick converts to a bd_rtout of zero in
+// the kernel, which means no timeout, so Open must raise it to one tick.
+func TestDeviceReadTimeoutBelowOneTickReturns(t *testing.T) {
+	d, err := Open(ifaceFromEnv(t, envB), Config{ReadTimeout: time.Microsecond, ReadFilter: nothingFilter()})
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	type result struct {
+		recs []Record
+		err  error
+	}
+	done := make(chan result, 1)
+	spawn.Go(context.Background(), "bpfdev.test.read", func() {
+		recs, err := d.ReadBatch()
+		done <- result{recs, err}
+	})
+	// Close waits for the read, so a read that never returns would hang the
+	// cleanup too. Close only after the read has returned.
+	returned := false
+	t.Cleanup(func() {
+		if returned {
+			_ = d.Close()
+		}
+	})
+
+	select {
+	case r := <-done:
+		returned = true
+		if r.err != nil {
+			t.Fatalf("ReadBatch: %v", r.err)
+		}
+		if len(r.recs) != 0 {
+			t.Errorf("got %d records on a quiet interface, want none", len(r.recs))
+		}
+	case <-time.After(time.Second):
+		t.Fatal("ReadBatch did not return within 1s with a 1µs ReadTimeout")
+	}
+}
+
 // A Write on a device must not wait for a ReadBatch blocked on the same
 // device: both take the device lock shared.
 func TestDeviceWriteDuringBlockedRead(t *testing.T) {
