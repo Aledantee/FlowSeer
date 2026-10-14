@@ -1978,7 +1978,6 @@ func TestCreateEdgeSucceedsAndLogsWhenEngineWriteFails(t *testing.T) {
 func TestConfiguredIngestBoundsReachTheHub(t *testing.T) {
 	hub := startTestServiceWithConfig(t, `
 ingest_streams {
-  max_age { seconds: 172800 }
   max_bytes_per_type: 300000000
   central_budget_bytes: 1073741824
 }
@@ -1988,8 +1987,8 @@ ingest_streams {
 		t.Fatalf("load central ingest stream: %v", err)
 	}
 	config := stream.CachedInfo().Config
-	if config.MaxAge != 48*time.Hour || config.MaxBytes != 300000000 {
-		t.Fatalf("ingest stream limits = %v and %d bytes, want 48h and 300000000", config.MaxAge, config.MaxBytes)
+	if config.Discard != jetstream.DiscardNew || config.MaxAge != 0 || config.MaxBytes != 300000000 {
+		t.Fatalf("ingest stream limits = %v, %v and %d bytes, want discard new, 0 and 300000000", config.Discard, config.MaxAge, config.MaxBytes)
 	}
 }
 
@@ -1999,8 +1998,9 @@ func TestUnsetIngestBoundsTakeTheHubDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load central ingest stream: %v", err)
 	}
-	if got := stream.CachedInfo().Config.MaxAge; got != 72*time.Hour {
-		t.Fatalf("ingest stream MaxAge = %v, want 72h", got)
+	config := stream.CachedInfo().Config
+	if config.Discard != jetstream.DiscardNew || config.MaxAge != 0 || config.MaxBytes != 256<<20 {
+		t.Fatalf("ingest stream limits = %v, %v and %d bytes, want discard new, 0 and %d", config.Discard, config.MaxAge, config.MaxBytes, int64(256<<20))
 	}
 }
 

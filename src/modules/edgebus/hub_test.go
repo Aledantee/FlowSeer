@@ -21,7 +21,7 @@ import (
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
 )
 
-func TestIngestStreamsKeepSeventyTwoHoursByDefault(t *testing.T) {
+func TestIngestStreamsAreDiscardNewWithoutAgeByDefault(t *testing.T) {
 	hub, err := edgebus.StartHub(context.Background(), edgebus.HubConfig{
 		StateDir:    t.TempDir(),
 		FsyncPolicy: service.BusFsyncPeriodic,
@@ -32,22 +32,27 @@ func TestIngestStreamsKeepSeventyTwoHoursByDefault(t *testing.T) {
 	t.Cleanup(hub.Close)
 
 	config := ingestStreamConfig(t, hub)
-	if config.MaxAge != 72*time.Hour {
-		t.Errorf("typed ingest MaxAge = %v, want 72h", config.MaxAge)
+	if config.Discard != jetstream.DiscardNew {
+		t.Errorf("typed ingest Discard = %v, want discard new", config.Discard)
+	}
+	if config.MaxAge != 0 {
+		t.Errorf("typed ingest MaxAge = %v, want 0", config.MaxAge)
 	}
 	if config.MaxBytes != 256<<20 {
 		t.Errorf("typed ingest MaxBytes = %d, want %d", config.MaxBytes, int64(256<<20))
 	}
+	if config.Duplicates != 10*time.Minute {
+		t.Errorf("typed ingest Duplicates = %v, want 10m", config.Duplicates)
+	}
 }
 
-func TestIngestStreamsTakeConfiguredBounds(t *testing.T) {
+func TestIngestStreamsTakeConfiguredBoundsWithoutAge(t *testing.T) {
 	cfg := edgebus.HubConfig{
 		StateDir:           t.TempDir(),
 		FsyncPolicy:        service.BusFsyncPeriodic,
 		MaxStoreBytes:      16 << 30,
 		CentralBudgetBytes: 4 << 30,
 		IngestMaxBytes:     2 << 30,
-		IngestMaxAge:       72 * time.Hour,
 	}
 	hub, err := edgebus.StartHub(context.Background(), cfg)
 	if err != nil {
@@ -56,11 +61,71 @@ func TestIngestStreamsTakeConfiguredBounds(t *testing.T) {
 	t.Cleanup(hub.Close)
 
 	config := ingestStreamConfig(t, hub)
-	if config.MaxAge != 72*time.Hour || config.MaxBytes != 2<<30 {
-		t.Fatalf("typed ingest limits = %v and %d bytes, want 72h and %d", config.MaxAge, config.MaxBytes, int64(2<<30))
+	if config.Discard != jetstream.DiscardNew || config.MaxAge != 0 || config.MaxBytes != 2<<30 {
+		t.Fatalf("typed ingest limits = %v, %v and %d bytes, want discard new, 0 and %d", config.Discard, config.MaxAge, config.MaxBytes, int64(2<<30))
 	}
 	if config.Name != "FLOWSEER_INGEST_SYSLOG" {
 		t.Fatalf("typed ingest stream = %q, want FLOWSEER_INGEST_SYSLOG", config.Name)
+	}
+}
+
+// TestHubBoundsARollingIngestStreamInPlace starts a hub on a state directory
+// whose syslog stream still has an age and the discard-old policy, so the
+// update the hub makes at start is the only thing that can keep its records.
+func TestHubBoundsARollingIngestStreamInPlace(t *testing.T) {
+	ctx := context.Background()
+	cfg := edgebus.HubConfig{StateDir: t.TempDir(), FsyncPolicy: service.BusFsyncPeriodic, IngestMaxBytes: 512}
+	hub, err := edgebus.StartHub(ctx, cfg)
+	if err != nil {
+		t.Fatalf("start hub: %v", err)
+	}
+	rolling := ingestStreamConfig(t, hub)
+	rolling.Discard = jetstream.DiscardOld
+	rolling.MaxAge = 72 * time.Hour
+	if _, err := hub.JetStream().UpdateStream(ctx, rolling); err != nil {
+		t.Fatalf("make the stream rolling: %v", err)
+	}
+	subject := edgebus.CentralIngestSubject("tenant", edgebus.IngestRecordTypeSyslog, "device")
+	for range 2 {
+		if _, err := hub.JetStream().Publish(ctx, subject, []byte("pending")); err != nil {
+			t.Fatalf("publish: %v", err)
+		}
+	}
+	hub.Close()
+
+	hub, err = edgebus.StartHub(ctx, cfg)
+	if err != nil {
+		t.Fatalf("restart hub: %v", err)
+	}
+	t.Cleanup(hub.Close)
+	stream, err := hub.JetStream().Stream(ctx, edgebus.IngestStream(edgebus.IngestRecordTypeSyslog))
+	if err != nil {
+		t.Fatalf("load stream: %v", err)
+	}
+	info, err := stream.Info(ctx)
+	if err != nil {
+		t.Fatalf("stream info: %v", err)
+	}
+	if info.Config.Discard != jetstream.DiscardNew || info.Config.MaxAge != 0 || info.State.Msgs != 2 || info.State.FirstSeq != 1 {
+		t.Fatalf("restarted stream = %v, %v, %d records from %d, want discard new, 0, 2 from 1",
+			info.Config.Discard, info.Config.MaxAge, info.State.Msgs, info.State.FirstSeq)
+	}
+
+	var refused error
+	for range 20 {
+		if _, refused = hub.JetStream().Publish(ctx, subject, make([]byte, 100)); refused != nil {
+			break
+		}
+	}
+	if !edgebus.IsStreamFull(refused) {
+		t.Fatalf("publish into a full stream error = %v, want a capacity refusal", refused)
+	}
+	info, err = stream.Info(ctx)
+	if err != nil {
+		t.Fatalf("stream info after fill: %v", err)
+	}
+	if info.State.FirstSeq != 1 {
+		t.Fatalf("first sequence after fill = %d, want 1", info.State.FirstSeq)
 	}
 }
 

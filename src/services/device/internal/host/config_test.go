@@ -683,10 +683,25 @@ func TestAConfigWithoutHistoryRunsWithoutOne(t *testing.T) {
 	}
 }
 
+func TestIngestStreamsRefuseAMaximumAge(t *testing.T) {
+	body := validConfig + `
+ingest_streams {
+  max_age { seconds: 259200 }
+  max_bytes_per_type: 2147483648
+}
+`
+	_, err := host.LoadConfig(writeConfig(t, body))
+	if err == nil {
+		t.Fatal("LoadConfig accepted ingest_streams.max_age, want a parse failure")
+	}
+	if !strings.Contains(err.Error(), "max_age") {
+		t.Fatalf("LoadConfig error = %v, want it to name max_age", err)
+	}
+}
+
 func TestHistoryAndIngestBoundsAreRead(t *testing.T) {
 	body := validConfig + historyBlock + `
 ingest_streams {
-  max_age { seconds: 259200 }
   max_bytes_per_type: 2147483648
   central_budget_bytes: 4294967296
 }
@@ -702,7 +717,7 @@ ingest_streams {
 	if got := history.GetWriter().GetPasswordFile(); got != "/etc/flowseer/ch-writer.password" {
 		t.Fatalf("writer password file = %q", got)
 	}
-	want := host.IngestStreams{MaxAge: 72 * time.Hour, MaxBytesPerType: 2 << 30, CentralBudgetBytes: 4 << 30}
+	want := host.IngestStreams{MaxBytesPerType: 2 << 30, CentralBudgetBytes: 4 << 30}
 	if got := cfg.IngestStreams(); got != want {
 		t.Fatalf("IngestStreams = %+v, want %+v", got, want)
 	}
