@@ -26,26 +26,26 @@ flowchart LR
     E[edge stream] --> C[ingest_intake consumer]
     C --> V[subject, decode, validate, provenance]
     V -- refused --> T[Term]
-    V -- raw present --> R[evidence stream]
     V --> I[typed ingest stream]
+    I -- raw present --> R[evidence stream]
     R --> A[Ack after final publish]
-    I --> A
+    I -- no raw --> A
     V -- publish error --> N[NakWithDelay]
 ```
 
 A typed syslog record uses the device id in its payload, even when the edge
 published it on a different `ingest.<source>` branch. A record without raw
 evidence is republished as received. A record with raw evidence is published
-first to `flowseer.<tenant>.evidence.syslog.<device-id>`, then to
-`flowseer.<tenant>.ingest.syslog.<device-id>` after `raw` is cleared. Both
-messages use `<tenant>.<record_id>` as their JetStream message id.
+first to `flowseer.<tenant>.ingest.syslog.<device-id>` after `raw` is cleared,
+then to `flowseer.<tenant>.evidence.syslog.<device-id>` with the original
+bytes. Both messages use `<tenant>.<record_id>` as their JetStream message id.
 
 Central delivery is at least once. A validation infrastructure error or a
 publish failure uses `NakWithDelay`, so the edge message remains pending. A
 message from an edge the hub has no tenant for is retried the same way, because
 that says nothing about the record. A repeat inside the central stream's
-duplicate window, up to ten minutes and capped by the stream's maximum age, is
-acknowledged as a duplicate. A message can still
+duplicate window, ten minutes for typed records and capped by the stream's
+maximum age for evidence, is acknowledged as a duplicate. A message can still
 be lost when the edge stream reaches its age or byte bound, because JetStream
 discards its oldest message. The stream and subject definitions live in
 [`src/modules/edgebus/subjects.go`](../../../../modules/edgebus/subjects.go)
@@ -57,7 +57,7 @@ Intake publishes these instruments in the scope
 
 - counters for republished records, deliveries a central stream reported as a
   duplicate (one count per delivery), stored raw evidence, refusals by
-  reason, and retry requests
+  reason, and retry requests by reason
 - `flowseer.intake.record.duration` in seconds from delivery to `Ack`, `Term`,
   or `NakWithDelay`
 - `flowseer.intake.record.age` in seconds from the edge stream timestamp to
@@ -77,3 +77,34 @@ Terminal messages are not limited. Non-terminal errors use
 `intake consumer error` with `error.type` `no_heartbeat` or `consume_error` and
 are limited to one message per edge every ten seconds. Consumer messages are
 skipped after the delivery lifetime ends.
+
+## When central is full
+
+A typed stream at its byte bound refuses the publication with an error for
+which `edgebus.IsStreamFull` is true. Intake then publishes nothing of that
+record type for one retry delay and naks each delivery of that type in the
+window. A duplicate acknowledgement does not open the gate early. The server
+answers a repeated message id before it stores, and so before it checks
+capacity (`server/stream.go:6953-6969` and the store call at `:7320-7345` in
+nats-server v2.15.0).
+
+The typed record goes first so a full typed stream never stores evidence
+again on a retry. When the evidence publication fails after the typed record
+was stored, the retry sends the typed record again and the stream answers it
+as a duplicate within its window.
+
+`flowseer.intake.records.retried` counts attempts, not records. Its
+`flowseer.intake.reason` is `stream_full`, `publish_failed`, `unknown_edge`,
+`validation`, or `marshal`. Inside a closed gate the first delivery of each
+message id counts one `stream_full` retry and later deliveries count none, so
+one record refused across three retry delays adds three.
+
+Alert in this order: the sink's stream bytes against its limit, then retries
+with reason `stream_full`, then `flowseer.intake.record.age` nearing the
+per-edge stream's age bound.
+
+A refused record waits in the per-edge hub stream, whose default bounds are
+64 MiB and 24 hours and whose telemetry traffic shares the space. That stream,
+the edge buffer, and the evidence stream stay rolling. Accepted central work
+starts when the typed stream stores the record, and nothing here promises
+end-to-end lossless delivery.
