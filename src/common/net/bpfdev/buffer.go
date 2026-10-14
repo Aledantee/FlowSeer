@@ -49,8 +49,8 @@ func (l hdrLayout) wordAlign(n int) int {
 
 // parseBuffer splits a buffer returned by read(2) on a BPF device into
 // records. Header fields are read little-endian: both GOARCHes FreeBSD
-// supports here, amd64 and arm64, are little-endian, which is an assumption
-// the FreeBSD-only layout file pins at compile time. An empty buffer yields
+// supports here, amd64 and arm64, are little-endian, which the build
+// constraint of the FreeBSD-only files pins. An empty buffer yields
 // no records and no error. A truncated record, or a bh_hdrlen too short to
 // hold the header, fails with [ErrCodeBuffer] and no records.
 func parseBuffer(buf []byte, layout hdrLayout) ([]Record, error) {
