@@ -516,6 +516,16 @@ nine hours (`ef213026`) and Phase 11 holds eleven over two hours
 (`51a10ed1`). Neither outcome establishes a session boundary or separates
 original scope from review additions. There is no run of one- or two-unit
 phases in the new outcomes. The trigger stays at six.
+As of 2026-10-14 the simulation Phase 12 outcome holds twenty-two units
+from 2026-10-10 to 2026-10-13 after one review fix round (`bad1225b`).
+That span does not establish a session boundary. The eight other retire
+notes since hold two to six units. Their two two-unit phases are not
+consecutive, so they are no run of small phases. Every note over the
+trigger since 2026-10-07 is a simulation package overhaul phase, and
+`plan` keeps one dependency cluster whole whatever its unit count
+([`phases.md`](../.agents/skills/plan/references/phases.md#find-the-clusters)).
+Those notes measure that exception, not the six-unit trigger, which
+stays.
 
 Launcher checks include a live start because controlled replies missed the
 terminal shape accepted by
