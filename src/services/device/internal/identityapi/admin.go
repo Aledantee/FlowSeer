@@ -13,9 +13,9 @@ import (
 	apiv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/identity/v1"
 	identityv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/identity/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/fsconv"
 	"go.aledante.io/FlowSeer/src/services/device/internal/accessstore"
 	"go.aledante.io/FlowSeer/src/services/device/internal/authn"
-	"go.aledante.io/FlowSeer/src/services/device/internal/telemetry"
 	"go.aledante.io/FlowSeer/src/services/device/internal/tenantstore"
 )
 
@@ -105,7 +105,7 @@ func (s *AdminService) CreateRole(ctx context.Context, req *connect.Request[apiv
 		return nil, connectErr(ctx, err)
 	}
 	if err := s.projector.SyncTenant(ctx, tenantID); err != nil {
-		s.log.WarnContext(ctx, "role projection failed", "error.type", telemetry.ErrorType(err), "flowseer.tenant.id", tenantID, "flowseer.role.id", id.String())
+		s.log.WarnContext(ctx, "role projection failed", fsconv.ErrorType(err), fsconv.TenantID(tenantID), slog.String("flowseer.role.id", id.String()))
 	}
 	return connect.NewResponse(apiv1.CreateRoleResponse_builder{Role: role}.Build()), nil
 }
