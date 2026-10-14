@@ -113,6 +113,15 @@ apply. Local ones:
   they serve the netpen terminal interface, and the command-line client is
   to be cut in favor of a full central connection, so they are ruled on
   with that change. (decided by the user, 2026-10-01)
+- `trustPolicy: no-downgrade` refused `undici-types@6.21.0`, which
+  `@types/node@22.20.4` requires: it was published 2024-11-13 without
+  provenance, and later releases of the package carry it. That exact
+  version is excluded under `trustPolicyExclude` until `@types/node` moves
+  forward. Why: it keeps the trust check for every other package, and
+  moving `@types/node` is a pin change this phase rules out. (decided by
+  the user, 2026-10-14)
+- The `AGENTS.md` entry of U3 was approved in guardrail review as blob
+  `ed7574c5`. (decided by the user, 2026-10-14)
 
 ## Requirements
 
@@ -331,8 +340,9 @@ network and run unsandboxed. `git status --short` after them shows no
   `minimumReleaseAge: 20160` to `frontend/web/pnpm-workspace.yaml`, and
   `trustPolicy`, `blockExoticSubdeps`, and `strictDepBuilds` are missing.
   Commit `723cd2ca` on `Aledantee/depadm-p1-u4` conflicts with that line,
-  so the remaining settings are written over the current file and the
-  branch is not merged.
+  so the remaining settings were written over the current file in
+  `367681d4` and that branch is not merged. Resolved: U3's entry landed in
+  `e45397af`.
 - Four statements carry no `approved` date: `charm.land/bubbletea/v2`,
   `charm.land/bubbles/v2`, `charm.land/lipgloss/v2`, and
   `golang.org/x/term`, held by the ruling of 2026-10-01 until the netpen
