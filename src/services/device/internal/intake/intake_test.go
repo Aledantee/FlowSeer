@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"slices"
 	"strings"
@@ -1101,6 +1102,87 @@ func TestRefusalInsideClosedGateKeepsCountedIds(t *testing.T) {
 	}
 	if got := metricValue(t, reader, "flowseer.intake.records.retried", "flowseer.intake.reason", "stream_full"); got != 0 {
 		t.Fatalf("stream_full retries = %d, want 0 for an id already counted in the closed gate", got)
+	}
+}
+
+// gateRaceMsg is one intake delivery of a record for the syslog stream.
+func gateRaceMsg(t *testing.T, recordID string) *fakeMsg {
+	t.Helper()
+	_, data := validEnvelope(t, testEdge, testDevice, recordID, false)
+	return &fakeMsg{subject: edgebus.IngestSubject(testTenant, testEdge, "syslog"), data: data}
+}
+
+// scriptedPublisher holds its first publish until released and then reports a
+// duplicate, and refuses its second with a full-stream error. Later publishes
+// succeed and are counted.
+type scriptedPublisher struct {
+	mu      sync.Mutex
+	calls   int
+	started chan struct{}
+	release chan struct{}
+}
+
+func (p *scriptedPublisher) Publish(ctx context.Context, _ string, _ []byte, _ ...jetstream.PublishOpt) (*jetstream.PubAck, error) {
+	p.mu.Lock()
+	p.calls++
+	call := p.calls
+	p.mu.Unlock()
+	switch call {
+	case 1:
+		close(p.started)
+		select {
+		case <-p.release:
+			return &jetstream.PubAck{Duplicate: true}, nil
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	case 2:
+		return nil, fmt.Errorf("nats: %w", &jetstream.APIError{Code: 400, ErrorCode: 10077, Description: "maximum bytes exceeded"})
+	}
+	return &jetstream.PubAck{}, nil
+}
+
+func (p *scriptedPublisher) callCount() int {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.calls
+}
+
+func TestDuplicateAckFromEarlierHandlerKeepsGateClosed(t *testing.T) {
+	ctx := context.Background()
+	publisher := &scriptedPublisher{started: make(chan struct{}), release: make(chan struct{})}
+	system := newTestSystem(t, Config{Central: publisher, RetryDelay: time.Minute})
+
+	// The first handler passes the open gate and holds its publish.
+	first := gateRaceMsg(t, testRecordID)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		system.intake.handle(ctx, testEdge, first)
+	}()
+	<-publisher.started
+
+	// A second handler is refused as full and closes the gate.
+	second := gateRaceMsg(t, otherRecordID)
+	system.intake.handle(ctx, testEdge, second)
+	if second.acked || second.nakDelay != time.Minute {
+		t.Fatalf("refused delivery: acked=%v nak delay=%v, want a nak with the retry delay", second.acked, second.nakDelay)
+	}
+
+	// The first handler now gets its duplicate acknowledgement inside the closed gate.
+	close(publisher.release)
+	<-done
+	if !first.acked {
+		t.Fatal("the delivery with a duplicate acknowledgement was not acknowledged")
+	}
+
+	third := gateRaceMsg(t, testRecordID)
+	system.intake.handle(ctx, testEdge, third)
+	if third.acked || third.nakDelay != time.Minute {
+		t.Fatalf("delivery inside the delay: acked=%v nak delay=%v, want a nak with the retry delay", third.acked, third.nakDelay)
+	}
+	if got := publisher.callCount(); got != 2 {
+		t.Fatalf("publishes = %d, want 2: a duplicate acknowledgement reopened the gate", got)
 	}
 }
 
