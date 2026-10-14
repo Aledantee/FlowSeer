@@ -2,6 +2,7 @@ package access_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"sync/atomic"
@@ -543,6 +544,68 @@ func TestLaneProcessRecordsOperationSpanAndMetric(t *testing.T) {
 	}
 	if !sawOperationSpan {
 		t.Error("expected process() to start the flowseer.device.operation span")
+	}
+}
+
+func TestLaneFailedOperationRecordsOtherErrorType(t *testing.T) {
+	reader := sdkmetric.NewManualReader()
+	view, err := telemetry.NewView(telemetry.ViewConfig{
+		MeterProvider: sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader)),
+	})
+	if err != nil {
+		t.Fatalf("NewView() error: %v", err)
+	}
+	l := access.NewLane(access.Config{
+		QueueCapacity: 4,
+		Audit:         noopDeliverer{},
+		Telemetry:     view,
+		Clock:         time.Now,
+	})
+	err = l.AddDevice(context.Background(), "dev-1", access.DeviceSession{
+		DelayedEffect: interfaces.DelayedEffect{Horizon: time.Minute},
+		OpenSNMP:      probeFactory(),
+		ReadOverride: func(context.Context, string) (*accessv1.InterfaceObservation, error) {
+			return nil, errors.New("boom")
+		},
+	})
+	if err != nil {
+		t.Fatalf("AddDevice() error: %v", err)
+	}
+
+	if _, err := l.Submit(context.Background(), access.SubmitOptions{
+		DeviceKey: "dev-1",
+		Request:   readRequest(),
+		Priority:  lane.PriorityLow,
+	}); err == nil {
+		t.Fatal("Submit() error = nil, want the uncoded read failure to surface")
+	}
+
+	var rm metricdata.ResourceMetrics
+	if err := reader.Collect(context.Background(), &rm); err != nil {
+		t.Fatalf("Collect() error: %v", err)
+	}
+	found := false
+	for _, sm := range rm.ScopeMetrics {
+		for _, m := range sm.Metrics {
+			if m.Name != "flowseer.device.operation.duration" {
+				continue
+			}
+			data, ok := m.Data.(metricdata.Histogram[float64])
+			if !ok {
+				t.Fatalf("flowseer.device.operation.duration data type = %T, want histogram", m.Data)
+			}
+			for _, dp := range data.DataPoints {
+				if v, ok := dp.Attributes.Value("error.type"); ok {
+					found = true
+					if v.AsString() != "_OTHER" {
+						t.Errorf("error.type = %q, want %q", v.AsString(), "_OTHER")
+					}
+				}
+			}
+		}
+	}
+	if !found {
+		t.Error("flowseer.device.operation.duration has no error.type attribute for the failed operation")
 	}
 }
 
