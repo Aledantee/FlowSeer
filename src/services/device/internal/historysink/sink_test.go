@@ -534,7 +534,7 @@ func TestADifferingMemberIsLeftAsItIsAndEveryCleanupPassFailsWithItsErrorType(t 
 	if got := consumerInfo(t, r).Config.FilterSubject; got != cfg.FilterSubject {
 		t.Errorf("member filter = %q, want %q: the sink must leave the member as it found it", got, cfg.FilterSubject)
 	}
-	if got := histogramErrorTypes(t, r, "flowseer.history.cleanup.duration"); got["cleanup"] != 2 || len(got) != 1 {
+	if got := cleanupErrorTypes(t, r); got["cleanup"] != 2 || len(got) != 1 {
 		t.Errorf("cleanup passes by error type = %v, want two failures of type cleanup", got)
 	}
 }

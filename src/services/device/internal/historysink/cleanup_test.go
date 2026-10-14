@@ -93,10 +93,11 @@ func gaugeValues(t *testing.T, r *running, name string) []float64 {
 	return out
 }
 
-// histogramErrorTypes counts the recordings of the named histogram by their
-// error.type attribute, with "" for a recording without one.
-func histogramErrorTypes(t *testing.T, r *running, name string) map[string]uint64 {
+// cleanupErrorTypes counts the recordings of the cleanup duration histogram by
+// their error.type attribute, with "" for a recording without one.
+func cleanupErrorTypes(t *testing.T, r *running) map[string]uint64 {
 	t.Helper()
+	const name = "flowseer.history.cleanup.duration"
 	counts := map[string]uint64{}
 	for _, scope := range collect(t, r).ScopeMetrics {
 		for _, m := range scope.Metrics {
@@ -228,7 +229,7 @@ func TestRecordsPendingThroughAStoreOutageStayInTheStreamAndAreInserted(t *testi
 	r := startSink(t, hub, Config{Inserter: inserter, CleanInterval: 50 * time.Millisecond})
 
 	waitFor(t, "inserts and cleanup passes during the outage", func() bool {
-		return inserter.callCount() >= 2 && histogramErrorTypes(t, r, "flowseer.history.cleanup.duration")[""] >= 3
+		return inserter.callCount() >= 2 && cleanupErrorTypes(t, r)[""] >= 3
 	})
 	if time.Since(started) >= outage {
 		t.Fatal("the outage ended before the stream was checked")
@@ -351,7 +352,7 @@ func TestAFailedCleanupPassKeepsTheGaugesAtTheirLastReport(t *testing.T) {
 	if got := gaugeValues(t, r, "flowseer.history.records.pending"); !slices.Equal(got, before) {
 		t.Errorf("pending after a failed pass = %v, want the last report %v", got, before)
 	}
-	if got := histogramErrorTypes(t, r, "flowseer.history.cleanup.duration"); got["cleanup"] != 1 || got[""] != 1 {
+	if got := cleanupErrorTypes(t, r); got["cleanup"] != 1 || got[""] != 1 {
 		t.Errorf("cleanup passes by error type = %v, want one success and one cleanup failure", got)
 	}
 }
@@ -364,7 +365,7 @@ func TestFailedCleanupPassesDoNotStopTheRunner(t *testing.T) {
 	inserter := &fakeInserter{}
 	r := startSink(t, hub, Config{Inserter: inserter, CleanInterval: 20 * time.Millisecond})
 	waitFor(t, "two failed passes", func() bool {
-		return histogramErrorTypes(t, r, "flowseer.history.cleanup.duration")["cleanup"] >= 2
+		return cleanupErrorTypes(t, r)["cleanup"] >= 2
 	})
 
 	publish(t, hub, recordID(0), testTenant)
