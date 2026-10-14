@@ -57,9 +57,9 @@ report `runtime.reachable: true`.
     mutation, and git in a stage worker's worktree. The worktree
     `isolation: worktree` creates lies outside the sandbox's write
     allowlist, so every git, test, and verifier command there runs with
-    the sandbox disabled, and the classifier has allowed that for one
-    worker and refused it for the next (observed in a drive on
-    2026-10-13, unverified against the harness documentation).
+    the sandbox disabled, and the classifier decides per command, so it
+    can allow that for one worker and refuse it for the next (unverified
+    against the harness documentation).
   - When the user accepted the `!` commands, the brief says which commands
     need the bypass (git, `go test`, the verifier, in the worker's
     worktree) and that a classifier refusal is a blocker quoting the

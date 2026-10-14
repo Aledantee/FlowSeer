@@ -1015,7 +1015,7 @@ class Verification:
                 out(quoted_line(retry))
                 code, _ = spawn(retry, cwd=cwd)
                 if code == 0:
-                    out("The retry alone passed, so the first failure came from load on this host, not from the change.")
+                    out("The retry alone passed. The first failure did not repeat; a race that fires on some runs can pass a retry too, so a package that fails this way across runs is a finding.")
                 else:
                     out("The retry alone failed too.")
         self.end_gate(started, code)
@@ -1143,12 +1143,9 @@ class Verification:
     def run_diff(self, left: str, right: str) -> None:
         """Compare a generated tree with the committed one under the label `diff <left>`."""
         command = ["diff", "-qr", left, right]
+        started = self.begin_gate(gate_label(command))
         out(quoted_line(command))
-        self.gate = gate_label(command)
-        code = diff_trees(left, right)
-        if code != 0:
-            raise Stop(code)
-        self.gate = ""
+        self.end_gate(started, diff_trees(left, right))
 
     def check_mib(self) -> None:
         # Regenerates into a tmpdir and diffs against the committed bindings,
@@ -1230,7 +1227,7 @@ class Verification:
                 module_wide += 1
                 # A module under tools/ (buf, golangci-lint) holds a tool, not a
                 # package the tree imports, so its go.mod reaches nothing a path
-                # does not name; a linter change refuses a targeted run on its own.
+                # does not name. A linter change refuses a targeted run on its own.
                 if identical or marked.startswith("tools/"):
                     module_wide_base += 1
             if not verified:

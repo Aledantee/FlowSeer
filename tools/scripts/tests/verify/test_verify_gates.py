@@ -76,7 +76,8 @@ class RecordedRunTest(support.VerifierCase):
         self.write("generated/go/proto/x.pb.go", "package proto\n")
         self.commit_all("schema")
         self.write("spec/proto/x/v1/a.proto", 'syntax = "proto3";\n\n// Changed.\n')
-        self.passes("--", "spec/proto/x/v1/a.proto")
+        result = self.passes("--", "spec/proto/x/v1/a.proto")
+        self.assertRegex(result.stdout, r"-- gate \d+: diff generated/go/proto, \d+:\d\d into the run --\n\+ diff -qr ")
         path = "spec/proto/x/v1/a.proto"
         self.assertEqual(
             self.calls(),
@@ -319,6 +320,11 @@ class ExitPathTest(support.VerifierCase):
         self.assertEqual(len(summary), 1, result.stdout)
         self.assertIn("  git diff", result.stdout)
         self.assertEqual(lines[-2], support.PASSED)
+        # A failing run prints the table too, before the verdict on standard error.
+        env = self.stubs.env(self.env, FLOWSEER_FAKE_FAIL="vet")
+        result = self.fails("--", "a.go", code=1, gate="go vet", env=env)
+        self.assertIn("Gate durations (", result.stdout)
+        self.assertIn("  go vet", result.stdout)
 
     @across
     def test_a_failed_race_package_is_rerun_alone_once(self):

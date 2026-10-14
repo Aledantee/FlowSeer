@@ -388,6 +388,15 @@ class PlanRecordTest(unittest.TestCase):
         self.assertFalse((self.root / PARENT).exists())
         self.assertEqual(self.state(other_phase)["after"], [])
 
+    def test_retire_of_a_plan_with_no_parent_refuses_while_a_state_file_is_illegal(self):
+        self.record("init", PLAIN)
+        self.record("implemented", PLAIN, *RUN)
+        self.commit("plain done")
+        (self.root / plans.state_path(PHASE)).write_text("{", encoding="utf-8")
+        refused = self.record("retire", PLAIN, code=1)
+        self.assertIn(f"{plans.state_path(PHASE)} is not a legal state file", refused.stderr)
+        self.assertTrue((self.root / PLAIN).exists())
+
     def test_retire_refuses_a_plan_with_work_left(self):
         self.record("init", PLAIN)
         self.commit("state")

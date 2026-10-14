@@ -92,13 +92,13 @@ def transition(root: Path, changes: dict[str, dict], retire: str | None = None) 
     tree would then hold a fault it did not hold before or any fault in a
     file this command writes."""
     plans, raw = read_tree(root)
-    before = set(problems(plans, raw))
+    before = set(problems(plans, raw, root))
     raw.update(changes)
     if retire:
         plans.pop(retire, None)
         raw.pop(retire, None)
     written = {state_path(plan) for plan in changes} | set(changes)
-    faults = [fault for fault in problems(plans, raw) if fault not in before or fault[0] in written]
+    faults = [fault for fault in problems(plans, raw, root) if fault not in before or fault[0] in written]
     if faults:
         fail("refused, the result would be illegal:\n" + "\n".join(f"  {where}: {rule}" for where, rule in faults))
     # A command that writes two files leaves both or neither: a phase its

@@ -362,9 +362,11 @@ parent or a plan with none, since a phase that waits on another family's
 work (a deployment phase on the high-availability plan) is otherwise
 `replan` with nothing to decide. A retiring plan with no parent, and the
 landed entries a retiring parent holds, leave the `after` lists that name
-them, as nothing on disk would record them as finished, and `finished`
-reads the retire commit on `main` for a state file a branch forked
-before it (`retired_implemented` in `tools/scripts/lib/plans.py`). An implemented plan whose review reads
+them, as nothing on disk would record them as finished. `finished`, the
+plan-state check, and the plan-status check all read the retire commit on
+`main` for a state file a branch forked before it (`retired_implemented`
+in `tools/scripts/lib/plans.py`), so a tree `next` reads as ready is one
+the gates accept. An implemented plan whose review reads
 `rework` goes to re-planning, because no skill marks a sent-back plan beyond
 the verdict. The
 prior art has no answer for "nothing is planned": none of the surveyed

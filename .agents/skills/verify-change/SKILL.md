@@ -50,8 +50,10 @@ uv run tools/scripts/run.py verify change
   still fails on a trailing space it committed.
 - A race gate that fails reruns the packages `go test` reported as `FAIL`
   once, alone (`-count=1 -p 1`), and says in the output whether the retry
-  passed. A pass after the retry is a pass: the first failure came from
-  load on the host. A package that did not build gets no retry.
+  passed. A pass after the retry is a pass, and the first failure is still
+  worth a line in the report: a race that fires on some runs passes a retry
+  too, so a package that fails this way across runs is a finding. A package
+  that did not build gets no retry.
 - For output read by a later command, choose a fresh log in the session
   scratchpad directory and resolve its absolute path before launching the
   verifier. Reuse that exact path when reading it, across sandbox boundaries:

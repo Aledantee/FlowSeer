@@ -180,7 +180,7 @@ def shape_faults(state: object) -> list[str]:
     return [message for holds, message in rules if not holds]
 
 
-def combination_faults(plan: str, state: dict, states: dict[str, dict], on_disk: set[str]) -> list[str]:
+def combination_faults(plan: str, state: dict, states: dict[str, dict], on_disk: set[str], accepted: frozenset[str] = frozenset()) -> list[str]:
     """What makes a well-shaped file illegal beside the other plans."""
     faults = []
     status, parent = state["status"], state["parent"]
@@ -217,8 +217,8 @@ def combination_faults(plan: str, state: dict, states: dict[str, dict], on_disk:
         # stays planned and nothing reads it as finished.
         retired = {entry["plan"] for held in states.values() for entry in held["retired"]}
         for path in state["after"]:
-            if path == plan or (path not in states and path not in retired):
-                faults.append(f"after names {path}, which is neither a plan on disk nor in a retired list")
+            if path == plan or (path not in states and path not in retired and path not in accepted):
+                faults.append(f"after names {path}, which is neither a plan on disk, nor in a retired list, nor retired as implemented on main")
             elif path in states and (states[path]["phases"] or states[path]["retired"]):
                 faults.append(f"after names {path}, a parent; name the phase it waits on")
     for path in state["phases"]:
@@ -257,8 +257,14 @@ def read_tree(root: Path) -> tuple[dict[str, list[str]], dict[str, object]]:
     return plans, raw
 
 
-def problems(plans: dict[str, list[str]], raw: dict[str, object]) -> list[tuple[str, str]]:
-    """Every fault in a tree, as (file, rule), in file order."""
+def problems(plans: dict[str, list[str]], raw: dict[str, object], root: Path | None = None) -> list[tuple[str, str]]:
+    """Every fault in a tree, as (file, rule), in file order.
+
+    With a root, an `after` path that is on no disk and in no retired list
+    is accepted when main's retire commit deleted it as implemented, the
+    same reading `finished` gives a state file a branch forked before that
+    commit.
+    """
     found = [(plan, f"has no state file; run `{INIT_COMMAND}`") for plan in plans.keys() - raw.keys()]
     # A field kept in both places has two writers, and every reader takes
     # the state file's.
@@ -276,8 +282,15 @@ def problems(plans: dict[str, list[str]], raw: dict[str, object]) -> list[tuple[
         if not faults:
             states[plan] = state
     on_disk = plans.keys() | raw.keys()
+    accepted: set[str] = set()
+    if root is not None:
+        retired = {entry["plan"] for held in states.values() for entry in held["retired"]}
+        for state in states.values():
+            for path in state["after"]:
+                if path not in states and path not in retired and retired_implemented(path, root):
+                    accepted.add(path)
     for plan, state in states.items():
-        found += [(state_path(plan), fault) for fault in combination_faults(plan, state, states, on_disk)]
+        found += [(state_path(plan), fault) for fault in combination_faults(plan, state, states, on_disk, frozenset(accepted))]
     return sorted(found)
 
 
