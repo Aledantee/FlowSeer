@@ -1,0 +1,12 @@
+# The FreeBSD guest for the VM-only tests. `uv run tools/scripts/run.py freebsd
+# vmtest` drives it, and test/freebsd/README.md says how.
+Vagrant.configure("2") do |config|
+  config.vm.box = "bento/freebsd-14"
+
+  # The pin keeps every host on the same guest. The box is 14.3-RELEASE on
+  # the provider and architecture the README records.
+  config.vm.box_version = "202510.26.0"
+
+  # The tests run from uploaded binaries, so the guest needs no shared folder.
+  config.vm.synced_folder ".", "/vagrant", disabled: true
+end
