@@ -1,6 +1,7 @@
 package historysink
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -251,6 +252,22 @@ func fetchOffered(t *testing.T, sink *Sink, n int) []jetstream.Msg {
 	return offered
 }
 
+// bySequence orders messages by stream sequence. Redeliveries after two
+// negative acknowledgements arrive in the order their delays run out, which
+// is not the order of the records.
+func bySequence(t *testing.T, msgs []jetstream.Msg) []jetstream.Msg {
+	t.Helper()
+	seq := func(m jetstream.Msg) uint64 {
+		meta, err := m.Metadata()
+		if err != nil {
+			t.Fatalf("message metadata: %v", err)
+		}
+		return meta.Sequence.Stream
+	}
+	slices.SortFunc(msgs, func(a, b jetstream.Msg) int { return cmp.Compare(seq(a), seq(b)) })
+	return msgs
+}
+
 // syncBuffer is a log sink safe for the sink's goroutines.
 type syncBuffer struct {
 	mu  sync.Mutex
@@ -405,7 +422,7 @@ func TestARetainedBatchWhoseMemberNeverReturnsIsReleasedAtItsDeadline(t *testing
 	r := bareSink(t, hub, Config{Inserter: inserter})
 	ctx := context.Background()
 	r.sink.process(ctx, fetchOffered(t, r.sink, 2))
-	returned := fetchOffered(t, r.sink, 2)
+	returned := bySequence(t, fetchOffered(t, r.sink, 2))
 	if err := returned[1].Ack(); err != nil {
 		t.Fatalf("peer acknowledges record 2: %v", err)
 	}
