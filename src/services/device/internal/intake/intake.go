@@ -258,12 +258,18 @@ func (i *Intake) gated(ctx context.Context, msg jetstream.Msg, started time.Time
 }
 
 // closeGate stops publishing the refused record's type for one retry delay.
-// The refusing delivery is counted by its own retry.
+// The refusing delivery is counted by its own retry. A refusal inside a closed
+// gate, from a handler that passed gated before the gate closed, extends the
+// gate and keeps the ids already counted.
 func (i *Intake) closeGate(refused publication) {
 	i.gateMu.Lock()
 	defer i.gateMu.Unlock()
-	i.retryAfter[refused.recordType] = time.Now().Add(i.retryDelay)
-	i.retryCounted[refused.recordType] = map[string]bool{refused.messageID: true}
+	now := time.Now()
+	if !now.Before(i.retryAfter[refused.recordType]) || i.retryCounted[refused.recordType] == nil {
+		i.retryCounted[refused.recordType] = map[string]bool{}
+	}
+	i.retryCounted[refused.recordType][refused.messageID] = true
+	i.retryAfter[refused.recordType] = now.Add(i.retryDelay)
 }
 
 func (i *Intake) retry(ctx context.Context, msg jetstream.Msg, started time.Time, reason string) {

@@ -1083,6 +1083,27 @@ func TestFullTypedStreamRetriesWithoutEvidenceAndReopensAfterCleanup(t *testing.
 	}
 }
 
+func TestRefusalInsideClosedGateKeepsCountedIds(t *testing.T) {
+	ctx := context.Background()
+	reader := sdkmetric.NewManualReader()
+	system := newTestSystem(t, Config{Central: &controlledPublisher{}, RetryDelay: time.Minute, MeterProvider: sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))})
+	first := publication{messageID: testTenant + "." + testRecordID, recordType: edgebus.IngestRecordTypeSyslog}
+	second := publication{messageID: testTenant + "." + otherRecordID, recordType: edgebus.IngestRecordTypeSyslog}
+	// Two handlers that both passed the open gate refuse one after the other.
+	system.intake.closeGate(first)
+	system.intake.closeGate(second)
+
+	_, data := validEnvelope(t, testEdge, testDevice, testRecordID, false)
+	msg := &fakeMsg{subject: edgebus.IngestSubject(testTenant, testEdge, "syslog"), data: data}
+	system.intake.handle(ctx, testEdge, msg)
+	if msg.acked || msg.nakDelay != time.Minute {
+		t.Fatalf("acked=%v nak delay=%v, want a nak with the retry delay", msg.acked, msg.nakDelay)
+	}
+	if got := metricValue(t, reader, "flowseer.intake.records.retried", "flowseer.intake.reason", "stream_full"); got != 0 {
+		t.Fatalf("stream_full retries = %d, want 0 for an id already counted in the closed gate", got)
+	}
+}
+
 func TestEvidenceFailureAfterStoredTypedRedeliversOnce(t *testing.T) {
 	ctx := context.Background()
 	publisher := &controlledPublisher{failEvidence: 1}
