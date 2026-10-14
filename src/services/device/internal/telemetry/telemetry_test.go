@@ -48,6 +48,7 @@ func TestTheEventCarriesTheDeviceTheInterfaceAndBothDescriptions(t *testing.T) {
 		"flowseer.device.interface":            "ethernet 1/1/1",
 		"flowseer.device.description.expected": "uplink to core",
 		"flowseer.device.description.observed": "uplink to core b",
+		"flowseer.device.drift.outcome":        "dispatched",
 	}
 	for key, value := range want {
 		if got, _ := record[key].(string); got != value {
@@ -92,6 +93,10 @@ func TestTheCounterCarriesTheManagementModeAndNothingElse(t *testing.T) {
 	mode, ok := point.Attributes.Value("flowseer.device.management_mode")
 	if !ok || mode.AsString() != "DEVICE_MANAGEMENT_MODE_OPERATOR_MANAGED" {
 		t.Errorf("management mode = %v, present = %v", mode, ok)
+	}
+	outcome, ok := point.Attributes.Value("flowseer.device.drift.outcome")
+	if !ok || outcome.AsString() != "held" {
+		t.Errorf("drift outcome = %v, present = %v", outcome, ok)
 	}
 }
 

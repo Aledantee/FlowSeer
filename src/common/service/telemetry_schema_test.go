@@ -145,6 +145,36 @@ func TestFailedRuntimeSpansIncludeErrorType(t *testing.T) {
 	}
 }
 
+func TestLifecycleSpanErrorTypeClassifiesAttemptFailure(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want string
+	}{
+		{name: "coded", err: deliveryError("edge/worker", "probe", errors.New("failure")), want: "service/delivery"},
+		{name: "uncoded", err: errors.New("failure"), want: "_OTHER"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			recorder := tracetest.NewSpanRecorder()
+			provider := sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(recorder))
+			tracer := provider.Tracer("lifecycle-error-type-test")
+
+			_, span := startLifecycleSpan(context.Background(), tracer, "edge/worker", attemptSpanName, lifecycleActionStart)
+			endLifecycleSpan(span, lifecycleOutcomeError, tt.err)
+
+			ended := recorder.Ended()
+			if len(ended) != 1 {
+				t.Fatalf("ended spans = %d, want 1", len(ended))
+			}
+			got, ok := spanAttribute(ended[0], "error.type")
+			if !ok || got != tt.want {
+				t.Errorf("lifecycle span error.type = %q, %t; want %q", got, ok, tt.want)
+			}
+		})
+	}
+}
+
 func TestManagedLogScopeAndResourceIdentityPlacement(t *testing.T) {
 	localLogger, localSink := newRecordingLogger()
 	capture := &telemetryRequestCapture{}

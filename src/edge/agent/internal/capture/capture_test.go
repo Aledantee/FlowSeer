@@ -669,72 +669,76 @@ func (h *captureRecordingLogs) findErrorType(msg string) (string, bool) {
 	return "", false
 }
 
-func testOpenSourceFailureErrorType(t *testing.T, sessID string, err error, wantErrType string) {
-	t.Helper()
-	cfg := testSessionConfig(sessID, 100)
-	fakeServer := newFakeCaptureServiceHandler()
-	client, closeServer := startTestServer(t, fakeServer)
-	defer closeServer()
-
-	logs := &captureRecordingLogs{}
-	logger := slog.New(logs)
-
-	h, errHandler := agentcapture.NewHandler(agentcapture.HandlerConfig{
-		Client:        client,
-		SignAssertion: testAssertionSigner(t),
-		OpenCaptureSource: func(_ context.Context, _ capture.Config) (capture.Source, bool, error) {
-			return nil, false, err
+func TestHandler_OpenSourceFailureErrorType(t *testing.T) {
+	tests := []struct {
+		name   string
+		sessID string
+		err    error
+		want   string
+	}{
+		{
+			name:   "connect unavailable",
+			sessID: "0192e6a0-0000-7000-8000-000000000021",
+			err:    connect.NewError(connect.CodeUnavailable, errors.New("x")),
+			want:   "connect.unavailable",
 		},
-		Logger:            logger,
-		InactivityTimeout: 10 * time.Second,
-		ReassertInterval:  10 * time.Second,
-	})
-	if errHandler != nil {
-		t.Fatalf("NewHandler: %v", errHandler)
+		{
+			name:   "context canceled",
+			sessID: "0192e6a0-0000-7000-8000-000000000022",
+			err:    connect.NewError(connect.CodeCanceled, context.Canceled),
+			want:   "context.canceled",
+		},
+		{
+			name:   "other",
+			sessID: "0192e6a0-0000-7000-8000-000000000023",
+			err:    errors.New("boom"),
+			want:   "_OTHER",
+		},
 	}
-	defer func() { _ = h.Close() }()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := testSessionConfig(tt.sessID, 100)
+			fakeServer := newFakeCaptureServiceHandler()
+			client, closeServer := startTestServer(t, fakeServer)
+			t.Cleanup(closeServer)
 
-	if err := h.Handle(context.Background(), captureedgev1.SubscribeCaptureAssignmentsResponse_builder{
-		Start: cfg,
-	}.Build()); err != nil {
-		t.Fatalf("Handle(Start): %v", err)
+			logs := &captureRecordingLogs{}
+			logger := slog.New(logs)
+
+			h, errHandler := agentcapture.NewHandler(agentcapture.HandlerConfig{
+				Client:        client,
+				SignAssertion: testAssertionSigner(t),
+				OpenCaptureSource: func(_ context.Context, _ capture.Config) (capture.Source, bool, error) {
+					return nil, false, tt.err
+				},
+				Logger:            logger,
+				InactivityTimeout: 10 * time.Second,
+				ReassertInterval:  10 * time.Second,
+			})
+			if errHandler != nil {
+				t.Fatalf("NewHandler: %v", errHandler)
+			}
+			t.Cleanup(func() { _ = h.Close() })
+
+			if err := h.Handle(context.Background(), captureedgev1.SubscribeCaptureAssignmentsResponse_builder{
+				Start: cfg,
+			}.Build()); err != nil {
+				t.Fatalf("Handle(Start): %v", err)
+			}
+
+			select {
+			case <-fakeServer.closed:
+			case <-time.After(5 * time.Second):
+				t.Fatal("timed out waiting for upload stream closure")
+			}
+
+			got, ok := logs.findErrorType("open custom packet source failed")
+			if !ok {
+				t.Fatal("did not log open custom packet source failed with error.type")
+			}
+			if got != tt.want {
+				t.Errorf("error.type = %q, want %q", got, tt.want)
+			}
+		})
 	}
-
-	select {
-	case <-fakeServer.closed:
-	case <-time.After(5 * time.Second):
-		t.Fatal("timed out waiting for upload stream closure")
-	}
-
-	got, ok := logs.findErrorType("open custom packet source failed")
-	if !ok {
-		t.Fatal("did not log open custom packet source failed with error.type")
-	}
-	if got != wantErrType {
-		t.Errorf("error.type = %q, want %q", got, wantErrType)
-	}
-}
-
-func TestHandler_OpenSourceFailureErrorType_ConnectUnavailable(t *testing.T) {
-	testOpenSourceFailureErrorType(t,
-		"0192e6a0-0000-7000-8000-000000000021",
-		connect.NewError(connect.CodeUnavailable, errors.New("x")),
-		"connect.unavailable",
-	)
-}
-
-func TestHandler_OpenSourceFailureErrorType_ContextCanceled(t *testing.T) {
-	testOpenSourceFailureErrorType(t,
-		"0192e6a0-0000-7000-8000-000000000022",
-		connect.NewError(connect.CodeCanceled, context.Canceled),
-		"context.canceled",
-	)
-}
-
-func TestHandler_OpenSourceFailureErrorType_Other(t *testing.T) {
-	testOpenSourceFailureErrorType(t,
-		"0192e6a0-0000-7000-8000-000000000023",
-		errors.New("boom"),
-		"_OTHER",
-	)
 }
