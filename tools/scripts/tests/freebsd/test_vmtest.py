@@ -54,6 +54,19 @@ class VmtestTests(unittest.TestCase):
         (_, kwargs), = recorder.builds()
         self.assertEqual(kwargs["env"]["GOARCH"], "amd64")
 
+    def test_build_carries_the_suite_tag_only_when_the_suite_has_one(self):
+        recorder = Recorder()
+        run_main(recorder, "--suite", "bpfdev")
+        (bpfdev, _), = recorder.builds()
+        self.assertEqual(bpfdev[:3], ["go", "test", "-c"])
+        self.assertIn("-tags", bpfdev)
+        self.assertEqual(bpfdev[bpfdev.index("-tags") + 1], "bpfdev_vm")
+
+        recorder = Recorder()
+        run_main(recorder, "--suite", "service")
+        (service, _), = recorder.builds()
+        self.assertNotIn("-tags", service)
+
     def test_suite_environment_reaches_the_remote_command(self):
         recorder = Recorder()
         run_main(recorder, "--suite", "bpfdev")
@@ -92,6 +105,18 @@ class VmtestTests(unittest.TestCase):
         recorder = Recorder(state="poweroff")
         run_main(recorder, "--suite", "service")
         self.assertEqual(recorder.calls[1][0], ["vagrant", "up"])
+
+    def test_failed_boot_returns_before_building_or_uploading(self):
+        recorder = Recorder(
+            state="poweroff",
+            fail=lambda args: 7 if args[:2] == ["vagrant", "up"] else 0,
+        )
+        self.assertEqual(run_main(recorder, "--suite", "service"), 7)
+        self.assertEqual(recorder.builds(), [])
+        uploads = [
+            args for args, _ in recorder.calls if args[:1] == ["vagrant", "upload"]
+        ]
+        self.assertEqual(uploads, [])
 
     def test_running_machine_is_not_brought_up(self):
         recorder = Recorder()
