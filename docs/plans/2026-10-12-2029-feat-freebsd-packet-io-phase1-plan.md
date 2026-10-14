@@ -327,10 +327,6 @@ plugin on the host that ran it, the box's guest is 14.3-RELEASE, and
 
 ## Review gaps
 
-Blocking, from the first review (behavior):
-
-- test/conformance/crossbuild/crossbuild_test.go:72: the gate's inputs reach it only through the `go vet` child, so `go test` caches the pass; fails: delete a used import from `src/common/net/bpfdev/device_freebsd.go` after one passing run and `go test ./test/conformance/crossbuild` prints `ok ... (cached)`, so the Stop hook and the verifier miss requirement 9; class: behavior
-
 Follow-ups, which do not hold the verdict:
 
 - test/conformance/crossbuild/crossbuild_test.go:81: vet type-checks and never links; fails: a body-less func in a FreeBSD file passes the gate while `GOOS=freebsd go build ./src/edge/agent/cmd/agent` fails; class: gap
@@ -339,7 +335,6 @@ Follow-ups, which do not hold the verdict:
 - src/common/net/bpfdev/device_freebsd.go:115: zero-timeval guard removed; fails: `ReadTimeout: time.Nanosecond` passes a zero timeval and reads never time out; class: gap
 - src/common/net/bpfdev/device_freebsd.go:154: closed check in `ReadBatch` removed; fails: a read after Close returns a raw `EBADF` instead of `bpfdev/io`; class: gap
 - src/common/net/bpfdev/device_freebsd.go:175: closed check in `Write` removed; fails: a write after Close returns a raw `EBADF` instead of `bpfdev/io`; class: gap
-- src/common/net/bpfdev/device_freebsd.go:161: EINTR and EAGAIN mapping removed; fails: an interrupted read returns an error instead of an empty batch; class: gap
 - src/common/net/bpfdev/buffer.go:71: short-remainder check replaced by `false`; fails: `parseBuffer(make([]byte, 10), hdrLayout64)` panics on a slice bound instead of returning `bpfdev/buffer`; class: gap
 - src/common/net/bpfdev/device_vm_test.go:149: the read-timeout test has no lower bound; fails: a ReadBatch that returns at once on a quiet interface passes; class: gap
 - tools/scripts/freebsd/vmtest.py:72: `-tags` dropped from the build; fails: the bpfdev suite builds without `bpfdev_vm` and runs only the parser tests, and no recorder test notices; class: gap
