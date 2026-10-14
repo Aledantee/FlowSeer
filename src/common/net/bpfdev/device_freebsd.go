@@ -109,11 +109,19 @@ func configure(fd int, iface string, cfg Config, bufLen int, timeout time.Durati
 		return nil, openError(iface, err).Msg("BIOCIMMEDIATE")
 	}
 
-	tv := unix.NsecToTimeval(timeout.Nanoseconds())
-	if tv.Sec == 0 && tv.Usec == 0 {
-		// A zero timeval means no timeout.
-		tv.Usec = 1
+	// BIOCSRTIMEOUT stores tvtohz(tv) - 1 as bd_rtout, and tvtohz truncates
+	// to whole ticks plus one (sys/kern/kern_clock.c), so a timeout under one
+	// tick stores zero, which bpf.c reads as no timeout and Close would then
+	// wait forever on the read. Raise it to one tick.
+	hz, err := unix.SysctlUint32("kern.hz")
+	if err != nil {
+		return nil, openError(iface, err).Msg("sysctl kern.hz")
 	}
+	if hz == 0 {
+		return nil, errs.New().Code(ErrCodeOpen).Attr("iface", iface).Msg("kern.hz is zero")
+	}
+	timeout = max(timeout, time.Second/time.Duration(hz))
+	tv := unix.NsecToTimeval(timeout.Nanoseconds())
 	if err := ioctlPtr(fd, unix.BIOCSRTIMEOUT, unsafe.Pointer(&tv)); err != nil {
 		return nil, openError(iface, err).Msg("BIOCSRTIMEOUT")
 	}

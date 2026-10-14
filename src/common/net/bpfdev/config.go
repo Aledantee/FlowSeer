@@ -45,7 +45,9 @@ type Config struct {
 	BufferLen int
 	// ReadTimeout bounds how long ReadBatch blocks, and so how long Close
 	// waits for an in-flight read. Zero means [DefaultReadTimeout], never
-	// "no timeout". Negative is refused.
+	// "no timeout". A value under one kernel clock tick is raised to one
+	// tick, because the kernel rounds down and treats zero as no timeout.
+	// Negative is refused.
 	ReadTimeout time.Duration
 	// Immediate makes a read return as soon as a packet arrives instead of
 	// when the buffer fills or the timeout expires.
