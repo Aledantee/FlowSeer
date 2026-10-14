@@ -149,6 +149,73 @@ func TestDeviceReadTimeoutReturnsEmpty(t *testing.T) {
 	if elapsed > 2*timeout {
 		t.Errorf("ReadBatch took %v, want at most %v", elapsed, 2*timeout)
 	}
+	// The kernel rounds the timeout to clock ticks and may fire a tick
+	// early, so the lower bound is half the timeout. A read that returns at
+	// once is still caught.
+	if elapsed < timeout/2 {
+		t.Errorf("ReadBatch took %v, want at least %v", elapsed, timeout/2)
+	}
+}
+
+// A Write on a device must not wait for a ReadBatch blocked on the same
+// device: both take the device lock shared.
+func TestDeviceWriteDuringBlockedRead(t *testing.T) {
+	const readTimeout = 2 * time.Second
+	d := openDevice(t, ifaceFromEnv(t, envA), Config{HeaderComplete: true, ReadTimeout: readTimeout, ReadFilter: nothingFilter()})
+
+	started := make(chan struct{})
+	done := make(chan error, 1)
+	spawn.Go(context.Background(), "bpfdev.test.read", func() {
+		close(started)
+		_, err := d.ReadBatch()
+		done <- err
+	})
+	<-started
+	// The pause lets the read take the device lock and block in the kernel.
+	time.Sleep(100 * time.Millisecond)
+
+	start := time.Now()
+	if err := d.Write(testFrame()); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	if elapsed := time.Since(start); elapsed > 200*time.Millisecond {
+		t.Errorf("Write took %v behind a blocked read, want at most 200ms", elapsed)
+	}
+	if err := <-done; err != nil {
+		t.Errorf("ReadBatch: %v", err)
+	}
+}
+
+// After Close, an operation must fail with the closed-device error, not
+// with the kernel's EBADF for the released descriptor.
+func TestDeviceReadAfterCloseIsClosedError(t *testing.T) {
+	d := openDevice(t, ifaceFromEnv(t, envB), Config{})
+	if err := d.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	_, err := d.ReadBatch()
+	if !errors.Is(err, errs.New().Code(ErrCodeIO).Msg("")) {
+		t.Fatalf("ReadBatch error = %v, want code %q", err, ErrCodeIO)
+	}
+	if errors.Is(err, unix.EBADF) {
+		t.Errorf("ReadBatch error = %v, want the closed-device error, not EBADF", err)
+	}
+}
+
+func TestDeviceWriteAfterCloseIsClosedError(t *testing.T) {
+	d := openDevice(t, ifaceFromEnv(t, envA), Config{HeaderComplete: true})
+	if err := d.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	err := d.Write(testFrame())
+	if !errors.Is(err, errs.New().Code(ErrCodeIO).Msg("")) {
+		t.Fatalf("Write error = %v, want code %q", err, ErrCodeIO)
+	}
+	if errors.Is(err, unix.EBADF) {
+		t.Errorf("Write error = %v, want the closed-device error, not EBADF", err)
+	}
 }
 
 func TestDeviceLinkTypeEthernet(t *testing.T) {
