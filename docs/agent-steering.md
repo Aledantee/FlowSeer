@@ -357,7 +357,16 @@ Work in progress outranks ready work, the Kanban rule of limiting what is
 open. A plan another branch already changes is flagged, since two worktrees
 can otherwise implement the same phase. A dependent phase waits on `finished` in `plan record`, the test
 `drive plan-state` imports too: a prerequisite on `main`, a retired range, or a
-reviewed and compounded phase. An implemented plan whose review reads
+reviewed and compounded phase. A prerequisite may be a phase of another
+parent or a plan with none, since a phase that waits on another family's
+work (a deployment phase on the high-availability plan) is otherwise
+`replan` with nothing to decide. A retiring plan with no parent, and the
+landed entries a retiring parent holds, leave the `after` lists that name
+them, as nothing on disk would record them as finished. `finished`, the
+plan-state check, and the plan-status check all read the retire commit on
+`main` for a state file a branch forked before it (`retired_implemented`
+in `tools/scripts/lib/plans.py`), so the gates accept a prerequisite
+`main` retired as implemented, as `next` does. An implemented plan whose review reads
 `rework` goes to re-planning, because no skill marks a sent-back plan beyond
 the verdict. The
 prior art has no answer for "nothing is planned": none of the surveyed
@@ -1005,9 +1014,15 @@ the child worktree goes and reports it as the gate `land` would have
 read. Each stage worker takes one slot of `delegate`'s cap and holds a
 budget of its own from the rest, and independent phases run at once when
 the cap leaves every one of them at least one worker, since their state files
-are independent. A decision that
+are independent. The budget counts workers alive at once, since a review
+stage's reviewer and fix worker run in turn, and a total would leave a
+stage with one worker no fix loop. A decision that
 is the user's parks that plan in its Open questions and lets independent
 phases continue; the questions are asked together when the drive stops.
+A Claude coordinator may end its turn over a background `wait`, which
+re-invokes it on completion. A Codex coordinator has no such notice, so
+it stays in its turn until the wait returns, or the finished workers'
+reports wait for a person to start the next turn.
 
 Run every stage of one plan in one worktree, on one branch, and merge that
 branch into the coordinator's once, after the plan's last stage. `drive`
@@ -1124,7 +1139,11 @@ a native subagent can run, and the phase was reviewed by its coordinator
 alone. A no-Orca `drive` in auto mode asks once before its first stage,
 because the classifier refuses the unsandboxed verifier, policy-surface
 commits, and test mutations that every stage needs, and each refusal
-otherwise returns to the user as a command to run by hand. A stage of `land` or `drive` needs a
+otherwise returns to the user as a command to run by hand. When the user
+keeps auto mode, a worker's refusal is a blocker the coordinator answers
+with that `!` command and a continued subagent, since the classifier
+decides per command and a stage that stops on one refusal loses the
+worker's context. A stage of `land` or `drive` needs a
 session of its own that commits a checkpoint, so it runs in a native
 subagent with worktree isolation, on a Claude model from the stage role's
 fit set, for a review stage one other than the change's author. Stopping the stage for the user
@@ -1234,10 +1253,30 @@ before touching the receipt, the corpus tier carries `-count=1`,
 run names the verdict. A `--full` run could also block forever on a
 Docker daemon that had stopped answering, with a verdict line that did
 not say which gate had failed. The `verify service-otel-integration` command now bounds its `docker info` probe, and the
-verdict line names the gate that was running. The invariant packages (`src/common/errs` and
+verdict line names the gate that was running. The invariant packages (`src/common/errs`,
+`src/common/internal/secretguard`, and
 everything under `test/conformance/`) run once on every targeted run that
 selects a Go module, whichever module it is, for the same reason: a per-package gate cannot see a repository-wide namespace,
-and a rule asking the implementer to remember that does not hold. `--full` bounds `go test -p` because a gate that fails for reasons
+and a rule asking the implementer to remember that does not hold. The
+secret-field scan (`TestScanRawSecretFields` in
+`src/common/internal/secretguard/scan_test.go`) is on the list because
+it reads every package under `src/` from a package no change elsewhere
+selects, so a targeted run passed while the scan was red on `main` until
+`c53403f2`. The whitespace gate diffs from the merge base with `main`
+when no `--base` is given
+(`test_whitespace_gate_reads_the_branch_from_where_it_left_main`),
+because a unit commits and then verifies its paths, and a diff from
+`HEAD` after the commit is empty. Each gate prints its number and the
+time into the run, and the run prints a table of gate durations, because
+a full run takes about forty minutes and its log otherwise says nothing
+about where the time went. A failed race package reruns alone once
+(`test_a_failed_race_package_is_rerun_alone_once`) for the reason the
+`-p` bound gives: the NATS-backed suites time out when two race runs
+share the host and pass alone, and a red run that costs a second full
+run teaches its readers to discount the gate. A `go.mod` under `tools/`
+no longer holds the full-run marker, since a tool module reaches no
+package the tree imports and the linter module refuses a targeted run on
+its own. `--full` bounds `go test -p` because a gate that fails for reasons
 the diff cannot cause teaches its readers to discount it. Three more
 failures of that kind live in the verifier rather than in prose: the lint
 gate passes `--allow-serial-runners`, because `golangci-lint` holds one

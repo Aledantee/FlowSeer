@@ -116,10 +116,13 @@ The brief follows `delegate` and adds:
   `references/policy-units.md` before dispatching it.
 - The worker budget: the stage's share of the cap from `delegate`'s Wave
   size, read just before the dispatch, less one for the stage worker, at
-  least one. It may hold that many workers of its own (`implement`'s waves,
-  `review`'s fix loop) and runs the rest in turn. With one phase in flight
-  the share is the whole cap. The stage skill's own rules about workers
-  stand; only the count is this drive's.
+  least one. The budget counts workers alive at once, not workers over the
+  stage: the stage may hold that many at a time (`implement`'s waves,
+  `review`'s fix loop) and runs the rest in turn, so a review stage with a
+  budget of one runs its reviewer, then its fix worker, then its re-review
+  worker, one after another. With one phase in flight the share is the
+  whole cap. The stage skill's own rules about workers stand; only the
+  count is this drive's.
 
 Wait on the lane with JSON argv for the stage's `drive stage-done` predicate.
 The command runs in the lane checkout, so its plan path is relative to that
@@ -190,10 +193,14 @@ before `land`:
 5. Remove the plan's worktree, its branch, and the state file of every lane
    that ran in it: `uv run tools/scripts/run.py delegate orca-worker stop <slug>`
 
-End a turn only while waiting on a started lane, with a started successor,
-at a parked question, or when a failed lane check after a stage or a failed
-merge-check after the last stage stops the drive. A turn that ends right after
-announcing the next stage leaves nothing to wake it. Run each stage once:
+End a turn only with a started successor, at a parked question, or when a
+failed lane check after a stage or a failed merge-check after the last
+stage stops the drive. A Claude coordinator may also end a turn while a
+background `wait` runs, since the completion notice re-invokes it. A Codex
+coordinator stays in its turn until `wait` returns: a running shell wait
+restarts nothing, so a turn that ends over it leaves finished workers
+unread until a person asks. A turn that ends right after announcing the
+next stage leaves nothing to wake it on either runtime. Run each stage once:
 the skills' own caps (three verifier rounds on a unit, two reviewed rounds on
 a review's scope) decide when patching stops, and a parked question is what
 sends a plan back.

@@ -26,7 +26,7 @@ def main(argv: list[str]) -> int:
     except plans.StateError as error:
         print(f"plan state: {error}", file=sys.stderr)
         return 2
-    faults = plans.problems(*plans.read_tree(root))
+    faults = plans.problems(*plans.read_tree(root), root)
     if args.paths:
         named = [Path(path).resolve().as_posix() for path in args.paths]
 

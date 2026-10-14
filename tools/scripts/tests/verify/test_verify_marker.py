@@ -96,6 +96,14 @@ class MarkerTest(support.VerifierCase):
         self.assertEqual(self.marker.read_bytes(), f"{BASH_MUTATION}\ngo.mod\n".encode())
 
     @across
+    def test_bash_mutation_line_clears_when_its_files_are_under_tools(self):
+        self.write("tools/buf/go.mod", "module example.invalid/buf\n\ngo 1.27\n")
+        self.mark("tools/buf/go.mod", BASH_MUTATION)
+        result = self.passes("--", "edited.go")
+        self.assertEqual(self.after_header(result), [LEFT, "  tools/buf/go.mod"])
+        self.assertEqual(self.marker.read_bytes(), b"tools/buf/go.mod\n")
+
+    @across
     def test_full_run_removes_the_marker(self):
         self.populate_full()
         self.commit_all("full")

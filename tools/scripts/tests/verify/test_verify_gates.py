@@ -1,4 +1,5 @@
 import os
+import re
 import unittest
 
 from tests.verify import support
@@ -7,7 +8,7 @@ from tests.verify.support import across
 GUARD_BUILD = ".\tgo build -o <build>/check-guarantees ./tools/check-guarantees"
 BUF = ".\tgo tool -modfile=<root>/tools/buf/go.mod buf"
 WEB = ["vue-tsc --noEmit", "vite build", "eslint .", "stylelint src/**/*.{css,vue}", "prettier --check .", "vitest run"]
-REPOSITORY_WIDE = ".\tgo test -race ./src/common/errs ./test/conformance/..."
+REPOSITORY_WIDE = ".\tgo test -race ./src/common/errs ./src/common/internal/secretguard ./test/conformance/..."
 GOLANGCI = ".\tgo tool -modfile=<root>/tools/golangci-lint/go.mod golangci-lint run --allow-serial-runners --config <root>/.golangci.yml ."
 CORPUS = ".\tgo test -count=1 -tags=smi_corpus_full -run TestCorpus ./src/protocol/smi/"
 DIFFERENTIAL = ".\tgo test -C src/protocol/smi/differential -count=1 ./..."
@@ -75,7 +76,8 @@ class RecordedRunTest(support.VerifierCase):
         self.write("generated/go/proto/x.pb.go", "package proto\n")
         self.commit_all("schema")
         self.write("spec/proto/x/v1/a.proto", 'syntax = "proto3";\n\n// Changed.\n')
-        self.passes("--", "spec/proto/x/v1/a.proto")
+        result = self.passes("--", "spec/proto/x/v1/a.proto")
+        self.assertRegex(result.stdout, r"-- gate \d+: diff generated/go/proto, \d+:\d\d into the run --\n\+ diff -qr ")
         path = "spec/proto/x/v1/a.proto"
         self.assertEqual(
             self.calls(),
@@ -295,6 +297,48 @@ class FixTest(support.VerifierCase):
 
 class ExitPathTest(support.VerifierCase):
     """The exits after the selection, each with its code and last line."""
+
+    @across
+    def test_whitespace_gate_reads_the_branch_from_where_it_left_main(self):
+        """A unit commits, then verifies its paths; a committed trailing space must still fail."""
+        self.populate_go()
+        self.git("checkout", "-q", "-b", "work")
+        self.write("a.go", "package a \n")
+        self.commit_all("unit")
+        self.fails("--", "a.go", code=2, gate="git diff")
+        self.passes("--base", "HEAD", "--", "a.go")
+
+    @across
+    def test_a_run_reports_each_gate_and_the_durations(self):
+        self.populate_go()
+        result = self.passes("--", "a.go")
+        lines = result.stdout.split("\n")
+        opened = [index for index, line in enumerate(lines) if re.fullmatch(r"-- gate 1: run.py verify check-plan-status, \d+:\d\d into the run --", line)]
+        self.assertEqual(len(opened), 1, result.stdout)
+        self.assertEqual(lines[opened[0] + 1], "+ run.py verify check-plan-status ")
+        summary = [line for line in lines if line.startswith("Gate durations (")]
+        self.assertEqual(len(summary), 1, result.stdout)
+        self.assertIn("  git diff", result.stdout)
+        self.assertEqual(lines[-2], support.PASSED)
+        # A failing run prints the table too, before the verdict on standard error.
+        env = self.stubs.env(self.env, FLOWSEER_FAKE_FAIL="vet")
+        result = self.fails("--", "a.go", code=1, gate="go vet", env=env)
+        self.assertIn("Gate durations (", result.stdout)
+        self.assertIn("  go vet", result.stdout)
+
+    @across
+    def test_a_failed_race_package_is_rerun_alone_once(self):
+        self.populate_go()
+        env = self.stubs.env(self.env, FLOWSEER_FAKE_FLAKY_PACKAGE="example.invalid/m")
+        result = self.passes("--", "a.go", env=env)
+        calls = self.calls()
+        self.assertIn(".\tgo test -race -count=1 -p 1 example.invalid/m", calls)
+        self.assertIn("Retrying 1 package alone, one at a time, since a suite can time out under load: example.invalid/m", result.stdout)
+        self.assertIn("The retry alone passed", result.stdout)
+        env = self.stubs.env(self.env, FLOWSEER_FAKE_BROKEN_PACKAGE="example.invalid/m")
+        result = self.fails("--", "a.go", code=1, gate="go test", env=env)
+        self.assertEqual(result.stdout.count("+ go test -race"), 2, result.stdout)
+        self.assertIn("The retry alone failed too.", result.stdout)
 
     @across
     def test_a_gate_killed_by_term_reports_exit_143(self):

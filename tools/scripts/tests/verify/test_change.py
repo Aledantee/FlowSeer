@@ -42,7 +42,7 @@ LABELS = [
     (["go", "tool", "-modfile=/r/tools/buf/go.mod", "buf", "format"], "go tool"),
     (["go", "test", "-race", "-p", "4", "./..."], "go test"),
     (["./node_modules/.bin/vue-tsc", "--noEmit"], "./node_modules/.bin/vue-tsc"),
-    (["/tmp/b/check-guarantees", "--", "a.go", "b.go"], "/tmp/b/check-guarantees a.go"),
+    (["/tmp/b/check-guarantees", "--", "a.go", "b.go"], "check-guarantees a.go"),
     (["diff", "-qr", "generated/go/proto", "/x"], "diff generated/go/proto"),
 ]
 
@@ -98,6 +98,17 @@ class GateLabelTest(unittest.TestCase):
         for command, expected in LABELS:
             with self.subTest(command=command):
                 self.assertEqual(change.gate_label(command), expected)
+
+
+class FailedPackagesTest(unittest.TestCase):
+    def test_failed_packages_are_read_from_the_summary_lines(self):
+        output = "ok  \tm/a\t0.1s\n--- FAIL: TestX (0.00s)\nFAIL\nFAIL\tm/b\t1.2s\nFAIL\tm/c\t0.3s\n"
+        self.assertEqual(change.failed_packages(output), ["m/b", "m/c"])
+        self.assertEqual(change.failed_packages("ok  \tm/a\t0.1s\n"), [])
+
+    def test_a_package_that_did_not_build_stops_the_retry(self):
+        self.assertIsNone(change.failed_packages("FAIL\tm/b\t1.2s\nFAIL\tm/c [build failed]\n"))
+        self.assertIsNone(change.failed_packages("FAIL\tm/c [setup failed]\n"))
 
 
 class DiffTreesTest(unittest.TestCase):

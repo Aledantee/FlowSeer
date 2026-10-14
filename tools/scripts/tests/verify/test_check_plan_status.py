@@ -191,6 +191,56 @@ class PhaseTest(StatusCase):
         done = self.check()
         self.assertEqual((done.returncode, done.stdout), (0, ""))
 
+    def test_plan_status_check_accepts_a_prerequisite_retired_by_another_parent(self):
+        """plan status check accepts a prerequisite retired by another parent"""
+        (self.repo / "docs/plans/other-plan.md").write_text("# other\n")
+        self.state(
+            "other",
+            retired=[{"plan": "docs/plans/otherphase-plan.md", "status": "implemented", "landed": self.landed_range()}],
+        )
+        self.state("phase2", parent="docs/plans/parent-plan.md", after=["docs/plans/otherphase-plan.md"])
+        done = self.check()
+        self.assertEqual((done.returncode, done.stdout), (0, ""))
+
+    def test_plan_status_check_reads_a_prerequisite_with_no_parent_as_finished_or_not(self):
+        """plan status check reads a prerequisite with no parent as finished or not"""
+        (self.repo / "docs/plans/plain-plan.md").write_text("# plain\n")
+        self.state("plain")
+        self.state("phase2", parent="docs/plans/parent-plan.md", after=["docs/plans/plain-plan.md"])
+        done = self.check()
+        self.assertEqual(done.returncode, 1)
+        self.assertIn("plan docs/plans/plain-plan.md is not finished", done.stdout)
+        self.state(
+            "plain",
+            status="implemented",
+            readiness="implementation-ready",
+            review="accept",
+            compound="no lesson",
+            outcome={"units": 1, "from": "2026-01-05T10:00Z", "to": "2026-01-05T11:30:00Z", "note": ""},
+        )
+        done = self.check()
+        self.assertEqual((done.returncode, done.stdout), (0, ""))
+
+    def test_plan_status_check_reads_a_prerequisite_main_retired_as_implemented(self):
+        """plan status check reads a prerequisite main retired as implemented"""
+        (self.repo / "docs/plans/plain-plan.md").write_text("# plain\n")
+        self.state("plain")
+        self.state("phase2", parent="docs/plans/parent-plan.md", after=["docs/plans/plain-plan.md"])
+        self.git(self.repo, "add", "docs")
+        self.git(self.repo, "commit", "-qm", "plain")
+        self.git(self.repo, "rm", "-q", "docs/plans/plain-plan.md", "docs/plans/plain-plan.state.json")
+        self.git(self.repo, "commit", "-qm", "docs(plans): retire plain", "-m", "> Abandoned.")
+        done = self.check()
+        self.assertEqual(done.returncode, 1)
+        self.assertIn("main did not retire it as implemented", done.stdout)
+        (self.repo / "docs/plans/plain-plan.md").write_text("# plain\n")
+        self.git(self.repo, "add", "docs")
+        self.git(self.repo, "commit", "-qm", "plain again")
+        self.git(self.repo, "rm", "-q", "docs/plans/plain-plan.md")
+        self.git(self.repo, "commit", "-qm", "docs(plans): retire plain", "-m", "> Implemented. 1 units, 2026-01-05T10:00Z to 2026-01-05T11:30:00Z.")
+        done = self.check()
+        self.assertEqual((done.returncode, done.stdout), (0, ""))
+
     def land_both(self):
         self.phase1_landed(self.landed_range())
         self.state(

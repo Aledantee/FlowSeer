@@ -197,7 +197,8 @@ and any other stop is reported as its notice says. A Codex coordinator
 (whose user sets `background_terminal_max_timeout = 3600000` in
 `~/.codex/config.toml` when starting it by hand) starts `wait` with
 `exec_command` and polls it with an empty `write_stdin` at
-`yield_time_ms: 3600000`. On `agy` or `omp`, shell tool limits are
+`yield_time_ms: 3600000`, and does not end its turn while the wait runs:
+no notice re-invokes it, so an ended turn leaves the lane's report unread. On `agy` or `omp`, shell tool limits are
 unmeasured (`references/orca.md`), so a coordinator there reruns a
 foreground `wait` the tool cut short.
 

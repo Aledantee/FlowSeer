@@ -26,125 +26,46 @@ Suggested change: <smallest edit to the skill, agent, or hook>.
 
 ## Entries
 
-## 2026-10-10 drive: ending a Codex turn leaves completed stages idle
-Skill or agent: `.agents/skills/drive/SKILL.md`, step 2, and `.agents/skills/delegate/SKILL.md`, Orca worker waits.
-What happened: the coordinator ended its turn while terminal waits ran. The workers completed, but no coordinator turn resumed to read their reports or start the next stages. The user had to request continuation. The allowed turn boundary was followed as written.
-Suggested change: require Codex to remain in its polling turn unless an installed continuation mechanism is verified to restart the coordinator. A running shell wait alone does not establish that mechanism.
-
-## 2026-10-12 implement: the per-unit verifier run checks whitespace against the unit's own commit
-Skill or agent: `.claude/skills/implement/SKILL.md`, step 2.5, and
-`references/workers.md` (the wave's verifier run after the merge).
-What happened: the step was followed as written. Each unit committed, then
-ran `verify-change.sh -- <paths>`, whose base defaults to `HEAD`
-(`verify-change.sh:44`), so its `git diff --check "$base"` gate saw an
-empty diff. Three committed patch files with "space before tab in indent"
-and a trailing blank line passed every per-unit and per-wave run, and only
-the Finish run with `--base main` failed, two rounds before it passed.
-Suggested change: have step 2.5 and the wave run pass `--base <the unit's
-ledger base>` (the `base` the ledger records at `in_progress`), or have the
-verifier's whitespace gate diff from the merge base with `main` when no
-base is given.
-
-## 2026-10-12 next: a phase that waits on another parent's phase reads as ready to re-plan
-Skill or agent: `.claude/skills/next/SKILL.md`, step 1, and `plan record
-after` (`tools/scripts/lib/plans.py:217`).
-What happened: the step was followed and still produced the wrong result.
-`next plan-queue` put Deployment, Phase 1 in `replan` because its state
-holds `after: []`. Its parent plan says no phase is written ready until the
-central high availability plan lands, and central still embeds NATS and
-keeps its certificate under `state_dir`, so the phase cannot be planned yet.
-Recording the dependency with `plan record after` failed: "after names
-docs/plans/2026-10-03-1533-feat-central-high-availability-phase3-plan.md,
-which is neither in the phases nor in the retired list of
-docs/plans/2026-10-03-1533-feat-deployment-plan.md". Deployment, Phase 3
-(waits on edge high availability) has the same shape.
-Suggested change: let `after` name a phase or plan of another parent, and
-have `next plan-queue` read an unfinished one as `waiting`. Failing that, a
-state field such as `blocked_by: <plan>` that `next` reads the same way.
-
-## 2026-10-13 review: a drive without Orca spends the review stage's one worker on the reviewer
-Skill or agent: `.claude/skills/review/SKILL.md`, step 6, and
-`.claude/skills/drive/SKILL.md` (the review stage brief).
-What happened: the review stage ran with a budget of one sub-worker and
-spent it on the independent reviewer. The review skill does not let the
-coordinator make fixes itself, so the fix loop did not run until the drive
-coordinator re-sent the stage. The steps were followed as written.
-Suggested change: have `drive` give the review stage a budget of two
-workers when Orca is unreachable (one reviewer, one fixer), or say in
-`review` step 6 that a fixer is not counted against a reviewer-only budget.
-
-## 2026-10-13 land: phase lands passed a diff-aware verifier while a repo-wide guard test was red on main
-Skill or agent: `.claude/skills/land/SKILL.md`, the verification step (line
-203), and `.claude/skills/verify-change/SKILL.md`, the `--full` guidance
-(line 27).
-What happened: `TestNoRawSecretFields` (`src/common/internal/secretguard/scan_test.go`)
-scans every package under `src/` but lives in `src/common`. A diff-aware
-run over a change elsewhere does not select that package, so phase lands
-passed while main failed the test from 2026-10-04 until c53403f2 moved the
-test keys and token out of exported fields. Only a `--full` run caught it. The steps were
-followed as written, and the second case applies: the result was still
-wrong, so it wants enforcement, not louder prose.
-Suggested change: have the verifier select the repo-wide scan tests
-(secretguard, `test/conformance/`) whenever a diff adds or changes a Go
-source file under `src/`, or have `land` run `--full` once on the merged
-tree before it leaves main one fast-forward away.
-
-## 2026-10-13 drive: a worker's `isolation: worktree` checkout is outside the sandbox write allowlist
-Skill or agent: `.claude/skills/drive/SKILL.md`, the worker briefs for
-`implement`, `review`, and `compound`.
-What happened: under auto mode the sandbox writes only to the drive's own
-worktree, so a worker in a fresh `isolation: worktree` checkout needs
-`dangerouslyDisableSandbox` for every git, test, and verifier command. The
-auto-mode classifier allowed the bypass for some workers and refused it
-for one ("Safety Bypass Flag"). The briefs told the workers to bypass, as
-the skill says, and the stage then stopped on the refusal. The steps were
-followed as written.
-Suggested change: have `drive` start each worker in a worktree the
-sandbox already allows, or state in the brief which commands the bypass
-covers and name the refusal as a stop condition the coordinator resolves
-before dispatch rather than a worker blocker.
-
-## 2026-10-13 verify-change: a full run takes about 40 minutes and blocks every land that touches go.mod
-Skill or agent: `.claude/skills/verify-change/scripts/verify-change.sh`
-(`--full`), and `.claude/skills/land/SKILL.md`, step 5.
-What happened: the step was followed as written. A change to any `go.mod`
-leaves the `<Bash mutation; verify with --full>` marker, and `land` then
-needs a `--full` run. One such run on this machine took 40 minutes from
-start to receipt. Its race tests summed to 1054 seconds over 251
-packages, and the five slowest were:
+## 2026-10-14 verify-change: the full gate is too slow
+Skill or agent: `tools/scripts/verify/change.py` (`--full`), and
+`.claude/skills/land/SKILL.md`, step 5.
+What happened: the user asked for this to be recorded: the gate is far too
+slow and needs optimizing. Landing one phase that changed `go.mod` took
+three `--full` runs of about 40 minutes each on 2026-10-13 and 2026-10-14.
+The first failed on an `edgebus` NATS timeout
+(`TestReceiverToForwarderCarriesBodiesUnchanged`), the second on a Docker
+API timeout in `tools/test/service-otel-integration.sh`
+(`TestManagedTelemetryConcurrentServicesStayIsolated`), and each failed
+test passed when run alone. The race tests of one run summed to 1054
+seconds over 251 packages, the five slowest being
 `src/protocol/smi/differential` (166 s),
 `src/services/device/test/integration` (159 s),
 `src/common/service/test/integration` (115 s), `src/modules/edgebus`
 (85 s), and `src/services/device/internal/captureapi` (76 s). When two
-verifier runs overlap on one machine, the NATS-backed suites
-(`edgebus`, `intake`, `host`, `syslogsource`) time out at 10 to 30
-seconds and pass when run alone with `-p 1`, so a red run then costs a
-second full run.
-Suggested change: profile where the 40 minutes go (gates run one after
-another, and the web gates run before the Go gates), then pick the
-cheapest of: run independent gates in parallel, move the slowest
-integration and differential suites behind a tag that only `--full` on
-the merge gate sets, and let a `go.mod` change whose module graph does not
-change outside `tools/` skip the full race run. Separately, raise the
-NATS suites' wait deadlines or hold a machine-wide lock for the race run
-so that two runs never overlap.
+verifier runs overlap on one machine, the NATS-backed suites (`edgebus`,
+`intake`, `host`, `syslogsource`) time out at 10 to 30 seconds and pass
+alone with `-p 1`.
+Suggested change: the verifier prints a gate line with the time into the
+run and a table of gate durations (`tools/scripts/verify/change.py`,
+`report_timings`), reruns a failed race package alone once (`run_race`),
+and no longer holds the full-run marker for a `go.mod` under `tools/`
+(`clear_marker`). The user decided on 2026-10-14 to read one duration
+table from a `--full` run before choosing among the rest: running
+independent gates (web, Go modules, protobuf) in parallel, moving the
+slowest integration and differential suites behind a tag that only a
+merge gate sets, or holding a machine-wide lock so two race runs never
+overlap. Quote that table here when the next `--full` run lands.
 
-## 2026-10-14 verify-change: the full gate is too slow and silent while it runs
-Skill or agent: `.claude/skills/verify-change/scripts/verify-change.sh`
-(`--full`), and `.claude/skills/land/SKILL.md`, step 5.
-What happened: the user asked for this to be recorded: the gate is far too
-slow and needs optimizing, and it should tell the user what it is doing
-while it runs. Landing one phase that changed `go.mod` took three `--full`
-runs of about 40 minutes each on 2026-10-13 and 2026-10-14. The first
-failed on an `edgebus` NATS timeout
-(`TestReceiverToForwarderCarriesBodiesUnchanged`), the second on a Docker
-API timeout in `tools/test/service-otel-integration.sh`
-(`TestManagedTelemetryConcurrentServicesStayIsolated`), and each failed
-test passed when run alone. During a run the user sees nothing until the
-last line, since the output goes to a log and the gates print only their
-own commands.
-Suggested change: in addition to the 2026-10-13 entry's profiling and
-parallel-gate suggestions, print a progress line per gate (name, index of
-total, elapsed time) to the terminal and a summary table of gate durations
-at the end. Retry a failed timing-sensitive suite once, alone, before
-declaring the gate red, and say in the output that it did so.
+## 2026-10-14 verify-change: one argument holding several space-separated paths passes without clearing their marker lines
+Skill or agent: `tools/scripts/verify/change.py`, `collect_paths` and
+`clear_marker`.
+What happened: a run started as `verify change -- $paths` from zsh, which
+does not split an unquoted variable, passed one argument holding twenty
+space-separated paths. The run selected the hook tooling gates, ran the
+script suites, printed `FlowSeer verification passed.`, and left every
+one of those paths under `Unverified edits remain after this run:`. The
+same paths named as separate arguments cleared. The cause inside the
+verifier is unverified (the gate line printed the paths as separate words).
+Suggested change: refuse an explicit path argument that holds whitespace
+and names no file, naming the argument, so a mis-split list exits non-zero
+before any gate as a selection that names nothing does.

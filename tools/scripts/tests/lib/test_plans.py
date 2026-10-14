@@ -284,6 +284,33 @@ class PhaseTest(RepoTest):
         self.landed(self.FIRST, self.on_main, review="fixes needed")
         self.assertTrue(plans.finished(self.FIRST, self.root))
 
+    def test_plan_the_retire_commit_on_main_deleted_is_finished_when_implemented(self):
+        self.git("checkout", "-q", "main")
+        (self.root / self.SECOND).unlink()
+        self.git("add", "-A")
+        self.git("commit", "-q", "-m", "docs(plans): retire two", "-m", "> Abandoned.")
+        self.git("checkout", "-q", "work")
+        self.assertFalse(plans.finished(self.SECOND, self.root))
+        self.git("checkout", "-q", "main")
+        (self.root / self.SECOND).write_text("# Plan\n", encoding="utf-8")
+        self.git("add", "-A")
+        self.git("commit", "-q", "-m", "docs(plans): bring two back")
+        (self.root / self.SECOND).unlink()
+        self.git("add", "-A")
+        self.git("commit", "-q", "-m", "docs(plans): retire two", "-m", "> Implemented. 1 units, 2026-01-05T10:00Z to 2026-01-05T11:30:00Z.")
+        self.git("checkout", "-q", "work")
+        self.assertTrue(plans.finished(self.SECOND, self.root))
+        # The latest retire commit decides: brought back and abandoned, the plan is not finished.
+        self.git("checkout", "-q", "main")
+        (self.root / self.SECOND).write_text("# Plan\n", encoding="utf-8")
+        self.git("add", "-A")
+        self.git("commit", "-q", "-m", "docs(plans): bring two back again")
+        (self.root / self.SECOND).unlink()
+        self.git("add", "-A")
+        self.git("commit", "-q", "-m", "docs(plans): retire two", "-m", "> Abandoned.")
+        self.git("checkout", "-q", "work")
+        self.assertFalse(plans.finished(self.SECOND, self.root))
+
     def test_retired_phase_is_finished_only_with_a_range(self):
         landed = {"first": self.on_work, "last": self.on_work}
         gone = [

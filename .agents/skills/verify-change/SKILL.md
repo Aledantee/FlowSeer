@@ -40,6 +40,20 @@ uv run tools/scripts/run.py verify change
   rather than linking another worktree's `node_modules`.
 - In the background, make the command the last command of its invocation: a
   trailing `tail` or `echo` reports its own exit code as the gate's.
+- Each gate opens with a `-- gate N: <name>, m:ss into the run --` line.
+  Before the verdict, and on a pass before `Unverified edits remain after
+  this run:`, the run prints `Gate durations`, slowest first. Read the
+  log's tail to see where a long run stands, and quote the table when a
+  run was slow.
+- The whitespace gate diffs from where the branch left `main` unless
+  `--base` is given, so a unit that committed and then verified its paths
+  still fails on a trailing space it committed.
+- A race gate that fails reruns the packages `go test` reported as `FAIL`
+  once, alone (`-count=1 -p 1`), and says in the output whether the retry
+  passed. A pass after the retry is a pass, and the first failure is still
+  worth a line in the report: a race that fires on some runs passes a retry
+  too, so a package that fails this way across runs is a finding. A package
+  that did not build gets no retry.
 - For output read by a later command, choose a fresh log in the session
   scratchpad directory and resolve its absolute path before launching the
   verifier. Reuse that exact path when reading it, across sandbox boundaries:
@@ -110,7 +124,9 @@ rewrites that listing; `land` reads the receipt.
   or under `--base REF` when every generated, `go.mod`, `go.sum`, or
   `buf.lock` path the marker names is byte-identical to `REF` or absent from
   both the tree and `REF`. Any marked file in either state clears the same
-  way, since it is the base, not an edit.
+  way, since it is the base, not an edit. A `go.mod` or `go.sum` under
+  `tools/` never holds the line, since a tool module reaches no package
+  the tree imports.
 - A `--full` run removes the marker outright, so a marker found beside a
   `full=true` receipt names paths edited after the run.
 

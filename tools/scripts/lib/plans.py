@@ -180,7 +180,7 @@ def shape_faults(state: object) -> list[str]:
     return [message for holds, message in rules if not holds]
 
 
-def combination_faults(plan: str, state: dict, states: dict[str, dict], on_disk: set[str]) -> list[str]:
+def combination_faults(plan: str, state: dict, states: dict[str, dict], on_disk: set[str], accepted: frozenset[str] = frozenset()) -> list[str]:
     """What makes a well-shaped file illegal beside the other plans."""
     faults = []
     status, parent = state["status"], state["parent"]
@@ -211,10 +211,16 @@ def combination_faults(plan: str, state: dict, states: dict[str, dict], on_disk:
         holder = states[parent]
         if plan not in holder["phases"]:
             faults.append(f"parent {parent} does not list this plan under phases")
-        known = set(holder["phases"]) | {entry["plan"] for entry in holder["retired"]}
+        # A prerequisite can be a phase of another parent or a plan with no
+        # parent: a deployment phase waits on the high-availability plan,
+        # not on a sibling. A parent is never one, since its stored status
+        # stays planned and nothing reads it as finished.
+        retired = {entry["plan"] for held in states.values() for entry in held["retired"]}
         for path in state["after"]:
-            if path == plan or path not in known:
-                faults.append(f"after names {path}, which is neither in the phases nor in the retired list of {parent}")
+            if path == plan or (path not in states and path not in retired and path not in accepted):
+                faults.append(f"after names {path}, which is neither a plan on disk, nor in a retired list, nor retired as implemented on main")
+            elif path in states and (states[path]["phases"] or states[path]["retired"]):
+                faults.append(f"after names {path}, a parent; name the phase it waits on")
     for path in state["phases"]:
         if path not in states or states[path]["parent"] != plan:
             faults.append(f"phases names {path}, whose state does not name this plan as parent")
@@ -251,8 +257,14 @@ def read_tree(root: Path) -> tuple[dict[str, list[str]], dict[str, object]]:
     return plans, raw
 
 
-def problems(plans: dict[str, list[str]], raw: dict[str, object]) -> list[tuple[str, str]]:
-    """Every fault in a tree, as (file, rule), in file order."""
+def problems(plans: dict[str, list[str]], raw: dict[str, object], root: Path | None = None) -> list[tuple[str, str]]:
+    """Every fault in a tree, as (file, rule), in file order.
+
+    With a root, an `after` path that is on no disk and in no retired list
+    is accepted when main's retire commit deleted it as implemented, the
+    same reading `finished` gives a state file a branch forked before that
+    commit.
+    """
     found = [(plan, f"has no state file; run `{INIT_COMMAND}`") for plan in plans.keys() - raw.keys()]
     # A field kept in both places has two writers, and every reader takes
     # the state file's.
@@ -270,8 +282,15 @@ def problems(plans: dict[str, list[str]], raw: dict[str, object]) -> list[tuple[
         if not faults:
             states[plan] = state
     on_disk = plans.keys() | raw.keys()
+    accepted: set[str] = set()
+    if root is not None:
+        retired = {entry["plan"] for held in states.values() for entry in held["retired"]}
+        for state in states.values():
+            for path in state["after"]:
+                if path not in states and path not in retired and retired_implemented(path, root):
+                    accepted.add(path)
     for plan, state in states.items():
-        found += [(state_path(plan), fault) for fault in combination_faults(plan, state, states, on_disk)]
+        found += [(state_path(plan), fault) for fault in combination_faults(plan, state, states, on_disk, frozenset(accepted))]
     return sorted(found)
 
 
@@ -337,6 +356,18 @@ def on_main(sha: str, root: Path | None = None) -> bool:
     return git(root or tree_root(), "merge-base", "--is-ancestor", sha, "main").code == 0
 
 
+def retired_implemented(plan: str, root: Path) -> bool:
+    """Whether main holds the commit that retired plan as implemented.
+
+    A plan with no parent leaves no retired entry, and a parent's entries
+    go when it retires, so a state file on a branch forked before that
+    commit can still name the plan under `after`. The retire commit's body
+    opens with the outcome line `retire` printed.
+    """
+    body = git(root, "log", "main", "-1", "--diff-filter=D", "--format=%B", "--", plan).stdout
+    return any(line.startswith("> Implemented.") for line in body.splitlines())
+
+
 def sent_back(state: dict) -> bool:
     """An implemented plan owed a re-plan: its review ended in rework, or
     `plan` took it up and stopped on a decision."""
@@ -357,12 +388,14 @@ def finished(phase: str, root: Path | None = None, _seen: frozenset = frozenset(
         state = load(phase, root)
     except MissingState:
         _, raw = read_tree(root)
-        return any(
+        if any(
             entry["plan"] == phase and entry["landed"]
             for holder in raw.values()
             if not shape_faults(holder)
             for entry in holder["retired"]
-        )
+        ):
+            return True
+        return retired_implemented(phase, root)
     if state["landed"] and on_main(state["landed"]["last"], root):
         return True
     return (

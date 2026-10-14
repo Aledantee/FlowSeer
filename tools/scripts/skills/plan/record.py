@@ -22,12 +22,16 @@ a finished phase and one for a plan sent back to `plan`.
     run.py plan record show <plan> [--json]
     run.py plan record is <plan> <field>=<value> | <field>!=<value>
 
-A phase names its parent, the phases it runs after, and the commit range it
+A phase names its parent, the phases or plans it runs after (a phase of any
+parent, or a plan with none, never a parent), and the commit range it
 landed as. A parent lists its phases on disk under `phases` and the ones
 `retire` deleted under `retired`, and stores nothing else about them. A
 parent's status is computed: `implemented` once no phase is left on disk
 and a retired one carries a range, `planned` until then. A stored
-`superseded` or `abandoned` stands.
+`superseded` or `abandoned` stands. Retiring a plan with no parent removes
+it, and each retired phase it holds that landed, from every `after` list
+naming them, since the entries that record them as finished go with it. A
+plan or entry not finished refuses to retire while an `after` names it.
 
 `is` exits 0 when the test holds, 1 when it does not, and 2 when it cannot
 be evaluated. `null` stands for an unset field, and `status` is the
@@ -62,6 +66,7 @@ from lib.plans import (
     plan_of,
     problems,
     read_tree,
+    shape_faults,
     state_path,
     tree_root,
 )
@@ -87,13 +92,13 @@ def transition(root: Path, changes: dict[str, dict], retire: str | None = None) 
     tree would then hold a fault it did not hold before or any fault in a
     file this command writes."""
     plans, raw = read_tree(root)
-    before = set(problems(plans, raw))
+    before = set(problems(plans, raw, root))
     raw.update(changes)
     if retire:
         plans.pop(retire, None)
         raw.pop(retire, None)
     written = {state_path(plan) for plan in changes} | set(changes)
-    faults = [fault for fault in problems(plans, raw) if fault not in before or fault[0] in written]
+    faults = [fault for fault in problems(plans, raw, root) if fault not in before or fault[0] in written]
     if faults:
         fail("refused, the result would be illegal:\n" + "\n".join(f"  {where}: {rule}" for where, rule in faults))
     # A command that writes two files leaves both or neither: a phase its
@@ -297,6 +302,29 @@ def cmd_retire(root: Path, args: argparse.Namespace) -> None:
         holder["phases"] = [path for path in holder["phases"] if path != plan]
         holder["retired"].append({"plan": plan, "status": final, "landed": state["landed"]})
         changes[state["parent"]] = holder
+    else:
+        # No parent keeps a retired entry for this plan, and the entries of
+        # the phases it retired go with it, so a phase of another parent whose
+        # `after` names any of them would wait on a path nothing records as
+        # finished. The finished ones leave those lists. An unfinished one
+        # refuses, since the dependent needs re-planning first.
+        _, raw = read_tree(root)
+        for other, held in sorted(raw.items()):
+            if not isinstance(held, dict) or shape_faults(held):
+                fail(f"{state_path(other)} is not a legal state file; repair it before retiring {plan}")
+        named = {plan} | {entry["plan"] for entry in state["retired"]}
+        finished = {entry["plan"] for entry in state["retired"] if entry["landed"]}
+        if final == "implemented":
+            finished.add(plan)
+        for other, held in sorted(raw.items()):
+            if other == plan or not any(path in named for path in held["after"]):
+                continue
+            unfinished = [path for path in held["after"] if path in named - finished]
+            if unfinished:
+                fail(f"{other} runs after {', '.join(unfinished)}, which retiring {plan} leaves unfinished; run `plan record after` on it first")
+            held = stored(root, other)
+            held["after"] = [path for path in held["after"] if path not in named]
+            changes[other] = held
     transition(root, changes, retire=plan)
     done = state["outcome"]
     if final == "implemented" and done:

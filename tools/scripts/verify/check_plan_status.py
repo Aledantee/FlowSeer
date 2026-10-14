@@ -112,12 +112,36 @@ def check_phase_ancestry(plan: str) -> None:
             f"phase {plan!r} is retired on the integration branch as {entry.get('status')}: "
             "this worktree would implement it a second time",
         )
-    retired = {entry["plan"]: entry["landed"] for entry in parent["retired"]}
+    # A prerequisite is a phase of this or another parent, or a plan with no
+    # parent. A retired phase lives on in its own parent's list, so every
+    # parent's list is read. A plan with no parent never carries a range and
+    # counts once it is finished as `next` and `drive` read it, which covers
+    # one that main's retire commit deleted.
+    _, raw = plans.read_tree(root)
+    retired = {
+        entry["plan"]: entry["landed"]
+        for held in raw.values()
+        if isinstance(held, dict) and not plans.shape_faults(held)
+        for entry in held["retired"]
+    }
     for prerequisite in state["after"]:
         if (root / plans.state_path(prerequisite)).is_file():
-            landed = stored(prerequisite, root)["landed"]
+            before = stored(prerequisite, root)
+            if before["parent"] is None:
+                expect(
+                    plans.finished(prerequisite, root),
+                    f"plan {prerequisite} is not finished, and plan {plan!r} runs after it",
+                )
+                continue
+            landed = before["landed"]
+        elif prerequisite in retired:
+            landed = retired[prerequisite]
         else:
-            landed = retired.get(prerequisite)
+            expect(
+                plans.finished(prerequisite, root),
+                f"plan {prerequisite} has no state, no retired entry, and main did not retire it as implemented, and plan {plan!r} runs after it",
+            )
+            continue
         expect(
             landed is not None,
             f"phase {prerequisite} has not landed, and plan {plan!r} runs after it",

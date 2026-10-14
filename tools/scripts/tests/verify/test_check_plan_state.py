@@ -153,8 +153,12 @@ class CheckPlanStateTest(unittest.TestCase):
             "landed is set with parent null": (PLAIN, {"status": "implemented", "landed": landed}),
             "status is implemented with parent set and landed null": (FIRST, {**phase, "status": "implemented"}),
             "phases or retired is non-empty with parent set": (FIRST, {**phase, "retired": retired}),
-            f"after names {PLAIN}, which is neither": (PHASE, {**phase, "after": [PLAIN]}),
+            "after names docs/plans/2026-01-09-gone-plan.md, which is neither": (
+                PHASE,
+                {**phase, "after": ["docs/plans/2026-01-09-gone-plan.md"]},
+            ),
             f"after names {PHASE}, which is neither": (PHASE, {**phase, "after": [PHASE]}),
+            f"after names {PARENT}, a parent": (PHASE, {**phase, "after": [PARENT]}),
             "the stored status must not be 'implemented'": (PARENT, {"status": "implemented", "phases": [FIRST, PHASE]}),
             "the stored status must not be 'partially-implemented'": (
                 PARENT,
@@ -178,6 +182,49 @@ class CheckPlanStateTest(unittest.TestCase):
                 self.check()
                 self.put(plan, **fields)
                 self.assertIn(rule, self.check(code=1).stderr)
+
+    def test_after_may_name_a_plan_outside_the_parent(self):
+        self.put(PARENT, phases=[FIRST, PHASE])
+        self.put(FIRST, parent=PARENT)
+        self.put(PHASE, parent=PARENT, after=[FIRST, PLAIN])
+        self.put(PLAIN)
+        self.check()
+
+    def test_after_may_name_a_phase_retired_by_another_parent(self):
+        other_parent = "docs/plans/2026-01-05-other-parent-plan.md"
+        (self.root / other_parent).write_text("# Plan\n", encoding="utf-8")
+        gone = "docs/plans/2026-01-06-gone-phase-plan.md"
+        landed = {"first": "abc1234", "last": "def5678"}
+        self.put(other_parent, retired=[{"plan": gone, "status": "implemented", "landed": landed}])
+        self.put(PARENT, phases=[FIRST, PHASE])
+        self.put(FIRST, parent=PARENT)
+        self.put(PHASE, parent=PARENT, after=[FIRST, gone])
+        self.put(PLAIN)
+        self.check()
+
+    def test_after_may_name_a_plan_main_retired_as_implemented(self):
+        gone = "docs/plans/2026-01-07-retired-plan.md"
+        (self.root / gone).write_text("# Plan\n", encoding="utf-8")
+        self.put(gone)
+        self.put(PARENT, phases=[FIRST, PHASE])
+        self.put(FIRST, parent=PARENT)
+        self.put(PHASE, parent=PARENT, after=[FIRST, gone])
+        self.put(PLAIN)
+        git = ["git", "-c", "user.name=t", "-c", "user.email=t@example.com"]
+        subprocess.run([*git, "add", "-A"], cwd=self.root, env=self.env, check=True)
+        subprocess.run([*git, "commit", "-qm", "plans"], cwd=self.root, env=self.env, check=True)
+        (self.root / gone).unlink()
+        (self.root / plans.state_path(gone)).unlink()
+        subprocess.run([*git, "add", "-A"], cwd=self.root, env=self.env, check=True)
+        subprocess.run([*git, "commit", "-qm", "docs(plans): retire retired", "-m", "> Abandoned."], cwd=self.root, env=self.env, check=True)
+        self.assertIn("nor retired as implemented on main", self.check(code=1).stderr)
+        (self.root / gone).write_text("# Plan\n", encoding="utf-8")
+        subprocess.run([*git, "add", "-A"], cwd=self.root, env=self.env, check=True)
+        subprocess.run([*git, "commit", "-qm", "bring it back"], cwd=self.root, env=self.env, check=True)
+        (self.root / gone).unlink()
+        subprocess.run([*git, "add", "-A"], cwd=self.root, env=self.env, check=True)
+        subprocess.run([*git, "commit", "-qm", "docs(plans): retire retired", "-m", "> Implemented. 1 units, 2026-01-05T10:00Z to 2026-01-05T11:30:00Z."], cwd=self.root, env=self.env, check=True)
+        self.check()
 
     def test_check_rejects_a_phase_with_phases_of_its_own(self):
         self.put(PARENT, phases=[FIRST])
