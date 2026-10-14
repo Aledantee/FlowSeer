@@ -17,6 +17,7 @@ import (
 	"github.com/nats-io/nkeys"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/fsconv"
 	"go.aledante.io/FlowSeer/src/common/service"
 	"go.aledante.io/FlowSeer/src/common/tenant"
 )
@@ -327,9 +328,9 @@ func StartHub(ctx context.Context, cfg HubConfig) (_ *Hub, err error) {
 	for _, pe := range persisted {
 		if pe.err != nil {
 			hostLog.WarnContext(ctx, "skipping a persisted edge whose tenant could not be read",
-				slog.String("otel.event.name", "flowseer.edge.bus.tenant_read_failed"),
-				slog.String("flowseer.edge.id", pe.id),
-				slog.String("error.type", errorTypeOf(pe.err)))
+				fsconv.EventName("flowseer.edge.bus.tenant_read_failed"),
+				fsconv.EdgeID(pe.id),
+				fsconv.ErrorType(pe.err))
 			continue
 		}
 		if _, err := hub.ensureEdgeAccount(ctx, pe.tenant, pe.id); err != nil {
@@ -337,9 +338,9 @@ func StartHub(ctx context.Context, cfg HubConfig) (_ *Hub, err error) {
 			// cannot be turned into an account is a fact about that edge,
 			// and refusing to start leaves every other edge unserved for it.
 			hostLog.WarnContext(ctx, "skipping a persisted edge whose account could not be restored",
-				slog.String("otel.event.name", "flowseer.edge.bus.account_skipped"),
-				slog.String("flowseer.edge.id", pe.id),
-				slog.String("error.type", errorTypeOf(err)))
+				fsconv.EventName("flowseer.edge.bus.account_skipped"),
+				fsconv.EdgeID(pe.id),
+				fsconv.ErrorType(err))
 			continue
 		}
 	}
@@ -885,7 +886,7 @@ func (l *quietLogger) record(level slog.Level, format string, args ...any) {
 	// The embedded server's own diagnostics would otherwise vanish under
 	// NoLog; forward them so an operator sees the store filling.
 	l.host.LogAttrs(context.Background(), level, "embedded nats server",
-		slog.String("otel.event.name", "flowseer.edgebus.server"),
+		fsconv.EventName("flowseer.edgebus.server"),
 		slog.String("flowseer.edgebus.detail", line),
 	)
 }
@@ -904,13 +905,3 @@ func (l *quietLogger) Fatalf(format string, args ...any) { l.record(slog.LevelEr
 func (l *quietLogger) Errorf(format string, args ...any) { l.record(slog.LevelError, format, args...) }
 func (*quietLogger) Debugf(string, ...any)               {}
 func (*quietLogger) Tracef(string, ...any)               {}
-
-// errorTypeOf classifies a failure for the error.type attribute: the error's
-// own code where it has one. Bounded, and never the message, which carries
-// whatever the server put in it.
-func errorTypeOf(err error) string {
-	if code, ok := errs.CodeOf(err); ok {
-		return string(code)
-	}
-	return "unknown"
-}

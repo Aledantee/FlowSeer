@@ -6,6 +6,7 @@ import (
 
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
 	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
+	"go.aledante.io/FlowSeer/src/common/fsconv"
 )
 
 // event writes an OpenTelemetry Event, per docs/conventions/observability.md's
@@ -18,7 +19,7 @@ func (v *View) event(ctx context.Context, name, message string, attrs ...slog.At
 	}
 
 	args := make([]slog.Attr, 0, len(attrs)+1)
-	args = append(args, slog.String("otel.event.name", name))
+	args = append(args, fsconv.EventName(name))
 	args = append(args, attrs...)
 
 	v.logger.LogAttrs(ctx, slog.LevelInfo, message, args...)
@@ -34,7 +35,7 @@ func (v *View) eventAt(ctx context.Context, level slog.Level, name, message stri
 	}
 
 	args := make([]slog.Attr, 0, len(attrs)+1)
-	args = append(args, slog.String("otel.event.name", name))
+	args = append(args, fsconv.EventName(name))
 	args = append(args, attrs...)
 
 	v.logger.LogAttrs(ctx, level, message, args...)
@@ -102,8 +103,8 @@ func (v *View) LaneBlocked(ctx context.Context, reason accessv1.BlockReason) {
 // can be identified as missing rather than merely absent.
 func (v *View) AuditGap(ctx context.Context, deviceKey string, sequence uint64, eventIDs []string) {
 	v.eventAt(ctx, slog.LevelError, "flowseer.device.audit.gap", "audit records were never delivered",
-		slog.String("flowseer.device.id", deviceKey),
-		slog.Uint64("flowseer.device.sequence", sequence),
+		fsconv.DeviceID(deviceKey),
+		fsconv.DeviceSequence(sequence),
 		slog.Any("flowseer.device.audit.missing_event_ids", eventIDs),
 	)
 }
@@ -125,6 +126,6 @@ func (v *View) LaneReleased(ctx context.Context) {
 func (v *View) HoldResolutionIgnored(ctx context.Context, deviceKey string, sequence uint64) {
 	v.eventAt(ctx, slog.LevelWarn, "flowseer.device.hold.resolution_ignored",
 		"hold resolution named a sequence this lane is not held for",
-		slog.String("flowseer.device.id", deviceKey),
-		slog.Uint64("flowseer.device.sequence", sequence))
+		fsconv.DeviceID(deviceKey),
+		fsconv.DeviceSequence(sequence))
 }
