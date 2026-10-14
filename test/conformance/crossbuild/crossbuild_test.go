@@ -93,6 +93,8 @@ func runVet(t *testing.T, dir, arch, tags string, targets []string) {
 	}
 }
 
+// runBuild verifies that target links under FreeBSD on arch, catching symbols
+// only the linker resolves, such as a go:linkname target that does not exist.
 func runBuild(t *testing.T, dir, arch, target string) {
 	t.Helper()
 
