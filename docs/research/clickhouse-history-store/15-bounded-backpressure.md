@@ -1,7 +1,7 @@
 ---
 title: Bounded backpressure on the central ingest streams
 date: 2026-10-14
-status: research; source reading of nats-server v2.15.0 and nats.go v1.54.0, two probe files run on an in-process server, and an audit of the buffers ahead of the central streams
+status: research; source reading of nats-server v2.15.0 and nats.go v1.54.0, two probe files run on an in-process server, an audit of the buffers ahead of the central streams, and a container probe of the single-node insert deduplication window on ClickHouse 26.8.20.9
 ---
 
 # Bounded backpressure on the central ingest streams
@@ -186,3 +186,21 @@ restore ClickHouse, or raise `max_bytes_per_type` and the central budget and
 restart the hub, which widens the stream in place (probe 1 shows an update
 keeps the records). Nothing here measures what interest or work-queue
 retention would add to each acknowledgement.
+
+## Insert deduplication on a single node
+
+A sink retry that keeps its batch's token is stored once only where the
+server keeps block hashes. A non-replicated MergeTree table keeps none by
+default: `non_replicated_deduplication_window` defaults to 0, which disables
+insert deduplication
+([MergeTreeSettings.cpp at v26.8.20.9-lts](https://github.com/ClickHouse/ClickHouse/blob/v26.8.20.9-lts/src/Storages/MergeTree/MergeTreeSettings.cpp)).
+[`bounded-backpressure/dedup_window_probe.sh`](bounded-backpressure/dedup_window_probe.sh)
+runs the pinned image in a disposable container and checks whether an
+existing table can turn it on:
+
+| Step | Result on 26.8.20.9 |
+| --- | --- |
+| Two rows inserted twice with token `T`, window unset | 4 rows |
+| `ALTER TABLE t MODIFY SETTING non_replicated_deduplication_window = 1000` | succeeds, and `engine_full` names the setting |
+| Two rows inserted twice with token `U` | 6 rows: the repeat was dropped |
+| The same two rows with token `V` | 8 rows: a new token is stored |

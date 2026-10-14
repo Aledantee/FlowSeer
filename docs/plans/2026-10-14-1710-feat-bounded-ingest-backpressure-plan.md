@@ -27,7 +27,7 @@ probes would then fail, and the cleanup rule is wrong.
 
 ## Decisions
 
-The bounded-backpressure contract is decided and binds every unit below.
+The bounded-backpressure contract is decided and binds every unit below (decided by the user, 2026-10-13). This plan carries it onto main, reusing main's landed history API and tests (decided by the user, 2026-10-14).
 [Research 15](../research/clickhouse-history-store/15-bounded-backpressure.md)
 holds the pinned-source lines and probes behind it. Its probes pass against
 the `go.mod` pins (nats-server v2.15.0, nats.go v1.54.0).
@@ -69,10 +69,29 @@ the `go.mod` pins (nats-server v2.15.0, nats.go v1.54.0).
   the same `batchToken`, once all have been redelivered. Records that
   arrive meanwhile form batches of their own. A retained batch whose
   members do not all return within `2 * RetryDelay + 10 s` is released, and
-  its returned members are naked and become new records. Why: a member a
-  peer sink took never returns, and the deadline stays below the two-minute
-  `AckWait`. The rows a release can duplicate are absorbed by the
-  `ReplacingMergeTree` key and read-time deduplication.
+  its returned members are NACKed and become new records. Why: a member a
+  peer sink took never returns. The deadline is a liveness bound, not a
+  correctness one, and no upper bound on `RetryDelay` is enforced: `Start`
+  only defaults a non-positive delay to 5 s (`sink.go`, `Start`), and the
+  host sets none (`src/services/device/internal/host/host.go`,
+  `setupHistorySink`), so the deadline is 20 s against the two-minute
+  `AckWait`. A delay of 55 s or more puts the deadline past `AckWait`. The
+  server then redelivers a held member, and the batch takes the newer
+  delivery, whose acknowledgement the server honors. The rows a release can
+  duplicate are absorbed by the `ReplacingMergeTree` key and read-time
+  deduplication.
+- The single-node `syslog` table gets `non_replicated_deduplication_window`
+  1000 through a new migration step, and the cluster form keeps its
+  replicated window. Why: the setting defaults to 0, which disables
+  insert deduplication on a non-replicated table
+  ([MergeTreeSettings.cpp at v26.8.20.9-lts](https://github.com/ClickHouse/ClickHouse/blob/v26.8.20.9-lts/src/Storages/MergeTree/MergeTreeSettings.cpp),
+  `non_replicated_deduplication_window`), so without it a preserved token
+  does nothing on the lab and integration tier. The parked branch set it
+  at table creation (`262603e0`). Main's steps are recorded once, so the
+  setting arrives as `ALTER TABLE ... MODIFY SETTING`. On the pinned image
+  that ALTER succeeds on an existing table and turns deduplication on (15,
+  "Insert deduplication on a single node"). U6 keeps an integration test of
+  it.
 - No instrument counts lost or discarded records. The discard gauge and
   `pollDiscarded` are deleted. Visibility is four sink gauges read from the
   last cleanup report (`flowseer.history.records.pending`,
@@ -80,7 +99,14 @@ the `go.mod` pins (nats-server v2.15.0, nats.go v1.54.0).
   `flowseer.history.stream.oldest.age`), `flowseer.history.cleanup.duration`,
   `flowseer.history.records.redelivered`, and
   `flowseer.intake.records.retried` with a `flowseer.intake.reason`
-  attribute. Why: no client can count removals it did not make.
+  attribute. Why: under this contract the server removes no unresolved
+  record by itself, and the sampled gap main exports cannot be exact. A
+  stream and consumer snapshot shows the first sequence and one floor, and
+  the floor stays below a record a peer stored (15, prefix probe, first
+  row), so `FirstSeq - 1 - AckFloor` cannot separate removed records from
+  stored ones. A purge reply counts physical removals, records a peer
+  already stored among them (15, prefix probe, third row), so it is not a
+  loss count either.
 - Intake publishes the typed record first and the evidence second. After a
   typed publication fails with `edgebus.IsStreamFull`, intake publishes
   nothing of that record type for one retry delay and naks each delivery in
@@ -112,6 +138,7 @@ the `go.mod` pins (nats-server v2.15.0, nats.go v1.54.0).
 | U2 | The `gated`, `closeGate`, reasoned `retry`, and typed-first `prepare` hunks of `intake.go`, and its `intake_test.go` cases | Apply onto main's `handle` and `retry`, whose retry carries no reason today |
 | U3 | `historysink/retained.go`, the `clean` pass and `streamGauges` of `cleanup.go`, `cleanup_test.go` cases, and the retained and attach cases of `sink_test.go` | Rewrite against main's `Row`, `pending`, `Inserter`, and `fakeInserter`. Main fetches with `Fetch`, so the retained lookup goes in `process` before mapping |
 | U4 | The keyset sentence of the branch plan | Main's `statement.go` already deduplicates on the pair. Only the order, keyset, and token change |
+| U6 | The `non_replicated_deduplication_window` setting of the branch's `001_syslog.sql` and `identical_token_retry_stores_one_block` from `262603e0` | A new step 8 that alters main's table, and the test written against main's `ClickHouseInserter` in place of ch-go |
 | U5 | Nothing | Main's `history_test.go` already holds the agent, pause, and `ReadInterface` steps |
 
 ## Requirements
@@ -140,8 +167,8 @@ and `…a2`.
    the other two, `flowseer.history.records.refused` reads 1, and after one
    pass the stream holds none of the three.
 6. An ambiguous retry keeps its batch. Example: batch `{1,2,3}` fails
-   transiently and records 4 and 5 arrive. The next inserts are `{4,5}` and
-   `{1,2,3}`, the second with the first attempt's token.
+   transiently and records 4 and 5 arrive. The next inserts, in either order,
+   are `{4,5}` and `{1,2,3}`, the second with the first attempt's token.
 7. Intake refuses under capacity without churning evidence. Example: with the
    typed stream full, a record with raw evidence retried through three retry
    delays leaves the evidence stream's count unchanged and adds 3 to
@@ -161,6 +188,10 @@ and `…a2`.
     `docker pause` of ClickHouse, `ReadInterface` answering during the
     pause, and afterwards `ListSyslogRecords` paging returns each of the
     1,000 records exactly once.
+11. A retry with the batch's token is stored once on a single node.
+    Example: on the migrated single-node table, two rows inserted through
+    `historysink.ClickHouseInserter` with token `T`, then again with `T`,
+    count 2. A third insert with token `T2` makes 4.
 
 ## Out of scope
 
@@ -170,10 +201,6 @@ and `…a2`.
 - Phase 5's Postgres read model
   (`docs/plans/2026-10-02-2331-feat-central-ingestion-pipeline-phase5-plan.md`).
   No unit here depends on it or it on this plan.
-- A `non_replicated_deduplication_window` on the single-node table. The
-  token deduplicates only on a replicated table inside the window
-  (`src/services/device/internal/historysink/README.md`, Deduplication),
-  and read-time deduplication covers the lab.
 - Changing the parent plan's retirement history.
 
 ## Units
@@ -194,9 +221,9 @@ Verify: `uv run tools/scripts/run.py verify change -- src/services/device/intern
 
 ### U3. Sink cleanup, retained retries, and gauges
 Files: src/services/device/internal/historysink/sink.go, src/services/device/internal/historysink/retained.go, src/services/device/internal/historysink/cleanup.go, src/services/device/internal/historysink/metrics.go, src/services/device/internal/historysink/sink_test.go, src/services/device/internal/historysink/cleanup_test.go, src/services/device/internal/historysink/README.md, src/services/device/test/integration/history_test.go
-After: U1
-Change: `Start` binds the hub's member with `stream.Consumer`. When the server reports it missing, it calls `edgebus.EnsureIngestConsumer` and logs a warning. The sink's own consumer config goes. `Run` runs `edgebus.CleanIngest` every `Config.CleanInterval` (default 5 s), records `flowseer.history.cleanup.duration`, and stores the report for the four gauges. A failed pass keeps the last report and logs at the limited rate. `pollDiscarded`, `discardInterval`, and the `discarded` gauge go. `process` adds to `flowseer.history.records.redelivered` for a delivery count above one and routes a retained member to its batch before mapping. A transient insert failure naks and retains the batch as the Decisions state. Shutdown releases a held batch without counting a retry. The README replaces the discard paragraph with the cleanup pass, its flow chart, and what one held record does to the stream. In `history_test.go`, `ingested` reads `State.LastSeq`, since cleanup now lowers `State.Msgs`.
-Tests: `TestTheDiscardedGaugeCountsRecordsTheStreamRemovedBeforeTheyWereAcknowledged` is deleted. `cleanup_test.go` on a real hub with two `Sink` values covers Requirement 2 through the sinks, a record naked by one sink and inserted by the peer stored once and removed, Requirements 4, 5, and 8, a failed pass leaving the gauges and the runner alive, the five-second default, and a metrics set with no `discarded` instrument. `sink_test.go` adds Requirement 6 through `fakeInserter.tokens`, a retained batch released at its deadline, a missing member recreated with a warning, and a differing member left as it is while each cleanup pass fails with its error type recorded on `flowseer.history.cleanup.duration`. `TestATransientErrorNaksTheBatchAndItIsInsertedOnceTheStoreReturns` also asserts the retry carries the first token. The other cases pass unchanged.
+After: U1, U6
+Change: `Start` binds the hub's member with `stream.Consumer`. When the server reports it missing, it calls `edgebus.EnsureIngestConsumer` and logs a warning. The sink's own consumer config goes. `Run` runs `edgebus.CleanIngest` every `Config.CleanInterval` (default 5 s), records `flowseer.history.cleanup.duration`, and stores the report for the four gauges. A failed pass keeps the last report and logs at the limited rate. `pollDiscarded`, `discardInterval`, and the `discarded` gauge go. `process` adds to `flowseer.history.records.redelivered` for a delivery count above one and routes a retained member to its batch before mapping. A transient insert failure naks and retains the batch as the Decisions state. When a rejected batch's first half fails transiently, that half is retained and the never-sent second half is NACKed without retention. Shutdown releases a held batch without counting a retry. The README replaces the discard paragraph with the cleanup pass, its flow chart, and what one held record does to the stream, and its Instruments table lists the new instruments without `discarded`. Its Deduplication paragraph says the token deduplicates on a single node through the window U6 sets. In `history_test.go`, `ingested` reads `State.LastSeq`, since cleanup now lowers `State.Msgs`.
+Tests: `TestTheDiscardedGaugeCountsRecordsTheStreamRemovedBeforeTheyWereAcknowledged` is deleted. `cleanup_test.go` on a real hub with two `Sink` values covers Requirement 2 through the sinks, a record NACKed by one sink and inserted by the peer stored once and removed, Requirements 4, 5, and 8, a failed pass leaving the gauges and the runner alive, the five-second default, and a metrics set with no `discarded` instrument. `sink_test.go` adds Requirement 6 through `fakeInserter.tokens`, a retained batch released at its deadline, a retained member delivered twice before its batch completes inserted once and acknowledged through the later delivery, a missing member recreated with a warning, and a differing member left as it is while each cleanup pass fails with its error type recorded on `flowseer.history.cleanup.duration`. `TestATransientErrorNaksTheBatchAndItIsInsertedOnceTheStoreReturns` also asserts the retry carries the first token. The other cases pass unchanged.
 Verify: `uv run tools/scripts/run.py verify change -- src/services/device/internal/historysink src/services/device/test/integration`
 
 ### U4. Tenant-aware keyset pagination
@@ -208,17 +235,24 @@ Verify: `uv run tools/scripts/run.py verify change -- src/services/device/intern
 
 ### U5. End-to-end acceptance and direction records
 Files: src/services/device/test/integration/history_test.go, src/services/device/test/integration/README.md, docs/architecture/2026-10-02-central-ingestion-pipeline-direction.md, docs/architecture/2026-10-08-history-store-direction.md
-After: U1, U2, U3, U4
-Change: the outage step of `TestSyslogFromAnAgentIsReadBackAndAnOutageLosesNothing` keeps its 1,000 records, its 60 s pause, and its `ReadInterface` call. It also asserts during the pause that the typed stream is discard-new with no age and still holds every unresolved record. Afterwards it pages `ListSyslogRecords` at page size 100 until no token remains and asserts each outage record appears exactly once, then waits for a cleanup pass to leave the stream empty. The integration README describes the step. The ingestion record gains a dated amendment replacing its 2026-10-08 bullet on 72-hour retention with the accepted-work boundary, the refusal, the members and cleanup, and the rolling upstream buffers. Its read-time deduplication sentence names `(tenant_id, record_id)`. The history record's "Writes" section replaces its 72-hour and discard-counter sentences, its "Duplicates" section names the pair, and its consequences list replaces the 72-hour bullet.
+After: U1, U2, U3, U4, U6
+Change: the outage step of `TestSyslogFromAnAgentIsReadBackAndAnOutageLosesNothing` keeps its 1,000 records, its 60 s pause, and its `ReadInterface` call. `assembleHistory` expects `applied step 8`. It also asserts during the pause that the typed stream is discard-new with no age and still holds every unresolved record. Afterwards it pages `ListSyslogRecords` at page size 100 until no token remains and asserts each outage record appears exactly once, then waits for a cleanup pass to leave the stream empty. The integration README describes the step. The ingestion record gains a dated amendment replacing its 2026-10-08 bullet on 72-hour retention with the accepted-work boundary, the refusal, the members and cleanup, and the rolling upstream buffers. Its read-time deduplication sentence names `(tenant_id, record_id)`. The history record's "Writes" section replaces its 72-hour and discard-counter sentences, its "Duplicates" section names the pair, and its consequences list replaces the 72-hour bullet.
 Tests: the changed `history_test.go` covers Requirement 10 under `history_integration` and fails, not skips, when Docker or the image is missing.
 Verify: `uv run tools/scripts/run.py verify change -- src/services/device/test/integration docs/architecture`
 
-Waves: U1 U4 | U2 U3 | U5
+### U6. Single-node insert deduplication window
+Files: src/services/device/internal/history/sql/steps/0008_syslog_dedup_window.sql, src/services/device/internal/history/migrate.go, src/services/device/internal/history/migrate_test.go, src/services/device/internal/history/test/integration/migrate_test.go, src/services/device/internal/history/test/integration/schema_test.go, src/services/device/internal/history/README.md
+After: none
+Change: step 8 holds `ALTER TABLE {{.DB}}.syslog MODIFY SETTING non_replicated_deduplication_window = 1000` inside `{{if not .OnCluster}}`. `Migrate` skips a statement whose rendered text is blank, so a cluster run records step 8 and executes nothing for it. The README's Schema notes and dedup paragraph state the window and that a replicated table keeps its own.
+Tests: `migrate_test.go` expects 8 embedded steps and adds a fake-executor case where a blank rendered statement is recorded and not executed. The integration `migrate_test.go` expects 8 steps on both runs, `SHOW CREATE TABLE flowseer.syslog` naming the window on a single node, and no such setting on the cluster node. `schema_test.go` adds Requirement 11 through `historysink.NewInserter` as the writer. Nothing here breaks a connection after the server stored a block, so the ambiguous case is proven in two parts: this test shows a resent token is stored once, and U3 shows an ambiguous failure resends the same token.
+Verify: `uv run tools/scripts/run.py verify change -- src/services/device/internal/history`
+
+Waves: U1 U4 U6 | U2 U3 | U5
 
 ## Verification
 
 - Each unit's verifier, then `go test -race ./src/modules/edgebus/... ./src/services/device/...`.
-- `TESTCONTAINERS_RYUK_DISABLED=true go test -race -tags=history_integration ./src/services/device/internal/historyapi/test/integration/ ./src/services/device/test/integration/ -run 'TestSyslogFromAnAgent|TestPaging|Tenant'` with a Docker daemon.
+- `TESTCONTAINERS_RYUK_DISABLED=true go test -race -tags=history_integration ./src/services/device/internal/history/test/integration/ ./src/services/device/internal/historyapi/test/integration/ ./src/services/device/test/integration/ -run 'TestMigrate|Token|TestSyslogFromAnAgent|TestPaging|Tenant'` with a Docker daemon.
 - `go tool -modfile=tools/buf/go.mod buf lint`.
 
 ## Definition of done
@@ -226,7 +260,7 @@ Waves: U1 U4 | U2 U3 | U5
 - [ ] The verifier is green for every changed path.
 - [ ] The edgebus, intake, historysink, historyquery, and integration READMEs and both direction records describe the bounded contract in the change that implements it.
 - [ ] No instrument, test, or document counts discarded records.
-- [ ] This plan's outcome is recorded with `uv run tools/scripts/run.py plan record implemented <plan> --units 5 --from <t> --to <t>` or `partial`.
+- [ ] This plan's outcome is recorded with `uv run tools/scripts/run.py plan record implemented <plan> --units 6 --from <t> --to <t>` or `partial`.
 - [ ] No plan labels in code.
 
 ## Open questions
