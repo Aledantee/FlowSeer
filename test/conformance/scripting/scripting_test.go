@@ -42,6 +42,10 @@ var exemptions = []exemption{
 		reason: "the clixon container image starts it as its entrypoint, and the image holds no uv",
 	},
 	{
+		path:   "test/freebsd/",
+		reason: "the FreeBSD VM suites' setup scripts run inside the Vagrant guest, which holds no uv",
+	},
+	{
 		path:   "spec/",
 		reason: "vendored third-party files keep their upstream form",
 	},

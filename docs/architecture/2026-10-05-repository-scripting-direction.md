@@ -114,6 +114,9 @@ and the lab scripts under `deploy/lab/` are of this kind.
 - Scripts that run inside a container image: the snmpd pass-scripts and the
   clixon `startup.sh`. The image's shell runs them, on Linux, whatever the
   host is.
+- Setup scripts under `test/freebsd/` that run inside the FreeBSD Vagrant
+  guest, such as `bpfdev-setup.sh`. `vmtest` uploads them and the guest's
+  `sh` runs them, and the guest holds no uv.
 - Vendored files under `spec/`, such as
   `spec/yang/cisco/iosxe/2611/check-models.sh`.
 - The finished research scripts under

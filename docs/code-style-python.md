@@ -65,5 +65,7 @@ explain why, with no process narration, no planning identifiers, and no TODOs.
   file outside `tools/scripts/` that lacks an inline metadata block. Its
   exempt list names the files that must stay shell, each with its reason: the
   snmpd pass-scripts and the clixon `startup.sh`, which run inside container
-  images without uv, vendored files under `spec/`, and `docs/research/`.
+  images without uv, the setup scripts under `test/freebsd/`, which run inside
+  the FreeBSD guest without uv, vendored files under `spec/`, and
+  `docs/research/`.
   Adding an entry changes the scripting record.
