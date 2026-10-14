@@ -115,7 +115,8 @@ apply. Local ones:
   with that change. (decided by the user, 2026-10-01)
 - `trustPolicy: no-downgrade` refused `undici-types@6.21.0`, which
   `@types/node@22.20.4` requires: it was published 2024-11-13 without
-  provenance, and later releases of the package carry it. That exact
+  provenance, although 6.13.0 to 6.19.2 carried it and 7.8.0 carries it
+  again (registry metadata at https://registry.npmjs.org/undici-types). That exact
   version is excluded under `trustPolicyExclude` until `@types/node` moves
   forward. Why: it keeps the trust check for every other package, and
   moving `@types/node` is a pin change this phase rules out. (decided by
@@ -351,5 +352,4 @@ network and run unsandboxed. `git status --short` after them shows no
 
 ## Review gaps
 
-- frontend/web/pnpm-workspace.yaml:13: the comment says undici-types 6.21.0 "predates its package's provenance"; fails: registry metadata shows 6.13.0 to 6.19.2 (2024-04-12 to 2024-06-18) carry provenance attestations and 6.19.8 onward do not, so 6.21.0 is a true trust downgrade, and the 2026-10-14 Decision's wording undersells that; class: convention
 - frontend/web/pnpm-workspace.yaml:12: deleting `trustPolicy: no-downgrade` (or `blockExoticSubdeps`, `strictDepBuilds`) passes every repository test and the verifier; fails: a later edit loosening the settings goes unseen until a person reads the file; class: gap
