@@ -1,0 +1,121 @@
+package probe_test
+
+import (
+ "context"
+ "encoding/json"
+ "fmt"
+ "testing"
+ "time"
+
+ "github.com/nats-io/nats-server/v2/server"
+ "github.com/nats-io/nats.go"
+ "github.com/nats-io/nats.go/jetstream"
+)
+
+func TestSharedWorkQueueBackpressure(t *testing.T) {
+ ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+ defer cancel()
+ dir := t.TempDir()
+ start := func() *server.Server {
+  s, err := server.NewServer(&server.Options{DontListen:true, NoSigs:true, NoLog:true, JetStream:true, StoreDir:dir, SyncAlways:true})
+  if err != nil { t.Fatal(err) }
+  s.Start()
+  if !s.ReadyForConnections(time.Second) { t.Fatal("not ready") }
+  return s
+ }
+ s := start()
+ conn := func() (*nats.Conn, jetstream.JetStream) {
+  nc, err := nats.Connect("nats://probe", nats.InProcessServer(s))
+  if err != nil { t.Fatal(err) }
+  js, err := jetstream.New(nc)
+  if err != nil { t.Fatal(err) }
+  return nc,js
+ }
+ nc, js := conn()
+ nc2, js2 := conn()
+ defer func(){nc.Close(); nc2.Close(); s.Shutdown(); s.WaitForShutdown()}()
+ st, err := js.CreateStream(ctx, jetstream.StreamConfig{Name:"WORK", Subjects:[]string{"work"}, Storage:jetstream.FileStorage, Retention:jetstream.WorkQueuePolicy, Discard:jetstream.DiscardNew, MaxMsgs:2, MaxBytes:4096})
+ if err != nil {t.Fatal(err)}
+ for i:=1;i<=2;i++ { if _,err=js.Publish(ctx,"work",[]byte(fmt.Sprint(i)));err!=nil {t.Fatal(err)} }
+ if _,err=js.Publish(ctx,"work",[]byte("3")); err==nil {t.Fatal("expected refusal when full")} else {t.Logf("full queue refuses third publish: %v",err)}
+ c1,err:=st.CreateConsumer(ctx,jetstream.ConsumerConfig{Durable:"sink",AckPolicy:jetstream.AckExplicitPolicy,AckWait:time.Second})
+ if err!=nil {t.Fatal(err)}
+ c2,err:=js2.Consumer(ctx,"WORK","sink");if err!=nil {t.Fatal(err)}
+ a,err:=c1.Next(jetstream.FetchMaxWait(time.Second));if err!=nil {t.Fatal(err)}
+ b,err:=c2.Next(jetstream.FetchMaxWait(time.Second));if err!=nil {t.Fatal(err)}
+ if string(a.Data())!="1" || string(b.Data())!="2" {t.Fatalf("unexpected deliveries %q %q",a.Data(),b.Data())}
+ if err=b.DoubleAck(ctx);err!=nil {t.Fatal(err)}
+ if _,err=js.Publish(ctx,"work",[]byte("3"));err!=nil {t.Fatal(err)}
+ raw,err:=st.GetMsg(ctx,1);if err!=nil || string(raw.Data)!="1" {t.Fatalf("unacked first message lost: %v",err)}
+ t.Log("two clients share one durable; peer ACK frees capacity; held message survives")
+ nc.Close();nc2.Close();s.Shutdown();s.WaitForShutdown()
+ s=start();nc,js=conn();nc2,js2=conn()
+ st,err=js.Stream(ctx,"WORK");if err!=nil {t.Fatal(err)}
+ info,err:=st.Info(ctx);if err!=nil {t.Fatal(err)}
+ if info.State.Msgs!=2 {t.Fatalf("after restart messages=%d want2",info.State.Msgs)}
+ if _,err=st.GetMsg(ctx,1);err!=nil {t.Fatal(err)}
+ if _,err=st.GetMsg(ctx,2);err==nil {t.Fatal("acknowledged second message retained")}
+ t.Log("restart retains both outstanding messages, excludes acknowledged message")
+ age,err:=js.CreateStream(ctx,jetstream.StreamConfig{Name:"AGE",Subjects:[]string{"age"},Storage:jetstream.FileStorage,Retention:jetstream.WorkQueuePolicy,Discard:jetstream.DiscardNew,MaxMsgs:2,MaxAge:200*time.Millisecond})
+ if err!=nil {t.Fatal(err)}
+ if _,err=js.Publish(ctx,"age",[]byte("unacknowledged"));err!=nil {t.Fatal(err)}
+ deadline:=time.Now().Add(2*time.Second)
+ for {
+  ai,err:=age.Info(ctx);if err!=nil {t.Fatal(err)}
+  if ai.State.Msgs==0 {break}
+  if time.Now().After(deadline) {t.Fatal("expiry did not run")}
+  time.Sleep(20*time.Millisecond)
+ }
+ t.Log("control: MaxAge still expires unacknowledged work with DiscardNew")
+}
+
+func TestPurgeCountIncludesAlreadyArchivedPeerRecord(t *testing.T) {
+ ctx,cancel:=context.WithTimeout(context.Background(),5*time.Second);defer cancel()
+ s,err:=server.NewServer(&server.Options{DontListen:true,NoSigs:true,NoLog:true,JetStream:true,StoreDir:t.TempDir(),SyncAlways:true});if err!=nil {t.Fatal(err)}
+ s.Start();defer func(){s.Shutdown();s.WaitForShutdown()}();if !s.ReadyForConnections(time.Second){t.Fatal("not ready")}
+ nc,err:=nats.Connect("nats://probe",nats.InProcessServer(s));if err!=nil {t.Fatal(err)};defer nc.Close()
+ js,err:=jetstream.New(nc);if err!=nil {t.Fatal(err)}
+ st,err:=js.CreateStream(ctx,jetstream.StreamConfig{Name:"PURGE",Subjects:[]string{"purge"},Storage:jetstream.FileStorage,Retention:jetstream.LimitsPolicy,Discard:jetstream.DiscardOld});if err!=nil {t.Fatal(err)}
+ for i:=1;i<=3;i++ {if _,err=js.Publish(ctx,"purge",[]byte(fmt.Sprint(i)));err!=nil {t.Fatal(err)}}
+ c,err:=st.CreateConsumer(ctx,jetstream.ConsumerConfig{Durable:"sink",AckPolicy:jetstream.AckExplicitPolicy});if err!=nil {t.Fatal(err)}
+ a,err:=c.Next(jetstream.FetchMaxWait(time.Second));if err!=nil {t.Fatal(err)}
+ b,err:=c.Next(jetstream.FetchMaxWait(time.Second));if err!=nil {t.Fatal(err)}
+ if string(a.Data())!="1" || string(b.Data())!="2" {t.Fatal("delivery order")}
+ // Model the required insert-before-ACK contract: peer has already archived record2.
+ if err=b.DoubleAck(ctx);err!=nil {t.Fatal(err)}
+ ci,err:=c.Info(ctx);if err!=nil {t.Fatal(err)}
+ if ci.AckFloor.Stream!=0 {t.Fatalf("floor=%d want0",ci.AckFloor.Stream)}
+ response,err:=nc.RequestWithContext(ctx,"$JS.API.STREAM.PURGE.PURGE",[]byte(`{"seq":4}`));if err!=nil {t.Fatal(err)}
+ var reply struct{Success bool `json:"success"`;Purged uint64 `json:"purged"`}
+ if err=json.Unmarshal(response.Data,&reply);err!=nil {t.Fatal(err)}
+ if !reply.Success || reply.Purged!=3 {t.Fatalf("reply=%s",response.Data)}
+ t.Logf("purged=%d but only 2 records were unarchived; peer-archived record2 counted despite successful DoubleAck; floor=%d",reply.Purged,ci.AckFloor.Stream)
+}
+
+func TestLimitsBackpressureAndAcknowledgedPrefixCleanup(t *testing.T) {
+ ctx,cancel:=context.WithTimeout(context.Background(),5*time.Second);defer cancel()
+ s,err:=server.NewServer(&server.Options{DontListen:true,NoSigs:true,NoLog:true,JetStream:true,StoreDir:t.TempDir(),SyncAlways:true});if err!=nil {t.Fatal(err)}
+ s.Start();defer func(){s.Shutdown();s.WaitForShutdown()}();if !s.ReadyForConnections(time.Second){t.Fatal("not ready")}
+ nc,err:=nats.Connect("nats://probe",nats.InProcessServer(s));if err!=nil {t.Fatal(err)};defer nc.Close()
+ js,err:=jetstream.New(nc);if err!=nil {t.Fatal(err)}
+ st,err:=js.CreateStream(ctx,jetstream.StreamConfig{Name:"PURGE",Subjects:[]string{"purge"},Storage:jetstream.FileStorage,Retention:jetstream.LimitsPolicy,Discard:jetstream.DiscardNew,MaxMsgs:3});if err!=nil {t.Fatal(err)}
+ for i:=1;i<=3;i++ {if _,err=js.Publish(ctx,"purge",[]byte(fmt.Sprint(i)));err!=nil {t.Fatal(err)}}
+ c,err:=st.CreateConsumer(ctx,jetstream.ConsumerConfig{Durable:"sink",AckPolicy:jetstream.AckExplicitPolicy});if err!=nil {t.Fatal(err)}
+ a,err:=c.Next(jetstream.FetchMaxWait(time.Second));if err!=nil {t.Fatal(err)}
+ b,err:=c.Next(jetstream.FetchMaxWait(time.Second));if err!=nil {t.Fatal(err)}
+ if string(a.Data())!="1" || string(b.Data())!="2" {t.Fatal("delivery order")}
+ // Model the required insert-before-ACK contract: peer has already archived record2.
+ if err=b.DoubleAck(ctx);err!=nil {t.Fatal(err)}
+ ci,err:=c.Info(ctx);if err!=nil {t.Fatal(err)}
+ if ci.AckFloor.Stream!=0 {t.Fatalf("floor=%d want0",ci.AckFloor.Stream)}
+ if _,err=js.Publish(ctx,"purge",[]byte("4"));err==nil {t.Fatal("expected full refusal with oldest unacked")}
+ if err=a.DoubleAck(ctx);err!=nil {t.Fatal(err)}
+ ci,err=c.Info(ctx);if err!=nil {t.Fatal(err)}
+ if ci.AckFloor.Stream!=2 {t.Fatalf("floor=%d want2",ci.AckFloor.Stream)}
+ if err=st.Purge(ctx,jetstream.WithPurgeSequence(ci.AckFloor.Stream+1));err!=nil {t.Fatal(err)}
+ if _,err=st.GetMsg(ctx,3);err!=nil {t.Fatalf("unacknowledged record3 lost: %v",err)}
+ if _,err=js.Publish(ctx,"purge",[]byte("4"));err!=nil {t.Fatal(err)}
+ si,err:=st.Info(ctx);if err!=nil {t.Fatal(err)}
+ if si.State.Msgs!=2 {t.Fatalf("messages=%d want2",si.State.Msgs)}
+ t.Log("Limits+DiscardNew: full queue refuses; sparse peer ACK cannot authorize cleanup; acknowledging oldest enables one prefix purge; pending record3 survives and new publication succeeds")
+}
