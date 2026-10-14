@@ -185,7 +185,9 @@ and let central cut one node off.
 ### The agent runs on Linux and FreeBSD
 
 FreeBSD is a deployment target, and CARP is the mechanism named for the
-address there. Local capture is Linux-only as well, because it uses `AF_PACKET`
+address there. The agent builds for it, since the flock store lock in
+`src/common/service/storelock_posix.go` covers FreeBSD. Local capture is
+Linux-only, because it uses `AF_PACKET`
 (`src/modules/capture/rawsocket/local_other.go`).
 
 ## Alternatives
