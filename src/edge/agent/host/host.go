@@ -21,6 +21,7 @@ import (
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/ingest/v1/ingestv1connect"
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/fsconv"
 	"go.aledante.io/FlowSeer/src/common/service"
 	"go.aledante.io/FlowSeer/src/common/spawn"
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/busattach"
@@ -125,7 +126,7 @@ func Run(ctx context.Context, cfg *Config, version string, opts Options) error {
 		return err
 	}
 	edgeID := edge.Enrollment.GetEdge().GetEdge().GetId()
-	base = base.With(slog.String("flowseer.edge.id", edgeID))
+	base = base.With(fsconv.EdgeID(edgeID))
 
 	// 2. The clients every later call goes through.
 	signer := edge.Signer(ctx, time.Now, base)
@@ -220,8 +221,8 @@ func newRawWindowController(store *identity.Store, cfg *Config, opts Options, lo
 	generation, err := store.AdvanceBootGeneration()
 	if err != nil {
 		log.Error("raw windows disabled",
-			slog.String("otel.event.name", "flowseer.edge.raw_window.disabled"),
-			slog.String("error.type", errorTypeOf(err)))
+			fsconv.EventName("flowseer.edge.raw_window.disabled"),
+			fsconv.ErrorType(err))
 		return nil
 	}
 	var sources []string
@@ -237,18 +238,11 @@ func newRawWindowController(store *identity.Store, cfg *Config, opts Options, lo
 	})
 	if err != nil {
 		log.Error("raw windows disabled",
-			slog.String("otel.event.name", "flowseer.edge.raw_window.disabled"),
-			slog.String("error.type", errorTypeOf(err)))
+			fsconv.EventName("flowseer.edge.raw_window.disabled"),
+			fsconv.ErrorType(err))
 		return nil
 	}
 	return controller
-}
-
-func errorTypeOf(err error) string {
-	if code, ok := errs.CodeOf(err); ok {
-		return string(code)
-	}
-	return "unknown"
 }
 
 // rawWindowAssembly holds what the raw window module draws from. The module is

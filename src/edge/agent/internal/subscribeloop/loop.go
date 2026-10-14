@@ -2,12 +2,12 @@ package subscribeloop
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 	"sync/atomic"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/fsconv"
 )
 
 // ErrCodeRun identifies a loop that could not be started because its Config
@@ -190,8 +190,8 @@ func Run[T any](ctx context.Context, cfg Config[T], contact *Contact) error {
 		if cfg.Resync != nil {
 			if err := cfg.Resync(ctx); err != nil {
 				log.WarnContext(ctx, "resync failed",
-					slog.String("otel.event.name", cfg.Events.ResyncFailed),
-					slog.String("error.type", errorType(err)))
+					fsconv.EventName(cfg.Events.ResyncFailed),
+					fsconv.ErrorType(err))
 			}
 		}
 
@@ -202,9 +202,9 @@ func Run[T any](ctx context.Context, cfg Config[T], contact *Contact) error {
 		if err != nil {
 			contact.failures.Add(1)
 			log.WarnContext(ctx, "stream ended",
-				slog.String("otel.event.name", cfg.Events.Disconnected),
+				fsconv.EventName(cfg.Events.Disconnected),
 				slog.Int64(cfg.Events.MessageCountKey, delivered),
-				slog.String("error.type", errorType(err)))
+				fsconv.ErrorType(err))
 		}
 
 		if delivered > 0 {
@@ -239,7 +239,7 @@ func attempt[T any](ctx context.Context, cfg Config[T], contact *Contact, log *s
 		// request to a transport.
 		contact.connections.Add(1)
 		log.InfoContext(ctx, "stream opened",
-			slog.String("otel.event.name", cfg.Events.Connected),
+			fsconv.EventName(cfg.Events.Connected),
 			slog.Int64(cfg.Events.ConnectionCountKey, contact.connections.Load()))
 	}
 
@@ -252,13 +252,13 @@ func attempt[T any](ctx context.Context, cfg Config[T], contact *Contact, log *s
 			// Dropped, not refused: this loop only knows the handler
 			// answered no arm of it. Not fatal to the stream — dropping it
 			// would cost every other message for one message's problem.
-			attrs := []any{slog.String("otel.event.name", cfg.Events.Dropped)}
+			attrs := []any{fsconv.EventName(cfg.Events.Dropped)}
 			if cfg.LogAttrs != nil {
 				for _, a := range cfg.LogAttrs(message) {
 					attrs = append(attrs, a)
 				}
 			}
-			attrs = append(attrs, slog.String("error.type", errorType(err)))
+			attrs = append(attrs, fsconv.ErrorType(err))
 			log.WarnContext(ctx, "message dropped; the handler could not apply it", attrs...)
 		}
 	}
@@ -272,25 +272,6 @@ func attempt[T any](ctx context.Context, cfg Config[T], contact *Contact, log *s
 		contact.connections.Add(1)
 	}
 	return delivered, err
-}
-
-// errorType classifies a failure for the error.type attribute: the error's
-// own code where it has one, and the two context causes by name where it does
-// not. A bounded value, because it becomes a metric dimension downstream —
-// the error's message must not, since it carries whatever the transport put
-// in it.
-func errorType(err error) string {
-	if code, ok := errs.CodeOf(err); ok {
-		return string(code)
-	}
-	switch {
-	case errors.Is(err, context.DeadlineExceeded):
-		return "context.deadline_exceeded"
-	case errors.Is(err, context.Canceled):
-		return "context.canceled"
-	default:
-		return "unknown"
-	}
 }
 
 func waitFor(ctx context.Context, d time.Duration) bool {

@@ -23,6 +23,7 @@ import (
 	edgeingestv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/ingest/v1"
 	rawwindowv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/rawwindow/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/fsconv"
 )
 
 // Error codes the controller returns.
@@ -247,7 +248,7 @@ func (c *Controller) applyOpen(w *window, control *edgeingestv1.RawWindowControl
 	w.activatedAt = now
 	w.version++
 	c.log.Info("raw window started",
-		slog.String("otel.event.name", "flowseer.edge.raw_window.started"),
+		fsconv.EventName("flowseer.edge.raw_window.started"),
 		slog.String("flowseer.raw_window.id", w.ref.GetRawWindow().GetId()),
 		slog.Uint64("flowseer.raw_window.max_bytes", w.maxBytes),
 		slog.Int64("flowseer.raw_window.remaining_ms", min(remaining, maxElapsed).Milliseconds()))
@@ -277,7 +278,7 @@ func (c *Controller) end(w *window, reason rawwindowv1.RawWindowStopReason, at t
 	w.version++
 	c.ended = true
 	c.log.Info("raw window ended",
-		slog.String("otel.event.name", "flowseer.edge.raw_window.ended"),
+		fsconv.EventName("flowseer.edge.raw_window.ended"),
 		slog.String("flowseer.raw_window.id", w.ref.GetRawWindow().GetId()),
 		slog.String("flowseer.raw_window.stop_reason", reason.String()),
 		slog.Uint64("flowseer.raw_window.selected_records", w.records))

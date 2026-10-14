@@ -13,6 +13,7 @@ import (
 
 	dispatchv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/fsconv"
 )
 
 // ErrCodeQueue identifies a re-send queue that could not be started.
@@ -221,8 +222,8 @@ func (q *Queue) evictOldestLocked(ctx context.Context) {
 	delete(q.pending, oldest)
 	q.dropped.Add(1)
 	q.log.WarnContext(ctx, "report dropped at the queue ceiling",
-		slog.String("flowseer.device.id", oldest.device),
-		slog.Uint64("flowseer.device.sequence", oldest.sequence),
+		fsconv.DeviceID(oldest.device),
+		fsconv.DeviceSequence(oldest.sequence),
 		slog.String("flowseer.edge.report.kind", oldest.kind),
 		slog.Int64("flowseer.edge.reports.dropped", q.dropped.Load()))
 }
