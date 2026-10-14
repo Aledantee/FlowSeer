@@ -128,3 +128,23 @@ the merge gate sets, and let a `go.mod` change whose module graph does not
 change outside `tools/` skip the full race run. Separately, raise the
 NATS suites' wait deadlines or hold a machine-wide lock for the race run
 so that two runs never overlap.
+
+## 2026-10-14 verify-change: the full gate is too slow and silent while it runs
+Skill or agent: `.claude/skills/verify-change/scripts/verify-change.sh`
+(`--full`), and `.claude/skills/land/SKILL.md`, step 5.
+What happened: the user asked for this to be recorded: the gate is far too
+slow and needs optimizing, and it should tell the user what it is doing
+while it runs. Landing one phase that changed `go.mod` took three `--full`
+runs of about 40 minutes each on 2026-10-13 and 2026-10-14. The first
+failed on an `edgebus` NATS timeout
+(`TestReceiverToForwarderCarriesBodiesUnchanged`), the second on a Docker
+API timeout in `tools/test/service-otel-integration.sh`
+(`TestManagedTelemetryConcurrentServicesStayIsolated`), and each failed
+test passed when run alone. During a run the user sees nothing until the
+last line, since the output goes to a log and the gates print only their
+own commands.
+Suggested change: in addition to the 2026-10-13 entry's profiling and
+parallel-gate suggestions, print a progress line per gate (name, index of
+total, elapsed time) to the terminal and a summary table of gate durations
+at the end. Retry a failed timing-sensitive suite once, alone, before
+declaring the gate red, and say in the output that it did so.
