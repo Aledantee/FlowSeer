@@ -8,6 +8,11 @@ execution: mixed
 
 # Shared Telemetry Conventions Package - Plan
 
+Outcome: implemented, all five units. `src/common/fsconv` holds the six keys
+and the classifier, and the migration also reached the call sites the two
+`Ruled:` lines under Decisions name, among them
+`src/services/device/internal/authz/openfga/checker.go`.
+
 ## Goal
 
 Every package that emits a cross-package `flowseer.*` attribute, an
