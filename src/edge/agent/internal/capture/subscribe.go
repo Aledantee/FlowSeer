@@ -10,6 +10,7 @@ import (
 
 	captureedgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/capture/v1"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/capture/v1/capturev1connect"
+	"go.aledante.io/FlowSeer/src/common/fsconv"
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/subscribeloop"
 )
 
@@ -50,7 +51,7 @@ func LogAttrs(message *captureedgev1.SubscribeCaptureAssignmentsResponse) []slog
 		sessionID = message.GetStop().GetCaptureSession().GetId()
 	}
 	if sessionID != "" {
-		return []slog.Attr{slog.String("flowseer.capture.session.id", sessionID)}
+		return []slog.Attr{fsconv.CaptureSessionID(sessionID)}
 	}
 	return nil
 }

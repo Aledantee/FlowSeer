@@ -7,6 +7,7 @@ import (
 
 	dispatchv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/fsconv"
 	"go.aledante.io/FlowSeer/src/common/spawn"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access"
 )
@@ -134,8 +135,8 @@ func (d *Demux) execute(ctx context.Context, device string, request *dispatchv1.
 			// reporting, and inventing one here would tell central something
 			// this edge does not know.
 			d.log.DebugContext(ctx, "duplicate dispatch for an operation still running",
-				slog.String("flowseer.device.id", device),
-				slog.Uint64("flowseer.device.sequence", sequence))
+				fsconv.DeviceID(device),
+				fsconv.DeviceSequence(sequence))
 		}
 		return nil
 	}
@@ -229,8 +230,8 @@ func (d *Demux) refuse(ctx context.Context, device string, sequence uint64, kind
 		// right answer for a failure this edge could not classify.
 		code = ErrCodeUncodedRefusal
 		d.log.WarnContext(ctx, "refusing a dispatch for an uncoded error",
-			slog.String("flowseer.device.id", device),
-			slog.String("error.type", string(code)),
+			fsconv.DeviceID(device),
+			fsconv.ErrorTypeString(string(code)),
 			slog.String("flowseer.edge.refusal.cause", cause.Error()))
 	}
 

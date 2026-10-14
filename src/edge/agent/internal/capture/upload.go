@@ -2,7 +2,6 @@ package capture
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 	"time"
 
@@ -11,7 +10,7 @@ import (
 
 	captureedgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/capture/v1"
 	modelcapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/capture/v1"
-	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/fsconv"
 	"go.aledante.io/FlowSeer/src/modules/capture"
 )
 
@@ -30,7 +29,7 @@ func (h *Handler) runSession(sessionCtx context.Context, engineCtx context.Conte
 	defer sess.abortUpload()
 
 	log := h.logger.With(
-		slog.String("flowseer.capture.session.id", sessionID),
+		fsconv.CaptureSessionID(sessionID),
 	)
 
 	stream := h.client.UploadCapture(sessionCtx)
@@ -39,7 +38,7 @@ func (h *Handler) runSession(sessionCtx context.Context, engineCtx context.Conte
 	openingAssertion, err := h.signAssertion(sessionCtx)
 	if err != nil {
 		log.ErrorContext(sessionCtx, "sign opening assertion failed",
-			slog.String("error.type", errorType(err)))
+			fsconv.ErrorTypeString(errorType(err)))
 		_, _ = stream.CloseAndReceive()
 		return
 	}
@@ -48,7 +47,7 @@ func (h *Handler) runSession(sessionCtx context.Context, engineCtx context.Conte
 		Assertion: openingAssertion,
 	}.Build()); err != nil {
 		log.ErrorContext(sessionCtx, "send opening assertion failed",
-			slog.String("error.type", errorType(err)))
+			fsconv.ErrorTypeString(errorType(err)))
 		_, _ = stream.CloseAndReceive()
 		return
 	}
@@ -66,7 +65,7 @@ func (h *Handler) runSession(sessionCtx context.Context, engineCtx context.Conte
 
 	if err := stream.Send(initChunk); err != nil {
 		log.ErrorContext(sessionCtx, "send initial chunk failed",
-			slog.String("error.type", errorType(err)))
+			fsconv.ErrorTypeString(errorType(err)))
 		_, _ = stream.CloseAndReceive()
 		return
 	}
@@ -83,7 +82,7 @@ func (h *Handler) runSession(sessionCtx context.Context, engineCtx context.Conte
 		src, reportsDrops, err := h.openSource(engineCtx, engineCfg)
 		if err != nil {
 			log.ErrorContext(sessionCtx, "open custom packet source failed",
-				slog.String("error.type", errorType(err)))
+				fsconv.ErrorTypeString(errorType(err)))
 			_, _ = stream.CloseAndReceive()
 			return
 		}
@@ -93,7 +92,7 @@ func (h *Handler) runSession(sessionCtx context.Context, engineCtx context.Conte
 		engine, err = capture.New(engineCfg)
 		if err != nil {
 			log.ErrorContext(sessionCtx, "create capture engine failed",
-				slog.String("error.type", errorType(err)))
+				fsconv.ErrorTypeString(errorType(err)))
 			_, _ = stream.CloseAndReceive()
 			return
 		}
@@ -102,7 +101,7 @@ func (h *Handler) runSession(sessionCtx context.Context, engineCtx context.Conte
 	pump, err := engine.Run(engineCtx)
 	if err != nil {
 		log.ErrorContext(sessionCtx, "start capture engine failed",
-			slog.String("error.type", errorType(err)))
+			fsconv.ErrorTypeString(errorType(err)))
 		_, _ = stream.CloseAndReceive()
 		return
 	}
@@ -126,14 +125,14 @@ func (h *Handler) runSession(sessionCtx context.Context, engineCtx context.Conte
 			reassert, err := h.signAssertion(sessionCtx)
 			if err != nil {
 				log.WarnContext(sessionCtx, "sign mid-stream assertion failed",
-					slog.String("error.type", errorType(err)))
+					fsconv.ErrorTypeString(errorType(err)))
 				continue
 			}
 			if err := stream.Send(captureedgev1.UploadCaptureRequest_builder{
 				Assertion: reassert,
 			}.Build()); err != nil {
 				log.WarnContext(sessionCtx, "send mid-stream assertion failed",
-					slog.String("error.type", errorType(err)))
+					fsconv.ErrorTypeString(errorType(err)))
 				pump.SignalStop()
 				pump.Cancel()
 				return
@@ -173,7 +172,7 @@ func (h *Handler) runSession(sessionCtx context.Context, engineCtx context.Conte
 
 			// Telemetry privacy: log only metadata (sequence, counts), never payloads.
 			log.DebugContext(sessionCtx, "uploading capture chunk",
-				slog.Uint64("flowseer.capture.chunk.first_sequence", batch.FirstSequence),
+				fsconv.CaptureChunkFirstSequence(batch.FirstSequence),
 				slog.Int("flowseer.capture.chunk.packet_count", len(batch.Records)),
 				slog.Bool("flowseer.capture.chunk.final", batch.Final))
 
@@ -192,7 +191,7 @@ func (h *Handler) runSession(sessionCtx context.Context, engineCtx context.Conte
 
 			if err := stream.Send(chunkMsg); err != nil {
 				log.WarnContext(sessionCtx, "upload chunk failed",
-					slog.String("error.type", errorType(err)))
+					fsconv.ErrorTypeString(errorType(err)))
 				pump.SignalStop()
 				pump.Cancel()
 				return
@@ -201,7 +200,7 @@ func (h *Handler) runSession(sessionCtx context.Context, engineCtx context.Conte
 			if batch.Final {
 				if _, err := stream.CloseAndReceive(); err != nil {
 					log.WarnContext(sessionCtx, "close upload stream failed",
-						slog.String("error.type", errorType(err)))
+						fsconv.ErrorTypeString(errorType(err)))
 				}
 				return
 			}
@@ -215,24 +214,16 @@ func (h *Handler) runSession(sessionCtx context.Context, engineCtx context.Conte
 	}
 }
 
-// errorType classifies a failure for the error.type attribute, the way
-// subscribeloop and lanehost do: the error's own code where it has one, the
-// two context causes by name, and the Connect code otherwise — a stream that
-// central refused is most of what goes wrong here, and "unknown" for all of
-// it would leave an operator nothing to read. A bounded value, because it
-// becomes a metric dimension downstream.
+// errorType classifies a failure for the error.type attribute: fsconv's
+// shared vocabulary first (errs code, context causes), then a Connect code
+// where central refused a call, and fsconv.ErrorTypeOther otherwise. A bounded
+// value, because it becomes a metric dimension downstream.
 func errorType(err error) string {
-	if code, ok := errs.CodeOf(err); ok {
-		return string(code)
-	}
-	switch {
-	case errors.Is(err, context.DeadlineExceeded):
-		return "context.deadline_exceeded"
-	case errors.Is(err, context.Canceled):
-		return "context.canceled"
+	if t := fsconv.ErrorTypeOf(err); t != fsconv.ErrorTypeOther {
+		return t
 	}
 	if code := connect.CodeOf(err); code != connect.CodeUnknown {
 		return "connect." + code.String()
 	}
-	return "unknown"
+	return fsconv.ErrorTypeOther
 }

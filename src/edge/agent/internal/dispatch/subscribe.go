@@ -9,6 +9,7 @@ import (
 	dispatchv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1/dispatchv1connect"
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/fsconv"
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/subscribeloop"
 )
 
@@ -53,5 +54,5 @@ var Events = subscribeloop.Events{
 // LogAttrs returns the dropped-event attributes for one dispatch message:
 // the device id, so a drop can be traced to the device whose message it was.
 func LogAttrs(message *dispatchv1.SubscribeResponse) []slog.Attr {
-	return []slog.Attr{slog.String("flowseer.device.id", message.GetDeviceId())}
+	return []slog.Attr{fsconv.DeviceID(message.GetDeviceId())}
 }

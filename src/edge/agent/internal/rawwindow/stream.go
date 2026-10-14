@@ -11,6 +11,7 @@ import (
 	edgeingestv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/ingest/v1"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/ingest/v1/ingestv1connect"
 	rawwindowv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/rawwindow/v1"
+	"go.aledante.io/FlowSeer/src/common/fsconv"
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/subscribeloop"
 )
 
@@ -131,8 +132,8 @@ func flush(ctx context.Context, client ingestv1connect.RawWindowEdgeServiceClien
 		if err != nil {
 			if ctx.Err() == nil {
 				log.WarnContext(ctx, "raw window report failed",
-					slog.String("otel.event.name", "flowseer.edge.raw_window.report_failed"),
-					slog.String("error.type", connect.CodeOf(err).String()),
+					fsconv.EventName("flowseer.edge.raw_window.report_failed"),
+					fsconv.ErrorTypeString(connect.CodeOf(err).String()),
 					slog.Int("flowseer.raw_window.owed", len(owed)))
 			}
 			return
