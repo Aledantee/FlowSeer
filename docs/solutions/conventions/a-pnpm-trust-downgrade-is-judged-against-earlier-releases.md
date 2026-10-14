@@ -88,5 +88,5 @@ exists for. Leave that one refused and raise it before any exclusion.
 - `trustPolicyIgnoreAfter`, which skips the check for old versions. It is
   not set in this repository.
 - Detecting that a setting was removed. Nothing in the repository fails
-  when `trustPolicy` leaves `frontend/web/pnpm-workspace.yaml`. The phase 1
-  plan records that as a review gap.
+  when `trustPolicy` leaves `frontend/web/pnpm-workspace.yaml`. Commit
+  `5888531b` records that as an open review gap.
