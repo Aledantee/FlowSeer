@@ -208,7 +208,10 @@ func TestDeviceCloseDuringReadDefaultTimeout(t *testing.T) {
 func TestDeviceBufferLenIsKernelValue(t *testing.T) {
 	a, b := ifaceFromEnv(t, envA), ifaceFromEnv(t, envB)
 	tx := openDevice(t, a, Config{HeaderComplete: true})
-	rx := openDevice(t, b, Config{BufferLen: 3000, Immediate: true})
+	// The kernel clamps BIOCSBLEN to net.bpf.maxbufsize (524288 by default)
+	// and writes the clamped size back (sys/net/bpf_buffer.c,
+	// bpf_buffer_ioctl_sblen), so twice that is a request it changes.
+	rx := openDevice(t, b, Config{BufferLen: 2 * DefaultBufferLen, Immediate: true})
 
 	if err := tx.Write(testFrame()); err != nil {
 		t.Fatalf("Write: %v", err)

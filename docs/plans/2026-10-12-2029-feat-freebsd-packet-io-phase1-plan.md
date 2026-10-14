@@ -215,8 +215,12 @@ quiet interface returns an empty batch within twice `ReadTimeout`),
 `TestDeviceOpenUnknownInterface` (a coded `bpfdev/open` error),
 `TestDeviceCloseDuringReadDefaultTimeout` (with a zero `Config`, `Close`
 during a blocked read returns within 200ms),
-`TestDeviceBufferLenIsKernelValue` (a request of 3000 bytes, which the
-kernel rounds, reads without `EINVAL`).
+`TestDeviceBufferLenIsKernelValue` (a request of twice the 524288-byte
+`net.bpf.maxbufsize`, which the kernel clamps and writes back, reads
+without `EINVAL`). The kernel does not round a request: FreeBSD 14.3's
+`bpf_buffer_ioctl_sblen` (`sys/net/bpf_buffer.c` lines 167 to 170) only
+clamps it to `BPF_MINBUFSIZE` and `bpf_maxbufsize`, so a 3000-byte request
+came back unchanged and the test passed with the write-back ignored.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/net/bpfdev`
 
 ### U4. FreeBSD cross-build gate
