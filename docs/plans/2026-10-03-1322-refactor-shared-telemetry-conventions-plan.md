@@ -393,11 +393,3 @@ grep of Requirement 3 prints its four lines.
   already has (`rpc.response.status_code`) and the capture uploader does not.
   This plan keeps both as they are. Aligning them is a separate schema
   change.
-
-## Review gaps
-
-- src/protocol/restconf/session.go:281: response-read site passes the raw error to `SpanError`; fails: no test, `TestTransportFailureSpanCarriesTransportCode` covers only the `Do` failure; class: false test, other
-- src/common/service/telemetry.go:67: lifecycle outcome path keeps the outcome name instead of `fsconv.ErrorTypeOf(err)`; fails: no test; class: gap
-- src/services/device/internal/telemetry/telemetry.go:45: `DriftOutcomeKey` respelled; fails: no test in `telemetry` or `drift`; class: gap
-- src/edge/agent/internal/capture/capture_test.go:672: three top-level tests around a helper with deferred teardown, not one `t.Run` table with `t.Cleanup`; fails: code-style.md Testing; class: convention
-- src/modules/localnet/access/README.md:203: worst-case series cell still reads `~5 known failure classes = 12` beside a six-value list; fails: doc-style.md, update docs in the change; class: convention
