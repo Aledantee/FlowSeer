@@ -31,13 +31,24 @@ type hdrLayout struct {
 // hdrLayout64 is the bpf_hdr of a 64-bit FreeBSD kernel: an 8-byte seconds
 // field, 8-byte microseconds, 4-byte caplen and datalen, and a 2-byte hdrlen.
 var hdrLayout64 = hdrLayout{
-	secOff:     0,
-	usecOff:    8,
-	caplenOff:  16,
-	datalenOff: 20,
-	hdrlenOff:  24,
-	wordSize:   8,
+	secOff:     hdr64SecOff,
+	usecOff:    hdr64UsecOff,
+	caplenOff:  hdr64CaplenOff,
+	datalenOff: hdr64DatalenOff,
+	hdrlenOff:  hdr64HdrlenOff,
+	wordSize:   hdr64WordSize,
 }
+
+// The offsets of hdrLayout64 are constants so the FreeBSD-only layout file
+// can check them against unix.BpfHdr at compile time.
+const (
+	hdr64SecOff     = 0
+	hdr64UsecOff    = 8
+	hdr64CaplenOff  = 16
+	hdr64DatalenOff = 20
+	hdr64HdrlenOff  = 24
+	hdr64WordSize   = 8
+)
 
 // minHdrLen is the smallest bh_hdrlen the parser accepts: the end of the
 // hdrlen field.

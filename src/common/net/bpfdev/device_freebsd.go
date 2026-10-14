@@ -29,12 +29,15 @@ type ifreq struct {
 
 // Device is an open BPF device attached to one interface.
 //
-// mu serialises every operation, so Close waits for an in-flight read for at
-// most one ReadTimeout and a read cannot use a closed descriptor.
+// Every operation holds mu for reading and Close holds it for writing, so
+// Close waits for an in-flight read for at most one ReadTimeout and no
+// operation uses a closed descriptor. A Write does not wait behind a read.
 type Device struct {
-	mu     sync.Mutex // guards fd, closed, and buf
+	mu     sync.RWMutex // guards fd and closed
 	fd     int
 	closed bool
+	// readMu serialises readers, which share buf.
+	readMu sync.Mutex
 	// buf is the read buffer, sized to the length the kernel reported.
 	buf []byte
 }
@@ -143,8 +146,10 @@ func configure(fd int, iface string, cfg Config, bufLen int, timeout time.Durati
 // alias the device's buffer until the next call. A read that times out
 // returns no records and no error. It blocks for at most the ReadTimeout.
 func (d *Device) ReadBatch() ([]Record, error) {
-	d.mu.Lock()
-	defer d.mu.Unlock()
+	d.readMu.Lock()
+	defer d.readMu.Unlock()
+	d.mu.RLock()
+	defer d.mu.RUnlock()
 	if d.closed {
 		return nil, closedError("read")
 	}
@@ -164,8 +169,8 @@ func (d *Device) ReadBatch() ([]Record, error) {
 // Write sends frame with one write(2). With HeaderComplete it goes out as
 // given, otherwise the kernel fills in the source address.
 func (d *Device) Write(frame []byte) error {
-	d.mu.Lock()
-	defer d.mu.Unlock()
+	d.mu.RLock()
+	defer d.mu.RUnlock()
 	if d.closed {
 		return closedError("write")
 	}
@@ -183,8 +188,8 @@ func (d *Device) Write(frame []byte) error {
 // Stats returns the kernel's counters: packets received and packets dropped
 // for lack of buffer space.
 func (d *Device) Stats() (unix.BpfStat, error) {
-	d.mu.Lock()
-	defer d.mu.Unlock()
+	d.mu.RLock()
+	defer d.mu.RUnlock()
 	var st unix.BpfStat
 	if d.closed {
 		return st, closedError("stats")
@@ -198,8 +203,8 @@ func (d *Device) Stats() (unix.BpfStat, error) {
 // SetReadFilter replaces the read filter. A nil filter accepts all. bpf(4)
 // says BIOCSETF flushes the buffers and zeroes the counters.
 func (d *Device) SetReadFilter(filter []bpf.RawInstruction) error {
-	d.mu.Lock()
-	defer d.mu.Unlock()
+	d.mu.RLock()
+	defer d.mu.RUnlock()
 	if d.closed {
 		return closedError("set read filter")
 	}
@@ -211,8 +216,8 @@ func (d *Device) SetReadFilter(filter []bpf.RawInstruction) error {
 
 // LinkType returns the data link type, such as unix.DLT_EN10MB.
 func (d *Device) LinkType() (int, error) {
-	d.mu.Lock()
-	defer d.mu.Unlock()
+	d.mu.RLock()
+	defer d.mu.RUnlock()
 	if d.closed {
 		return 0, closedError("link type")
 	}
