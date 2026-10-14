@@ -320,12 +320,45 @@ ClickHouse. This amendment changes four statements above.
 - The 2026-10-04 sentence that each sink deduplicates on tenant and
   `record_id` gives way to the history record's three layers: shapes a repeat
   does not change, a merge key, and read-time deduplication with
-  `LIMIT 1 BY record_id` or `FINAL`.
+  `LIMIT 1 BY tenant_id, record_id` or `FINAL`.
 - Three open questions are answered there: tenant isolation ("Tenants are
   flat, and a lookup names a set of them"), query limits ("Queries cannot
   stall ingestion"), and retention per record type ("Retention: three classes
   per tenant").
-- The typed ingest streams keep records for 72 hours, up from the 24 hours
-  `src/modules/edgebus/hub.go` sets today, so a ClickHouse outage over a
-  weekend loses nothing at the planning rate. The evidence stream keeps its
-  24 hours.
+- The typed ingest streams no longer keep records for 72 hours. The
+  2026-10-14 amendment below replaces that bullet. The evidence stream keeps
+  its 24 hours.
+
+### 2026-10-14: a full typed stream refuses, and cleanup removes only what every member resolved
+
+Landed 2026-10-14: `src/modules/edgebus/cleanup.go`,
+`src/services/device/internal/intake/intake.go`, and
+`src/services/device/internal/historysink/cleanup.go`. The research behind it
+is [research 15](../research/clickhouse-history-store/15-bounded-backpressure.md).
+
+This amendment replaces the 2026-10-08 bullet on 72-hour retention.
+
+- Accepted work starts when a typed stream stored the record. From then on the
+  record stays stored until every member consumer of that stream resolved it,
+  however long ClickHouse is down. Resolving means acknowledging or
+  terminating.
+- A typed stream keeps limits retention with discard-new, its byte bound, and
+  no maximum age. At the bound the server refuses a publication, and
+  `edgebus.IsStreamFull` recognizes the refusal. Intake publishes the typed
+  record before the evidence, closes a per-record-type gate for one retry
+  delay after a refusal, and naks each delivery inside that window. The record
+  waits in the edge buffer and the per-edge hub stream, which stay rolling.
+- The members of a typed stream are the durable consumers
+  `edgebus.IngestConsumers` names. For syslog that is `history_sink`, which
+  the hub creates with the stream. `edgebus.CleanIngest` purges below the
+  lowest member floor, and only when the consumers on the stream are exactly
+  the members with their configured shape. A central host without a `history`
+  section still has the member, so its syslog stream fills to the bound and
+  intake refuses new records.
+- No instrument counts removed records, since the server removes none. The
+  sink reports pending records, stream usage, the byte limit, and the age of
+  the oldest stored record.
+- The edge buffer, the per-edge hub stream, and the evidence stream keep
+  removing their oldest messages at their bounds. This record does not claim
+  that the pipeline loses nothing. Moving that loss to the edge needs a
+  per-edge stream split, which no probe has covered.

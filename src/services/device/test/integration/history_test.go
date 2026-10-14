@@ -14,6 +14,7 @@ import (
 
 	connect "connectrpc.com/connect"
 	"github.com/google/uuid"
+	"github.com/nats-io/nats.go/jetstream"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -88,7 +89,7 @@ func assembleHistory(t *testing.T) *historyDeployment {
 	if err := centralhost.MigrateHistory(ctx, cfg, &migrated); err != nil {
 		t.Fatalf("migrate mode: %v", err)
 	}
-	if !strings.Contains(migrated.String(), "applied step 7") {
+	if !strings.Contains(migrated.String(), "applied step 8") {
 		t.Fatalf("migrate mode printed %q, want every step applied", migrated.String())
 	}
 
@@ -186,6 +187,55 @@ func (d *historyDeployment) list(t *testing.T, pageSize int32) []*historyv1.Sysl
 		t.Fatalf("ListSyslogRecords: %v", err)
 	}
 	return resp.Msg.GetEntries()
+}
+
+// listAll pages ListSyslogRecords until no token remains and returns every
+// entry in page order.
+func (d *historyDeployment) listAll(t *testing.T, pageSize int32) []*historyv1.SyslogHistoryEntry {
+	t.Helper()
+	var out []*historyv1.SyslogHistoryEntry
+	token := ""
+	for page := 0; ; page++ {
+		req := historyv1.ListSyslogRecordsRequest_builder{
+			Device:   deviceRef(),
+			From:     timestamppb.New(time.Now().Add(-time.Hour)),
+			To:       timestamppb.New(time.Now().Add(time.Hour)),
+			PageSize: proto.Int32(pageSize),
+		}.Build()
+		if token != "" {
+			req.SetPageToken(token)
+		}
+		resp, err := d.history.ListSyslogRecords(context.Background(), connect.NewRequest(req))
+		if err != nil {
+			t.Fatalf("ListSyslogRecords page %d: %v", page, err)
+		}
+		out = append(out, resp.Msg.GetEntries()...)
+		if !resp.Msg.HasNextPageToken() {
+			return out
+		}
+		token = resp.Msg.GetNextPageToken()
+		if page > 100 {
+			t.Fatal("the listing never ended")
+		}
+	}
+}
+
+// ingestStream returns the central syslog ingest stream's configuration and
+// state.
+func (d *historyDeployment) ingestStream(t *testing.T) *jetstream.StreamInfo {
+	t.Helper()
+	d.central.mu.Lock()
+	hub := d.central.hub
+	d.central.mu.Unlock()
+	stream, err := hub.JetStream().Stream(context.Background(), edgebus.IngestStream(edgebus.IngestRecordTypeSyslog))
+	if err != nil {
+		t.Fatalf("open the ingest stream: %v", err)
+	}
+	info, err := stream.Info(context.Background())
+	if err != nil {
+		t.Fatalf("ingest stream info: %v", err)
+	}
+	return info
 }
 
 func (d *historyDeployment) scalar(t *testing.T, query string) string {
@@ -329,6 +379,14 @@ func TestSyslogFromAnAgentIsReadBackAndAnOutageLosesNothing(t *testing.T) {
 		if floor != floorBefore {
 			t.Errorf("the sink acknowledged up to sequence %d during the pause, want it to stay at %d", floor, floorBefore)
 		}
+		during := d.ingestStream(t)
+		if during.Config.Discard != jetstream.DiscardNew || during.Config.MaxAge != 0 {
+			t.Errorf("typed stream discard %v and max age %v, want discard-new with no age", during.Config.Discard, during.Config.MaxAge)
+		}
+		if held := during.State.LastSeq - floor; during.State.FirstSeq > floor+1 || during.State.Msgs < held || held < 1000 {
+			t.Errorf("stream holds sequences %d to %d (%d messages) with the sink floor at %d, want every unresolved record stored",
+				during.State.FirstSeq, during.State.LastSeq, during.State.Msgs, floor)
+		}
 		ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 		defer cancel()
 		if _, err := d.central.devices().ReadInterface(ctx, connect.NewRequest(devicev1.ReadInterfaceRequest_builder{
@@ -345,6 +403,19 @@ func TestSyslogFromAnAgentIsReadBackAndAnOutageLosesNothing(t *testing.T) {
 		waitUntil(t, "all 1,000 records stored", 3*time.Minute, func() bool {
 			return d.scalar(t, "SELECT toString(countDistinct(record_id)) FROM flowseer.syslog WHERE message LIKE 'outage record %'") == "1000"
 		})
+
+		seen := make(map[string]int, len(messages))
+		for _, entry := range d.listAll(t, 100) {
+			if message := string(entry.GetRecord().GetMessage()); strings.HasPrefix(message, "outage record ") {
+				seen[message]++
+			}
+		}
+		for _, message := range messages {
+			if seen[message] != 1 {
+				t.Errorf("%q listed %d times across pages, want once", message, seen[message])
+			}
+		}
+		waitUntil(t, "cleanup to empty the stream", 2*time.Minute, func() bool { return d.ingestStream(t).State.Msgs == 0 })
 	})
 }
 
