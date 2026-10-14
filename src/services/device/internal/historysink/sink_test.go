@@ -441,6 +441,27 @@ func TestARetainedBatchWhoseMemberNeverReturnsIsReleasedAtItsDeadline(t *testing
 	waitFor(t, "both records resolved", func() bool { return consumerInfo(t, r).AckFloor.Stream == 2 })
 }
 
+// The deadline a transient failure sets is twice the retry delay plus the
+// grace, counted from the moment the batch is retained.
+func TestAFailedInsertRetainsItsBatchForTwiceTheRetryDelayPlusTheGrace(t *testing.T) {
+	hub := startHub(t)
+	inserter := &fakeInserter{fn: func(_ []Row, call int) error { return failOnce(call) }}
+	publish(t, hub, recordID(1), testTenant)
+	r := bareSink(t, hub, Config{Inserter: inserter, RetryDelay: 200 * time.Millisecond})
+
+	before := time.Now()
+	r.sink.process(context.Background(), fetchOffered(t, r.sink, 1))
+	after := time.Now()
+
+	if len(r.sink.batches) != 1 {
+		t.Fatalf("held batches = %d, want 1", len(r.sink.batches))
+	}
+	wait := 2*r.sink.cfg.RetryDelay + retainGrace
+	if got := r.sink.batches[0].deadline; got.Before(before.Add(wait)) || got.After(after.Add(wait)) {
+		t.Errorf("deadline = %v, want between %v and %v", got, before.Add(wait), after.Add(wait))
+	}
+}
+
 // Record 1 comes back twice before record 2 returns. The batch inserts once,
 // when both are present, and acknowledges record 1 through its later delivery.
 func TestARetainedMemberDeliveredTwiceIsInsertedOnceAndAcknowledgedThroughTheLaterDelivery(t *testing.T) {
@@ -636,6 +657,39 @@ func TestATransientFailureOfTheFirstHalfNaksTheSecondHalfWithTheRetryDelay(t *te
 	}
 	if got := counter(t, r, "flowseer.history.records.inserted", "", ""); got != 4 {
 		t.Errorf("inserted = %d, want 4", got)
+	}
+}
+
+// Only the first half failed, so only it may be held. The second half was
+// never sent and returns as new records.
+func TestTheNeverSentSecondHalfOfARejectedBatchIsNotRetained(t *testing.T) {
+	hub := startHub(t)
+	inserter := &fakeInserter{fn: func(_ []Row, call int) error {
+		switch call {
+		case 1:
+			return errs.New().Code(ErrCodeRejected).Msg("send insert")
+		case 2:
+			return errs.From(errUnavailable).Retryable().Msg("send insert")
+		}
+		return nil
+	}}
+	for n := 1; n <= 4; n++ {
+		publish(t, hub, recordID(n), testTenant)
+	}
+	r := bareSink(t, hub, Config{Inserter: inserter})
+
+	r.sink.process(context.Background(), bySequence(t, fetchOffered(t, r.sink, 4)))
+
+	if len(r.sink.batches) != 1 || len(r.sink.batches[0].members) != 2 {
+		t.Fatalf("held batches = %d, want one batch of the first half", len(r.sink.batches))
+	}
+	var held []uint64
+	for sequence := range r.sink.retained {
+		held = append(held, sequence)
+	}
+	slices.Sort(held)
+	if !slices.Equal(held, []uint64{1, 2}) {
+		t.Errorf("retained sequences = %v, want [1 2]: the second half must not be held", held)
 	}
 }
 
