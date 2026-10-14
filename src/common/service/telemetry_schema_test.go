@@ -18,6 +18,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	runtimev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/runtime/v1"
+	"go.aledante.io/FlowSeer/src/common/fsconv"
 )
 
 func TestServiceTelemetryScopesUseCurrentSemanticConvention(t *testing.T) {
@@ -130,7 +131,7 @@ func TestFailedRuntimeSpansIncludeErrorType(t *testing.T) {
 	_, lifecycle := startLifecycleSpan(context.Background(), tracer, "edge/worker", attemptSpanName, lifecycleActionStart)
 	endLifecycleSpan(lifecycle, lifecycleOutcomeError, deliveryError("edge/worker", "probe", errors.New("failure")))
 	_, delivery := tracer.Start(context.Background(), deliverySpanName)
-	recordSpanError(delivery, "message handler failed", errors.New("failure"))
+	fsconv.SpanError(delivery, errors.New("failure"), "message handler failed")
 	delivery.End()
 
 	for _, span := range recorder.Ended() {

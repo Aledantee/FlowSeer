@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 	nclib "nemith.io/netconf"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
@@ -356,5 +358,30 @@ func TestModuleRevisionsFromHello(t *testing.T) {
 	revs := s.ModuleRevisions()
 	if len(revs) != 2 || revs["ietf-interfaces"] != "2014-05-08" || revs["Cisco-IOS-XE-native"] != "2023-11-01" {
 		t.Errorf("ModuleRevisions() = %v", revs)
+	}
+}
+
+func TestTransportFailureSpanCarriesTransportCode(t *testing.T) {
+	f := newFake(capCandidate)
+	f.fail["get"] = errors.New("connection reset")
+	recorder := tracetest.NewSpanRecorder()
+	s := netconf.NewSession(context.Background(), f, netconf.Options{
+		TracerProvider: sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(recorder)),
+	})
+	defer func() { _ = s.Close(context.Background()) }()
+
+	if _, err := s.Get(context.Background(), yang.Path{}); err == nil {
+		t.Fatal("Get succeeded, want transport failure")
+	}
+	var got string
+	for _, span := range recorder.Ended() {
+		for _, kv := range span.Attributes() {
+			if string(kv.Key) == "error.type" {
+				got = kv.Value.AsString()
+			}
+		}
+	}
+	if want := netconf.ErrCodeTransport.String(); got != want {
+		t.Errorf("span error.type = %q, want %q", got, want)
 	}
 }

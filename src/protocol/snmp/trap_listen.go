@@ -3,16 +3,14 @@ package snmp
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"net"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	semconv "go.opentelemetry.io/otel/semconv/v1.43.0"
-
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/fsconv"
 	"go.aledante.io/FlowSeer/src/common/secret"
 	"go.aledante.io/FlowSeer/src/common/service"
 	"go.aledante.io/FlowSeer/src/common/spawn"
@@ -223,7 +221,7 @@ func (l *listener) handlePacket(msg []byte, remote *net.UDPAddr) {
 		l.ts.recordDropped()
 		service.Logger(l.logCtx).DebugContext(l.logCtx,
 			"dropping undecodable trap",
-			slog.String(string(semconv.ErrorTypeKey), classifyError(err)))
+			fsconv.ErrorTypeString(classifyError(err)))
 		return
 	}
 	if dec != nil {
@@ -237,7 +235,7 @@ func (l *listener) handlePacket(msg []byte, remote *net.UDPAddr) {
 	for _, w := range v1v2.warnings {
 		service.Logger(l.logCtx).WarnContext(l.logCtx,
 			"tolerated decode warning",
-			slog.String(string(semconv.ErrorTypeKey), classifyError(w)))
+			fsconv.ErrorTypeString(classifyError(w)))
 	}
 	l.ts.Push(translateTrap(v1v2, remote))
 }

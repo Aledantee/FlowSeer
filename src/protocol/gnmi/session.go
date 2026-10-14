@@ -10,7 +10,6 @@ import (
 	"time"
 
 	gpb "github.com/openconfig/gnmi/proto/gnmi"
-	"go.opentelemetry.io/otel/codes"
 	semconv "go.opentelemetry.io/otel/semconv/v1.43.0"
 	"go.opentelemetry.io/otel/trace"
 	tracenoop "go.opentelemetry.io/otel/trace/noop"
@@ -19,6 +18,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/fsconv"
 	"go.aledante.io/FlowSeer/src/protocol/yang"
 )
 
@@ -211,10 +211,7 @@ func (s *Session) unaryCtx(ctx context.Context, op, method string) (context.Cont
 		trace.WithSpanKind(trace.SpanKindClient),
 		trace.WithAttributes(semconv.RPCSystemNameGRPC, semconv.RPCMethod(method)))
 	finish := func(err error) {
-		if err != nil {
-			span.SetAttributes(semconv.ErrorTypeKey.String(errorType(err)))
-			span.SetStatus(codes.Error, "rpc failed")
-		}
+		fsconv.SpanError(span, err, "rpc failed")
 		span.End()
 		cancel()
 	}
@@ -502,16 +499,6 @@ func FromProtoPath(p *gpb.Path) yang.Path {
 		out.Segments = append(out.Segments, seg)
 	}
 	return out
-}
-
-// errorType classifies an error for the bounded error.type span
-// attribute: the errs code when the error carries one, otherwise the
-// concrete Go type. It never exposes error text.
-func errorType(err error) string {
-	if code, ok := errs.CodeOf(err); ok {
-		return code.String()
-	}
-	return fmt.Sprintf("%T", err)
 }
 
 // toTypedValue maps a [yang.Value] onto a scalar TypedValue.

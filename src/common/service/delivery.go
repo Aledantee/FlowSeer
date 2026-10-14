@@ -18,6 +18,7 @@ import (
 
 	runtimev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/runtime/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/fsconv"
 	"go.aledante.io/FlowSeer/src/common/spawn"
 )
 
@@ -271,14 +272,14 @@ func (a *deliveryAttempt) run(ctx context.Context) (bool, error) {
 	a.telemetry.recordMessage(deliveryCtx, a.module.path, a.envelope.GetTypeName(), a.envelope.GetKind(), messageDelivered)
 	panicked, handlerErr, progressErr := callHandlerWithProgress(deliveryCtx, a.brokerMessage, a.runtime.deliveryProgressInterval(), a.handler.handle, proto.Clone(a.payload))
 	if progressErr != nil {
-		recordSpanError(span, "message progress failed", progressErr)
+		fsconv.SpanError(span, progressErr, "message progress failed")
 		if ctx.Err() != nil {
 			return false, nil
 		}
 		return false, deliveryError(a.module.path, "extend delivery during handler execution", progressErr)
 	}
 	if handlerErr != nil {
-		recordSpanError(span, "message handler failed", handlerErr)
+		fsconv.SpanError(span, handlerErr, "message handler failed")
 	}
 	if ctx.Err() != nil {
 		return false, nil
@@ -306,13 +307,13 @@ func (a *deliveryAttempt) settleTerminal(
 		if errors.Is(err, errSettlementChanged) {
 			return nil
 		}
-		recordSpanError(span, "message settlement failed", err)
+		fsconv.SpanError(span, err, "message settlement failed")
 		return deliveryError(a.module.path, action, err)
 	}
 	a.telemetry.recordDisposition(deliveryCtx, a.module.path, a.envelope.GetTypeName(), a.envelope.GetKind(), desired)
 	err := a.runtime.finishSettlement(ctx, a.brokerMessage, a.settlementSubject, state == runtimev1.SettlementState_SETTLEMENT_STATE_DISCARD)
 	if err != nil {
-		recordSpanError(span, "message settlement failed", err)
+		fsconv.SpanError(span, err, "message settlement failed")
 	}
 	return err
 }
@@ -324,7 +325,7 @@ func (a *deliveryAttempt) settleRetry(ctx, deliveryCtx context.Context, span tra
 		if ctx.Err() != nil {
 			return false, nil
 		}
-		recordSpanError(span, "message progress failed", err)
+		fsconv.SpanError(span, err, "message progress failed")
 		return false, deliveryError(a.module.path, "extend delivery during retry backoff", err)
 	}
 	a.retry++
@@ -334,7 +335,7 @@ func (a *deliveryAttempt) settleRetry(ctx, deliveryCtx context.Context, span tra
 		if errors.Is(err, errSettlementChanged) {
 			return false, nil
 		}
-		recordSpanError(span, "message settlement failed", err)
+		fsconv.SpanError(span, err, "message settlement failed")
 		return false, deliveryError(a.module.path, "record retry settlement", err)
 	}
 	a.sequence = storedSequence
