@@ -144,6 +144,27 @@ duplicated.
 - Consumer tests keep their string literals. Why: a test that asserts
   `"flowseer.device.id"` on emitted output is the independent check that the
   constant did not change.
+- Ruled: the call sites added after this plan was written migrate in the unit
+  that owns their tree. U3 also takes `errorTypeOf` in
+  `src/edge/agent/host/host.go` (deleted for `fsconv.ErrorType`),
+  `src/edge/agent/internal/rawwindow/controller.go`, and
+  `src/edge/agent/internal/rawwindow/stream.go` (its Connect-code value goes
+  through `fsconv.ErrorTypeString`). U5 also takes
+  `src/services/device/internal/projector/projector.go`,
+  `src/services/device/internal/host/serve.go`,
+  `src/services/device/internal/identityapi/admin.go`,
+  `src/services/device/internal/rawwindowapi/edge_service.go`,
+  `src/services/device/internal/intake/intake.go`, and
+  `src/services/device/internal/actiontrail/interceptor.go`. Why: the Goal
+  covers every emitter of the shared keys, and Requirement 1 fails while any
+  literal remains. Cost if wrong: reverting the mechanical edits in those
+  files.
+- Ruled: `errorTypeOf` in `src/services/device/internal/historysink/sink.go`
+  stays. It maps to two values the sink owns (`rejected`, `store`) on a
+  metric, writes the key through `semconv.ErrorTypeKey`, and has the shape of
+  the interceptor's bounded classifier. Requirement 3's grep therefore prints
+  four lines. Why: replacing it would widen a metric dimension the sink
+  bounds on purpose. Cost if wrong: one function and its metric test.
 
 ## Requirements
 
@@ -158,9 +179,10 @@ duplicated.
    that wraps `context.DeadlineExceeded` gives its `errs` code.
 3. The private classifiers are gone. Example:
    `grep -rIn --include='*.go' -E 'func (errorType|errorTypeOf|telemetryErrorType|ErrorType|recordSpanError|classifyErrorOrEmpty)\(' src | grep -v _test.go`
-   prints three lines: `errorType` in
+   prints four lines: `errorType` in
    `src/edge/agent/internal/capture/upload.go`, `errorType` in
-   `src/services/device/internal/host/interceptor.go`, and `ErrorType` in
+   `src/services/device/internal/host/interceptor.go`, `errorTypeOf` in
+   `src/services/device/internal/historysink/sink.go`, and `ErrorType` in
    `src/common/fsconv/errortype.go`. `grep -n 'func classifyError' src/modules/localnet/access/lane.go`
    prints nothing.
 4. The capture wrapper lets `fsconv` win. Examples: a
@@ -344,7 +366,7 @@ grep -rIn --include='*.go' -E '"flowseer\.(device\.id|device\.sequence|edge\.id|
 ```
 
 The second command prints six lines, all in `src/common/fsconv/keys.go`. The
-grep of Requirement 3 prints its three lines.
+grep of Requirement 3 prints its four lines.
 
 ## Definition of done
 
