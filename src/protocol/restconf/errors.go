@@ -2,7 +2,6 @@ package restconf
 
 import (
 	"encoding/json"
-	"fmt"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -99,14 +98,4 @@ func truncate(s string, n int) string {
 		}
 		return r
 	}, s)
-}
-
-// errorType classifies an error for the bounded error.type span
-// attribute: the errs code when the error carries one, otherwise the
-// concrete Go type. It never exposes error text.
-func errorType(err error) string {
-	if code, ok := errs.CodeOf(err); ok {
-		return code.String()
-	}
-	return fmt.Sprintf("%T", err)
 }

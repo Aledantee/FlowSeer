@@ -3,7 +3,6 @@ package netconf
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net"
 	"net/url"
 	"strings"
@@ -11,7 +10,6 @@ import (
 	"time"
 
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/codes"
 	semconv "go.opentelemetry.io/otel/semconv/v1.43.0"
 	"go.opentelemetry.io/otel/trace"
 	tracenoop "go.opentelemetry.io/otel/trace/noop"
@@ -20,6 +18,7 @@ import (
 	ncssh "nemith.io/netconf/transport/ssh"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/fsconv"
 	"go.aledante.io/FlowSeer/src/common/spawn"
 	"go.aledante.io/FlowSeer/src/protocol/yang"
 )
@@ -293,23 +292,12 @@ func (s *Session) exec(ctx context.Context, name string, op, reply any) error {
 	if err == nil {
 		return nil
 	}
-	span.SetAttributes(semconv.ErrorTypeKey.String(errorType(err)))
-	span.SetStatus(codes.Error, "rpc failed")
 	mapped := s.mapError(name, err)
+	fsconv.SpanError(span, mapped, "rpc failed")
 	if mappedCode, ok := errs.CodeOf(mapped); ok && mappedCode == ErrCodeTransport {
 		s.latch(mapped)
 	}
 	return mapped
-}
-
-// errorType classifies an error for the bounded error.type span
-// attribute: the errs code when the error carries one, otherwise the
-// concrete Go type. It never exposes error text.
-func errorType(err error) string {
-	if code, ok := errs.CodeOf(err); ok {
-		return code.String()
-	}
-	return fmt.Sprintf("%T", err)
 }
 
 // mapError translates transport-layer errors into the package's

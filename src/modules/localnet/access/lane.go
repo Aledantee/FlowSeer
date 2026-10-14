@@ -13,6 +13,7 @@ import (
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
 	policyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/policy/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/fsconv"
 	"go.aledante.io/FlowSeer/src/common/spawn"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/audit"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/capability/interfaces"
@@ -1327,8 +1328,8 @@ func (l *Lane) process(ctx context.Context, ds *deviceState, sub *submission) {
 		sub.result <- submissionOutcome{result: result, err: err}
 	}()
 	defer func() {
-		endSpan(&err, classifyError)
-		l.cfg.Telemetry.RecordOperationDuration(ctx, operationClass, l.cfg.Clock().Sub(start).Seconds(), classifyErrorOrEmpty(err))
+		endSpan(&err, fsconv.ErrorTypeOf)
+		l.cfg.Telemetry.RecordOperationDuration(ctx, operationClass, l.cfg.Clock().Sub(start).Seconds(), fsconv.ErrorTypeOf(err))
 	}()
 	// Registered last so it unwinds first, ahead of the span and the answer
 	// above. Without it a panic here reaches the answering defer with err
@@ -1480,7 +1481,7 @@ func (l *Lane) processMutation(ctx context.Context, ds *deviceState, open *openM
 		// recovery then has nothing to corroborate against and the mutation
 		// can only verify or abandon, so the degradation goes on the span:
 		// it is invisible in every other signal.
-		l.cfg.Telemetry.NoteBaselineUnavailable(ctx, classifyError(baselineErr))
+		l.cfg.Telemetry.NoteBaselineUnavailable(ctx, fsconv.ErrorTypeOf(baselineErr))
 		baseline = nil
 	}
 
@@ -1488,7 +1489,7 @@ func (l *Lane) processMutation(ctx context.Context, ds *deviceState, open *openM
 	// central built against one firmware must not be applied to another:
 	// the command's meaning is the firmware's, not central's.
 	if probed, probeErr := l.reprobeEpoch(ctx, ds, ds.session); probeErr != nil {
-		l.cfg.Telemetry.NoteEpochReprobeUnavailable(ctx, classifyError(probeErr))
+		l.cfg.Telemetry.NoteEpochReprobeUnavailable(ctx, fsconv.ErrorTypeOf(probeErr))
 	} else if probed != fingerprint {
 		return l.epochBlocked(ctx, ds, open, fingerprint, probed)
 	}
@@ -1527,7 +1528,7 @@ func (l *Lane) processMutation(ctx context.Context, ds *deviceState, open *openM
 	// device the read was planned against — so it is discarded rather than
 	// recorded under either epoch.
 	if probed, probeErr := l.reprobeEpoch(ctx, ds, ds.session); probeErr != nil {
-		l.cfg.Telemetry.NoteEpochReprobeUnavailable(ctx, classifyError(probeErr))
+		l.cfg.Telemetry.NoteEpochReprobeUnavailable(ctx, fsconv.ErrorTypeOf(probeErr))
 	} else if probed != fingerprint {
 		if err := l.epochChanged(ctx, ds, fingerprint, probed); err != nil {
 			return l.enterRecovery(ctx, ds, open, submittedAt, baseline, err)
@@ -1995,35 +1996,6 @@ func (l *Lane) reportAuditGap(ctx context.Context, ds *deviceState, open *openMu
 		return
 	}
 	l.cfg.Telemetry.AuditGap(ctx, ds.key, open.machine.Sequence(), ids)
-}
-
-// classifyError reduces err to the bounded, low-cardinality error.type
-// string the observability convention requires: a mutation package error
-// code when there is one, else "context.deadline_exceeded" or
-// "context.canceled" for the two ctx errors, else "unknown" — never the raw
-// error text, which is unbounded and may embed device-specific values.
-func classifyError(err error) string {
-	if code, ok := errs.CodeOf(err); ok {
-		return string(code)
-	}
-	switch {
-	case errors.Is(err, context.DeadlineExceeded):
-		return "context.deadline_exceeded"
-	case errors.Is(err, context.Canceled):
-		return "context.canceled"
-	default:
-		return "unknown"
-	}
-}
-
-// classifyErrorOrEmpty is [classifyError], but returns "" for a nil err —
-// [telemetry.View.RecordOperationDuration] requires an empty error.type on
-// a successful operation to keep its attribute set to at most two members.
-func classifyErrorOrEmpty(err error) string {
-	if err == nil {
-		return ""
-	}
-	return classifyError(err)
 }
 
 // interfaceName returns the device-local interface name req's mutation or

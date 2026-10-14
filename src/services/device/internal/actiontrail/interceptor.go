@@ -26,12 +26,12 @@ import (
 	identityv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/identity/v1"
 	rawwindowv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/rawwindow/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/fsconv"
 	"go.aledante.io/FlowSeer/src/common/tenant"
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
 	"go.aledante.io/FlowSeer/src/services/device/internal/authn"
 	"go.aledante.io/FlowSeer/src/services/device/internal/authz"
 	"go.aledante.io/FlowSeer/src/services/device/internal/connecterr"
-	"go.aledante.io/FlowSeer/src/services/device/internal/telemetry"
 )
 
 // edgeAdminProcedureActions maps EdgeAdminService procedures to their recorded operator actions.
@@ -311,9 +311,9 @@ func outcomeOf(handlerErr error) (operatorv1.OperatorActionOutcome, string) {
 	case handlerErr == nil:
 		return operatorv1.OperatorActionOutcome_OPERATOR_ACTION_OUTCOME_SUCCEEDED, ""
 	case connect.CodeOf(handlerErr) == connect.CodePermissionDenied:
-		return operatorv1.OperatorActionOutcome_OPERATOR_ACTION_OUTCOME_DENIED, truncateErrorType(telemetry.ErrorType(handlerErr))
+		return operatorv1.OperatorActionOutcome_OPERATOR_ACTION_OUTCOME_DENIED, truncateErrorType(fsconv.ErrorTypeOf(handlerErr))
 	default:
-		return operatorv1.OperatorActionOutcome_OPERATOR_ACTION_OUTCOME_FAILED, truncateErrorType(telemetry.ErrorType(handlerErr))
+		return operatorv1.OperatorActionOutcome_OPERATOR_ACTION_OUTCOME_FAILED, truncateErrorType(fsconv.ErrorTypeOf(handlerErr))
 	}
 }
 
@@ -508,16 +508,16 @@ func (i *Interceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
 		if compData, compErr := proto.Marshal(completionEvent); compErr == nil {
 			if pubErr := i.pub.Publish(detachCtx, subject, compData, completionEventID); pubErr != nil {
 				i.log.ErrorContext(detachCtx, "failed to publish operator action completion",
-					slog.String("error.type", telemetry.ErrorType(pubErr)),
-					slog.String("flowseer.tenant.id", tenantID),
+					fsconv.ErrorType(pubErr),
+					fsconv.TenantID(tenantID),
 					slog.String("flowseer.operator.action", actToken),
 					slog.String("flowseer.call.id", callID),
 				)
 			}
 		} else {
 			i.log.ErrorContext(detachCtx, "failed to marshal operator action completion",
-				slog.String("error.type", telemetry.ErrorType(compErr)),
-				slog.String("flowseer.tenant.id", tenantID),
+				fsconv.ErrorType(compErr),
+				fsconv.TenantID(tenantID),
 				slog.String("flowseer.operator.action", actToken),
 				slog.String("flowseer.call.id", callID),
 			)
@@ -599,16 +599,16 @@ func (i *Interceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc) co
 			if compData, compErr := proto.Marshal(completionEvent); compErr == nil {
 				if pubErr := i.pub.Publish(detachCtx, subject, compData, completionEventID); pubErr != nil {
 					i.log.ErrorContext(detachCtx, "failed to publish operator action completion",
-						slog.String("error.type", telemetry.ErrorType(pubErr)),
-						slog.String("flowseer.tenant.id", tenantID),
+						fsconv.ErrorType(pubErr),
+						fsconv.TenantID(tenantID),
 						slog.String("flowseer.operator.action", actToken),
 						slog.String("flowseer.call.id", callID),
 					)
 				}
 			} else {
 				i.log.ErrorContext(detachCtx, "failed to marshal operator action completion",
-					slog.String("error.type", telemetry.ErrorType(compErr)),
-					slog.String("flowseer.tenant.id", tenantID),
+					fsconv.ErrorType(compErr),
+					fsconv.TenantID(tenantID),
 					slog.String("flowseer.operator.action", actToken),
 					slog.String("flowseer.call.id", callID),
 				)

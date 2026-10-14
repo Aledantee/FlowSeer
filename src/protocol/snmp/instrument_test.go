@@ -2,6 +2,7 @@ package snmp
 
 import (
 	"context"
+	"errors"
 	"net"
 	"testing"
 	"time"
@@ -253,6 +254,8 @@ func TestInstrument_V3ErrorKinds(t *testing.T) {
 		ErrReportUnknownUserName:     "unknown_user_name",
 		ErrReportUnsupportedSecLevel: "unsupported_sec_level",
 		ErrReportUnexpected:          "report_unexpected",
+		context.Canceled:             "context.canceled",
+		errors.New("unmatched"):      "_OTHER",
 	}
 	for err, want := range cases {
 		if got := classifyError(err); got != want {

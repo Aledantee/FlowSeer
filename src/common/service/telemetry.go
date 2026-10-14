@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 
 	"go.opentelemetry.io/otel/attribute"
@@ -14,6 +13,7 @@ import (
 
 	runtimev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/runtime/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/fsconv"
 )
 
 const (
@@ -64,24 +64,12 @@ func endLifecycleSpan(span trace.Span, outcome lifecycleOutcome, err error) {
 	if outcome == lifecycleOutcomeError || outcome == lifecycleOutcomePanic {
 		errorType := outcomeName
 		if err != nil {
-			errorType = telemetryErrorType(err)
+			errorType = fsconv.ErrorTypeOf(err)
 		}
 		span.SetAttributes(semconv.ErrorTypeKey.String(errorType))
 		span.SetStatus(codes.Error, outcomeName)
 	}
 	span.End()
-}
-
-func recordSpanError(span trace.Span, description string, err error) {
-	span.SetAttributes(semconv.ErrorTypeKey.String(telemetryErrorType(err)))
-	span.SetStatus(codes.Error, description)
-}
-
-func telemetryErrorType(err error) string {
-	if code, ok := errs.CodeOf(err); ok {
-		return code.String()
-	}
-	return fmt.Sprintf("%T", err)
 }
 
 type lifecycleAction uint8

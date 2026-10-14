@@ -15,6 +15,7 @@ import (
 	tracenoop "go.opentelemetry.io/otel/trace/noop"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/fsconv"
 )
 
 // instrument.go threads injected OpenTelemetry traces and metrics through
@@ -262,16 +263,11 @@ func (in *instruments) recordPDUSize(ctx context.Context, direction string, n in
 // identifier for a span attribute.
 func hexString(b []byte) string { return hex.EncodeToString(b) }
 
-// classifyError maps an error to a low-cardinality kind for the error
-// counter and span status ("error count by classified type").
+// classifyError maps a non-nil error to a low-cardinality kind for the error
+// counter and span status ("error count by classified type"). Errors without
+// a package-specific kind take the shared fsconv classification.
 func classifyError(err error) string {
 	switch {
-	case err == nil:
-		return "none"
-	case errors.Is(err, context.Canceled):
-		return "context_canceled"
-	case errors.Is(err, context.DeadlineExceeded):
-		return "context_deadline"
 	case errors.Is(err, errTimeout):
 		return "timeout"
 	case errors.Is(err, ErrSessionClosed):
@@ -313,5 +309,5 @@ func classifyError(err error) string {
 	if errors.As(err, &pe) {
 		return "pdu_error"
 	}
-	return "other"
+	return fsconv.ErrorTypeOf(err)
 }

@@ -17,6 +17,7 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.43.0"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/fsconv"
 )
 
 // ErrCodeForwarder identifies a failure starting the forwarder.
@@ -277,9 +278,9 @@ func (f *Forwarder) logRefusal(edgeID, subject, reason string) {
 		return
 	}
 	f.logger.Warn("record refused",
-		slog.String("otel.event.name", "flowseer.edgebus.record.refused"),
+		fsconv.EventName("flowseer.edgebus.record.refused"),
 		slog.String("flowseer.edgebus.reason", reason),
-		slog.String("flowseer.edge.id", edgeID),
+		fsconv.EdgeID(edgeID),
 		slog.String("flowseer.edgebus.claimed_edge_id", claimedEdge(subject)),
 		slog.String("flowseer.edgebus.subject", subject),
 	)

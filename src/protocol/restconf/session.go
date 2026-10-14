@@ -16,6 +16,7 @@ import (
 	tracenoop "go.opentelemetry.io/otel/trace/noop"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/fsconv"
 	"go.aledante.io/FlowSeer/src/protocol/yang"
 )
 
@@ -268,17 +269,17 @@ func (s *Session) do(ctx context.Context, method, url string, body []byte, heade
 
 	resp, err := s.client.Do(req)
 	if err != nil {
-		span.SetAttributes(semconv.ErrorTypeKey.String(errorType(err)))
-		span.SetStatus(codes.Error, "request failed")
-		return nil, 0, nil, s.transportError(method, err)
+		mapped := s.transportError(method, err)
+		fsconv.SpanError(span, mapped, "request failed")
+		return nil, 0, nil, mapped
 	}
 	defer func() { _ = resp.Body.Close() }()
 	span.SetAttributes(semconv.HTTPResponseStatusCode(resp.StatusCode))
 	respBody, err = io.ReadAll(io.LimitReader(resp.Body, 64<<20))
 	if err != nil {
-		span.SetAttributes(semconv.ErrorTypeKey.String(errorType(err)))
-		span.SetStatus(codes.Error, "response read failed")
-		return nil, 0, nil, s.transportError("read "+method+" response", err)
+		mapped := s.transportError("read "+method+" response", err)
+		fsconv.SpanError(span, mapped, "response read failed")
+		return nil, 0, nil, mapped
 	}
 	if resp.StatusCode >= 400 {
 		span.SetAttributes(semconv.ErrorTypeKey.String(strconv.Itoa(resp.StatusCode)))

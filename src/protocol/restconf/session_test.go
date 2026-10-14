@@ -11,6 +11,9 @@ import (
 	"testing"
 	"time"
 
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/trace/tracetest"
+
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/secret"
 	"go.aledante.io/FlowSeer/src/protocol/restconf"
@@ -351,4 +354,84 @@ func TestInsecureTLSRequiresExplicitOptIn(t *testing.T) {
 		t.Fatalf("Dial with explicit insecure opt-in: %v", err)
 	}
 	_ = s.Close()
+}
+
+func TestTransportFailureSpanCarriesTransportCode(t *testing.T) {
+	client := &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		if r.URL.Path == "/.well-known/host-meta" {
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     make(http.Header),
+				Body:       io.NopCloser(strings.NewReader(`<XRD><Link rel="restconf" href="/restconf"/></XRD>`)),
+			}, nil
+		}
+		return nil, errors.New("connection refused")
+	})}
+	recorder := tracetest.NewSpanRecorder()
+	s, err := restconf.Dial(t.Context(), "http://fixture.invalid", restconf.Options{
+		HTTPClient:     client,
+		TracerProvider: sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(recorder)),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = s.Close() })
+
+	if _, err := s.Get(t.Context(), serverPath(), restconf.GetOptions{}); err == nil {
+		t.Fatal("Get succeeded, want transport failure")
+	}
+	var got string
+	for _, span := range recorder.Ended() {
+		for _, kv := range span.Attributes() {
+			if string(kv.Key) == "error.type" {
+				got = kv.Value.AsString()
+			}
+		}
+	}
+	if want := restconf.ErrCodeTransport.String(); got != want {
+		t.Errorf("span error.type = %q, want %q", got, want)
+	}
+}
+
+// failingBody yields a read error after the response headers arrive.
+type failingBody struct{}
+
+func (failingBody) Read([]byte) (int, error) { return 0, errors.New("connection reset") }
+func (failingBody) Close() error             { return nil }
+
+func TestResponseReadFailureSpanCarriesTransportCode(t *testing.T) {
+	client := &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		if r.URL.Path == "/.well-known/host-meta" {
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     make(http.Header),
+				Body:       io.NopCloser(strings.NewReader(`<XRD><Link rel="restconf" href="/restconf"/></XRD>`)),
+			}, nil
+		}
+		return &http.Response{StatusCode: http.StatusOK, Header: make(http.Header), Body: failingBody{}}, nil
+	})}
+	recorder := tracetest.NewSpanRecorder()
+	s, err := restconf.Dial(t.Context(), "http://fixture.invalid", restconf.Options{
+		HTTPClient:     client,
+		TracerProvider: sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(recorder)),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = s.Close() })
+
+	if _, err := s.Get(t.Context(), serverPath(), restconf.GetOptions{}); err == nil {
+		t.Fatal("Get succeeded, want response read failure")
+	}
+	var got string
+	for _, span := range recorder.Ended() {
+		for _, kv := range span.Attributes() {
+			if string(kv.Key) == "error.type" {
+				got = kv.Value.AsString()
+			}
+		}
+	}
+	if want := restconf.ErrCodeTransport.String(); got != want {
+		t.Errorf("span error.type = %q, want %q", got, want)
+	}
 }

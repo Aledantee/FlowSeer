@@ -6,6 +6,8 @@ import (
 	"time"
 
 	connect "connectrpc.com/connect"
+
+	"go.aledante.io/FlowSeer/src/common/fsconv"
 )
 
 // Run drains the queue until ctx ends, re-sending what central has not
@@ -92,8 +94,8 @@ func (q *Queue) drain(ctx context.Context) {
 			// problem.
 			stalled[k.device] = true
 			attrs := []slog.Attr{
-				slog.String("flowseer.device.id", k.device),
-				slog.Uint64("flowseer.device.sequence", k.sequence),
+				fsconv.DeviceID(k.device),
+				fsconv.DeviceSequence(k.sequence),
 				slog.String("flowseer.edge.report.kind", k.kind),
 				slog.Any("error", err),
 			}
@@ -101,7 +103,7 @@ func (q *Queue) drain(ctx context.Context) {
 			if code == connect.CodePermissionDenied || code == connect.CodeInvalidArgument {
 				// Do not drop or confirm a refusal: central still lacks the report,
 				// and releasing the registry could let a mutation run twice.
-				attrs = append(attrs, slog.String("error.type", code.String()))
+				attrs = append(attrs, fsconv.ErrorTypeString(code.String()))
 				q.log.LogAttrs(ctx, slog.LevelError, "report permanently refused; keeping it", attrs...)
 			} else {
 				q.log.LogAttrs(ctx, slog.LevelDebug, "report not accepted; keeping it", attrs...)

@@ -92,6 +92,15 @@ Follow these naming rules:
   value in the signal's declared unit.
 - Treat names, keys, value enums, units, and histogram boundaries as an
   operational API. Changing one requires a telemetry-schema migration.
+- Take a key that more than one tree under `src/` emits, or one that names the
+  ambient tenant, from [`src/common/fsconv`](../../src/common/fsconv/README.md),
+  and add it there when a second tree starts emitting it. Two packages that
+  type the same literal agree only by accident. A key one package owns stays a
+  private constant beside its instrument.
+- Take the `error.type` value from `fsconv.ErrorTypeOf`, or from a local
+  wrapper over it where a package has its own bounded codes. Its vocabulary is
+  the `errs` code, `context.deadline_exceeded`, `context.canceled`, or
+  `_OTHER`, and never an error message or Go type.
 
 Trace IDs and span IDs are native LogRecord fields in OTLP. They may be flattened
 to `trace_id` and `span_id` in local JSON, but must not be copied into custom OTLP
@@ -124,7 +133,7 @@ logger.WarnContext(ctx, "module restart scheduled",
 	slog.String("flowseer.module.path", modulePath),
 	slog.Int("flowseer.module.restart_attempt", attempt),
 	slog.Int64("flowseer.module.restart_delay_ms", delay.Milliseconds()),
-	slog.String(string(semconv.ErrorTypeKey), classifyError(err)),
+	fsconv.ErrorType(err),
 )
 ```
 
@@ -172,11 +181,12 @@ The current `otelslog` bridge does not populate the native EventName field. A
 plain stable `slog` message therefore remains an ordinary LogRecord. Use a common
 Logs SDK processor that maps the stable `otel.event.name` bridge attribute to
 EventName, or use the Logs API directly. Do not build an ad hoc event adapter in
-each package.
+each package. Write the bridge attribute with `fsconv.EventName` and a failure's
+class with `fsconv.ErrorType`.
 
 ```go
 logger.InfoContext(ctx, "module restart scheduled",
-	slog.String("otel.event.name", "flowseer.module.restart.scheduled"),
+	fsconv.EventName("flowseer.module.restart.scheduled"),
 	slog.String("flowseer.module.path", modulePath),
 	slog.Int("flowseer.module.restart_attempt", attempt),
 )
@@ -254,18 +264,21 @@ facts under `flowseer.*`.
 Every span must end on every path. Leave status unset on success. On final
 failure, set Error status and add a bounded `error.type`. A recovered or retried
 failure does not fail the enclosing operation. Do not record the same exception
-as both a log event and a span exception event.
+as both a log event and a span exception event. `fsconv.SpanError` writes the
+status and the `error.type` pair. Pass it the error the caller receives, after
+any mapping to a protocol code. A site whose class comes from a local
+classifier sets the pair itself.
 
 ```go
-ctx, span := tracer.Start(ctx, "snmp.get",
+ctx, span := tracer.Start(ctx, "netconf.rpc",
 	trace.WithSpanKind(trace.SpanKindClient),
 )
 defer span.End()
 
-result, err := client.Get(ctx, oid)
+result, err := client.Do(ctx, request)
 if err != nil {
-	span.SetAttributes(semconv.ErrorTypeKey.String(classifyError(err)))
-	span.SetStatus(codes.Error, "request failed")
+	err = mapTransportError(err)
+	fsconv.SpanError(span, err, "request failed")
 	return Result{}, err
 }
 return result, nil

@@ -15,10 +15,10 @@ import (
 	identityv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/identity/v1"
 	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/fsconv"
 	"go.aledante.io/FlowSeer/src/common/tenant"
 	"go.aledante.io/FlowSeer/src/services/device/internal/authn"
 	"go.aledante.io/FlowSeer/src/services/device/internal/authz"
-	"go.aledante.io/FlowSeer/src/services/device/internal/telemetry"
 )
 
 // EdgeSource provides edge mappings.
@@ -587,7 +587,7 @@ func (p *Projector) Run(ctx context.Context) error {
 
 		_, err := p.Reconcile(ctx)
 		if err != nil {
-			p.log.ErrorContext(ctx, "relationship reconciliation pass failed", slog.String("error.type", telemetry.ErrorType(err)))
+			p.log.ErrorContext(ctx, "relationship reconciliation pass failed", fsconv.ErrorType(err))
 			nextWait = retryDelay
 			retryDelay *= 2
 			if retryDelay > p.interval {

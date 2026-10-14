@@ -18,6 +18,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	runtimev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/runtime/v1"
+	"go.aledante.io/FlowSeer/src/common/fsconv"
 )
 
 func TestServiceTelemetryScopesUseCurrentSemanticConvention(t *testing.T) {
@@ -130,7 +131,7 @@ func TestFailedRuntimeSpansIncludeErrorType(t *testing.T) {
 	_, lifecycle := startLifecycleSpan(context.Background(), tracer, "edge/worker", attemptSpanName, lifecycleActionStart)
 	endLifecycleSpan(lifecycle, lifecycleOutcomeError, deliveryError("edge/worker", "probe", errors.New("failure")))
 	_, delivery := tracer.Start(context.Background(), deliverySpanName)
-	recordSpanError(delivery, "message handler failed", errors.New("failure"))
+	fsconv.SpanError(delivery, errors.New("failure"), "message handler failed")
 	delivery.End()
 
 	for _, span := range recorder.Ended() {
@@ -141,6 +142,36 @@ func TestFailedRuntimeSpansIncludeErrorType(t *testing.T) {
 		if span.Status().Code != codes.Error {
 			t.Errorf("failed span %q status = %v, want error", span.Name(), span.Status().Code)
 		}
+	}
+}
+
+func TestLifecycleSpanErrorTypeClassifiesAttemptFailure(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want string
+	}{
+		{name: "coded", err: deliveryError("edge/worker", "probe", errors.New("failure")), want: "service/delivery"},
+		{name: "uncoded", err: errors.New("failure"), want: "_OTHER"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			recorder := tracetest.NewSpanRecorder()
+			provider := sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(recorder))
+			tracer := provider.Tracer("lifecycle-error-type-test")
+
+			_, span := startLifecycleSpan(context.Background(), tracer, "edge/worker", attemptSpanName, lifecycleActionStart)
+			endLifecycleSpan(span, lifecycleOutcomeError, tt.err)
+
+			ended := recorder.Ended()
+			if len(ended) != 1 {
+				t.Fatalf("ended spans = %d, want 1", len(ended))
+			}
+			got, ok := spanAttribute(ended[0], "error.type")
+			if !ok || got != tt.want {
+				t.Errorf("lifecycle span error.type = %q, %t; want %q", got, ok, tt.want)
+			}
+		})
 	}
 }
 

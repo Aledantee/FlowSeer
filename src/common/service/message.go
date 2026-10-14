@@ -26,6 +26,7 @@ import (
 
 	runtimev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/runtime/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/fsconv"
 )
 
 const (
@@ -130,7 +131,7 @@ func (b *MessageBus) Publish(ctx context.Context, payload proto.Message) (err er
 	ctx, span := b.startPublicationTrace(ctx, MessageKindEvent)
 	defer func() {
 		if err != nil {
-			recordSpanError(span, "event publication failed", err)
+			fsconv.SpanError(span, err, "event publication failed")
 		}
 		span.End()
 	}()
@@ -186,7 +187,7 @@ func (b *MessageBus) publishAddressed(ctx context.Context, kind runtimev1.Messag
 	ctx, span := b.startPublicationTrace(ctx, kind)
 	defer func() {
 		if err != nil {
-			recordSpanError(span, "message publication failed", err)
+			fsconv.SpanError(span, err, "message publication failed")
 		}
 		span.End()
 	}()

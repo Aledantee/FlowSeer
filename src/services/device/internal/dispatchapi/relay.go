@@ -13,9 +13,9 @@ import (
 	errsv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/errs/v1"
 	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/fsconv"
 	"go.aledante.io/FlowSeer/src/common/spawn"
 	"go.aledante.io/FlowSeer/src/services/device/internal/journal"
-	"go.aledante.io/FlowSeer/src/services/device/internal/telemetry"
 )
 
 // ErrCodeReadDeadline is the error an open read is closed with when its
@@ -50,7 +50,7 @@ func (s *Service) dispatchPass(ctx context.Context, edgeID string, out sender) e
 			if fatal {
 				return err // the stream is broken; owed stays in the record
 			}
-			s.log.WarnContext(ctx, "dispatch pass skipped a device", slog.String("flowseer.tenant.id", tenantID), slog.String("flowseer.device.id", deviceID), slog.String("error.type", telemetry.ErrorType(err)))
+			s.log.WarnContext(ctx, "dispatch pass skipped a device", fsconv.TenantID(tenantID), fsconv.DeviceID(deviceID), fsconv.ErrorType(err))
 		}
 	}
 	return nil
@@ -108,7 +108,7 @@ func (s *Service) rowToDispatch(ctx context.Context, deviceID string, rec *store
 	case journal.OwedRead:
 		exec, ok := readExecute(rec, owed.Sequence)
 		if !ok {
-			s.log.WarnContext(ctx, "owed read has no open entry", slog.String("flowseer.device.id", deviceID), slog.Uint64("flowseer.device.sequence", owed.Sequence))
+			s.log.WarnContext(ctx, "owed read has no open entry", fsconv.DeviceID(deviceID), fsconv.DeviceSequence(owed.Sequence))
 			return nil, false
 		}
 		resp.SetExecute(exec)
@@ -126,12 +126,12 @@ func (s *Service) mutationExecute(ctx context.Context, deviceID string, rec *sto
 	m := rec.GetMutation()
 	admitted := rec.GetAdmittedAt()
 	if admitted == nil {
-		s.log.WarnContext(ctx, "owed mutation has no admission time", slog.String("flowseer.device.id", deviceID), slog.Uint64("flowseer.device.sequence", owed.Sequence))
+		s.log.WarnContext(ctx, "owed mutation has no admission time", fsconv.DeviceID(deviceID), fsconv.DeviceSequence(owed.Sequence))
 		return nil, false
 	}
 	horizon, err := s.cfg.Resolver.Horizon(ctx, deviceID)
 	if err != nil {
-		s.log.WarnContext(ctx, "cannot dispatch mutation without a horizon", slog.String("flowseer.device.id", deviceID), slog.Uint64("flowseer.device.sequence", owed.Sequence), slog.String("error.type", telemetry.ErrorType(err)))
+		s.log.WarnContext(ctx, "cannot dispatch mutation without a horizon", fsconv.DeviceID(deviceID), fsconv.DeviceSequence(owed.Sequence), fsconv.ErrorType(err))
 		return nil, false
 	}
 	exec := &dispatchv1.ExecuteRequest{}
@@ -218,7 +218,7 @@ func (s *Service) sweepAll(ctx context.Context, bucket KeyLister) {
 	keys, err := bucket.Keys(ctx)
 	if err != nil {
 		if !errors.Is(err, jetstream.ErrNoKeysFound) {
-			s.log.WarnContext(ctx, "sweeper could not list devices", slog.String("error.type", telemetry.ErrorType(err)))
+			s.log.WarnContext(ctx, "sweeper could not list devices", fsconv.ErrorType(err))
 		}
 		return // an empty bucket is not an error worth logging every tick
 	}
@@ -227,17 +227,17 @@ func (s *Service) sweepAll(ctx context.Context, bucket KeyLister) {
 		if !ok {
 			if _, loaded := s.seenMalformedKeys.LoadOrStore(key, struct{}{}); loaded {
 				s.log.DebugContext(ctx, "sweeper skipped malformed lane key",
-					slog.String("otel.event.name", "flowseer.dispatch.malformed_lane_key"),
+					fsconv.EventName("flowseer.dispatch.malformed_lane_key"),
 					slog.String("flowseer.journal.lane_key", key))
 			} else {
 				s.log.WarnContext(ctx, "sweeper skipped malformed lane key",
-					slog.String("otel.event.name", "flowseer.dispatch.malformed_lane_key"),
+					fsconv.EventName("flowseer.dispatch.malformed_lane_key"),
 					slog.String("flowseer.journal.lane_key", key))
 			}
 			continue
 		}
 		if _, err := s.cfg.Journal.SweepExpiredReads(ctx, tenantID, deviceID, s.clock(), s.sweepError()); err != nil {
-			s.log.WarnContext(ctx, "sweeper could not close expired reads", slog.String("flowseer.tenant.id", tenantID), slog.String("flowseer.device.id", deviceID), slog.String("error.type", telemetry.ErrorType(err)))
+			s.log.WarnContext(ctx, "sweeper could not close expired reads", fsconv.TenantID(tenantID), fsconv.DeviceID(deviceID), fsconv.ErrorType(err))
 		}
 	}
 }
