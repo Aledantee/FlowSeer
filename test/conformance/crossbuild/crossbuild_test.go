@@ -28,8 +28,10 @@ var rootTargets = []string{
 	"./src/edge/simload/...",
 }
 
+const agentTarget = "./src/edge/agent/cmd/agent"
+
 // TestCrossBuild validates that platform-specific packages and nested modules
-// compile cleanly under FreeBSD across supported architectures and build tags.
+// compile cleanly and the agent binary links under FreeBSD for amd64 and arm64.
 func TestCrossBuild(t *testing.T) {
 	root := repoRoot(t)
 
@@ -68,6 +70,13 @@ func TestCrossBuild(t *testing.T) {
 			}
 		}
 	}
+
+	for _, arch := range architectures {
+		testName := fmt.Sprintf("build_agent_%s", arch)
+		t.Run(testName, func(t *testing.T) {
+			runBuild(t, root, arch, agentTarget)
+		})
+	}
 }
 
 func runVet(t *testing.T, dir, arch, tags string, targets []string) {
@@ -81,6 +90,19 @@ func runVet(t *testing.T, dir, arch, tags string, targets []string) {
 			t.Fatalf("go vet:\n%s", out)
 		}
 		t.Fatalf("go vet: %v", err)
+	}
+}
+
+func runBuild(t *testing.T, dir, arch, target string) {
+	t.Helper()
+
+	bin := filepath.Join(t.TempDir(), "agent")
+	out, err := goCommand(dir, arch, "", "build", []string{target}, "-o", bin).CombinedOutput()
+	if err != nil {
+		if len(out) > 0 {
+			t.Fatalf("go build:\n%s", out)
+		}
+		t.Fatalf("go build: %v", err)
 	}
 }
 
