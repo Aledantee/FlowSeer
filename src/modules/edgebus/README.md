@@ -33,9 +33,10 @@ per edge:
   `FLOWSEER_OPERATOR_ACTIONS`, `FLOWSEER_OPERATOR_READS`, one typed ingest
   stream per record type, and `FLOWSEER_INGEST_EVIDENCE`. The streams are
   written through central's own CENTRAL-account connection. Typed ingest is
-  bounded to 256 MiB and 72 hours by default. Raw evidence is bounded to 64 MiB
-  and 24 hours. Both ingest streams discard the oldest records first and
-  remember message ids for ten minutes. The `tenants` stream allows atomic
+  bounded to 256 MiB by default and has no age. A full typed stream refuses new
+  records and removes none. Raw evidence is bounded to 64 MiB and 24 hours and
+  discards its oldest records first. Both ingest streams remember message ids
+  for ten minutes. The `tenants` stream allows atomic
   batches so the tenant store writes a record and its organization index
   together. No edge credential is in this account, so neither a direct publish
   nor a reflected one from an edge can reach the journal.
@@ -98,35 +99,95 @@ than any forwarder outage.
 The CENTRAL account keeps one file-backed limits stream for each known ingest
 record type. `FLOWSEER_INGEST_SYSLOG` stores
 `flowseer.*.ingest.syslog.*`. `FLOWSEER_INGEST_EVIDENCE` stores
-`flowseer.*.evidence.>`. Both streams discard the oldest record at their byte
-or age limit and deduplicate a message id for up to ten minutes, capped by the
-stream's configured maximum age. The default typed stream limit is 256 MiB for
-72 hours. The default evidence limit is 64 MiB for 24 hours.
+`flowseer.*.evidence.>`. The evidence stream is a window of raw bytes kept for
+inspection. It discards its oldest record at its byte or age limit (64 MiB and
+24 hours by default) and deduplicates a message id for up to ten minutes,
+capped by its maximum age.
+
+### Typed ingest streams refuse instead of discarding
+
+A typed stream is accepted work. Its limits are the byte bound
+(`HubConfig.IngestMaxBytes`, 256 MiB by default), the discard-new policy, no
+maximum age, and a ten minute duplicate window. At the bound the server
+refuses the publication and stores nothing. `edgebus.IsStreamFull` tells that
+refusal (API error code 10077, `maximum bytes exceeded`) from another store
+failure. The hub applies these limits with an in-place stream update on every
+start, so a state directory that held a rolling stream keeps its records.
+
+The members of a typed stream are the durable consumers
+`edgebus.IngestConsumers(recordType)` names. For syslog that is `history_sink`
+alone: no filter, deliver all, explicit acknowledgement, unlimited deliveries,
+a two-minute acknowledgement wait, and 10,000 pending acknowledgements. The hub
+creates each member with `EnsureIngestConsumer` right after the stream and
+before intake can publish. `EnsureIngestConsumer` only creates. It returns a
+matching consumer, refuses a differing one with `ErrCodeCleanup`, and never
+updates one.
+
+`edgebus.CleanIngest` is the only code that removes a typed record. It purges
+below the lowest member acknowledgement floor plus one, so a record leaves the
+stream once every member acknowledged or terminated it. A record held by one
+sink keeps every later record on disk until it resolves, and the member's
+acknowledgement wait bounds how long a sink that died holds it. The pass runs
+only when the consumers on the stream are exactly the members, each with the
+member's name, filter, deliver policy, acknowledgement policy, and delivery
+limit. A missing, stray, or differing consumer returns `ErrCodeCleanup` and
+purges nothing. A floor of zero sends no request, since the client turns purge
+sequence 0 into a purge of every record. Two passes may run at once because
+each purges below a floor it read and floors only rise.
+
+`CleanReport` carries what the pass read: the floor, the first and last
+sequence, the stored bytes and their bound, the time of the first record, the
+pending count summed over the members, and whether a purge request succeeded.
+`Purged` is not a count of removed records.
+
+```mermaid
+flowchart LR
+    publish[intake publishes] -->|room| stored[stored in the typed stream]
+    publish -->|full| refused[refused, IsStreamFull]
+    stored --> resolved{every member resolved it?}
+    resolved -->|yes| purged[CleanIngest purges the prefix]
+    resolved -->|no| stored
+```
+
+A central host without a `history` section still provisions the member.
+Nothing resolves its syslog records, so the stream fills to its bound and
+intake is refused. Membership is closed in code, not per deployment.
+
+These operator requests remove a record nobody resolved, and nothing counts
+them: a purge or a message deletion sent by hand, a consumer reset to a higher
+sequence, a stream deletion, a member's configuration changed by hand, and a
+stream update that restores a maximum age or the discard-old policy. A member
+deleted and created again starts one below the stream's first sequence, so it
+is offered every stored record, and records its earlier incarnation resolved
+stay resolved.
 
 ### Sizing the ingest streams
 
 The defaults suit a test host, since the hub reserves each stream's byte bound
 against 75 percent of free disk. A deployment sets `ingest_streams` in the
-device service configuration (`max_age`, `max_bytes_per_type`,
-`central_budget_bytes`) from this formula:
+device service configuration (`max_bytes_per_type`, `central_budget_bytes`)
+from this formula:
 
 ```text
-max_bytes_per_type = stored_bytes_per_message x 60 x retention_hours
-                     x devices x messages_per_device_per_minute
+max_bytes_per_type = stored_bytes_per_message x fleet_records_per_second
+                     x (horizon + cleanup_interval)
+                     + stored_bytes_per_message x MaxAckPending
 ```
+
+`fleet_records_per_second` is the sum over every edge. The horizon is a
+capacity target: how long the history store may be down before the stream is
+full and intake is refused. It is not a retention, since nothing ages out.
+`MaxAckPending` is the member's 10,000. The last term covers the records a
+sink holds delivered but not yet acknowledged.
 
 `TestStoredBytesPerSyslogMessage` measures `stored_bytes_per_message` for a
 typical syslog record: a 341-byte envelope occupies 571 bytes in the stream.
-At the planning rate of one message per device per minute, 72 hours, and 1,000
-devices, a stream holds 571 x 60 x 72 x 1,000, about 2.3 GiB. The central
-budget must cover that stream plus the others, which `HubConfig.CentralStreamBytes`
-sums (the audit stream, both operator streams, one ingest stream per record
-type, and the evidence stream). The device service refuses a configuration
-whose budget is below it.
-
-The 72-hour retention is the window in which the history store may be down
-before the oldest records are lost. A stream that reaches its byte bound
-discards its oldest records sooner.
+At the planning rate of one message per device per minute, a 72-hour horizon,
+and 1,000 devices, the first term is 571 x (1,000 / 60) x 72 x 3,600, about
+2.3 GiB. The central budget must cover that stream plus the others, which
+`HubConfig.CentralStreamBytes` sums (the audit stream, both operator streams,
+one ingest stream per record type, and the evidence stream). The device
+service refuses a configuration whose budget is below it.
 
 A leaf without a distinct domain silently extends the hub's; `EdgeDomain` is
 the guard.

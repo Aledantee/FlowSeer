@@ -43,10 +43,18 @@ deduplication window is stored twice until a merge collapses it, and this
 returns it once before and after. The pair `(tenant_id, record_id)` keeps one
 tenant's repeat from hiding another tenant's record.
 
+Both scopes order by `ts DESC, tenant_id DESC, record_id DESC`, in the inner
+statement of a location read as well as the outer one. Two admitted tenants may
+hold one record id at one receive time, so the order and the keyset carry the
+tenant: a position of `(ts, record_id)` alone would skip the second tenant's row
+at the page boundary.
+
 A page fetches one row more than it returns. That row decides whether a next
 page exists. The page token is the base64 of the last returned row's receive
-time in milliseconds and record id, and the next page adds
-`(ts, record_id) < (token)`. A token is only valid against the same scope,
+time in milliseconds, tenant id, and record id, joined by dots, and the next
+page adds `(ts, tenant_id, record_id) < (token)`. A token whose tenant is not a
+canonical UUID or `default` (`tenant.Validate`) is refused with `ErrCodeBadToken`,
+like any other malformed token. A token is only valid against the same scope,
 window, and filter.
 
 A severity filter keeps `bitAnd(present, 1) = 1 AND severity <= n`, so a message

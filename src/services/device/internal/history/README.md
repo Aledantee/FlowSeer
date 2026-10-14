@@ -77,7 +77,7 @@ does not measure replication. Two conditions come from the server:
 
 | Table | Pattern | Key | Notes |
 | --- | --- | --- | --- |
-| `syslog` | events | `(tenant_id, device_id, ts, record_id)` | `ReplacingMergeTree`, weekly partitions per retention class, text index on `message`, `vendor_tag` derived from Cisco-style messages |
+| `syslog` | events | `(tenant_id, device_id, ts, record_id)` | `ReplacingMergeTree`, weekly partitions per retention class, text index on `message`, `vendor_tag` derived from Cisco-style messages, `non_replicated_deduplication_window` 1000 on a single node |
 | `syslog_by_location` | events, second ordering | `(tenant_id, location_id, ts, device_id, record_id)` | keys only, fed by a view |
 | `syslog_daily` | counts | `(tenant_id, device_id, severity, vendor_tag, day)` | `SummingMergeTree`, severity 255 means no priority |
 | `device_dim` | dimension | `(tenant_id, device_id)` | plain table, `ReplacingMergeTree(ver)`, joined at read time |
@@ -90,6 +90,13 @@ severity, 1 facility, 2 `sent_at`, 3 `source_ip`), since no column is Nullable.
 `retention_class` is the tenant's enum number, 1 short, 2 standard, 3 long, and
 leads every partition key so a part expires whole. Raw syslog rows live 90 days,
 1 year, and 3 years, and daily counts 2, 3, and 5 years.
+
+A retried insert carrying the batch's `insert_deduplication_token` is stored
+once while the server remembers the token. A plain `MergeTree` table remembers
+none unless `non_replicated_deduplication_window` is above its default of 0, so
+step 8 sets it to 1000 on a single node. A replicated table keeps its own
+`replicated_deduplication_window`, and step 8 renders to nothing on a cluster.
+The migrator records a blank statement with its step and does not execute it.
 
 A redelivered record is stored again past the insert deduplication window. The
 `ReplacingMergeTree` key collapses it at merge, so a read that lists or counts

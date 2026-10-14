@@ -111,7 +111,8 @@ const (
 
 // Result is one page.
 type Result struct {
-	// Entries are newest first by receive time, then by record id.
+	// Entries are newest first by receive time, then by tenant id, then by
+	// record id.
 	Entries []Entry
 	// NextCursor is empty on the last page.
 	NextCursor string
@@ -189,7 +190,7 @@ func (r *Reader) ListSyslog(ctx context.Context, q Query) (Result, error) {
 	if len(entries) > size {
 		result.Entries = entries[:size]
 		last := result.Entries[size-1]
-		result.NextCursor = encodeToken(cursor{ts: last.ReceivedAt, recordID: last.RecordID})
+		result.NextCursor = encodeToken(cursor{ts: last.ReceivedAt, tenantID: last.TenantID, recordID: last.RecordID})
 	}
 	return result, nil
 }
@@ -216,7 +217,7 @@ func classify(ctx context.Context, err error) error {
 
 // encodeToken is the opaque page token of a keyset position.
 func encodeToken(c cursor) string {
-	raw := strconv.FormatInt(c.ts.UnixMilli(), 10) + "." + c.recordID.String()
+	raw := strconv.FormatInt(c.ts.UnixMilli(), 10) + "." + c.tenantID + "." + c.recordID.String()
 	return base64.RawURLEncoding.EncodeToString([]byte(raw))
 }
 
@@ -226,11 +227,12 @@ func decodeToken(token string) (cursor, error) {
 	if err != nil {
 		return cursor{}, errs.From(err).Code(ErrCodeBadToken).Msg("page token is not valid")
 	}
-	millis, id, _ := strings.Cut(string(raw), ".")
+	millis, rest, _ := strings.Cut(string(raw), ".")
+	tenantID, id, _ := strings.Cut(rest, ".")
 	ms, convErr := strconv.ParseInt(millis, 10, 64)
 	record, idErr := uuid.Parse(id)
-	if convErr != nil || idErr != nil {
+	if convErr != nil || idErr != nil || tenant.Validate(tenantID) != nil {
 		return cursor{}, errs.New().Code(ErrCodeBadToken).Msg("page token is not valid")
 	}
-	return cursor{ts: time.UnixMilli(ms).UTC(), recordID: record}, nil
+	return cursor{ts: time.UnixMilli(ms).UTC(), tenantID: tenantID, recordID: record}, nil
 }

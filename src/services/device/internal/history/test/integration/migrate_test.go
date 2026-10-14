@@ -49,10 +49,13 @@ func TestMigrateBringsAnEmptyServerToTheCurrentSchemaAndASecondRunChangesNothing
 	if err != nil {
 		t.Fatalf("first migrate: %v", err)
 	}
-	if len(first) != 7 {
-		t.Fatalf("first run applied %d steps (%v), want 7", len(first), first)
+	if len(first) != 8 {
+		t.Fatalf("first run applied %d steps (%v), want 8", len(first), first)
 	}
 	before := showCreate(t, s, "flowseer")
+	if ddl := before["syslog"]; !strings.Contains(ddl, "non_replicated_deduplication_window = 1000") {
+		t.Errorf("single-node syslog table = %s, want non_replicated_deduplication_window = 1000", ddl)
+	}
 	beforeControl := showCreate(t, s, "flowseer_control")
 	wantTables := []string{"device_dim", "syslog", "syslog_by_location", "syslog_by_location_mv", "syslog_daily", "syslog_daily_mv"}
 	for _, name := range wantTables {
@@ -79,11 +82,11 @@ func TestMigrateBringsAnEmptyServerToTheCurrentSchemaAndASecondRunChangesNothing
 			t.Errorf("SHOW CREATE %s changed on the second run:\n got %s\nwant %s", name, got, ddl)
 		}
 	}
-	if got := s.Scalar(t, "SELECT toString(count()) FROM flowseer_control.schema_steps"); got != "7" {
-		t.Errorf("schema_steps rows after two runs = %s, want 7", got)
+	if got := s.Scalar(t, "SELECT toString(count()) FROM flowseer_control.schema_steps"); got != "8" {
+		t.Errorf("schema_steps rows after two runs = %s, want 8", got)
 	}
-	if got := s.Scalar(t, "SELECT toString(count(DISTINCT step)) FROM flowseer_control.schema_steps"); got != "7" {
-		t.Errorf("distinct steps recorded = %s, want 7", got)
+	if got := s.Scalar(t, "SELECT toString(count(DISTINCT step)) FROM flowseer_control.schema_steps"); got != "8" {
+		t.Errorf("distinct steps recorded = %s, want 8", got)
 	}
 }
 
@@ -91,8 +94,12 @@ func TestMigrateOnAClusterNodeCreatesReplicatedObjects(t *testing.T) {
 	s := historytest.Start(t, true)
 	store := s.Open(t)
 
-	if _, err := history.Migrate(context.Background(), store); err != nil {
+	first, err := history.Migrate(context.Background(), store)
+	if err != nil {
 		t.Fatalf("cluster migrate: %v", err)
+	}
+	if len(first) != 8 {
+		t.Fatalf("cluster run applied %d steps (%v), want 8", len(first), first)
 	}
 
 	if got := s.Scalar(t, "SELECT engine FROM system.databases WHERE name = 'flowseer'"); got != "Replicated" {
@@ -103,6 +110,9 @@ func TestMigrateOnAClusterNodeCreatesReplicatedObjects(t *testing.T) {
 		if !strings.HasPrefix(got, "Replicated") {
 			t.Errorf("engine of %s = %q, want a Replicated engine", table, got)
 		}
+	}
+	if ddl := s.Scalar(t, "SHOW CREATE TABLE flowseer.syslog"); strings.Contains(ddl, "non_replicated_deduplication_window") {
+		t.Errorf("cluster syslog table = %s, want no non-replicated window", ddl)
 	}
 	if got := s.Scalar(t, "SELECT toString(count()) FROM system.workloads WHERE name IN ('ingestion', 'monitoring', 'analytics')"); got != "3" {
 		t.Errorf("workloads on the cluster node = %s, want 3", got)

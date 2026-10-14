@@ -1,9 +1,13 @@
 package historysink
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
+	"slices"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -25,6 +29,7 @@ type fakeInserter struct {
 	mu     sync.Mutex
 	calls  [][]Row
 	tokens []string
+	stored []Row // the rows of every call that returned nil
 	fn     func(rows []Row, call int) error
 }
 
@@ -35,10 +40,28 @@ func (f *fakeInserter) Insert(_ context.Context, rows []Row, token string) error
 	call := len(f.calls)
 	fn := f.fn
 	f.mu.Unlock()
+	var err error
 	if fn != nil {
-		return fn(rows, call)
+		err = fn(rows, call)
 	}
-	return nil
+	if err == nil {
+		f.mu.Lock()
+		f.stored = append(f.stored, rows...)
+		f.mu.Unlock()
+	}
+	return err
+}
+
+// storedIDs returns the record ids of the rows the inserter accepted, sorted.
+func (f *fakeInserter) storedIDs() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	ids := make([]string, len(f.stored))
+	for i, row := range f.stored {
+		ids[i] = row.RecordID.String()
+	}
+	slices.Sort(ids)
+	return ids
 }
 
 func (f *fakeInserter) callCount() int {
@@ -83,6 +106,15 @@ func startHub(t *testing.T) *edgebus.Hub {
 // id differs per call, so a repeated record id is stored as a second message.
 func publish(t *testing.T, hub *edgebus.Hub, recordID, tenantID string) {
 	t.Helper()
+	if err := tryPublish(t, hub, recordID, tenantID); err != nil {
+		t.Fatalf("publish: %v", err)
+	}
+}
+
+// tryPublish is publish that returns the stream's answer, so a test can
+// assert that a full stream refuses the record.
+func tryPublish(t *testing.T, hub *edgebus.Hub, recordID, tenantID string) error {
+	t.Helper()
 	b := baseSyslog()
 	record := syslogEnvelope(b.Build())
 	record.SetRecordId(recordID)
@@ -91,9 +123,8 @@ func publish(t *testing.T, hub *edgebus.Hub, recordID, tenantID string) {
 		t.Fatalf("marshal: %v", err)
 	}
 	subject := edgebus.CentralIngestSubject(tenantID, edgebus.IngestRecordTypeSyslog, testDevice)
-	if _, err := hub.JetStream().Publish(context.Background(), subject, data, jetstream.WithMsgID(fmt.Sprintf("%s-%d", recordID, time.Now().UnixNano()))); err != nil {
-		t.Fatalf("publish: %v", err)
-	}
+	_, err = hub.JetStream().Publish(context.Background(), subject, data, jetstream.WithMsgID(fmt.Sprintf("%s-%d", recordID, time.Now().UnixNano())))
+	return err
 }
 
 func recordID(n int) string { return fmt.Sprintf("018f0000-0000-7000-8000-%012d", n) }
@@ -106,7 +137,9 @@ type running struct {
 	done   chan struct{}
 }
 
-func startSink(t *testing.T, hub *edgebus.Hub, cfg Config) *running {
+// bareSink starts a sink without its Run loop, so a test drives fetch,
+// process, and clean by hand.
+func bareSink(t *testing.T, hub *edgebus.Hub, cfg Config) *running {
 	t.Helper()
 	reader := sdkmetric.NewManualReader()
 	cfg.JetStream = hub.JetStream()
@@ -126,8 +159,15 @@ func startSink(t *testing.T, hub *edgebus.Hub, cfg Config) *running {
 	if err != nil {
 		t.Fatalf("start sink: %v", err)
 	}
+	return &running{hub: hub, sink: sink, reader: reader}
+}
+
+func startSink(t *testing.T, hub *edgebus.Hub, cfg Config) *running {
+	t.Helper()
+	r := bareSink(t, hub, cfg)
 	ctx, cancel := context.WithCancel(context.Background())
-	r := &running{hub: hub, sink: sink, reader: reader, cancel: cancel, done: make(chan struct{})}
+	r.cancel, r.done = cancel, make(chan struct{})
+	sink := r.sink
 	go func() {
 		defer close(r.done)
 		_ = sink.Run(ctx)
@@ -196,6 +236,63 @@ func counter(t *testing.T, r *running, name, key, value string) int64 {
 	return total
 }
 
+// fetchOffered fetches until the stream has offered n records, which may
+// take several calls while a negative acknowledgement's delay runs out.
+func fetchOffered(t *testing.T, sink *Sink, n int) []jetstream.Msg {
+	t.Helper()
+	var offered []jetstream.Msg
+	waitFor(t, fmt.Sprintf("%d records offered", n), func() bool {
+		msgs, err := sink.fetch()
+		if err != nil {
+			t.Fatalf("fetch: %v", err)
+		}
+		offered = append(offered, msgs...)
+		return len(offered) >= n
+	})
+	return offered
+}
+
+// bySequence orders messages by stream sequence. Redeliveries after two
+// negative acknowledgements arrive in the order their delays run out, which
+// is not the order of the records.
+func bySequence(t *testing.T, msgs []jetstream.Msg) []jetstream.Msg {
+	t.Helper()
+	seq := func(m jetstream.Msg) uint64 {
+		meta, err := m.Metadata()
+		if err != nil {
+			t.Fatalf("message metadata: %v", err)
+		}
+		return meta.Sequence.Stream
+	}
+	slices.SortFunc(msgs, func(a, b jetstream.Msg) int { return cmp.Compare(seq(a), seq(b)) })
+	return msgs
+}
+
+// syncBuffer is a log sink safe for the sink's goroutines.
+type syncBuffer struct {
+	mu  sync.Mutex
+	buf strings.Builder
+}
+
+func (b *syncBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Write(p)
+}
+
+func (b *syncBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.String()
+}
+
+func failOnce(call int) error {
+	if call == 1 {
+		return errs.From(errUnavailable).Retryable().Msg("send insert")
+	}
+	return nil
+}
+
 func TestNothingIsAcknowledgedBeforeTheInsertReturns(t *testing.T) {
 	hub := startHub(t)
 	entered := make(chan struct{})
@@ -256,6 +353,236 @@ func TestATransientErrorNaksTheBatchAndItIsInsertedOnceTheStoreReturns(t *testin
 	}
 	if got := counter(t, r, "flowseer.history.records.refused", "", ""); got != 0 {
 		t.Errorf("refused = %d, want 0: a transient error must not terminate a record", got)
+	}
+	if got := counter(t, r, "flowseer.history.records.redelivered", "", ""); got != 4 {
+		t.Errorf("redelivered = %d, want 4: each record came back once", got)
+	}
+	inserter.mu.Lock()
+	defer inserter.mu.Unlock()
+	if len(inserter.tokens) < 2 || inserter.tokens[1] != inserter.tokens[0] {
+		t.Errorf("tokens = %v, want the retry to carry the first attempt's token", inserter.tokens)
+	}
+	if len(inserter.calls) > 1 && len(inserter.calls[1]) != 4 {
+		t.Errorf("retry carried %d rows, want the 4 of the first attempt", len(inserter.calls[1]))
+	}
+}
+
+// Batch {1,2,3} fails after the store may have applied it, then records 4 and
+// 5 arrive. The five come back in one fetch, so a sink that did not keep the
+// batch would insert them as one block with a new token.
+func TestAnAmbiguousFailureRetriesItsBatchWithItsTokenAndNewRecordsFormTheirOwn(t *testing.T) {
+	hub := startHub(t)
+	inserter := &fakeInserter{fn: func(_ []Row, call int) error { return failOnce(call) }}
+	for n := 1; n <= 3; n++ {
+		publish(t, hub, recordID(n), testTenant)
+	}
+	r := bareSink(t, hub, Config{Inserter: inserter, RetryDelay: 200 * time.Millisecond})
+	ctx := context.Background()
+	r.sink.process(ctx, fetchOffered(t, r.sink, 3))
+	publish(t, hub, recordID(4), testTenant)
+	publish(t, hub, recordID(5), testTenant)
+
+	r.sink.process(ctx, fetchOffered(t, r.sink, 5))
+
+	inserter.mu.Lock()
+	defer inserter.mu.Unlock()
+	if len(inserter.calls) != 3 {
+		t.Fatalf("inserts = %d, want 3: the failed batch, the new pair, and the retained batch", len(inserter.calls))
+	}
+	byToken := map[string][]string{}
+	for i, call := range inserter.calls[1:] {
+		for _, row := range call {
+			byToken[inserter.tokens[i+1]] = append(byToken[inserter.tokens[i+1]], row.RecordID.String())
+		}
+	}
+	for _, ids := range byToken {
+		slices.Sort(ids)
+	}
+	if got := byToken[inserter.tokens[0]]; !slices.Equal(got, []string{recordID(1), recordID(2), recordID(3)}) {
+		t.Errorf("rows under the first attempt's token = %v, want records 1 to 3", got)
+	}
+	delete(byToken, inserter.tokens[0])
+	for token, ids := range byToken {
+		if !slices.Equal(ids, []string{recordID(4), recordID(5)}) {
+			t.Errorf("rows under token %q = %v, want records 4 and 5", token, ids)
+		}
+	}
+	if len(byToken) != 1 {
+		t.Errorf("tokens besides the first attempt's = %d, want 1 for the new pair", len(byToken))
+	}
+}
+
+// A peer sink takes record 2, so it never returns to this sink. The batch
+// holding record 1 waits for it until the deadline and then lets record 1 go.
+func TestARetainedBatchWhoseMemberNeverReturnsIsReleasedAtItsDeadline(t *testing.T) {
+	hub := startHub(t)
+	inserter := &fakeInserter{fn: func(_ []Row, call int) error { return failOnce(call) }}
+	publish(t, hub, recordID(1), testTenant)
+	publish(t, hub, recordID(2), testTenant)
+	r := bareSink(t, hub, Config{Inserter: inserter})
+	ctx := context.Background()
+	r.sink.process(ctx, fetchOffered(t, r.sink, 2))
+	returned := bySequence(t, fetchOffered(t, r.sink, 2))
+	if err := returned[1].Ack(); err != nil {
+		t.Fatalf("peer acknowledges record 2: %v", err)
+	}
+	r.sink.process(ctx, returned[:1])
+	if got := inserter.callCount(); got != 1 {
+		t.Fatalf("inserts while the batch waits = %d, want only the failed one", got)
+	}
+
+	r.sink.batches[0].deadline = time.Now().Add(-time.Second)
+	r.sink.settleRetained(ctx, time.Now())
+	r.sink.process(ctx, fetchOffered(t, r.sink, 1))
+
+	if got := inserter.storedIDs(); !slices.Equal(got, []string{recordID(1)}) {
+		t.Errorf("stored records = %v, want record 1 alone once its batch was released", got)
+	}
+	waitFor(t, "both records resolved", func() bool { return consumerInfo(t, r).AckFloor.Stream == 2 })
+}
+
+// The deadline a transient failure sets is twice the retry delay plus the
+// grace, counted from the moment the batch is retained.
+func TestAFailedInsertRetainsItsBatchForTwiceTheRetryDelayPlusTheGrace(t *testing.T) {
+	hub := startHub(t)
+	inserter := &fakeInserter{fn: func(_ []Row, call int) error { return failOnce(call) }}
+	publish(t, hub, recordID(1), testTenant)
+	r := bareSink(t, hub, Config{Inserter: inserter, RetryDelay: 200 * time.Millisecond})
+
+	before := time.Now()
+	r.sink.process(context.Background(), fetchOffered(t, r.sink, 1))
+	after := time.Now()
+
+	if len(r.sink.batches) != 1 {
+		t.Fatalf("held batches = %d, want 1", len(r.sink.batches))
+	}
+	wait := 2*r.sink.cfg.RetryDelay + retainGrace
+	if got := r.sink.batches[0].deadline; got.Before(before.Add(wait)) || got.After(after.Add(wait)) {
+		t.Errorf("deadline = %v, want between %v and %v", got, before.Add(wait), after.Add(wait))
+	}
+}
+
+// Record 1 comes back twice before record 2 returns. The batch inserts once,
+// when both are present, and acknowledges record 1 through its later delivery.
+func TestARetainedMemberDeliveredTwiceIsInsertedOnceAndAcknowledgedThroughTheLaterDelivery(t *testing.T) {
+	hub := startHub(t)
+	inserter := &fakeInserter{fn: func(_ []Row, call int) error { return failOnce(call) }}
+	publish(t, hub, recordID(1), testTenant)
+	publish(t, hub, recordID(2), testTenant)
+	r := bareSink(t, hub, Config{Inserter: inserter})
+	ctx := context.Background()
+	r.sink.process(ctx, fetchOffered(t, r.sink, 2))
+	second := fetchOffered(t, r.sink, 2)
+	r.sink.process(ctx, second[:1])
+	if err := second[0].NakWithDelay(r.sink.cfg.RetryDelay); err != nil {
+		t.Fatalf("nak the first delivery of record 1: %v", err)
+	}
+	third := fetchOffered(t, r.sink, 1)
+	r.sink.process(ctx, third)
+	if got := inserter.callCount(); got != 1 {
+		t.Fatalf("inserts before record 2 returned = %d, want only the failed one", got)
+	}
+
+	r.sink.process(ctx, second[1:])
+
+	if got := inserter.callCount(); got != 2 {
+		t.Errorf("inserts = %d, want 2: the failed attempt and one retry", got)
+	}
+	inserter.mu.Lock()
+	rows, sameToken := len(inserter.calls[len(inserter.calls)-1]), inserter.tokens[len(inserter.tokens)-1] == inserter.tokens[0]
+	inserter.mu.Unlock()
+	if rows != 2 || !sameToken {
+		t.Errorf("retry carried %d rows and the first token = %v, want 2 rows and the first token", rows, sameToken)
+	}
+	waitFor(t, "both records acknowledged", func() bool {
+		i := consumerInfo(t, r)
+		return i.NumAckPending == 0 && i.AckFloor.Stream == 2
+	})
+}
+
+// A consumer deleted while the sink is down is created again with the
+// member's config, starts at the first stored record, and is reported.
+func TestAMissingMemberIsCreatedAgainWithAWarningAndOffersEveryStoredRecord(t *testing.T) {
+	hub := startHub(t)
+	publish(t, hub, recordID(1), testTenant)
+	publish(t, hub, recordID(2), testTenant)
+	stream, err := hub.JetStream().Stream(context.Background(), edgebus.IngestStream(edgebus.IngestRecordTypeSyslog))
+	if err != nil {
+		t.Fatalf("stream: %v", err)
+	}
+	if err := stream.DeleteConsumer(context.Background(), consumerName); err != nil {
+		t.Fatalf("delete the member: %v", err)
+	}
+	var logs syncBuffer
+	logger := slog.New(slog.NewTextHandler(&logs, nil))
+
+	r := bareSink(t, hub, Config{Inserter: &fakeInserter{}, Logger: logger})
+
+	if got := len(fetchOffered(t, r.sink, 2)); got != 2 {
+		t.Errorf("records offered by the recreated member = %d, want both stored records", got)
+	}
+	cfg := consumerInfo(t, r).Config
+	if cfg.AckPolicy != jetstream.AckExplicitPolicy || cfg.MaxDeliver != -1 || cfg.AckWait != 2*time.Minute || cfg.MaxAckPending != 10000 || cfg.FilterSubject != "" {
+		t.Errorf("recreated member config = %+v, want the member's explicit-ack, unlimited-delivery, unfiltered config", cfg)
+	}
+	if out := logs.String(); !strings.Contains(out, "level=WARN") || !strings.Contains(out, "flowseer.history.reason=member") {
+		t.Errorf("log = %q, want a warning with reason member", out)
+	}
+}
+
+// A member changed by hand is not repaired, since cleanup trusts its config.
+// The sink keeps consuming, and every pass reports its failure.
+func TestADifferingMemberIsLeftAsItIsAndEveryCleanupPassFailsWithItsErrorType(t *testing.T) {
+	hub := startHub(t)
+	stream, err := hub.JetStream().Stream(context.Background(), edgebus.IngestStream(edgebus.IngestRecordTypeSyslog))
+	if err != nil {
+		t.Fatalf("stream: %v", err)
+	}
+	member, err := stream.Consumer(context.Background(), consumerName)
+	if err != nil {
+		t.Fatalf("member: %v", err)
+	}
+	cfg := member.CachedInfo().Config
+	cfg.FilterSubject = "flowseer." + testTenant + ".ingest.syslog.>"
+	if _, err := stream.UpdateConsumer(context.Background(), cfg); err != nil {
+		t.Fatalf("filter the member: %v", err)
+	}
+	r := bareSink(t, hub, Config{Inserter: &fakeInserter{}})
+
+	r.sink.clean(context.Background())
+	r.sink.clean(context.Background())
+
+	if got := consumerInfo(t, r).Config.FilterSubject; got != cfg.FilterSubject {
+		t.Errorf("member filter = %q, want %q: the sink must leave the member as it found it", got, cfg.FilterSubject)
+	}
+	if got := cleanupErrorTypes(t, r); got["cleanup"] != 2 || len(got) != 1 {
+		t.Errorf("cleanup passes by error type = %v, want two failures of type cleanup", got)
+	}
+}
+
+// Shutdown hands a held batch back without counting a retry. The member that
+// had returned is negatively acknowledged so the stream offers it again.
+func TestShutdownReleasesAHeldBatchWithoutCountingARetry(t *testing.T) {
+	hub := startHub(t)
+	inserter := &fakeInserter{fn: func(_ []Row, call int) error { return failOnce(call) }}
+	publish(t, hub, recordID(1), testTenant)
+	publish(t, hub, recordID(2), testTenant)
+	r := bareSink(t, hub, Config{Inserter: inserter})
+	ctx := context.Background()
+	r.sink.process(ctx, fetchOffered(t, r.sink, 2))
+	r.sink.process(ctx, fetchOffered(t, r.sink, 2)[:1])
+	retried := counter(t, r, "flowseer.history.records.retried", "", "")
+
+	r.sink.releaseRetained()
+
+	if len(r.sink.batches) != 0 || len(r.sink.retained) != 0 {
+		t.Errorf("held batches = %d and members = %d, want none", len(r.sink.batches), len(r.sink.retained))
+	}
+	if got := counter(t, r, "flowseer.history.records.retried", "", ""); got != retried {
+		t.Errorf("retried = %d after shutdown, want the %d counted before", got, retried)
+	}
+	if got := len(fetchOffered(t, r.sink, 1)); got != 1 {
+		t.Errorf("records offered after shutdown = %d, want the returned member", got)
 	}
 }
 
@@ -330,6 +657,39 @@ func TestATransientFailureOfTheFirstHalfNaksTheSecondHalfWithTheRetryDelay(t *te
 	}
 	if got := counter(t, r, "flowseer.history.records.inserted", "", ""); got != 4 {
 		t.Errorf("inserted = %d, want 4", got)
+	}
+}
+
+// Only the first half failed, so only it may be held. The second half was
+// never sent and returns as new records.
+func TestTheNeverSentSecondHalfOfARejectedBatchIsNotRetained(t *testing.T) {
+	hub := startHub(t)
+	inserter := &fakeInserter{fn: func(_ []Row, call int) error {
+		switch call {
+		case 1:
+			return errs.New().Code(ErrCodeRejected).Msg("send insert")
+		case 2:
+			return errs.From(errUnavailable).Retryable().Msg("send insert")
+		}
+		return nil
+	}}
+	for n := 1; n <= 4; n++ {
+		publish(t, hub, recordID(n), testTenant)
+	}
+	r := bareSink(t, hub, Config{Inserter: inserter})
+
+	r.sink.process(context.Background(), bySequence(t, fetchOffered(t, r.sink, 4)))
+
+	if len(r.sink.batches) != 1 || len(r.sink.batches[0].members) != 2 {
+		t.Fatalf("held batches = %d, want one batch of the first half", len(r.sink.batches))
+	}
+	var held []uint64
+	for sequence := range r.sink.retained {
+		held = append(held, sequence)
+	}
+	slices.Sort(held)
+	if !slices.Equal(held, []uint64{1, 2}) {
+		t.Errorf("retained sequences = %v, want [1 2]: the second half must not be held", held)
 	}
 }
 
@@ -453,38 +813,6 @@ func TestTheDeviceMirrorRunsAgainUntilItSucceeds(t *testing.T) {
 	defer mu.Unlock()
 	if attempts != 3 {
 		t.Errorf("mirror attempts = %d, want 3 and then no more", attempts)
-	}
-}
-
-func TestTheDiscardedGaugeCountsRecordsTheStreamRemovedBeforeTheyWereAcknowledged(t *testing.T) {
-	hub := startHub(t)
-	for n := 1; n <= 5; n++ {
-		publish(t, hub, recordID(n), testTenant)
-	}
-	stream, err := hub.JetStream().Stream(context.Background(), edgebus.IngestStream(edgebus.IngestRecordTypeSyslog))
-	if err != nil {
-		t.Fatalf("stream: %v", err)
-	}
-	sink, err := Start(context.Background(), Config{
-		JetStream: hub.JetStream(),
-		Inserter:  &fakeInserter{},
-		Retention: func(context.Context, string) (identityv1.RetentionClass, error) { return 2, nil },
-	})
-	if err != nil {
-		t.Fatalf("start: %v", err)
-	}
-	// A limit removes the oldest records the way an age or byte bound does,
-	// without moving the consumer's acknowledged floor as a purge would.
-	config := stream.CachedInfo().Config
-	config.MaxMsgs = 2
-	if _, err := hub.JetStream().UpdateStream(context.Background(), config); err != nil {
-		t.Fatalf("limit the stream: %v", err)
-	}
-
-	sink.pollDiscarded(context.Background())
-
-	if got := sink.metrics.discarded.Load(); got != 3 {
-		t.Errorf("discarded = %d, want 3: sequences 1 to 3 were removed before any acknowledgement", got)
 	}
 }
 

@@ -41,6 +41,10 @@ const (
 	reasonInvalid           = "invalid"
 	reasonForeignProvenance = "foreign_provenance"
 
+	reasonStreamFull    = "stream_full"
+	reasonPublishFailed = "publish_failed"
+	reasonUnknownEdge   = "unknown_edge"
+
 	refusalLogInterval = 10 * time.Second
 	refusalLogKey      = "refusal"
 	retryLogKey        = "retry"
@@ -86,6 +90,10 @@ type Intake struct {
 
 	mu         sync.Mutex // guards lastLogged
 	lastLogged map[string]time.Time
+
+	gateMu       sync.Mutex // guards retryAfter and retryCounted
+	retryAfter   map[string]time.Time
+	retryCounted map[string]map[string]bool
 }
 
 // Start starts intake for every attached edge stream and republishes valid
@@ -122,8 +130,10 @@ func Start(ctx context.Context, cfg Config) (*Intake, error) {
 	i := &Intake{
 		hub: cfg.Hub, central: cfg.Central, retryDelay: cfg.RetryDelay,
 		logger: logger, metrics: metrics,
-		validator:  func(msg proto.Message) error { return protovalidate.Validate(msg) },
-		lastLogged: map[string]time.Time{},
+		validator:    func(msg proto.Message) error { return protovalidate.Validate(msg) },
+		lastLogged:   map[string]time.Time{},
+		retryAfter:   map[string]time.Time{},
+		retryCounted: map[string]map[string]bool{},
 	}
 	follower, err := edgebus.FollowEdges(ctx, cfg.Hub, cfg.DiscoveryInterval, func(attachCtx, lifetime context.Context, edgeID string) (jetstream.ConsumeContext, error) {
 		return i.attach(attachCtx, lifetime, edgeID)
@@ -175,12 +185,12 @@ func (i *Intake) handle(ctx context.Context, edgeID string, msg jetstream.Msg) {
 	if !known {
 		// The hub has no tenant for the edge, which says nothing about the
 		// record, so it stays in the edge stream for a later delivery.
-		i.retry(ctx, msg, started)
+		i.retry(ctx, msg, started, reasonUnknownEdge)
 		return
 	}
 	publications, reason, retryType := prepare(tenantID, edgeID, msg.Subject(), msg.Data(), i.validator)
 	if retryType != "" {
-		i.retry(ctx, msg, started)
+		i.retry(ctx, msg, started, retryType)
 		i.logRetry(ctx, edgeID, msg.Subject(), retryType)
 		return
 	}
@@ -193,11 +203,19 @@ func (i *Intake) handle(ctx context.Context, edgeID string, msg jetstream.Msg) {
 	}
 
 	recordType := metric.WithAttributes(attribute.String("flowseer.intake.record_type", publications[0].recordType))
+	if i.gated(ctx, msg, started, publications[0]) {
+		return
+	}
 	duplicate := false
 	for _, item := range publications {
 		ack, err := i.central.Publish(ctx, item.subject, item.data, jetstream.WithMsgID(item.messageID))
 		if err != nil {
-			i.retry(ctx, msg, started)
+			reason := reasonPublishFailed
+			if !item.evidence && edgebus.IsStreamFull(err) {
+				reason = reasonStreamFull
+				i.closeGate(item)
+			}
+			i.retry(ctx, msg, started, reason)
 			return
 		}
 		if ack != nil && ack.Duplicate {
@@ -217,9 +235,46 @@ func (i *Intake) handle(ctx context.Context, edgeID string, msg jetstream.Msg) {
 	i.metrics.duration.Record(ctx, time.Since(started).Seconds())
 }
 
-func (i *Intake) retry(ctx context.Context, msg jetstream.Msg, started time.Time) {
+// gated negatively acknowledges a record whose type is inside the retry delay
+// that a full-stream refusal opened, and reports whether it did. The first
+// delivery of each message id in the delay counts one retry and later ones none.
+func (i *Intake) gated(ctx context.Context, msg jetstream.Msg, started time.Time, typed publication) bool {
+	i.gateMu.Lock()
+	if !time.Now().Before(i.retryAfter[typed.recordType]) {
+		delete(i.retryCounted, typed.recordType)
+		i.gateMu.Unlock()
+		return false
+	}
+	counted := i.retryCounted[typed.recordType][typed.messageID]
+	i.retryCounted[typed.recordType][typed.messageID] = true
+	i.gateMu.Unlock()
+	if counted {
+		_ = msg.NakWithDelay(i.retryDelay)
+		i.metrics.duration.Record(ctx, time.Since(started).Seconds())
+		return true
+	}
+	i.retry(ctx, msg, started, reasonStreamFull)
+	return true
+}
+
+// closeGate stops publishing the refused record's type for one retry delay.
+// The refusing delivery is counted by its own retry. A refusal inside a closed
+// gate, from a handler that passed gated before the gate closed, extends the
+// gate and keeps the ids already counted.
+func (i *Intake) closeGate(refused publication) {
+	i.gateMu.Lock()
+	defer i.gateMu.Unlock()
+	now := time.Now()
+	if !now.Before(i.retryAfter[refused.recordType]) || i.retryCounted[refused.recordType] == nil {
+		i.retryCounted[refused.recordType] = map[string]bool{}
+	}
+	i.retryCounted[refused.recordType][refused.messageID] = true
+	i.retryAfter[refused.recordType] = now.Add(i.retryDelay)
+}
+
+func (i *Intake) retry(ctx context.Context, msg jetstream.Msg, started time.Time, reason string) {
 	_ = msg.NakWithDelay(i.retryDelay)
-	i.metrics.retried.Add(ctx, 1)
+	i.metrics.retried.Add(ctx, 1, metric.WithAttributes(attribute.String("flowseer.intake.reason", reason)))
 	i.metrics.duration.Record(ctx, time.Since(started).Seconds())
 }
 
@@ -308,9 +363,8 @@ type publication struct {
 }
 
 // prepare checks and converts one edge delivery without depending on JetStream.
-// It returns the evidence publication first when raw bytes are attached, so a
-// redelivery after the typed publication fails is duplicate safe in both central
-// streams.
+// It returns the typed publication first, so a full typed stream refuses a
+// record before its evidence is stored and a retry never stores evidence again.
 func prepare(tenantID, edgeID, subject string, data []byte, validate func(proto.Message) error) ([]publication, string, string) {
 	if !strings.HasPrefix(subject, edgebus.EdgeSubtree(tenantID, edgeID)+".ingest.") {
 		return nil, reasonForeignSubject, ""
@@ -336,12 +390,12 @@ func prepare(tenantID, edgeID, subject string, data []byte, validate func(proto.
 	}
 	messageID := tenantID + "." + record.GetRecordId()
 	typed := data
-	publications := make([]publication, 0, 2)
+	var evidence *publication
 	if record.GetRaw() != nil {
-		publications = append(publications, publication{
+		evidence = &publication{
 			subject: edgebus.EvidenceSubject(tenantID, recordType, deviceID), data: data,
 			messageID: messageID, recordType: recordType, evidence: true,
-		})
+		}
 		withoutRaw := proto.Clone(record).(*ingestv1.IngestRecord)
 		withoutRaw.ClearRaw()
 		encoded, err := proto.Marshal(withoutRaw)
@@ -350,10 +404,14 @@ func prepare(tenantID, edgeID, subject string, data []byte, validate func(proto.
 		}
 		typed = encoded
 	}
+	publications := make([]publication, 0, 2)
 	publications = append(publications, publication{
 		subject: edgebus.CentralIngestSubject(tenantID, recordType, deviceID), data: typed,
 		messageID: messageID, recordType: recordType,
 	})
+	if evidence != nil {
+		publications = append(publications, *evidence)
+	}
 	return publications, "", ""
 }
 

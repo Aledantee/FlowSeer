@@ -304,6 +304,45 @@ func TestPagingWalksTheWindowNewestFirstWithoutRepeatsOrGaps(t *testing.T) {
 	}
 }
 
+func TestPagingTwoTenantsThatShareARecordIdAtOneTimeLosesNoRow(t *testing.T) {
+	e := start(t)
+	shared := uuid.New()
+	at := dayOne.Add(time.Hour)
+	e.insert(t,
+		syslogRow(tenantA1, device1, shared, at, 3, "from the first tenant"),
+		syslogRow(tenantA2, device1, shared, at, 3, "from the second tenant"),
+	)
+	var tenants []string
+	token := ""
+
+	for page := 1; ; page++ {
+		req := deviceRequest(dayOne, dayOne.Add(24*time.Hour), tenantA1+","+tenantA2)
+		req.Msg.SetPageSize(1)
+		if token != "" {
+			req.Msg.SetPageToken(token)
+		}
+		resp, err := e.client.ListSyslogRecords(context.Background(), req)
+		if err != nil {
+			t.Fatalf("page %d: %v", page, err)
+		}
+		if n := len(resp.Msg.GetEntries()); n != 1 {
+			t.Fatalf("page %d holds %d entries, want 1", page, n)
+		}
+		tenants = append(tenants, resp.Msg.GetEntries()[0].GetTenant().GetId())
+		if !resp.Msg.HasNextPageToken() {
+			break
+		}
+		token = resp.Msg.GetNextPageToken()
+		if page > 3 {
+			t.Fatal("the walk never ended")
+		}
+	}
+
+	if len(tenants) != 2 || tenants[0] != tenantA2 || tenants[1] != tenantA1 {
+		t.Errorf("tenants by page = %v, want [%s %s]: one row each, the larger tenant id first", tenants, tenantA2, tenantA1)
+	}
+}
+
 func TestAMinimumSeverityKeepsOnlyRecordsAtThatSeverityOrWorse(t *testing.T) {
 	e := start(t)
 	var rows []historysink.Row

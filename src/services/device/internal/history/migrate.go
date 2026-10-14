@@ -55,6 +55,9 @@ type executor interface {
 // that schema_steps does not record, in order, and records it. A second run
 // applies nothing.
 //
+// A statement that renders to blank text is recorded with its step and not
+// executed, which lets a step apply to one deployment form only.
+//
 // It stops at the first failing step and leaves it unrecorded, so the next run
 // starts there: every statement of a step is idempotent. It returns
 // [ErrCodeNewerSchema] when schema_steps holds a step number above the last
@@ -112,6 +115,9 @@ func migrate(ctx context.Context, ex executor, data templateData, bootstrap, use
 			stmt, err := render(tmpl, data)
 			if err != nil {
 				return done, errs.From(err).Attr("step", st.number).Attr("name", st.name).Msg("render step")
+			}
+			if strings.TrimSpace(stmt) == "" {
+				continue
 			}
 			if err := ex.exec(ctx, stmt); err != nil {
 				return done, errs.From(err).Code(ErrCodeMigrate).Attr("step", st.number).Attr("name", st.name).Msg("apply step")

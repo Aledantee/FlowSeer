@@ -14,6 +14,7 @@ import (
 
 	"go.aledante.io/FlowSeer/src/services/device/internal/history"
 	"go.aledante.io/FlowSeer/src/services/device/internal/history/historytest"
+	"go.aledante.io/FlowSeer/src/services/device/internal/historysink"
 )
 
 // migrated starts a single-node server and brings it to the current schema.
@@ -314,5 +315,47 @@ func TestMirrorDevicesKeepsTheNewestRowOfADevice(t *testing.T) {
 	}
 	if got := s.Scalar(t, "SELECT toString(count()) FROM flowseer.device_dim FINAL WHERE tenant_id = '"+tenantID+"'"); got != "2" {
 		t.Errorf("devices mirrored = %s, want 2", got)
+	}
+}
+
+func TestARetryWithTheBatchTokenIsStoredOnceOnASingleNode(t *testing.T) {
+	s, store := migrated(t)
+	inserter := historysink.NewInserter(store.Writer(), "flowseer")
+	ctx := context.Background()
+	rows := func(n int) []historysink.Row {
+		out := make([]historysink.Row, n)
+		for i := range out {
+			out[i] = historysink.Row{
+				TenantID:       "t1",
+				DeviceID:       uuid.MustParse("00000000-0000-7000-8000-0000000000d1"),
+				ReceivedAt:     time.Date(2026, 10, 2, 10, 0, 0, 0, time.UTC),
+				RecordID:       uuid.New(),
+				Present:        3,
+				Message:        "%LINK-3-UPDOWN: Interface Gi1/0/1, changed state to down",
+				RetentionClass: 2,
+			}
+		}
+		return out
+	}
+	count := func() string {
+		return s.Scalar(t, "SELECT toString(count()) FROM flowseer.syslog")
+	}
+
+	batch := rows(2)
+	if err := inserter.Insert(ctx, batch, "T"); err != nil {
+		t.Fatalf("first insert: %v", err)
+	}
+	if err := inserter.Insert(ctx, batch, "T"); err != nil {
+		t.Fatalf("retry with the same token: %v", err)
+	}
+	if got := count(); got != "2" {
+		t.Errorf("rows after a retry with token T = %s, want 2", got)
+	}
+
+	if err := inserter.Insert(ctx, rows(2), "T2"); err != nil {
+		t.Fatalf("insert with a new token: %v", err)
+	}
+	if got := count(); got != "4" {
+		t.Errorf("rows after a new token = %s, want 4", got)
 	}
 }

@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"slices"
 	"strings"
@@ -605,7 +606,7 @@ func TestWindowEvidenceKeepsItsRefsAndTheTypedRecordKeepsNone(t *testing.T) {
 	}
 }
 
-func TestTypedPublishFailureAfterEvidenceRedelivers(t *testing.T) {
+func TestTypedPublishFailureBeforeEvidenceRedelivers(t *testing.T) {
 	publisher := &controlledPublisher{failTyped: 1}
 	system := newTestSystem(t, Config{Central: publisher})
 	_, data := validEnvelope(t, testEdge, testDevice, testRecordID, true)
@@ -630,8 +631,13 @@ func TestTypedPublishFailureAfterEvidenceRedelivers(t *testing.T) {
 	if got.GetRaw() != nil {
 		t.Fatal("typed record retained raw evidence after redelivery")
 	}
-	if publisher.callCount() != 4 {
-		t.Fatalf("publish calls = %d, want evidence, failed typed, evidence retry, typed retry", publisher.callCount())
+	if publisher.callCount() != 3 {
+		t.Fatalf("publish calls = %d, want failed typed, typed retry, evidence", publisher.callCount())
+	}
+	publisher.mu.Lock()
+	defer publisher.mu.Unlock()
+	if len(publisher.subjects) != 3 || strings.Contains(publisher.subjects[0], ".evidence.") || strings.Contains(publisher.subjects[1], ".evidence.") || !strings.Contains(publisher.subjects[2], ".evidence.") {
+		t.Fatalf("publication order = %v, want failed typed, typed, evidence", publisher.subjects)
 	}
 }
 
@@ -906,11 +912,14 @@ type controlledPublisher struct {
 	failTyped    int
 	loseFirstAck bool
 	calls        int
+	failEvidence int
+	subjects     []string
 }
 
 func (p *controlledPublisher) Publish(ctx context.Context, subject string, payload []byte, opts ...jetstream.PublishOpt) (*jetstream.PubAck, error) {
 	p.mu.Lock()
 	p.calls++
+	p.subjects = append(p.subjects, subject)
 	call := p.calls
 	if p.failAll > 0 {
 		p.failAll--
@@ -921,6 +930,11 @@ func (p *controlledPublisher) Publish(ctx context.Context, subject string, paylo
 		p.failTyped--
 		p.mu.Unlock()
 		return nil, errors.New("injected typed publish failure")
+	}
+	if p.failEvidence > 0 && strings.Contains(subject, ".evidence.") {
+		p.failEvidence--
+		p.mu.Unlock()
+		return nil, errors.New("injected evidence publish failure")
 	}
 	p.mu.Unlock()
 	ack, err := p.publisher.Publish(ctx, subject, payload, opts...)
@@ -983,6 +997,240 @@ func (p *controlledPublisher) callCount() int {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	return p.calls
+}
+
+func TestFullTypedStreamRetriesWithoutEvidenceAndReopensAfterCleanup(t *testing.T) {
+	ctx := context.Background()
+	reader := sdkmetric.NewManualReader()
+	publisher := &controlledPublisher{}
+	system := newTestSystem(t, Config{Central: publisher, RetryDelay: 40 * time.Millisecond, MeterProvider: sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))})
+	typed, evidence := centralStreams(t, system.hub)
+	_, held := validEnvelope(t, testEdge, testDevice, testRecordID, false)
+	heldSubject := edgebus.CentralIngestSubject(testTenant, edgebus.IngestRecordTypeSyslog, testDevice)
+	stored, err := system.hub.JetStream().Publish(ctx, heldSubject, held, jetstream.WithMsgID(testTenant+"."+testRecordID))
+	if err != nil {
+		t.Fatalf("store held record: %v", err)
+	}
+	info, err := typed.Info(ctx)
+	if err != nil {
+		t.Fatalf("typed stream info: %v", err)
+	}
+	cfg := info.Config
+	cfg.MaxBytes = int64(info.State.Bytes)
+	if _, err := system.hub.JetStream().UpdateStream(ctx, cfg); err != nil {
+		t.Fatalf("bound typed stream to its content: %v", err)
+	}
+	_, data := validEnvelope(t, testEdge, testDevice, otherRecordID, true)
+	msg := &fakeMsg{subject: edgebus.IngestSubject(testTenant, testEdge, "syslog"), data: data}
+	for attempt := 1; attempt <= 3; attempt++ {
+		system.intake.handle(ctx, testEdge, msg)
+		if msg.acked || msg.nakDelay != 40*time.Millisecond {
+			t.Fatalf("attempt %d: acked=%v nak delay=%v, want a nak with the retry delay", attempt, msg.acked, msg.nakDelay)
+		}
+		if got := metricValue(t, reader, "flowseer.intake.records.retried", "flowseer.intake.reason", "stream_full"); got != int64(attempt) {
+			t.Fatalf("attempt %d: stream_full retries = %d, want %d", attempt, got, attempt)
+		}
+		before := publisher.callCount()
+		system.intake.handle(ctx, testEdge, msg)
+		if publisher.callCount() != before {
+			t.Fatalf("attempt %d: a delivery inside the delay published", attempt)
+		}
+		evidenceInfo, err := evidence.Info(ctx)
+		if err != nil {
+			t.Fatalf("evidence stream info: %v", err)
+		}
+		if evidenceInfo.State.Msgs != 0 {
+			t.Fatalf("attempt %d: evidence messages = %d, want 0", attempt, evidenceInfo.State.Msgs)
+		}
+		if attempt == 1 {
+			ack, err := system.hub.JetStream().Publish(ctx, heldSubject, held, jetstream.WithMsgID(testTenant+"."+testRecordID))
+			if err != nil || !ack.Duplicate || ack.Sequence != stored.Sequence {
+				t.Fatalf("duplicate success = %+v, %v, want a duplicate of sequence %d", ack, err, stored.Sequence)
+			}
+			system.intake.handle(ctx, testEdge, msg)
+			if msg.acked || publisher.callCount() != before {
+				t.Fatal("a duplicate acknowledgement reopened the gate")
+			}
+		}
+		time.Sleep(45 * time.Millisecond)
+	}
+	consumer, err := typed.Consumer(ctx, "history_sink")
+	if err != nil {
+		t.Fatalf("load member consumer: %v", err)
+	}
+	held1, err := consumer.Next(jetstream.FetchMaxWait(time.Second))
+	if err != nil {
+		t.Fatalf("fetch held record: %v", err)
+	}
+	if err := held1.DoubleAck(ctx); err != nil {
+		t.Fatalf("resolve held record: %v", err)
+	}
+	if _, err := edgebus.CleanIngest(ctx, system.hub.JetStream(), edgebus.IngestRecordTypeSyslog); err != nil {
+		t.Fatalf("clean typed stream: %v", err)
+	}
+	system.intake.handle(ctx, testEdge, msg)
+	if !msg.acked {
+		t.Fatal("the refused record was not republished after cleanup")
+	}
+	evidenceInfo, err := evidence.Info(ctx)
+	if err != nil {
+		t.Fatalf("evidence stream info: %v", err)
+	}
+	if evidenceInfo.State.Msgs != 1 {
+		t.Fatalf("evidence messages = %d, want 1", evidenceInfo.State.Msgs)
+	}
+	if got := metricValue(t, reader, "flowseer.intake.records.retried", "flowseer.intake.reason", "stream_full"); got != 3 {
+		t.Fatalf("stream_full retries = %d, want 3", got)
+	}
+}
+
+func TestRefusalInsideClosedGateKeepsCountedIds(t *testing.T) {
+	ctx := context.Background()
+	reader := sdkmetric.NewManualReader()
+	system := newTestSystem(t, Config{Central: &controlledPublisher{}, RetryDelay: time.Minute, MeterProvider: sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))})
+	first := publication{messageID: testTenant + "." + testRecordID, recordType: edgebus.IngestRecordTypeSyslog}
+	second := publication{messageID: testTenant + "." + otherRecordID, recordType: edgebus.IngestRecordTypeSyslog}
+	// Two handlers that both passed the open gate refuse one after the other.
+	system.intake.closeGate(first)
+	system.intake.closeGate(second)
+
+	_, data := validEnvelope(t, testEdge, testDevice, testRecordID, false)
+	msg := &fakeMsg{subject: edgebus.IngestSubject(testTenant, testEdge, "syslog"), data: data}
+	system.intake.handle(ctx, testEdge, msg)
+	if msg.acked || msg.nakDelay != time.Minute {
+		t.Fatalf("acked=%v nak delay=%v, want a nak with the retry delay", msg.acked, msg.nakDelay)
+	}
+	if got := metricValue(t, reader, "flowseer.intake.records.retried", "flowseer.intake.reason", "stream_full"); got != 0 {
+		t.Fatalf("stream_full retries = %d, want 0 for an id already counted in the closed gate", got)
+	}
+}
+
+// gateRaceMsg is one intake delivery of a record for the syslog stream.
+func gateRaceMsg(t *testing.T, recordID string) *fakeMsg {
+	t.Helper()
+	_, data := validEnvelope(t, testEdge, testDevice, recordID, false)
+	return &fakeMsg{subject: edgebus.IngestSubject(testTenant, testEdge, "syslog"), data: data}
+}
+
+// scriptedPublisher holds its first publish until released and then reports a
+// duplicate, and refuses its second with a full-stream error. Later publishes
+// succeed and are counted.
+type scriptedPublisher struct {
+	mu      sync.Mutex
+	calls   int
+	started chan struct{}
+	release chan struct{}
+}
+
+func (p *scriptedPublisher) Publish(ctx context.Context, _ string, _ []byte, _ ...jetstream.PublishOpt) (*jetstream.PubAck, error) {
+	p.mu.Lock()
+	p.calls++
+	call := p.calls
+	p.mu.Unlock()
+	switch call {
+	case 1:
+		close(p.started)
+		select {
+		case <-p.release:
+			return &jetstream.PubAck{Duplicate: true}, nil
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	case 2:
+		return nil, fmt.Errorf("nats: %w", &jetstream.APIError{Code: 400, ErrorCode: 10077, Description: "maximum bytes exceeded"})
+	}
+	return &jetstream.PubAck{}, nil
+}
+
+func (p *scriptedPublisher) callCount() int {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.calls
+}
+
+func TestDuplicateAckFromEarlierHandlerKeepsGateClosed(t *testing.T) {
+	ctx := context.Background()
+	publisher := &scriptedPublisher{started: make(chan struct{}), release: make(chan struct{})}
+	system := newTestSystem(t, Config{Central: publisher, RetryDelay: time.Minute})
+
+	// The first handler passes the open gate and holds its publish.
+	first := gateRaceMsg(t, testRecordID)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		system.intake.handle(ctx, testEdge, first)
+	}()
+	<-publisher.started
+
+	// A second handler is refused as full and closes the gate.
+	second := gateRaceMsg(t, otherRecordID)
+	system.intake.handle(ctx, testEdge, second)
+	if second.acked || second.nakDelay != time.Minute {
+		t.Fatalf("refused delivery: acked=%v nak delay=%v, want a nak with the retry delay", second.acked, second.nakDelay)
+	}
+
+	// The first handler now gets its duplicate acknowledgement inside the closed gate.
+	close(publisher.release)
+	<-done
+	if !first.acked {
+		t.Fatal("the delivery with a duplicate acknowledgement was not acknowledged")
+	}
+
+	third := gateRaceMsg(t, testRecordID)
+	system.intake.handle(ctx, testEdge, third)
+	if third.acked || third.nakDelay != time.Minute {
+		t.Fatalf("delivery inside the delay: acked=%v nak delay=%v, want a nak with the retry delay", third.acked, third.nakDelay)
+	}
+	if got := publisher.callCount(); got != 2 {
+		t.Fatalf("publishes = %d, want 2: a duplicate acknowledgement reopened the gate", got)
+	}
+}
+
+func TestEvidenceFailureAfterStoredTypedRedeliversOnce(t *testing.T) {
+	ctx := context.Background()
+	publisher := &controlledPublisher{failEvidence: 1}
+	system := newTestSystem(t, Config{Central: publisher})
+	_, data := validEnvelope(t, testEdge, testDevice, testRecordID, true)
+	msg := &fakeMsg{subject: edgebus.IngestSubject(testTenant, testEdge, "syslog"), data: data}
+	system.intake.handle(ctx, testEdge, msg)
+	if msg.acked || msg.nakDelay == 0 {
+		t.Fatal("an evidence failure did not retry")
+	}
+	typed, evidence := centralStreams(t, system.hub)
+	info, err := typed.Info(ctx)
+	if err != nil {
+		t.Fatalf("typed stream info: %v", err)
+	}
+	if info.State.Msgs != 1 {
+		t.Fatalf("typed messages before the retry = %d, want 1", info.State.Msgs)
+	}
+	system.intake.handle(ctx, testEdge, msg)
+	if !msg.acked {
+		t.Fatal("the evidence retry was not acknowledged")
+	}
+	for _, stream := range []jetstream.Stream{typed, evidence} {
+		info, err := stream.Info(ctx)
+		if err != nil {
+			t.Fatalf("stream info: %v", err)
+		}
+		if info.State.Msgs != 1 {
+			t.Fatalf("%s messages = %d, want 1", info.Config.Name, info.State.Msgs)
+		}
+	}
+}
+
+func TestPublishFailureCarriesRetryReason(t *testing.T) {
+	reader := sdkmetric.NewManualReader()
+	publisher := &controlledPublisher{failAll: 1}
+	system := newTestSystem(t, Config{Central: publisher, MeterProvider: sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))})
+	_, data := validEnvelope(t, testEdge, testDevice, testRecordID, false)
+	system.intake.handle(context.Background(), testEdge, &fakeMsg{subject: edgebus.IngestSubject(testTenant, testEdge, "syslog"), data: data})
+	if got := metricValue(t, reader, "flowseer.intake.records.retried", "flowseer.intake.reason", "publish_failed"); got != 1 {
+		t.Fatalf("publish_failed retries = %d, want 1", got)
+	}
+	if got := metricValue(t, reader, "flowseer.intake.records.retried", "flowseer.intake.reason", "stream_full"); got != 0 {
+		t.Fatalf("stream_full retries = %d, want 0", got)
+	}
 }
 
 func metricValue(t *testing.T, reader *sdkmetric.ManualReader, name, key, value string) int64 {

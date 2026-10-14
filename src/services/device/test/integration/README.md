@@ -64,8 +64,11 @@ and has three steps:
 3. `docker pause` freezes the ClickHouse container for 60 seconds, so the mapped
    port stays open and an insert hangs instead of being refused. The test sends
    1,000 records during the pause, checks that the sink's consumer acknowledged
-   none of them and that `ReadInterface` still answers, then unpauses and waits
-   for 1,000 distinct record ids in `syslog`.
+   none of them, that the typed stream is discard-new with no age and still
+   holds every unresolved record, and that `ReadInterface` still answers. It
+   then unpauses and waits for 1,000 distinct record ids in `syslog`, pages
+   `ListSyslogRecords` at page size 100 and checks that each record appears
+   once, and waits for the sink's cleanup pass to leave the stream empty.
 
 UDP drops what the receiving agent cannot keep up with, so the test sends in
 batches of 25 and waits for each batch to reach central's ingest stream. A
