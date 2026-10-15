@@ -44,9 +44,15 @@ emitted" error would only report what the compiler now enforces.
 
 Every command takes the global flags `-i`, `-w`, `--json`, `--rate`,
 `--timeout`, `--td-budget`, `--max-impact` (default `temporary`), and
-`--observe` (default `3s`), plus the target flags the check reads. A host
-flag takes `<ip>` or `<ip>,<mac>`; an address flag an IP; a network flag
-CIDR notation; `--group`, `--vrid`, and the VLAN flags a number.
+`--observe` (default `3s`), plus the target flags the check reads. Each
+flag is typed by family: `--victim` and `--gateway` take an IPv4 host as
+`<ip>` or `<ip>,<mac>`, `--victim6` and `--server6` an IPv6 host in the
+same form, `--vip`, `--router-id`, and `--offer-ip` an IPv4 address,
+`--route4` and `--sweep-net` an IPv4 network and `--prefix6` an IPv6
+network in CIDR form, the VLAN flags an id from 1 to 4094, `--vrid` 1 to
+255, and `--group` 0 and up. A value of the other family is refused at
+the flag with the form it wants. A check that frames to a host, such as
+`arpspoof`, needs the `<ip>,<mac>` form of its host flags.
 
 ```sh
 sudo netpen arpspoof -i eth0 --json=true \
@@ -54,10 +60,14 @@ sudo netpen arpspoof -i eth0 --json=true \
   --gateway 172.16.0.1,00:aa:bb:cc:dd:fe
 ```
 
-The run prints one JSONL record per line: the meta header, the decay
-announcement, the finding, the verdict, and the summary. The same command
-without the two target flags exits 2 after a skipped verdict that names
-`victim` and `gateway`.
+The run prints one JSONL record per line: the meta header, the finding,
+the verdict, and the summary. The same command without the two target
+flags exits 2 after a skipped verdict whose detail reads
+`the check needs: --victim <ip>,<mac>, --gateway <ip>,<mac>`: the four
+fields the check reads, the two addresses and the two MACs, rendered as
+the two flags that supply them. The command with the addresses but
+without the MACs reports the same two flags, since each flag carries both
+parts.
 
 A permanent mode runs only with both the ceiling raised and the pair
 acknowledged:
