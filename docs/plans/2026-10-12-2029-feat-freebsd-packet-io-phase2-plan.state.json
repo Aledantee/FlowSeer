@@ -2,7 +2,7 @@
   "contract": "flowseer-plan-state/v1",
   "status": "implemented",
   "readiness": "implementation-ready",
-  "review": null,
+  "review": "fixes needed",
   "review_rounds": 0,
   "compound": null,
   "outcome": {
