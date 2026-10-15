@@ -110,7 +110,17 @@ store._event = die
 store.ingest({"update_id": 99, "kind": "new_task", "sender_id": 7,
               "chat_id": 11, "thread_id": 9, "brief": "Uncommitted"})
 """
-        result = subprocess.run([sys.executable, "-c", code, str(self.config_path)], env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"}, capture_output=True, text=True, timeout=10)
+        result = subprocess.run(
+            [sys.executable, "-c", code, str(self.config_path)],
+            env={
+                **os.environ,
+                "PYTHONPATH": str(Path(__file__).resolve().parents[2]),
+                "PYTHONDONTWRITEBYTECODE": "1",
+            },
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
         self.assertEqual(result.returncode, 23, result.stderr)
         self.assertEqual(len(self.rows("tasks")), 1)
         self.assertEqual(self.rows("inbound"), [])
