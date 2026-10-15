@@ -1,9 +1,8 @@
-// vlanhop.go implements the VLAN hopping attack. Like doubletag, it uses
-// QinQ double-tagging, but it is classified temporary-restored: the attack
-// arms an active restore step that clears the host-side 802.1Q interface
-// configuration. The --persist mode is permanent-destructive (it requires
-// the per-run opt-in): it skips the restore, leaving the host-side VLAN
-// interface in place.
+// vlanhop.go implements the VLAN hopping check. It sends the same QinQ
+// frame as doubletag. The base entry is impact temporary, restore active,
+// affects device: it arms a host-side VLAN interface restore step that does
+// no host work. The persist mode is impact permanent with no restore and
+// runs only with the per-run acknowledgment.
 
 package l2
 
@@ -24,7 +23,7 @@ type vlanHopFinding struct {
 
 // RunVlanHop sends one QinQ frame tagged with the target's outer and inner
 // VLANs and, on the base entry, arms a host-side VLAN interface restore
-// step that does no host work yet. The persist mode is permanent and arms
+// step that does no host work. The persist mode is permanent and arms
 // nothing. The verdict is pending: whether the frame reached the inner VLAN
 // needs a watch leg there, which it does not have.
 func RunVlanHop(ctx context.Context, deps check.Deps) (check.Verdict, error) {

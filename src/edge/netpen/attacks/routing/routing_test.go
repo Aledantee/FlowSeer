@@ -17,6 +17,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
@@ -107,6 +108,11 @@ func runOne(t *testing.T, opts runner.Options) ([]findings.Record, error) {
 	}
 	if opts.MaxImpact == "" {
 		opts.MaxImpact = check.ImpactTemporary
+	}
+	// A test that sets no window gets a short one, so a behavior that
+	// waits its window out for the target's reply does so in milliseconds.
+	if opts.Observe == 0 {
+		opts.Observe = 20 * time.Millisecond
 	}
 	r := runner.NewRunner(opts)
 
@@ -241,9 +247,169 @@ func TestEmptyTargetIsSkipped(t *testing.T) {
 		t.Errorf("sends = %d, want 0", leg.SendCount())
 	}
 	v := verdictOf(recs)
-	if v == nil || v.Kind != findings.VerdictSkipped || !strings.Contains(v.Detail, "router-id") {
-		t.Fatalf("verdict = %+v, want skipped naming router-id", v)
+	if v == nil || v.Kind != findings.VerdictSkipped || v.Detail != "the check needs: --router-id <ip>" {
+		t.Fatalf("verdict = %+v, want skipped naming the router-id flag", v)
 	}
+}
+
+// TestNeedFieldsPerBehavior pins, per behavior that reads a target, the
+// exact flag an empty target reports, and that an IPv6 router ID or route
+// is refused with the invalid code and no frame.
+func TestNeedFieldsPerBehavior(t *testing.T) {
+	_, route6, _ := net.ParseCIDR("2001:db8::/64")
+	cases := []struct {
+		name   string
+		target check.Target
+		code   errs.Code
+		detail string
+	}{
+		{"ospf", check.Target{}, check.ErrCodeTargetMissing, "the check needs: --router-id <ip>"},
+		{"eigrp", check.Target{}, check.ErrCodeTargetMissing, "the check needs: --route4 <cidr>"},
+		{"ospf IPv6 router ID", check.Target{RouterID: net.ParseIP("2001:db8::1")}, check.ErrCodeTargetInvalid, "the check needs: --router-id <ip> wants an IPv4 address"},
+		{"eigrp IPv6 route", check.Target{Route4: route6}, check.ErrCodeTargetInvalid, "the check needs: --route4 <cidr> wants an IPv4 network"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			leg := fixtureLeg(t)
+			name, _, _ := strings.Cut(tc.name, " ")
+			recs, err := runOne(t, runner.Options{
+				AttackLeg: leg,
+				Attacks:   []runner.AttackRef{{Name: name}},
+				Target:    tc.target,
+			})
+			if code, ok := errs.CodeOf(err); !ok || code != tc.code {
+				t.Fatalf("run %s = %v (code %q), want %q", name, err, code, tc.code)
+			}
+			if errs.ExitCode(err) != 2 {
+				t.Errorf("exit code = %d, want 2", errs.ExitCode(err))
+			}
+			if leg.SendCount() != 0 {
+				t.Errorf("sends = %d, want 0", leg.SendCount())
+			}
+			v := verdictOf(recs)
+			if v == nil || v.Kind != findings.VerdictSkipped {
+				t.Fatalf("verdict = %+v, want skipped", v)
+			}
+			if v.Detail != tc.detail {
+				t.Errorf("verdict detail = %q, want %q", v.Detail, tc.detail)
+			}
+		})
+	}
+}
+
+// armRecorder is the teardown handle a direct call to a behavior arms its
+// steps against, keeping their names in arm order.
+type armRecorder struct {
+	names []string
+}
+
+func (a *armRecorder) Arm(name string, _ check.Step) { a.names = append(a.names, name) }
+
+// nopEmitter drops the records a direct call to a behavior emits.
+type nopEmitter struct{}
+
+func (nopEmitter) Emit(findings.Record) bool            { return true }
+func (nopEmitter) Finding(string, json.RawMessage) bool { return true }
+func (nopEmitter) Progress(_, _ string) bool            { return true }
+
+// directDeps builds the dependencies for a direct call to a behavior with
+// the given window and a recording teardown handle.
+func directDeps(leg *testtest.Leg, window time.Duration) (check.Deps, *armRecorder) {
+	td := &armRecorder{}
+	return check.Deps{
+		AttackLeg: leg,
+		Target:    fixtureTarget(),
+		Observe:   window,
+		Emitter:   nopEmitter{},
+		Teardown:  td,
+		Listen:    memListen,
+	}, td
+}
+
+// arpFrame is a broadcast ARP request from the fixture MAC, a frame neither
+// routing decoder reads.
+func arpFrame() []byte {
+	frame := make([]byte, 42)
+	copy(frame[0:6], net.HardwareAddr{0xff, 0xff, 0xff, 0xff, 0xff, 0xff})
+	copy(frame[6:12], fixtureMAC)
+	frame[12], frame[13] = 0x08, 0x06
+	return frame
+}
+
+// TestOSPF_HelloBehindAnARPFrameIsRead pins that an unrelated frame ahead of
+// the target's hello does not end the observation: the hello behind it is
+// read and the sequence proceeds at once rather than at the window.
+func TestOSPF_HelloBehindAnARPFrameIsRead(t *testing.T) {
+	hello := fixturePackets(t, "ospf_target.pcap")[0]
+	synctest.Test(t, func(t *testing.T) {
+		leg := fixtureLeg(t)
+		leg.PushRX(arpFrame())
+		leg.PushRX(hello)
+		deps, td := directDeps(leg, 3*time.Second)
+		start := time.Now()
+		v, err := routing.RunOSPF(context.Background(), deps)
+		if err != nil {
+			t.Fatalf("RunOSPF() error = %v, want nil", err)
+		}
+		if elapsed := time.Since(start); elapsed != 0 {
+			t.Errorf("returned after %v, want 0 with the hello already queued", elapsed)
+		}
+		if v.Kind != findings.VerdictPending {
+			t.Errorf("verdict = %+v, want pending", v)
+		}
+		if n := leg.SendCount(); n != 3 {
+			t.Errorf("sends = %d, want 3 (hello, db-desc, lsa-update)", n)
+		}
+		if len(td.names) != 2 || td.names[0] != "ospf-lsa-flush" || td.names[1] != "ospf-goodbye" {
+			t.Errorf("armed steps = %v, want [ospf-lsa-flush ospf-goodbye]", td.names)
+		}
+	})
+}
+
+// TestOSPF_NoHelloProceedsAtTheWindow pins that a quiet leg runs the window
+// out and the sequence still proceeds.
+func TestOSPF_NoHelloProceedsAtTheWindow(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		leg := fixtureLeg(t)
+		deps, _ := directDeps(leg, 3*time.Second)
+		start := time.Now()
+		if _, err := routing.RunOSPF(context.Background(), deps); err != nil {
+			t.Fatalf("RunOSPF() error = %v, want nil", err)
+		}
+		if elapsed := time.Since(start); elapsed != 3*time.Second {
+			t.Errorf("returned after %v, want the 3s window", elapsed)
+		}
+		if n := leg.SendCount(); n != 3 {
+			t.Errorf("sends = %d, want 3 (hello, db-desc, lsa-update)", n)
+		}
+	})
+}
+
+// TestEIGRP_GoodbyeBehindAnotherFrameIsRead pins that a non-matching first
+// frame does not end the observation: the goodbye behind it is read and
+// the verdict is resisted with no inject sent, and the goodbye teardown
+// was armed under its name.
+func TestEIGRP_GoodbyeBehindAnotherFrameIsRead(t *testing.T) {
+	goodbye := fixturePackets(t, "eigrp_reject.pcap")[0]
+	synctest.Test(t, func(t *testing.T) {
+		leg := fixtureLeg(t)
+		leg.PushRX(arpFrame())
+		leg.PushRX(goodbye)
+		deps, td := directDeps(leg, 3*time.Second)
+		v, err := routing.RunEIGRP(context.Background(), deps)
+		if err != nil {
+			t.Fatalf("RunEIGRP() error = %v, want nil", err)
+		}
+		if v.Kind != findings.VerdictResisted || v.Observed != 0 {
+			t.Errorf("verdict = %+v, want resisted at once on the goodbye", v)
+		}
+		if n := leg.SendCount(); n != 1 {
+			t.Errorf("sends = %d, want 1 (the hello only)", n)
+		}
+		if len(td.names) != 1 || td.names[0] != "eigrp-goodbye" {
+			t.Errorf("armed steps = %v, want [eigrp-goodbye]", td.names)
+		}
+	})
 }
 
 func assertOSPFChecksumValid(t *testing.T, frame []byte) {
@@ -548,6 +714,7 @@ func TestWPAD_FixturePins(t *testing.T) {
 // surfaces as the port-collision code and sends nothing.
 func TestWPAD_ListenFailureIsCoded(t *testing.T) {
 	leg := fixtureLeg(t)
+	var behaviorErr error
 	bs := routing.Behaviors()
 	for i := range bs {
 		if bs[i].Name == "wpad" {
@@ -556,7 +723,9 @@ func TestWPAD_ListenFailureIsCoded(t *testing.T) {
 				deps.Listen = func(context.Context, string, string) (net.Listener, error) {
 					return nil, errors.New("address in use")
 				}
-				return run(ctx, deps)
+				var v check.Verdict
+				v, behaviorErr = run(ctx, deps)
+				return v, behaviorErr
 			}
 		}
 	}
@@ -575,8 +744,8 @@ func TestWPAD_ListenFailureIsCoded(t *testing.T) {
 	if v == nil || v.Kind != findings.VerdictPending || !strings.Contains(v.Detail, "address in use") {
 		t.Errorf("verdict = %+v, want pending carrying the bind error", v)
 	}
-	if catalog.ErrCodeWPADPortCollision.String() != "netpen/wpad-port-collision" {
-		t.Errorf("unexpected error code: %s", catalog.ErrCodeWPADPortCollision)
+	if code, ok := errs.CodeOf(behaviorErr); !ok || code != catalog.ErrCodeWPADPortCollision {
+		t.Errorf("behavior error = %v (code %q), want %q", behaviorErr, code, catalog.ErrCodeWPADPortCollision)
 	}
 }
 

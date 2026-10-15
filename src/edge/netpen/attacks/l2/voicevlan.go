@@ -1,8 +1,8 @@
-// voicevlan.go implements the voice-VLAN hijack attack. It sends an LLDP-MED
-// frame advertising a voice-VLAN network policy, causing compliant endpoints
-// to switch to the attacker's voice VLAN. Classified temporary-restored: an
-// active restore step clears the LLDP advertisement. The --persist mode is
-// permanent-destructive.
+// voicevlan.go implements the voice-VLAN hijack check. The base entry is
+// impact temporary, restore active, affects clients: the LLDP-MED frame
+// advertises a voice-VLAN network policy that compliant phones follow, and
+// the armed restore step is a no-op that names the host work a later
+// version does. The persist mode is impact permanent with no restore.
 
 package l2
 
@@ -26,13 +26,18 @@ type voiceVLANFinding struct {
 }
 
 // RunVoiceVLAN sends one LLDP-MED network-policy frame advertising the
-// target's voice VLAN from the attack leg's MAC. The port name, TTL,
-// priority, and DSCP are probe content. The base entry arms a restore step
-// that does no host work yet. The persist mode is permanent and arms
-// nothing. The verdict is pending: whether a phone moved needs a listener
-// for its traffic on the voice VLAN it does not have.
+// target's voice VLAN from the attack leg's MAC. The voice VLAN is bounded
+// at 127, the seven bits the frame's policy field gives the id, so a
+// larger VLAN is the operator's mistake and not another VLAN. The port
+// name, TTL, priority, and DSCP are probe content. The base entry arms a
+// restore step that does no host work. The persist mode is permanent and
+// arms nothing. The verdict is pending: whether a phone moved needs a
+// listener for its traffic on the voice VLAN it does not have.
 func RunVoiceVLAN(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	if err := deps.Target.Need(check.FieldVoiceVLAN); err != nil {
+		return check.Verdict{}, err
+	}
+	if err := deps.Target.Within(check.FieldVoiceVLAN, 127); err != nil {
 		return check.Verdict{}, err
 	}
 	src := deps.AttackLeg.Addr().MAC

@@ -1,6 +1,10 @@
-// WPAD sends NBT-NS and LLMNR answers for the wpad name and briefly serves
-// a PAC from a listener the runner supplies. The HTTP handler does not
-// capture authentication exchanges or forward proxy traffic.
+// wpad.go implements the rogue WPAD check. Impact temporary, restore decay
+// with a 30 s bound, affects clients: the NBT-NS and LLMNR answers point
+// clients at the attack leg's IPv4 for the wpad name with a 30 s TTL, after
+// which a client asks again. The PAC listener binds loopback and closes
+// before the behavior returns, so the answer's port serves nothing to a
+// client once the run moves on. The HTTP handler does not capture
+// authentication exchanges or forward proxy traffic.
 
 package routing
 
@@ -45,7 +49,8 @@ type wpadState struct {
 
 // RunWPAD announces the attack leg's own IPv4 as wpad over NBT-NS and
 // LLMNR, then serves a TTL-bound PAC from a listener opened through
-// deps.Listen and closed before return. The behavior reads no target: the
+// deps.Listen on loopback and closed before return, while the answers
+// point clients at the leg's IPv4. The behavior reads no target: the
 // name and the transaction IDs are probe content. The verdict is pending:
 // whether a client fetched the PAC needs the listener's request log it does
 // not have. A bind failure carries [catalog.ErrCodeWPADPortCollision].
@@ -214,7 +219,7 @@ func craftLLMNRResponse(src net.HardwareAddr, qname string, answerIP net.IP) ([]
 
 	eth := &layers.Ethernet{
 		SrcMAC:       src,
-		DstMAC:       src, // link-local; in tests the fixture MAC
+		DstMAC:       src, // link-local: the leg's own MAC
 		EthernetType: layers.EthernetTypeIPv4,
 	}
 	ip := &layers.IPv4{

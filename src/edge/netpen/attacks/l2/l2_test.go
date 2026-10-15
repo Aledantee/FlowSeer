@@ -14,6 +14,7 @@ import (
 	"net"
 	"strings"
 	"testing"
+	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/l2"
@@ -69,8 +70,13 @@ func runOne(t *testing.T, leg *testtest.Leg, name, mode string, ack ...runner.At
 	return run(t, opts)
 }
 
+// run drives the runner over opts. A test that sets no window gets a short
+// one, so an observer that runs its window out does so in milliseconds.
 func run(t *testing.T, opts runner.Options) ([]findings.Record, error) {
 	t.Helper()
+	if opts.Observe == 0 {
+		opts.Observe = 20 * time.Millisecond
+	}
 	r := runner.NewRunner(opts)
 
 	var recs []findings.Record
@@ -213,10 +219,99 @@ func TestEmptyTargetIsSkipped(t *testing.T) {
 	if v == nil || v.Kind != findings.VerdictSkipped {
 		t.Fatalf("verdict = %+v, want skipped", v)
 	}
-	for _, field := range []string{"outer-vlan", "inner-vlan"} {
-		if !strings.Contains(v.Detail, field) {
-			t.Errorf("verdict detail %q does not name %s", v.Detail, field)
-		}
+	if want := "the check needs: --outer-vlan <n>, --inner-vlan <n>"; v.Detail != want {
+		t.Errorf("verdict detail = %q, want %q", v.Detail, want)
+	}
+}
+
+// TestNeedFieldsPerBehavior pins, per behavior that reads a target, the
+// exact flags an empty target reports, and that a present field of the wrong
+// family or range is refused with the invalid code before any frame.
+func TestNeedFieldsPerBehavior(t *testing.T) {
+	cases := []struct {
+		name   string
+		target check.Target
+		code   errs.Code
+		detail string
+	}{
+		{"vlanhop", check.Target{}, check.ErrCodeTargetMissing, "the check needs: --outer-vlan <n>, --inner-vlan <n>"},
+		{"doubletag", check.Target{}, check.ErrCodeTargetMissing, "the check needs: --outer-vlan <n>, --inner-vlan <n>"},
+		{"voicevlan", check.Target{}, check.ErrCodeTargetMissing, "the check needs: --voice-vlan <n>"},
+		{"vtp", check.Target{}, check.ErrCodeTargetMissing, "the check needs: --vtp-domain <name>"},
+		{"portsteal", check.Target{}, check.ErrCodeTargetMissing, "the check needs: --victim <ip>,<mac>"},
+		{"portsteal IPv6 victim", check.Target{Victim: check.Host{IP: net.ParseIP("2001:db8::1")}}, check.ErrCodeTargetInvalid, "the check needs: --victim <ip>,<mac> wants an IPv4 address"},
+		{"doubletag VLAN 4095", check.Target{OuterVLAN: 4095, InnerVLAN: 20}, check.ErrCodeTargetInvalid, "the check needs: --outer-vlan <n> wants a VLAN id from 1 to 4094"},
+		{"voicevlan 200", check.Target{VoiceVLAN: 200}, check.ErrCodeTargetInvalid, "the check needs: --voice-vlan at most 127"},
+		{"vtp 33-byte domain", check.Target{VTPDomain: strings.Repeat("d", 33)}, check.ErrCodeTargetInvalid, "the check needs: --vtp-domain <name> wants a name of at most 32 bytes"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			leg := fixtureLeg(t)
+			name, _, _ := strings.Cut(tc.name, " ")
+			recs, err := run(t, runner.Options{
+				Catalog:   catalog.MustNew(l2.Behaviors()...),
+				AttackLeg: leg,
+				Attacks:   []runner.AttackRef{{Name: name}},
+				Target:    tc.target,
+				MaxImpact: check.ImpactTemporary,
+			})
+			if code, ok := errs.CodeOf(err); !ok || code != tc.code {
+				t.Fatalf("run %s = %v (code %q), want %q", name, err, code, tc.code)
+			}
+			if errs.ExitCode(err) != 2 {
+				t.Errorf("exit code = %d, want 2", errs.ExitCode(err))
+			}
+			if leg.SendCount() != 0 {
+				t.Errorf("sends = %d, want 0", leg.SendCount())
+			}
+			v := verdictOf(recs)
+			if v == nil || v.Kind != findings.VerdictSkipped {
+				t.Fatalf("verdict = %+v, want skipped", v)
+			}
+			if v.Detail != tc.detail {
+				t.Errorf("verdict detail = %q, want %q", v.Detail, tc.detail)
+			}
+		})
+	}
+}
+
+// TestVTP_FindingReportsMode pins that the finding's mode is the catalog
+// entry's mode, so a wipe run is not recorded as the default one.
+func TestVTP_FindingReportsMode(t *testing.T) {
+	for _, mode := range []string{"", "wipe", "set"} {
+		t.Run("mode "+mode, func(t *testing.T) {
+			leg := fixtureLeg(t)
+			var ack []runner.AttackRef
+			if mode != "" {
+				ack = []runner.AttackRef{{Name: "vtp", Mode: mode}}
+			}
+			recs, err := runOne(t, leg, "vtp", mode, ack...)
+			if err != nil {
+				t.Fatalf("run vtp %q: %v", mode, err)
+			}
+			var finding *findings.Finding
+			for i := range recs {
+				if recs[i].Kind == findings.KindFinding {
+					finding = recs[i].Finding
+				}
+			}
+			if finding == nil {
+				t.Fatal("no finding emitted")
+			}
+			var detail struct {
+				Mode string `json:"mode"`
+			}
+			if err := json.Unmarshal(finding.Detail, &detail); err != nil {
+				t.Fatalf("unmarshal finding: %v", err)
+			}
+			want := mode
+			if want == "" {
+				want = "default"
+			}
+			if detail.Mode != want {
+				t.Errorf("finding mode = %q, want %q", detail.Mode, want)
+			}
+		})
 	}
 }
 

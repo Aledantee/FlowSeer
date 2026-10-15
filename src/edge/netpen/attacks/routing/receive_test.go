@@ -32,16 +32,21 @@ func (l *receiveFailureLeg) Receive(context.Context) <-chan link.Frame {
 	return ch
 }
 
+// TestRoutingReceiveFailureStopsSequence pins what the sequence does with
+// the leg's receive outcomes: a terminal frame error and a cancellation stop
+// it after the hello, while a receiver that closes with nothing to deliver
+// ends the window early and the sequence proceeds with every frame.
 func TestRoutingReceiveFailureStopsSequence(t *testing.T) {
 	for _, name := range []string{"ospf", "eigrp"} {
 		for _, tc := range []struct {
-			name   string
-			rxErr  error
-			cancel bool
-			want   error
+			name     string
+			rxErr    error
+			cancel   bool
+			want     error
+			proceeds bool
 		}{
 			{name: "terminal error", rxErr: io.ErrUnexpectedEOF, want: io.ErrUnexpectedEOF},
-			{name: "closed receiver", want: io.EOF},
+			{name: "closed receiver", proceeds: true},
 			{name: "canceled receive", cancel: true, want: context.Canceled},
 		} {
 			t.Run(name+"/"+tc.name, func(t *testing.T) {
@@ -73,6 +78,22 @@ func TestRoutingReceiveFailureStopsSequence(t *testing.T) {
 				})
 				if err != nil {
 					t.Fatalf("run: %v", err)
+				}
+				if tc.proceeds {
+					if behaviorErr != nil {
+						t.Errorf("behavior error: got %v, want nil, since a closed receiver ends the window", behaviorErr)
+					}
+					if f := findFinding(t, recs); f == nil {
+						t.Error("no finding after the window ended on a closed receiver")
+					}
+					wantSends := 3 // Hello, inject, and the armed goodbye.
+					if name == "ospf" {
+						wantSends = 5 // Hello, db-desc, lsa-update, flush, goodbye.
+					}
+					if got := inner.SendCount(); got != wantSends {
+						t.Errorf("send count: got %d, want %d", got, wantSends)
+					}
+					return
 				}
 				if !errors.Is(behaviorErr, tc.want) {
 					t.Errorf("behavior error: got %v, want %v", behaviorErr, tc.want)

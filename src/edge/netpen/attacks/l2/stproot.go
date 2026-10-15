@@ -1,11 +1,8 @@
-// stproot.go implements the STP root-bridge hijack attack. It sends superior
-// BPDUs (root priority 0, lower than the default 32768) to become the root
-// bridge, causing traffic redirection. Classified transient-decay: the
-// engineered max_age is ~6s, after which the real root resumes.
-//
-// This is a flood-class behavior: it uses the sync.Pool craft path
-// for pre-serialized BPDU buffers, since the attack sends repeated BPDUs
-// at a rate the default allocation path cannot sustain.
+// stproot.go implements the STP root-bridge hijack check. Impact
+// temporary, restore decay with a 6 s bound, affects fabric: the superior
+// BPDUs (root priority 0, below the default 32768) make the attack leg
+// the root bridge and redirect traffic, and the real root resumes once the
+// 6 s max age the BPDUs carry runs out.
 
 package l2
 

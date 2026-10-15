@@ -1,6 +1,10 @@
-// EIGRP models a fixed hello and route-update sequence with an armed goodbye.
-// A fixture response carrying the Goodbye flag stops the update. Successful
-// transmission does not establish that a router accepted or removed the route.
+// eigrp.go implements the EIGRP route injection check. Impact temporary,
+// restore active, affects fabric: the hello and the update offer the
+// autonomous system a neighbor and a route, and the armed goodbye hello
+// withdraws the adjacency when the run ends. A response carrying the
+// Goodbye flag within the window stops the update. Successful
+// transmission does not establish that a router accepted or removed the
+// route.
 
 package routing
 
@@ -8,10 +12,7 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/json"
-	"errors"
-	"io"
 	"net"
-	"time"
 
 	"github.com/gopacket/gopacket"
 	"github.com/gopacket/gopacket/layers"
@@ -53,10 +54,11 @@ type eigrpFinding struct {
 // RunEIGRP sends a hello and an update injecting the target's IPv4 route
 // from the attack leg's own addresses, with a goodbye teardown armed before
 // the first frame. The autonomous system number and the metric are probe
-// content. A response carrying the Goodbye flag within 100 ms is a refused
-// adjacency, which the verdict reports as resisted. Without one the verdict
-// is pending, since route acceptance needs an update listener it does not
-// have. A receive or decode failure stops the sequence. Cancellation
+// content. A response carrying the Goodbye flag within the window is a
+// refused adjacency, which the verdict reports as resisted; frames that do
+// not decode as a goodbye are skipped. Without one at the window's end the
+// verdict is pending, since route acceptance needs an update listener it
+// does not have. A receive failure stops the sequence. Cancellation
 // returns ctx.Err(). Concurrent calls require separate dependencies.
 func RunEIGRP(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	if err := ctx.Err(); err != nil {
@@ -67,7 +69,6 @@ func RunEIGRP(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	}
 	addr := deps.AttackLeg.Addr()
 	asNum := uint16(100)
-	started := time.Now()
 
 	// Arm the teardown before the first frame.
 	// Teardown: goodbye Hello with the Goodbye flag set, which causes
@@ -92,20 +93,17 @@ func RunEIGRP(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 		return check.Verdict{}, errs.Wrap(err, "eigrp: send hello")
 	}
 
-	// Phase 2: receive the target's response (adjacency formation).
-	// Read the target's hello/update from the fixture with a short
-	// timeout. If the target rejects (auth mismatch), the fixture
-	// feeds a goodbye — detect and report refused adjacency.
-	rxCtx, rxCancel := context.WithTimeout(ctx, 100*time.Millisecond)
-	refused, rxErr := recvEIGRPAdjacency(rxCtx, deps.AttackLeg)
-	rxCancel()
-	if err := ctx.Err(); err != nil {
-		return check.Verdict{}, err
+	// Phase 2: the target's response (adjacency formation), read within
+	// the window. A target that rejects the adjacency (an authentication
+	// mismatch) answers with a goodbye, which is reported as refused.
+	goodbye, obs, err := check.First(ctx, deps.AttackLeg, deps.Observe, isEIGRPGoodbye)
+	if err != nil {
+		if ctx.Err() != nil {
+			return check.Verdict{}, ctx.Err()
+		}
+		return check.Verdict{}, errs.Wrap(err, "eigrp: receive")
 	}
-	if rxErr != nil && !errors.Is(rxErr, context.DeadlineExceeded) {
-		return check.Verdict{}, rxErr
-	}
-	if refused {
+	if goodbye != nil {
 		detail := eigrpFinding{
 			Action:  "eigrp-adjacency-refused",
 			AS:      asNum,
@@ -115,7 +113,7 @@ func RunEIGRP(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 		}
 		detailBytes, _ := json.Marshal(detail)
 		deps.Emitter.Finding("eigrp", detailBytes)
-		return check.Resisted("adjacency refused with a goodbye", time.Since(started)), nil
+		return check.Resisted("adjacency refused with a goodbye", obs.Elapsed), nil
 	}
 
 	// Phase 3: route inject (Update with IPv4 Internal TLV).
@@ -144,40 +142,19 @@ func RunEIGRP(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	return check.Pending("no observable: route acceptance needs an update listener"), nil
 }
 
-// recvEIGRPAdjacency reads one frame from the leg and checks whether the
-// fixture response carries a Goodbye flag. Receive and decode errors are
-// returned to the caller so a broken receiver cannot imply acceptance.
-func recvEIGRPAdjacency(ctx context.Context, leg link.Leg) (bool, error) {
-	ch := leg.Receive(ctx)
-	select {
-	case f, ok := <-ch:
-		if err := ctx.Err(); err != nil {
-			return false, err
-		}
-		if !ok {
-			return false, errs.Wrap(io.EOF, "eigrp: receive")
-		}
-		if f.Err != nil {
-			return false, errs.Wrap(f.Err, "eigrp: receive")
-		}
-		// Decode EIGRP from the frame. Skip Ethernet + IPv4 to reach
-		// the EIGRP payload (protocol 88).
-		payload, err := extractIPPayload(f.Data, 88)
-		if err != nil {
-			return false, errs.Wrap(err, "eigrp: decode ipv4")
-		}
-		eigrp := &nl.EIGRP{}
-		if err := eigrp.DecodeFromBytes(payload, nil); err != nil {
-			return false, errs.Wrap(err, "eigrp: decode")
-		}
-		// Goodbye flag = refused adjacency
-		if eigrp.Flags&eigrpFlagGoodbye != 0 {
-			return true, nil
-		}
-		return false, nil
-	case <-ctx.Done():
-		return false, ctx.Err()
+// isEIGRPGoodbye reports whether data is an EIGRP packet (IPv4 protocol
+// 88) carrying the Goodbye flag, the refused adjacency the check reads.
+// A frame that does not decode is not a goodbye.
+func isEIGRPGoodbye(data []byte) bool {
+	payload, err := extractIPPayload(data, 88)
+	if err != nil {
+		return false
 	}
+	eigrp := &nl.EIGRP{}
+	if err := eigrp.DecodeFromBytes(payload, nil); err != nil {
+		return false
+	}
+	return eigrp.Flags&eigrpFlagGoodbye != 0
 }
 
 // extractIPPayload extracts the IP payload from an Ethernet-encapsulated
@@ -255,7 +232,7 @@ func craftEIGRPHello(addr link.Addr, asNum uint16, flags uint32) ([]byte, error)
 }
 
 // craftEIGRPRouteInject builds an EIGRP Update carrying an IPv4 Internal
-// route TLV that injects 10.99.0.0/24 with metric 1.
+// route TLV that injects route with metric 1.
 func craftEIGRPRouteInject(addr link.Addr, asNum uint16, route *net.IPNet) ([]byte, error) {
 	// IPv4 Internal route TLV: type(2) + length(2) + metric data.
 	// The TLV value encodes: prefix length + destination + metric fields.

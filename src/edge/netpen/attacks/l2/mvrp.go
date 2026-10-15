@@ -1,10 +1,7 @@
-// mvrp.go implements the MVRP (Multiple VLAN Registration Protocol) attack.
-// It floods MVRP JoinIn messages for a set of VLANs, causing switches to
-// register VLANs on the attacker's port. Classified transient-decay: MRP
-// timers expire in minutes.
-//
-// This is a flood-class behavior: it uses the sync.Pool craft path
-// for pre-serialized MVRP buffers.
+// mvrp.go implements the MVRP (Multiple VLAN Registration Protocol) check.
+// Impact temporary, restore decay with no stated bound, affects fabric:
+// the MVRP JoinIn messages register a set of VLANs on the attack leg's
+// port, and the registrations expire on the switches' MRP timers.
 
 package l2
 

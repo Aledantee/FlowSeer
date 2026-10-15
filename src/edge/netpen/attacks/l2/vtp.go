@@ -1,16 +1,10 @@
-// vtp.go implements the VTP (VLAN Trunking Protocol) attack behavior.
-//
-// Modes (from the catalog):
-//   - Default (SAFE mode): temporary, decays. The behavior sends a summary
-//     advertisement with a revision bump and records the side effect. It
-//     does NOT answer advertisement requests or push a VLAN database wipe.
-//   - --wipe: permanent (requires the per-run opt-in). Wipes the VLAN
-//     database by pushing a summary with revision 0 and empty VLANs.
-//   - --set: permanent (requires the per-run opt-in). Overwrites the VLAN
-//     database with the attacker's VLAN set.
-//
-// A run without a VTP domain in its target is skipped by the runner before
-// any frame.
+// vtp.go implements the VTP (VLAN Trunking Protocol) check. The base entry
+// is impact temporary, restore decay with no stated bound, affects fabric:
+// the summary advertisement with a revision bump is superseded by the
+// domain's next real advertisement. The wipe mode (a summary with
+// revision 0 and no VLANs) and the set mode (a subset with the attacker's
+// VLAN set) are impact permanent with no restore and run only with the
+// per-run acknowledgment.
 
 package l2
 
@@ -70,10 +64,9 @@ func RunVTP(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 			},
 		}
 	default:
-		// SAFE mode: send a summary advertisement with a revision bump.
-		// This is the non-destructive default. The timestamp is a fixed
-		// value matching the fixture. The baseline stamps the wall clock
-		// there, which is why the fixture pins the field set, not the bytes.
+		// The base mode sends a summary advertisement with a revision
+		// bump. The timestamp is a fixed value, so the fixture compares
+		// bytes.
 		vtp = &layers.VTP{
 			Version:   layers.VTPVersion1,
 			Code:      layers.VTPCodeSummary,
@@ -92,11 +85,15 @@ func RunVTP(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 		return check.Verdict{}, errs.Wrap(err, "vtp: send")
 	}
 
+	findingMode := mode
+	if findingMode == "" {
+		findingMode = "default"
+	}
 	detail, _ := json.Marshal(vtpFinding{
 		Action:   "vtp-advertisement",
 		Domain:   domain,
 		Revision: vtp.Revision,
-		Mode:     modeName(mode),
+		Mode:     findingMode,
 	})
 	deps.Emitter.Finding("vtp", detail)
 
