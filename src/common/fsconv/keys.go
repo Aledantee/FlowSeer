@@ -13,6 +13,9 @@ const (
 	DeviceIDKey = "flowseer.device.id"
 	// DeviceSequenceKey names a position in a device's operation sequence.
 	DeviceSequenceKey = "flowseer.device.sequence"
+	// DeviceSignalKey names the OTLP signal (logs, metrics, or traces) a
+	// telemetry body carries.
+	DeviceSignalKey = "flowseer.device.signal"
 	// EdgeIDKey names the edge an occurrence is about or came from.
 	EdgeIDKey = "flowseer.edge.id"
 	// TenantIDKey names the ambient tenant.

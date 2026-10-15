@@ -1,13 +1,31 @@
 package edgebus
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 )
+
+// TestReceiverRefusesABodyOverTheRecordBound posts one byte more than the
+// 255 KiB bound. The refusal comes before the buffer is touched, so the
+// receiver needs no leaf: a body past the bound must never reach one.
+func TestReceiverRefusesABodyOverTheRecordBound(t *testing.T) {
+	r := &Receiver{}
+	req := httptest.NewRequest(http.MethodPost, "/v1/logs", bytes.NewReader(make([]byte, 261121)))
+	req.Header.Set("Content-Type", otlpContentType)
+	rec := httptest.NewRecorder()
+
+	r.handle(SignalLogs)(rec, req)
+
+	if rec.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusRequestEntityTooLarge)
+	}
+}
 
 // panicOnAcceptListener panics from its first Accept call, simulating a
 // failure inside http.Server.Serve's own accept loop — the frame the

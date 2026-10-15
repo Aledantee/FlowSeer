@@ -37,6 +37,7 @@ instrument, so this package does not grow into a registry of every attribute.
 | --- | --- | --- |
 | `DeviceIDKey` | `flowseer.device.id` | `DeviceID(string)` |
 | `DeviceSequenceKey` | `flowseer.device.sequence` | `DeviceSequence(uint64)` |
+| `DeviceSignalKey` | `flowseer.device.signal` | none, a metric attribute key |
 | `EdgeIDKey` | `flowseer.edge.id` | `EdgeID(string)` |
 | `TenantIDKey` | `flowseer.tenant.id` | `TenantID(string)` |
 | `CaptureSessionIDKey` | `flowseer.capture.session.id` | `CaptureSessionID(string)` |
