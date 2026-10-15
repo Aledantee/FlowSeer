@@ -345,7 +345,10 @@ Waves: U1 U3 U6 | U2 U4 | U5
   GRE traffic, so this question remains open. `TestMirrorReceiverDecodesTEBGRE`
   in `src/modules/capture/rawsocket/mirror_vm_test.go` observes the self-sent
   datagram by source `10.99.0.3` and logs its index and `IP_RECVIF` presence.
-  Its VM result is pending. FreeBSD 14.3's
+  In the bento 14.3 guest it logged `self-sent TEB GRE raw IPv4 receive
+  interface index = 8, IP_RECVIF present = true`, so the kernel delivers
+  `IP_RECVIF` on that path. Which interface holds index 8 is unchecked.
+  FreeBSD 14.3's
   [`ip_savecontrol`](https://github.com/freebsd/freebsd-src/blob/releng/14.3/sys/netinet/ip_input.c#L1166-L1195)
   uses `m_pkthdr.rcvif` when available and otherwise emits a dummy
   `sockaddr_dl` with index 0. The test retains the GRE arm, inner frame,
@@ -358,12 +361,4 @@ Waves: U1 U3 U6 | U2 U4 | U5
 
 ## Review gaps
 
-- src/modules/capture/rawsocket/mirror_vm_test.go:101: the parser wrapper records the index of every datagram to `10.99.0.2`, and host `gre0` traffic arrives first, so the logged index (8) is not the self-sent TEB packet's and the `t.Error` cannot fire; fails: a kernel that gives the lo0 path no `IP_RECVIF` still logs an index; class: false test
-- docs/plans/2026-10-12-2029-feat-freebsd-packet-io-phase2-plan.md:342: "the kernel does deliver `IP_RECVIF` there" rests on that misattributed log; class: convention
-- src/modules/capture/rawsocket/mirror_vm_test.go:165: no test keeps VXLAN on the bound interface, so a UDP parser that never yields an index passes both bind tests; fails: `freeBSDControlV6` returning ok=false drops every bound VXLAN datagram; class: gap
-- tools/scripts/tests/freebsd/test_rawsocket_setup.py:86: call order is never asserted; fails: `destroy_jail` moved after the `destroy_iface` calls leaks `epair1` while `down` exits 0, and `up` never asserted to start both pings; class: gap
-- test/freebsd/README.md:76: four probe results carry no command, and the one command follows the wrong claim; class: convention
-- src/modules/capture/rawsocket/doc.go:2: says the mirror receiver is Linux-only and FreeBSD returns `ErrUnsupportedPlatform`; class: convention
-- tools/scripts/freebsd/vmtest.py:127: "The pair must not outlive a failed run" now also covers a jail, two tunnels, and pings; class: convention
-- src/modules/capture/rawsocket/local.go:16: `pollTimeout`, `maxFrameLen`, and `retry_unix.go`'s comment describe Linux mechanisms in files that also build for FreeBSD; class: convention
 - src/modules/capture/rawsocket/mirror_freebsd.go:91: the `IP_RECVIF` term is `CmsgSpace(SizeofSockaddrDatalink)`, while `ip_savecontrol` copies up to `sizeof(struct sockaddr_dl) + 32` bytes (releng/14.3 `sys/netinet/ip_input.c`, `sdlbuf`), so an interface with a long `sdl_len` ends the loop with `MSG_CTRUNC`; class: hardening
