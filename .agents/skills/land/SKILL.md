@@ -125,7 +125,12 @@ be settled, released, or removed; load `references/orca-cleanup.md`, and
 `.claude/skills/delegate/references/orca.md` whole for the removal it
 points to, whenever `orca status --json` (unsandboxed) reports the runtime reachable,
 since lanes this context did not start are invisible otherwise. A running
-worker stops the skill.
+worker stops the skill. Without Orca, after each child worker stops and its
+branch lands here, run `uv run tools/scripts/run.py worktree close <path>`
+from this checkout. Report a refusal with its path and reason. The
+[worktree command](../../../tools/scripts/worktree/README.md) checks that
+another local branch preserves the child's `HEAD`. Use `--force` only when
+the user explicitly chooses to discard unpreserved commits.
 
 ## 3. Merge
 
@@ -229,7 +234,7 @@ that run can come long after step 2 read the primary checkout's `HEAD`.
 leads to it. On that refusal the skill runs again from step 3 when
 `git rev-list <sha>..HEAD` prints nothing, and from step 1 otherwise, since
 the branch then carries work step 1 has not gated. Do not delete the
-branch; Orca deletes it with the worktree. Once `main` holds the commit, the plan status ledger and the checkpoints
+branch: the worktree cleanup command deletes it with the checkout. Once `main` holds the commit, the plan status ledger and the checkpoints
 file are removed; when the person runs the fast-forward, this goes into
 the report beside it (not `rm -f`, which Codex's command policy rejects):
 
@@ -256,6 +261,9 @@ landed, the commands run with
 their results, whether the verifier ran on the merged tree, and the commands
 left for the user in the order to run them: the fast-forward, the ledger and
 checkpoints removal, any child worktree removal the harness refused, and
-`orca worktree rm --worktree active`, left out for a phase land whose parent
-still has phases to run. A correction to this procedure is
+the final checkout removal command. For an Orca-managed checkout, use
+`orca worktree rm --worktree active`. Otherwise give
+`uv run tools/scripts/run.py worktree close <absolute-worktree-path>` for
+the person to run from another checkout after stopping this session. Leave
+checkout removal out for a phase land whose parent still has phases to run. A correction to this procedure is
 logged as `compound`, Observe describes.
