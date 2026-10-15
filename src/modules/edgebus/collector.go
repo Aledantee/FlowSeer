@@ -38,8 +38,8 @@ const (
 // CollectorConfig declares the collector central ships OTLP bodies to.
 // Construct with keyed fields.
 type CollectorConfig struct {
-	// Endpoint is the collector's base URL, an absolute http or https URL;
-	// the signal paths are appended.
+	// Endpoint is the collector's base URL, an absolute http or https URL.
+	// The signal paths are appended to it.
 	Endpoint string
 	// Headers are sent on every request, an authorization header for
 	// example.
