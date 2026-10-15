@@ -7,8 +7,8 @@
 //
 // VRRPv2 rides directly on IP (protocol 112), not UDP. gopacket's VRRPv2
 // decoder has no SerializeTo, so the body is built as raw bytes matching
-// the baseline's vrrp_frame; fixtures verify the field set rather than
-// the byte-for-byte checksum.
+// the baseline's vrrp_frame. The fixtures therefore verify the field set
+// rather than the byte-for-byte checksum.
 
 package fh
 
@@ -20,8 +20,8 @@ import (
 	"github.com/gopacket/gopacket/layers"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
-
-	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
+	"go.aledante.io/FlowSeer/src/edge/netpen/check"
+	"go.aledante.io/FlowSeer/src/edge/netpen/link"
 )
 
 type vrrpFinding struct {
@@ -31,22 +31,29 @@ type vrrpFinding struct {
 	VIPs     []string `json:"vips"`
 }
 
-// RunVRRP sends VRRP advertisements to claim the virtual router.
-func RunVRRP(ctx context.Context, deps runner.Deps) error {
-	src := srcMAC()
-	vrid := uint8(51)
+// RunVRRP sends two advertisements for the target's VRID and virtual IP
+// from the attack leg's own addresses. The priority of 120 and the
+// advertisement interval are probe content. The verdict is pending:
+// whether the master yielded needs an advertisement listener it does not
+// have.
+func RunVRRP(ctx context.Context, deps check.Deps) (check.Verdict, error) {
+	if err := deps.Target.Need(check.FieldVRID, check.FieldVirtualIP); err != nil {
+		return check.Verdict{}, err
+	}
+	addr := deps.AttackLeg.Addr()
+	vrid := deps.Target.VRID
 	priority := uint8(120)
-	vips := []net.IP{net.IPv4(10, 0, 0, 1)}
+	vips := []net.IP{deps.Target.VirtualIP}
 
-	pkt, err := craftVRRP(src, vrid, priority, vips)
+	pkt, err := craftVRRP(addr, vrid, priority, vips)
 	if err != nil {
-		return errs.Wrap(err, "vrrp: craft advertisement")
+		return check.Verdict{}, errs.Wrap(err, "vrrp: craft advertisement")
 	}
 
 	count := 2
 	for range count {
 		if err := deps.AttackLeg.Send(ctx, pkt); err != nil {
-			return errs.Wrap(err, "vrrp: send advertisement")
+			return check.Verdict{}, errs.Wrap(err, "vrrp: send advertisement")
 		}
 	}
 
@@ -62,13 +69,13 @@ func RunVRRP(ctx context.Context, deps runner.Deps) error {
 	})
 	deps.Emitter.Finding("vrrp", detail)
 
-	return nil
+	return check.Pending("no observable: master preemption needs an advertisement listener"), nil
 }
 
 // craftVRRP builds a VRRPv2 advertisement: Ethernet → IPv4(224.0.0.18,
 // ttl=255, proto=112) → VRRP body. The body is built manually since
 // gopacket's VRRPv2 has no SerializeTo.
-func craftVRRP(src net.HardwareAddr, vrid, priority uint8, vips []net.IP) ([]byte, error) {
+func craftVRRP(addr link.Addr, vrid, priority uint8, vips []net.IP) ([]byte, error) {
 	// Header: Version|Type(1) | VRID(1) | Priority(1) | CountIP(1)
 	//         | AuthType(1) | AdverInt(1) | Checksum(2) | IP(s)
 	body := make([]byte, 8+4*len(vips))
@@ -78,14 +85,14 @@ func craftVRRP(src net.HardwareAddr, vrid, priority uint8, vips []net.IP) ([]byt
 	body[3] = byte(len(vips))
 	body[4] = 0 // auth type
 	body[5] = 1 // adver interval
-	// checksum at [6:8] — left 0; field-set verified.
+	// The checksum at [6:8] stays 0. The fixture compares the field set, not the bytes.
 	for i, vip := range vips {
 		copy(body[8+4*i:], vip.To4())
 	}
 
 	eth := &layers.Ethernet{
 		DstMAC:       vrrpDstMAC,
-		SrcMAC:       src,
+		SrcMAC:       addr.MAC,
 		EthernetType: layers.EthernetTypeIPv4,
 	}
 	ip := &layers.IPv4{
@@ -93,7 +100,7 @@ func craftVRRP(src net.HardwareAddr, vrid, priority uint8, vips []net.IP) ([]byt
 		IHL:      5,
 		TTL:      255,
 		Protocol: 112, // VRRP
-		SrcIP:    net.IPv4(10, 0, 0, 2),
+		SrcIP:    addr.IPv4,
 		DstIP:    net.IPv4(224, 0, 0, 18),
 		Length:   20 + uint16(len(body)),
 	}

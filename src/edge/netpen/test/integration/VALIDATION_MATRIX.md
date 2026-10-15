@@ -41,56 +41,62 @@ assertion.
 |--------|---------|
 | Behavior | Catalog behavior name |
 | Mode | Mode flag (base = mode-less) |
-| Durability | Catalog durability class |
+| Impact | Catalog impact: none, temporary, or permanent. The ceiling refuses an entry above it |
+| Restore | Catalog restore kind, with the decay bound the probe announces when one is known |
+| Affects | Whose state the check changes: none, device, clients, or fabric |
+| Observable | What decides the verdict today. A pending reason names the observable the check still lacks |
 | Fixture provenance | (a) Python-fixture / (c) ring-only / (a)+(c) both |
-| t1 AE6 status | dated source-(c) result = matching live T1 finding classes; N/A = outside the AE6 list |
-| t2 status | never = no t2 assertion exists; pending live run = assertion implemented but not executed; dated result = live vendor observable on that date |
-| Teardown | teardown path from catalog (empty = none) |
+| t1 AE6 | dated source-(c) result = matching live T1 finding classes, N/A = outside the AE6 list |
+| t2 | never = no t2 assertion exists, pending live run = assertion implemented but not executed, dated result = live vendor observable on that date |
 
 ## Matrix
 
-| Behavior | Mode | Durability | Fixture provenance | t1 AE6 | t2 | Teardown |
-|----------|------|------------|-------------------|--------|----|----------|
-| arpspoof | base | temporary-restored | (a) | N/A | never | neighbor unicast repairs + ip_forward restore |
-| arpsweep | base | non-destructive | (a) | N/A | never | |
-| camflood | base | transient-decay | (a) | N/A | never | CAM table ages out |
-| daddos | base | transient-decay | (a) | N/A | never | DAD window passes |
-| dhcpstarve | base | transient-decay | (a) | N/A | never | lease pool recovers |
-| doubletag | base | transient-decay | (a) | N/A | never | one-shot injected frames; nothing persists |
-| dtp | base | temporary-restored | (c) | N/A | never | access-port restore armed by default (KTD12) |
-| dtp | keep-trunk | permanent-destructive | (c) | N/A | never | opt-in per KTD12 |
-| eigrp | base | temporary-restored | (a) | 2026-09-27: source-(c), finding:eigrp | never | goodbye/flush teardown |
-| etherchannel | base | temporary-restored | (a) | 2026-09-27: source-(c), finding:lacp | never | port-channel release |
-| ghost | base | non-destructive | (a) | N/A | never | |
-| glbp | base | temporary-restored | (a) | 2026-09-27: source-(c), finding:glbp | never | resign teardown |
-| gratarp | base | transient-decay | (a) | N/A | never | neighbor cache ages |
-| hsrp | base | temporary-restored | (a) | N/A | never | resign teardown |
-| icmpredirect | base | transient-decay | (a) | N/A | never | victim route cache decays |
-| lldpspoof | base | transient-decay | (a) | 2026-09-27: source-(c), finding:lldp | never | bounded bursts / holdtimes |
-| llmnr | base | transient-decay | (a) | N/A | never | spoofed answers expire |
-| mld | base | transient-decay | (a) | 2026-09-27: source-(c), finding:mld | never | bounded bursts / holdtimes |
-| mvrp | base | transient-decay | (c) | N/A | never | MRP timers, minutes |
-| ndpspoof | base | transient-decay | (a) | N/A | never | NUD / real master resumes |
-| ospf | base | temporary-restored | (a) | 2026-09-27: source-(c), finding:ospf | 2026-09-25: IOS-XE (172.16.0.42) accepted neighbor 10.0.0.99 and cleared it after teardown; finding:ospf | goodbye/flush teardown |
-| portsteal | base | transient-decay | (a) | N/A | never | CAM aging |
-| portsteal | relay | temporary-restored | (a) | N/A | never | ip_forward restore armed |
-| raflood | base | transient-decay | (a) | 2026-09-27: source-(c), finding:ra | never | bounded bursts / holdtimes |
-| raguard | base | non-destructive | (a) | N/A | never | |
-| roguedhcp | base | transient-decay | (a) | N/A | never | client leases ~1800s |
-| roguedhcp6 | base | transient-decay | (a) | N/A | never | ~300s lifetime announced |
-| roguera | base | transient-decay | (a) | N/A | never | ~1800s lifetime announced |
-| scan | base | non-destructive | (a) | N/A | never | |
-| stproot | base | transient-decay | (a) | N/A | never | engineered max_age~6s |
-| vlanenum | base | non-destructive | (a) | N/A | never | |
-| vlanhop | base | temporary-restored | (a) | N/A | never | active restore armed |
-| vlanhop | persist | permanent-destructive | (a) | N/A | never | host-side persistence, flag is the opt-in |
-| voicevlan | base | temporary-restored | (a) | N/A | never | active restore armed |
-| voicevlan | persist | permanent-destructive | (a) | N/A | never | host-side persistence, flag is the opt-in |
-| vrrp | base | transient-decay | (a) | N/A | never | NUD / real master resumes |
-| vtp | base | transient-decay | (c) | N/A | never | revision-bump side effect recorded |
-| vtp | set | permanent-destructive | (c) | N/A | never | opt-in per R15 |
-| vtp | wipe | permanent-destructive | (c) | N/A | never | opt-in per R15 |
-| wpad | base | transient-decay | (a) | 2026-09-27: source-(c), finding:wpad | never | client proxy config residue, bound = TTL |
+The first five columns are the catalog's own values. `TestValidationMatrixCompleteness`
+compares them row for row with the committed catalog and fails on any
+difference, so a changed cost field is edited here in the same change.
+
+| Behavior | Mode | Impact | Restore | Affects | Observable | Fixture provenance | t1 AE6 | t2 |
+|----------|------|--------|---------|---------|------------|-------------------|--------|----|
+| arpspoof | base | temporary | active | clients | pending: no observable: poison acceptance needs a probe through the attacker, and the ip-forward-restore step is a no-op | (a) | N/A | never |
+| arpsweep | base | none | none | none | confirmed with the requested hosts as the inventory, and replies are not read | (a) | N/A | never |
+| camflood | base | temporary | decay | device | pending: no observable: fail-open needs a unicast probe seen on the watch leg | (a) | N/A | never |
+| daddos | base | temporary | decay | clients | pending: no observable: address denial needs a later probe of the victim | (a) | N/A | never |
+| dhcpstarve | base | temporary | decay | device | pending: no observable: pool exhaustion needs an offer listener | (a) | N/A | never |
+| doubletag | base | none | none | none | pending: no observable: a hop into the inner VLAN needs a watch leg there | (a) | N/A | never |
+| dtp | base | temporary | active | device | pending: no observable: trunk formation needs a tagged probe across the port | (c) | N/A | never |
+| dtp | keep-trunk | permanent | none | device | pending: no observable: trunk formation needs a tagged probe across the port | (c) | N/A | never |
+| eigrp | base | temporary | active | fabric | resisted on a goodbye within 100 ms, otherwise pending: no observable: route acceptance needs an update listener | (a) | 2026-09-27: source-(c), finding:eigrp | never |
+| etherchannel | base | temporary | active | device | pending: no observable: channel formation needs a partner-state listener, and the port-channel-release step is a no-op | (a) | 2026-09-27: source-(c), finding:lacp | never |
+| ghost | base | none | none | none | confirmed on a ghost frame crossing to the watch leg within the window, resisted on an empty window | (a) | N/A | never |
+| glbp | base | temporary | active | clients | pending: no observable: AVG takeover needs a hello listener | (a) | 2026-09-27: source-(c), finding:glbp | never |
+| gratarp | base | temporary | decay | clients | pending: no observable: cache acceptance needs a probe of the announced address | (a) | N/A | never |
+| hsrp | base | temporary | active | clients | pending: no observable: coup acceptance needs a hello listener | (a) | N/A | never |
+| icmpredirect | base | temporary | decay | clients | pending: no observable: route cache acceptance needs a probe of the victim | (a) | N/A | never |
+| lldpspoof | base | temporary | decay | device | pending: no observable: neighbor table acceptance needs a read of the device | (a) | 2026-09-27: source-(c), finding:lldp | never |
+| llmnr | base | temporary | decay 30s | clients | pending: no observable: answer acceptance needs a listener for the victim's follow-up connection | (a) | N/A | never |
+| mld | base | temporary | decay | device | pending: no observable: membership acceptance needs a read of the snooping table | (a) | 2026-09-27: source-(c), finding:mld | never |
+| mvrp | base | temporary | decay | fabric | pending: no observable: registration needs a read of the device's VLAN table | (c) | N/A | never |
+| ndpspoof | base | temporary | decay | clients | pending: no observable: cache acceptance needs a probe of the victim | (a) | N/A | never |
+| ospf | base | temporary | active | fabric | pending: no observable: neighbor formation needs a hello listener | (a) | 2026-09-27: source-(c), finding:ospf | 2026-09-25: IOS-XE (172.16.0.42) accepted neighbor 10.0.0.99 and cleared it after teardown; finding:ospf |
+| portsteal | base | temporary | decay | device | pending: no observable: port move needs a probe of the victim | (a) | N/A | never |
+| portsteal | relay | temporary | active | device | pending: no observable: port move needs a probe of the victim, and the ip-forward-restore step is a no-op | (a) | N/A | never |
+| raflood | base | temporary | decay | clients | pending: no observable: router acceptance needs a probe of a host's router list | (a) | 2026-09-27: source-(c), finding:ra | never |
+| raguard | base | none | none | none | confirmed on the forged RA crossing to the watch leg within the window, resisted on an empty window, pending without a watch leg | (a) | N/A | never |
+| roguedhcp | base | temporary | decay 30m0s | clients | pending: no observable: lease acceptance needs a REQUEST listener | (a) | N/A | never |
+| roguedhcp6 | base | temporary | decay 5m0s | clients | pending: no observable: lease acceptance needs a REQUEST listener | (a) | N/A | never |
+| roguera | base | temporary | decay 30m0s | clients | pending: no observable: router acceptance needs a probe of a host's router list | (a) | N/A | never |
+| scan | base | none | none | none | orchestration entry, which reports discovery findings and carries no verdict | (a) | N/A | never |
+| stproot | base | temporary | decay 6s | fabric | pending: no observable: root acceptance needs a BPDU listener | (a) | N/A | never |
+| vlanenum | base | none | none | none | confirmed with the observed VLAN ids as the inventory | (a) | N/A | never |
+| vlanhop | base | temporary | active | device | pending: no observable: a hop into the inner VLAN needs a watch leg there, and the vlan-interface-restore step is a no-op | (a) | N/A | never |
+| vlanhop | persist | permanent | none | device | pending: no observable: a hop into the inner VLAN needs a watch leg there | (a) | N/A | never |
+| voicevlan | base | temporary | active | clients | pending: no observable: a phone's move needs a listener on the voice VLAN, and the lldp-voice-vlan-restore step is a no-op | (a) | N/A | never |
+| voicevlan | persist | permanent | none | clients | pending: no observable: a phone's move needs a listener on the voice VLAN | (a) | N/A | never |
+| vrrp | base | temporary | decay | clients | pending: no observable: master preemption needs an advertisement listener | (a) | N/A | never |
+| vtp | base | temporary | decay | fabric | pending: no observable: revision acceptance needs a read of the device's VTP status | (c) | N/A | never |
+| vtp | set | permanent | none | fabric | pending: no observable: revision acceptance needs a read of the device's VTP status | (c) | N/A | never |
+| vtp | wipe | permanent | none | fabric | pending: no observable: revision acceptance needs a read of the device's VTP status | (c) | N/A | never |
+| wpad | base | temporary | decay 30s | clients | pending: no observable: PAC fetch needs the listener's request log | (a) | 2026-09-27: source-(c), finding:wpad | never |
 
 ## Live OSPF source-(b) recording path
 

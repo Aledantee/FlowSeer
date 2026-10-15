@@ -41,28 +41,29 @@ func syntheticFeed() []findings.Record {
 		Detail: "scanning 10.0.0.0/24",
 	}
 
-	resisted := findings.NewRecord(findings.KindResisted)
+	resisted := findings.NewRecord(findings.KindVerdict)
 	resisted.Time = t0
 	resisted.Attack = "stproot"
-	resisted.Rollup = &findings.Rollup{
-		Verdict: findings.KindResisted,
-		Detail:  "root guard blocked the BPDU",
+	resisted.Verdict = &findings.Verdict{
+		Kind:       findings.VerdictResisted,
+		Detail:     "root guard blocked the BPDU",
+		ObservedMS: 3000,
 	}
 
-	skipped := findings.NewRecord(findings.KindSkipped)
+	skipped := findings.NewRecord(findings.KindVerdict)
 	skipped.Time = t0
 	skipped.Attack = "vtp"
-	skipped.Rollup = &findings.Rollup{
-		Verdict: findings.KindSkipped,
-		Detail:  "no VTP domain detected",
+	skipped.Verdict = &findings.Verdict{
+		Kind:   findings.VerdictSkipped,
+		Detail: "no VTP domain detected",
 	}
 
-	pending := findings.NewRecord(findings.KindPending)
+	pending := findings.NewRecord(findings.KindVerdict)
 	pending.Time = t0
 	pending.Attack = "dtp"
-	pending.Rollup = &findings.Rollup{
-		Verdict: findings.KindPending,
-		Detail:  "no watch-leg traversal evidence",
+	pending.Verdict = &findings.Verdict{
+		Kind:   findings.VerdictPending,
+		Detail: "no watch-leg traversal evidence",
 	}
 
 	errRec := findings.NewRecord(findings.KindError)

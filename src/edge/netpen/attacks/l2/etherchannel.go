@@ -4,8 +4,8 @@
 // temporary-restored: the behavior arms a port-channel release teardown
 // step.
 //
-// The baseline (l2l3-audit) does not carry an EtherChannel attack; the LACP/PAgP craft is authored
-// from IEEE 802.1AX and Cisco/Wireshark specs.
+// The baseline (l2l3-audit) does not carry an EtherChannel attack. The
+// LACP/PAgP craft is authored from IEEE 802.1AX and Cisco/Wireshark specs.
 
 package l2
 
@@ -16,8 +16,8 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 
+	"go.aledante.io/FlowSeer/src/edge/netpen/check"
 	"go.aledante.io/FlowSeer/src/edge/netpen/layers"
-	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
 )
 
 type etherChannelFinding struct {
@@ -26,16 +26,19 @@ type etherChannelFinding struct {
 	Restore   string   `json:"restore"`
 }
 
-// RunEtherChannel sends both LACP and PAgP frames to exercise the
-// EtherChannel attack path. It arms a port-channel release teardown step.
-func RunEtherChannel(ctx context.Context, deps runner.Deps) error {
-	src := srcMAC(deps)
+// RunEtherChannel sends one LACPDU and one PAgP hello from the attack leg's
+// MAC. It reads no target: the keys, ports, and partner identity are probe
+// content. It arms a port-channel release step that does
+// no host work yet. The verdict is pending: whether a channel formed needs
+// a partner-state listener it does not have.
+func RunEtherChannel(ctx context.Context, deps check.Deps) (check.Verdict, error) {
+	src := deps.AttackLeg.Addr().MAC
 
 	// Arm the port-channel release before the first frame.
 	deps.Teardown.Arm("port-channel-release", func(_ context.Context) error {
 		// Issuing the port departure (a `no channel-group` command or an
 		// LACPDU with actor state = 0) is host/peer state with no direct
-		// TX here; the in-memory harness observes the restore via the
+		// TX here. The in-memory harness sees the restore through the
 		// teardown step name.
 		return nil
 	})
@@ -43,19 +46,19 @@ func RunEtherChannel(ctx context.Context, deps runner.Deps) error {
 	// Craft and send the LACPDU.
 	lacpPkt, err := craftLACPDU(src)
 	if err != nil {
-		return errs.Wrap(err, "etherchannel: craft LACP")
+		return check.Verdict{}, errs.Wrap(err, "etherchannel: craft LACP")
 	}
 	if err := deps.AttackLeg.Send(ctx, lacpPkt); err != nil {
-		return errs.Wrap(err, "etherchannel: send LACP")
+		return check.Verdict{}, errs.Wrap(err, "etherchannel: send LACP")
 	}
 
 	// Craft and send the PAgP hello.
 	pagpPkt, err := craftPAgPHello(src)
 	if err != nil {
-		return errs.Wrap(err, "etherchannel: craft PAgP")
+		return check.Verdict{}, errs.Wrap(err, "etherchannel: craft PAgP")
 	}
 	if err := deps.AttackLeg.Send(ctx, pagpPkt); err != nil {
-		return errs.Wrap(err, "etherchannel: send PAgP")
+		return check.Verdict{}, errs.Wrap(err, "etherchannel: send PAgP")
 	}
 
 	detail, _ := json.Marshal(etherChannelFinding{
@@ -65,7 +68,7 @@ func RunEtherChannel(ctx context.Context, deps runner.Deps) error {
 	})
 	deps.Emitter.Finding("lacp", detail)
 
-	return nil
+	return check.Pending("no observable: channel formation needs a partner-state listener, and the port-channel-release step is a no-op"), nil
 }
 
 // craftLACPDU builds an LACPDU with actor state advertising activity +

@@ -1,28 +1,21 @@
 package runner_test
 
 import (
-	"bytes"
 	"context"
 	"errors"
-	"os"
-	"os/exec"
 	"strings"
 	"sync"
 	"sync/atomic"
-	"syscall"
 	"testing"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/edge/netpen/catalog"
+	"go.aledante.io/FlowSeer/src/edge/netpen/check"
 	"go.aledante.io/FlowSeer/src/edge/netpen/findings"
 	"go.aledante.io/FlowSeer/src/edge/netpen/link"
 	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
 )
-
-// unixSIGHUP is syscall.SIGHUP, aliased so the subprocess signal test
-// reads cleanly without importing golang.org/x/sys/unix.
-var unixSIGHUP = syscall.SIGHUP
 
 // sendCountingLeg is a [link.Leg] whose Send is counted. It is the
 // proof that a refused behavior never emits a frame: the gate evaluates
@@ -54,34 +47,140 @@ func (l *sendCountingLeg) Close() error {
 	return nil
 }
 
+func (l *sendCountingLeg) Addr() link.Addr { return link.Addr{} }
+
 func (l *sendCountingLeg) sendCount() int64 { return l.sends.Load() }
 
-// TestPermanentRefusalZeroFrames proves a permanent-destructive
-// (attack, mode) pair invoked without its acknowledgment refuses at the
-// gate before any frame is emitted. The behavior is never invoked (so it
-// never receives a send-capable leg), the leg's Send is never called
-// (zero frames), a typed refusal record is emitted, and Run returns a
-// coded non-zero error.
+// refusalOf returns the first refusal record's payload, or nil.
+func refusalOf(recs []findings.Record) *findings.Refusal {
+	for _, rec := range recs {
+		if rec.Kind == findings.KindRefusal {
+			return rec.Refusal
+		}
+	}
+	return nil
+}
+
+// TestCeilingRefusalContinues pins the gate order and the ceiling's
+// outcome: a permanent entry under a temporary ceiling, even with a valid
+// acknowledgment, is refused with a reason naming both impacts, sends
+// nothing, gets a skipped verdict, and the next attack in the list runs.
+func TestCeilingRefusalContinues(t *testing.T) {
+	leg := &sendCountingLeg{}
+	t.Cleanup(func() { _ = leg.Close() })
+
+	invoked := atomic.Bool{}
+	next := atomic.Bool{}
+	r := newRunner(runner.Options{
+		AttackLeg:    leg,
+		Attacks:      []runner.AttackRef{{Name: "vtp", Mode: "wipe"}, {Name: "arpsweep"}},
+		MaxImpact:    check.ImpactTemporary,
+		Acknowledged: []runner.AttackRef{{Name: "vtp", Mode: "wipe"}},
+	}, map[string]check.Run{
+		"vtp": func(_ context.Context, deps check.Deps) (check.Verdict, error) {
+			invoked.Store(true)
+			_ = deps.AttackLeg.Send(context.Background(), []byte("must-not-send"))
+			return pending, nil
+		},
+		"arpsweep": func(context.Context, check.Deps) (check.Verdict, error) {
+			next.Store(true)
+			return pending, nil
+		},
+	})
+
+	recs, err := drainStreamAsync(context.Background(), r)
+	if err != nil {
+		t.Fatalf("Run returned %v, want nil: a ceiling refusal continues", err)
+	}
+	if invoked.Load() {
+		t.Error("behavior was invoked; the ceiling must refuse before invocation")
+	}
+	if got := leg.sendCount(); got != 0 {
+		t.Errorf("leg Send called %d times, want 0", got)
+	}
+	refusal := refusalOf(recs)
+	if refusal == nil {
+		t.Fatal("no refusal record in stream")
+	}
+	if refusal.Reason != "impact permanent exceeds ceiling temporary" {
+		t.Errorf("refusal reason = %q, want %q", refusal.Reason, "impact permanent exceeds ceiling temporary")
+	}
+	v, ok := verdicts(recs)["vtp"]
+	if !ok || v.Verdict == nil || v.Verdict.Kind != findings.VerdictSkipped || v.Mode != "wipe" {
+		t.Errorf("vtp verdict = %+v, want skipped for mode wipe", v)
+	}
+	if !next.Load() {
+		t.Error("the next attack did not run after the ceiling refusal")
+	}
+}
+
+// TestCeilingAgainstEveryImpact pins the comparison for every (impact,
+// ceiling) pair: an entry runs when its impact is at or below the ceiling
+// and is refused above it.
+func TestCeilingAgainstEveryImpact(t *testing.T) {
+	entries := map[check.Impact]runner.AttackRef{
+		check.ImpactNone:      {Name: "arpsweep"},
+		check.ImpactTemporary: {Name: "camflood"},
+		check.ImpactPermanent: {Name: "vtp", Mode: "wipe"},
+	}
+	impacts := []check.Impact{check.ImpactNone, check.ImpactTemporary, check.ImpactPermanent}
+	for _, ceiling := range impacts {
+		for _, impact := range impacts {
+			t.Run(string(impact)+" under "+string(ceiling), func(t *testing.T) {
+				leg := &sendCountingLeg{}
+				t.Cleanup(func() { _ = leg.Close() })
+				ref := entries[impact]
+				ran := atomic.Bool{}
+				stub := func(context.Context, check.Deps) (check.Verdict, error) {
+					ran.Store(true)
+					return pending, nil
+				}
+				r := newRunner(runner.Options{
+					AttackLeg:    leg,
+					Attacks:      []runner.AttackRef{ref},
+					MaxImpact:    ceiling,
+					Acknowledged: []runner.AttackRef{ref},
+				}, map[string]check.Run{ref.Name: stub})
+				recs, err := drainStreamAsync(context.Background(), r)
+				if err != nil {
+					t.Fatalf("Run: %v", err)
+				}
+				wantRun := impact.Level() <= ceiling.Level()
+				if ran.Load() != wantRun {
+					t.Errorf("behavior ran = %v, want %v", ran.Load(), wantRun)
+				}
+				if (refusalOf(recs) != nil) == wantRun {
+					t.Errorf("refusal present = %v, want %v", refusalOf(recs) != nil, !wantRun)
+				}
+			})
+		}
+	}
+}
+
+// TestPermanentRefusalZeroFrames proves a permanent (attack, mode) pair
+// admitted by the ceiling but invoked without its acknowledgment refuses
+// at the gate before any frame is emitted. The behavior is never invoked,
+// the leg's Send is never called, a typed refusal record is emitted, and
+// Run returns a coded non-zero error.
 func TestPermanentRefusalZeroFrames(t *testing.T) {
 	leg := &sendCountingLeg{}
 	t.Cleanup(func() { _ = leg.Close() })
 
 	invoked := atomic.Bool{}
-	stub := func(_ context.Context, _ runner.Deps) error {
+	stub := func(_ context.Context, _ check.Deps) (check.Verdict, error) {
 		invoked.Store(true)
-		return nil
+		return pending, nil
 	}
 
-	r := runner.NewRunner(runner.Options{
+	r := newRunner(runner.Options{
 		AttackLeg: leg,
 		Attacks:   []runner.AttackRef{{Name: "vtp", Mode: "wipe"}},
-		Behaviors: map[string]runner.Behavior{"vtp": stub},
+		MaxImpact: check.ImpactPermanent,
 		// No Acknowledged: the gate must refuse.
-	})
+	}, map[string]check.Run{"vtp": stub})
 
-	recs, err := drainStreamAsync(t, context.Background(), r)
+	recs, err := drainStreamAsync(context.Background(), r)
 
-	// Exit non-zero: the refusal is a runtime failure (exit 1).
 	if err == nil {
 		t.Fatal("Run returned nil, want coded refusal error")
 	}
@@ -91,29 +190,18 @@ func TestPermanentRefusalZeroFrames(t *testing.T) {
 	if got := errs.ExitCode(err); got != 1 {
 		t.Errorf("exit code: got %d, want 1", got)
 	}
-
-	// The behavior was never invoked — the gate refused before TX.
 	if invoked.Load() {
 		t.Error("behavior was invoked; the gate must refuse before invocation")
 	}
-
-	// Zero frames: the leg's Send was never called.
 	if got := leg.sendCount(); got != 0 {
 		t.Errorf("leg Send called %d times, want 0 (zero frames)", got)
 	}
-
-	// A typed refusal record was emitted.
-	var refusal *findings.Refusal
-	for _, rec := range recs {
-		if rec.Kind == findings.KindRefusal {
-			refusal = rec.Refusal
-		}
-	}
+	refusal := refusalOf(recs)
 	if refusal == nil {
 		t.Fatal("no refusal record in stream")
 	}
-	if !strings.Contains(refusal.Reason, "permanent-destructive") {
-		t.Errorf("refusal reason %q, want it to name permanent-destructive", refusal.Reason)
+	if !strings.Contains(refusal.Reason, "permanent") {
+		t.Errorf("refusal reason %q, want it to name the permanent mode", refusal.Reason)
 	}
 	if !strings.Contains(refusal.Reason, "opt-in") {
 		t.Errorf("refusal reason %q, want it to name the required opt-in", refusal.Reason)
@@ -122,32 +210,25 @@ func TestPermanentRefusalZeroFrames(t *testing.T) {
 
 // TestPermanentRefusalNeverEnablesTX proves the harder invariant: the
 // leg's TX capability is never handed to a refused behavior, not merely
-// that no write call was made. A hooked mock leg whose Send panics if
-// called is passed to the behavior; because the behavior is never
-// invoked, the panic Send is never reached. This distinguishes "the gate
-// withheld the leg" from "the behavior chose not to send".
+// that no write call was made.
 func TestPermanentRefusalNeverEnablesTX(t *testing.T) {
 	leg := &sendCountingLeg{}
 	t.Cleanup(func() { _ = leg.Close() })
 
-	// The behavior would panic if it ever ran (it must not run).
-	stub := func(_ context.Context, deps runner.Deps) error {
-		// If the gate ever handed a send-capable leg to a refused
-		// behavior, this would be a contract violation. Touching
-		// Send here would prove the gate failed to withhold TX.
+	stub := func(_ context.Context, deps check.Deps) (check.Verdict, error) {
 		if deps.AttackLeg != nil {
 			_ = deps.AttackLeg.Send(context.Background(), []byte("must-not-send"))
 		}
-		return nil
+		return pending, nil
 	}
 
-	r := runner.NewRunner(runner.Options{
+	r := newRunner(runner.Options{
 		AttackLeg: leg,
 		Attacks:   []runner.AttackRef{{Name: "vlanhop", Mode: "persist"}},
-		Behaviors: map[string]runner.Behavior{"vlanhop": stub},
-	})
+		MaxImpact: check.ImpactPermanent,
+	}, map[string]check.Run{"vlanhop": stub})
 
-	_, err := drainStreamAsync(t, context.Background(), r)
+	_, err := drainStreamAsync(context.Background(), r)
 	if err == nil {
 		t.Fatal("Run returned nil, want coded refusal error")
 	}
@@ -156,46 +237,38 @@ func TestPermanentRefusalNeverEnablesTX(t *testing.T) {
 	}
 }
 
-// TestAcknowledgedPermanentAnnouncesBeforeFrame proves the acknowledged-
-// permanent path: when the per-run opt-in names the permanent mode, the
-// gate emits a run-start announcement naming the accepted mode + its
-// consequence before the first frame, then treats the entry like
-// temporary-restored for teardown arming.
-func TestAcknowledgedPermanentAnnouncesBeforeFrame(t *testing.T) {
+// TestAcknowledgedPermanentAnnouncesAndArmsNothing proves the acknowledged
+// permanent path: the gate emits a run-start announcement naming the
+// accepted mode before the first frame, and the behavior receives no
+// teardown handle, since a permanent mode restores nothing.
+func TestAcknowledgedPermanentAnnouncesAndArmsNothing(t *testing.T) {
 	leg := &sendCountingLeg{}
 	t.Cleanup(func() { _ = leg.Close() })
 
-	teardownRan := atomic.Bool{}
-	stub := func(_ context.Context, deps runner.Deps) error {
-		// Acknowledged permanent is treated like temporary-restored
-		// for teardown arming: Deps.Teardown is non-nil.
-		if deps.Teardown == nil {
-			t.Error("acknowledged permanent: Deps.Teardown is nil, want non-nil")
-			return nil
-		}
-		deps.Teardown.Arm("restore", func(_ context.Context) error {
-			teardownRan.Store(true)
-			return nil
-		})
+	teardownWasNil := atomic.Bool{}
+	stub := func(_ context.Context, deps check.Deps) (check.Verdict, error) {
+		teardownWasNil.Store(deps.Teardown == nil)
 		deps.Emitter.Finding("vtp", []byte(`{"action":"wipe"}`))
-		return nil
+		return pending, nil
 	}
 
-	r := runner.NewRunner(runner.Options{
+	r := newRunner(runner.Options{
 		AttackLeg: leg,
 		Attacks:   []runner.AttackRef{{Name: "vtp", Mode: "wipe"}},
-		Behaviors: map[string]runner.Behavior{"vtp": stub},
+		MaxImpact: check.ImpactPermanent,
 		Acknowledged: []runner.AttackRef{
 			{Name: "vtp", Mode: "wipe"},
 		},
-	})
+	}, map[string]check.Run{"vtp": stub})
 
-	recs, err := drainStreamAsync(t, context.Background(), r)
+	recs, err := drainStreamAsync(context.Background(), r)
 	if err != nil {
 		t.Fatalf("Run returned error: %v", err)
 	}
+	if !teardownWasNil.Load() {
+		t.Error("acknowledged permanent: Deps.Teardown is non-nil, want nil")
+	}
 
-	// The announcement record precedes the finding.
 	if len(recs) < 2 {
 		t.Fatalf("got %d records, want >= 2 (announcement + finding)", len(recs))
 	}
@@ -211,36 +284,29 @@ func TestAcknowledgedPermanentAnnouncesBeforeFrame(t *testing.T) {
 	if !strings.Contains(recs[0].Progress.Detail, "wipe") {
 		t.Errorf("record 0 detail %q, want it to name the accepted mode", recs[0].Progress.Detail)
 	}
-
-	// Teardown ran (armed + executed on completion).
-	if !teardownRan.Load() {
-		t.Error("teardown did not run for acknowledged permanent")
-	}
 }
 
 // TestAcknowledgedPermanentIsPerPair proves the opt-in's per-pair semantics:
-// acknowledging "vtp wipe" does not accept "vtp set". A different
-// permanent mode without its own ack still refuses.
+// acknowledging "vtp wipe" does not accept "vtp set".
 func TestAcknowledgedPermanentIsPerPair(t *testing.T) {
 	leg := &sendCountingLeg{}
 	t.Cleanup(func() { _ = leg.Close() })
 
-	stub := func(_ context.Context, _ runner.Deps) error {
+	stub := func(_ context.Context, _ check.Deps) (check.Verdict, error) {
 		t.Error("behavior should not be invoked")
-		return nil
+		return pending, nil
 	}
 
-	r := runner.NewRunner(runner.Options{
+	r := newRunner(runner.Options{
 		AttackLeg: leg,
 		Attacks:   []runner.AttackRef{{Name: "vtp", Mode: "set"}},
-		Behaviors: map[string]runner.Behavior{"vtp": stub},
-		// Acknowledge wipe, not set.
+		MaxImpact: check.ImpactPermanent,
 		Acknowledged: []runner.AttackRef{
 			{Name: "vtp", Mode: "wipe"},
 		},
-	})
+	}, map[string]check.Run{"vtp": stub})
 
-	_, err := drainStreamAsync(t, context.Background(), r)
+	_, err := drainStreamAsync(context.Background(), r)
 	if err == nil {
 		t.Fatal("Run returned nil, want refusal (ack is per-pair)")
 	}
@@ -249,95 +315,85 @@ func TestAcknowledgedPermanentIsPerPair(t *testing.T) {
 	}
 }
 
-// TestTransientDecayAnnouncesBeforeExecute proves the transient-decay
-// path: the gate announces the catalog's decay bound as a run-start
-// record before executing, and arms nothing (no teardown handle in
-// Deps). The behavior runs normally.
-func TestTransientDecayAnnouncesBeforeExecute(t *testing.T) {
-	leg := &sendCountingLeg{}
-	t.Cleanup(func() { _ = leg.Close() })
+// TestDecayAnnouncesBoundBeforeExecute proves the decaying path: the gate
+// announces the entry's bound as a run-start record before executing, as
+// the duration when the probe states one and as unknown otherwise, and
+// arms nothing.
+func TestDecayAnnouncesBoundBeforeExecute(t *testing.T) {
+	cases := []struct {
+		name   string
+		attack string
+		detail string
+	}{
+		{"bound from the probe", "stproot", "decays within 6s"},
+		{"no bound", "camflood", "decay bound unknown"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			leg := &sendCountingLeg{}
+			t.Cleanup(func() { _ = leg.Close() })
 
-	teardownWasNil := atomic.Bool{}
-	stub := func(_ context.Context, deps runner.Deps) error {
-		// Transient-decay arms nothing: Deps.Teardown is nil.
-		if deps.Teardown == nil {
-			teardownWasNil.Store(true)
-		}
-		deps.Emitter.Finding("stp", []byte(`{"root":true}`))
-		return nil
-	}
+			teardownWasNil := atomic.Bool{}
+			stub := func(_ context.Context, deps check.Deps) (check.Verdict, error) {
+				teardownWasNil.Store(deps.Teardown == nil)
+				deps.Emitter.Finding("stp", []byte(`{"root":true}`))
+				return pending, nil
+			}
 
-	r := runner.NewRunner(runner.Options{
-		AttackLeg: leg,
-		Attacks:   []runner.AttackRef{{Name: "stproot"}},
-		Behaviors: map[string]runner.Behavior{"stproot": stub},
-	})
+			r := newRunner(runner.Options{
+				AttackLeg: leg,
+				Attacks:   []runner.AttackRef{{Name: c.attack}},
+			}, map[string]check.Run{c.attack: stub})
 
-	recs, err := drainStreamAsync(t, context.Background(), r)
-	if err != nil {
-		t.Fatalf("Run returned error: %v", err)
-	}
-
-	if !teardownWasNil.Load() {
-		t.Error("transient-decay Deps.Teardown is non-nil; decay arms nothing")
-	}
-
-	// The decay-bound announcement precedes the finding.
-	if len(recs) < 2 {
-		t.Fatalf("got %d records, want >= 2 (announcement + finding)", len(recs))
-	}
-	if recs[0].Kind != findings.KindProgress {
-		t.Errorf("record 0: kind %q, want %q", recs[0].Kind, findings.KindProgress)
-	}
-	if recs[0].Progress == nil {
-		t.Fatal("record 0: nil progress")
-	}
-	if recs[0].Progress.Phase != "decay-bound" {
-		t.Errorf("record 0 phase %q, want %q", recs[0].Progress.Phase, "decay-bound")
-	}
-	// The decay bound comes from the catalog entry's Teardown field.
-	entry, ok := runner.ResolveEntry("stproot", "")
-	if !ok {
-		t.Fatal("stproot entry not found")
-	}
-	if recs[0].Progress.Detail != entry.Teardown {
-		t.Errorf("record 0 detail %q, want %q (catalog decay bound)", recs[0].Progress.Detail, entry.Teardown)
+			recs, err := drainStreamAsync(context.Background(), r)
+			if err != nil {
+				t.Fatalf("Run returned error: %v", err)
+			}
+			if !teardownWasNil.Load() {
+				t.Error("decaying entry's Deps.Teardown is non-nil; decay arms nothing")
+			}
+			if len(recs) < 2 || recs[0].Kind != findings.KindProgress || recs[0].Progress == nil {
+				t.Fatalf("records = %+v, want an announcement first", recs)
+			}
+			if recs[0].Progress.Phase != "decay-bound" {
+				t.Errorf("record 0 phase %q, want %q", recs[0].Progress.Phase, "decay-bound")
+			}
+			if recs[0].Progress.Detail != c.detail {
+				t.Errorf("record 0 detail %q, want %q", recs[0].Progress.Detail, c.detail)
+			}
+		})
 	}
 }
 
-// TestNonDestructiveNoAnnouncementNoTeardown proves the non-destructive
-// path: no announcement record and no teardown handle. The behavior runs
-// directly.
-func TestNonDestructiveNoAnnouncementNoTeardown(t *testing.T) {
+// TestNoImpactNoAnnouncementNoTeardown proves the no-impact path: no
+// announcement record and no teardown handle. The behavior runs directly
+// and its verdict closes the attack.
+func TestNoImpactNoAnnouncementNoTeardown(t *testing.T) {
 	leg := &sendCountingLeg{}
 	t.Cleanup(func() { _ = leg.Close() })
 
 	teardownWasNil := atomic.Bool{}
-	stub := func(_ context.Context, deps runner.Deps) error {
-		if deps.Teardown == nil {
-			teardownWasNil.Store(true)
-		}
+	stub := func(_ context.Context, deps check.Deps) (check.Verdict, error) {
+		teardownWasNil.Store(deps.Teardown == nil)
 		deps.Emitter.Finding("arp", []byte(`{"host":"10.0.0.1"}`))
-		return nil
+		return pending, nil
 	}
 
-	r := runner.NewRunner(runner.Options{
+	r := newRunner(runner.Options{
 		AttackLeg: leg,
 		Attacks:   []runner.AttackRef{{Name: "arpsweep"}},
-		Behaviors: map[string]runner.Behavior{"arpsweep": stub},
-	})
+	}, map[string]check.Run{"arpsweep": stub})
 
-	recs, err := drainStreamAsync(t, context.Background(), r)
+	recs, err := drainStreamAsync(context.Background(), r)
 	if err != nil {
 		t.Fatalf("Run returned error: %v", err)
 	}
 
 	if !teardownWasNil.Load() {
-		t.Error("non-destructive Deps.Teardown is non-nil")
+		t.Error("no-impact Deps.Teardown is non-nil")
 	}
-	// Exactly one record (the finding); no announcement.
-	if len(recs) != 1 {
-		t.Fatalf("got %d records, want 1 (no announcement)", len(recs))
+	if len(recs) != 2 {
+		t.Fatalf("got %d records, want 2 (finding + verdict, no announcement)", len(recs))
 	}
 	if recs[0].Kind != findings.KindFinding {
 		t.Errorf("record 0: kind %q, want %q", recs[0].Kind, findings.KindFinding)
@@ -345,9 +401,9 @@ func TestNonDestructiveNoAnnouncementNoTeardown(t *testing.T) {
 }
 
 // TestInterruptTeardownCompletesPartialFailure proves that when an
-// interrupt arrives mid-run on a temporary-restored behavior, the
-// teardown completes before exit; one step planted to fail still lets
-// later steps run; the partial record names the failed step; exit is 1.
+// interrupt arrives mid-run on an actively restored behavior, the
+// teardown completes before exit. One step planted to fail still lets
+// later steps run. The partial record names the failed step. Exit is 1.
 func TestInterruptTeardownCompletesPartialFailure(t *testing.T) {
 	leg := &sendCountingLeg{}
 	t.Cleanup(func() { _ = leg.Close() })
@@ -359,10 +415,7 @@ func TestInterruptTeardownCompletesPartialFailure(t *testing.T) {
 		armed        = make(chan struct{})
 	)
 
-	stub := func(ctx context.Context, deps runner.Deps) error {
-		// Arm teardown steps: host-local first (reverse-dependency),
-		// then a step that fails, then a later step that must still
-		// run despite the failure.
+	stub := func(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 		deps.Teardown.Arm("ip-forward-restore", func(_ context.Context) error {
 			stepOrderMu.Lock()
 			stepOrder = append(stepOrder, "ip-forward-restore")
@@ -383,38 +436,29 @@ func TestInterruptTeardownCompletesPartialFailure(t *testing.T) {
 			return nil
 		})
 
-		// Signal that teardown is armed, then block until interrupted.
 		close(armed)
 		<-ctx.Done()
-		return ctx.Err()
+		return check.Verdict{}, ctx.Err()
 	}
 
-	r := runner.NewRunner(runner.Options{
+	r := newRunner(runner.Options{
 		AttackLeg:      leg,
 		Attacks:        []runner.AttackRef{{Name: "arpspoof"}},
-		Behaviors:      map[string]runner.Behavior{"arpspoof": stub},
-		TeardownBudget: 2 * time.Second, // test-scaled
-	})
+		TeardownBudget: 2 * time.Second,
+	}, map[string]check.Run{"arpspoof": stub})
 
 	runCtx, runCancel := context.WithCancel(context.Background())
 	go func() { _ = r.Run(runCtx) }()
 
-	// Wait for the behavior to arm teardown and block.
 	<-armed
-
-	// Engage teardown via Interrupt (the signal path).
-	r.Interrupt(nil)
-
-	// Wait for Run to finish.
+	r.Interrupt()
 	r.Wait()
 	runCancel()
 
-	// Teardown completed (the later step ran).
 	if !teardownDone.Load() {
 		t.Error("later teardown step did not run; one failing step must not abandon later ones")
 	}
 
-	// All three steps ran in arm order (host-local first).
 	stepOrderMu.Lock()
 	defer stepOrderMu.Unlock()
 	want := []string{"ip-forward-restore", "neighbor-repair-fails", "resign-teardown"}
@@ -427,7 +471,6 @@ func TestInterruptTeardownCompletesPartialFailure(t *testing.T) {
 		}
 	}
 
-	// The partial record names the failed step.
 	var partial *findings.ErrorRecord
 	for rec := range r.Stream().Iter() {
 		if rec.Kind == findings.KindError {
@@ -443,39 +486,33 @@ func TestInterruptTeardownCompletesPartialFailure(t *testing.T) {
 	if !strings.Contains(partial.Message, "neighbor-repair-fails") {
 		t.Errorf("partial record message %q, want it to name the failed step", partial.Message)
 	}
-
-	// Exit 1 (teardown partial failure = 1).
 	if got := errs.ExitCode(r.Stream().Err()); got != 1 {
 		t.Errorf("exit code: got %d, want 1", got)
 	}
 }
 
-// TestTeardownCompletesBeforeStreamClose proves the signal-layer ordering
-// invariant: teardown completes before the sink flush (the stream's
-// records are visible to the consumer before the stream ends). A stub
-// sink drains the stream; the partial-failure record from teardown must
-// appear in the drained records, proving teardown's record was flushed
-// through the stream before exit.
+// TestTeardownCompletesBeforeStreamClose proves the ordering invariant:
+// teardown completes before the sink flush, so the partial-failure record
+// is among the drained records.
 func TestTeardownCompletesBeforeStreamClose(t *testing.T) {
 	leg := &sendCountingLeg{}
 	t.Cleanup(func() { _ = leg.Close() })
 
 	armed := make(chan struct{})
-	stub := func(ctx context.Context, deps runner.Deps) error {
+	stub := func(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 		deps.Teardown.Arm("fails", func(_ context.Context) error {
 			return errors.New("restore failed")
 		})
 		close(armed)
 		<-ctx.Done()
-		return ctx.Err()
+		return check.Verdict{}, ctx.Err()
 	}
 
-	r := runner.NewRunner(runner.Options{
+	r := newRunner(runner.Options{
 		AttackLeg:      leg,
 		Attacks:        []runner.AttackRef{{Name: "arpspoof"}},
-		Behaviors:      map[string]runner.Behavior{"arpspoof": stub},
 		TeardownBudget: 2 * time.Second,
-	})
+	}, map[string]check.Run{"arpspoof": stub})
 
 	var (
 		recs []findings.Record
@@ -495,15 +532,13 @@ func TestTeardownCompletesBeforeStreamClose(t *testing.T) {
 	runCtx, runCancel := context.WithCancel(context.Background())
 	go func() { _ = r.Run(runCtx) }()
 	<-armed
-	r.Interrupt(nil)
+	r.Interrupt()
 	r.Wait()
 	runCancel()
 	wg.Wait()
 
 	mu.Lock()
 	defer mu.Unlock()
-	// The partial-failure record must be among the drained records —
-	// teardown completed and flushed its record before the stream closed.
 	var hasPartial bool
 	for _, rec := range recs {
 		if rec.Kind == findings.KindError && rec.Error != nil &&
@@ -517,69 +552,57 @@ func TestTeardownCompletesBeforeStreamClose(t *testing.T) {
 }
 
 // TestTeardownBudgetBounded proves the teardown executor is bounded by
-// the configured budget. A step that sleeps longer than the budget is
-// capped; the total teardown time stays within a generous bound of the
-// budget. The budget is test-scaled to milliseconds.
+// the configured budget.
 func TestTeardownBudgetBounded(t *testing.T) {
 	leg := &sendCountingLeg{}
 	t.Cleanup(func() { _ = leg.Close() })
 
-	stub := func(_ context.Context, deps runner.Deps) error {
-		// A step that sleeps well beyond the budget.
+	stub := func(_ context.Context, deps check.Deps) (check.Verdict, error) {
 		deps.Teardown.Arm("slow", func(stepCtx context.Context) error {
-			// Respect the step's context: it is canceled when the
-			// share of the budget elapses.
 			<-stepCtx.Done()
 			return stepCtx.Err()
 		})
 		deps.Emitter.Finding("arp", []byte(`{}`))
-		return nil
+		return pending, nil
 	}
 
 	budget := 100 * time.Millisecond
-	r := runner.NewRunner(runner.Options{
+	r := newRunner(runner.Options{
 		AttackLeg:      leg,
 		Attacks:        []runner.AttackRef{{Name: "arpspoof"}},
-		Behaviors:      map[string]runner.Behavior{"arpspoof": stub},
 		TeardownBudget: budget,
-	})
+	}, map[string]check.Run{"arpspoof": stub})
 
 	start := time.Now()
-	_, err := drainStreamAsync(t, context.Background(), r)
+	_, err := drainStreamAsync(context.Background(), r)
 	elapsed := time.Since(start)
 
-	// The teardown is bounded: elapsed should be within a generous
-	// bound of the budget (the step's share is the full budget for one
-	// step, plus stream/scheduling overhead).
 	if elapsed > budget*5 {
 		t.Errorf("teardown took %v, want <= %v (5x budget)", elapsed, budget*5)
 	}
-	// The step was cut short by the budget: the partial record names it.
 	if err == nil {
 		t.Fatal("Run returned nil, want teardown partial failure (step was budget-capped)")
 	}
 }
 
-// TestTemporaryRestoredZeroStepsArmedFails proves the loud-failure
-// contract: a temporary-restored behavior that arms zero teardown steps
-// is a coded runtime failure at arm time, not a silent skip.
-func TestTemporaryRestoredZeroStepsArmedFails(t *testing.T) {
+// TestActiveRestoreZeroStepsArmedFails proves the loud-failure contract: an
+// actively restored behavior that arms zero teardown steps is a coded
+// runtime failure, not a silent skip.
+func TestActiveRestoreZeroStepsArmedFails(t *testing.T) {
 	leg := &sendCountingLeg{}
 	t.Cleanup(func() { _ = leg.Close() })
 
-	stub := func(_ context.Context, deps runner.Deps) error {
-		// Arm nothing — a required restore that restores nothing.
+	stub := func(_ context.Context, deps check.Deps) (check.Verdict, error) {
 		deps.Emitter.Finding("arp", []byte(`{}`))
-		return nil
+		return pending, nil
 	}
 
-	r := runner.NewRunner(runner.Options{
+	r := newRunner(runner.Options{
 		AttackLeg: leg,
 		Attacks:   []runner.AttackRef{{Name: "arpspoof"}},
-		Behaviors: map[string]runner.Behavior{"arpspoof": stub},
-	})
+	}, map[string]check.Run{"arpspoof": stub})
 
-	_, err := drainStreamAsync(t, context.Background(), r)
+	_, err := drainStreamAsync(context.Background(), r)
 	if err == nil {
 		t.Fatal("Run returned nil, want coded failure (zero steps armed)")
 	}
@@ -592,29 +615,29 @@ func TestTemporaryRestoredZeroStepsArmedFails(t *testing.T) {
 }
 
 // TestOrchestratedPermanentCannotDispatch proves that under orchestration
-// (Options.Orchestrated, set by the full command), no permanent entry
-// may dispatch even with an ack supplied. The gate has no path.
+// no permanent entry may dispatch even with an ack supplied and a
+// permanent ceiling.
 func TestOrchestratedPermanentCannotDispatch(t *testing.T) {
 	leg := &sendCountingLeg{}
 	t.Cleanup(func() { _ = leg.Close() })
 
 	invoked := atomic.Bool{}
-	stub := func(_ context.Context, _ runner.Deps) error {
+	stub := func(_ context.Context, _ check.Deps) (check.Verdict, error) {
 		invoked.Store(true)
-		return nil
+		return pending, nil
 	}
 
-	r := runner.NewRunner(runner.Options{
+	r := newRunner(runner.Options{
 		AttackLeg: leg,
 		Attacks:   []runner.AttackRef{{Name: "vtp", Mode: "wipe"}},
-		Behaviors: map[string]runner.Behavior{"vtp": stub},
+		MaxImpact: check.ImpactPermanent,
 		Acknowledged: []runner.AttackRef{
 			{Name: "vtp", Mode: "wipe"},
 		},
-		Orchestrated: true, // full command: no permanent dispatches.
-	})
+		Orchestrated: true,
+	}, map[string]check.Run{"vtp": stub})
 
-	_, err := drainStreamAsync(t, context.Background(), r)
+	_, err := drainStreamAsync(context.Background(), r)
 	if err == nil {
 		t.Fatal("Run returned nil, want refusal (orchestrated blocks permanent)")
 	}
@@ -626,311 +649,46 @@ func TestOrchestratedPermanentCannotDispatch(t *testing.T) {
 	}
 }
 
-// TestSignalInterruptEngagesTeardown is a subprocess test proving the
-// signal lifecycle: a subprocess runs a temporary-restored behavior that
-// blocks, then sends itself SIGINT. The teardown completes (the restore
-// step runs), the partial record flushes, and the process exits 1 (the
-// planted failing step). This uses os/exec re-exec of the test binary
-// (the standard Go subprocess pattern) so the force-exit path does not
-// kill the test process.
-func TestSignalInterruptEngagesTeardown(t *testing.T) {
-	if testing.Short() {
-		t.Skip("subprocess signal test skipped in -short")
-	}
-	if os.Getenv("NETPEN_U6_SIGINT_CHILD") == "1" {
-		runSignalChild(t, "SIGINT")
-		return
-	}
-
-	sub := exec.Command(os.Args[0], "-test.run=TestSignalInterruptEngagesTeardown")
-	sub.Env = append(os.Environ(), "NETPEN_U6_SIGINT_CHILD=1")
-	var out bytes.Buffer
-	sub.Stdout = &out
-	sub.Stderr = &out
-
-	if err := sub.Start(); err != nil {
-		t.Fatalf("start child: %v", err)
-	}
-
-	// Give the child a moment to install handlers and block.
-	time.Sleep(100 * time.Millisecond)
-
-	if err := sub.Process.Signal(os.Interrupt); err != nil {
-		t.Fatalf("signal child: %v", err)
-	}
-
-	err := sub.Wait()
-	exitCode := 0
-	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
-			exitCode = exitErr.ExitCode()
-		}
-	}
-
-	// The teardown's planted failing step produces a partial record
-	// (stderr carries the forced-exit only on a SECOND signal; one
-	// signal runs teardown to completion and exits via the runner's
-	// error path). The exit code is 1 (teardown partial failure).
-	if exitCode != 1 {
-		t.Errorf("child exit code: got %d, want 1 (teardown partial). output:\n%s", exitCode, out.String())
-	}
-}
-
-// TestSignalHupEngagesTeardown proves SIGHUP engages the same teardown
-// path as SIGINT (SIGINT/SIGTERM/SIGHUP all engage the same path).
-func TestSignalHupEngagesTeardown(t *testing.T) {
-	if testing.Short() {
-		t.Skip("subprocess signal test skipped in -short")
-	}
-	if os.Getenv("NETPEN_U6_SIGHUP_CHILD") == "1" {
-		runSignalChild(t, "SIGHUP")
-		return
-	}
-
-	sub := exec.Command(os.Args[0], "-test.run=TestSignalHupEngagesTeardown")
-	sub.Env = append(os.Environ(), "NETPEN_U6_SIGHUP_CHILD=1")
-	var out bytes.Buffer
-	sub.Stdout = &out
-	sub.Stderr = &out
-
-	if err := sub.Start(); err != nil {
-		t.Fatalf("start child: %v", err)
-	}
-	time.Sleep(100 * time.Millisecond)
-
-	if err := sub.Process.Signal(unixSIGHUP); err != nil {
-		t.Fatalf("signal child: %v", err)
-	}
-
-	err := sub.Wait()
-	exitCode := 0
-	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
-			exitCode = exitErr.ExitCode()
-		}
-	}
-	if exitCode != 1 {
-		t.Errorf("child exit code: got %d, want 1. output:\n%s", exitCode, out.String())
-	}
-}
-
-// TestSecondSignalForceExitNamesAbandoned proves the second-SIGINT
-// force-exit: a second signal during teardown force-exits the process
-// and reports by name the abandoned teardown steps. The subprocess
-// installs a slow teardown step, sends SIGINT (engaging teardown), then
-// immediately sends a second SIGINT (forcing exit). The stderr output
-// names the abandoned step.
-func TestSecondSignalForceExitNamesAbandoned(t *testing.T) {
-	if testing.Short() {
-		t.Skip("subprocess signal test skipped in -short")
-	}
-	if os.Getenv("NETPEN_U6_DOUBLESIG_CHILD") == "1" {
-		runDoubleSignalChild(t)
-		return
-	}
-
-	sub := exec.Command(os.Args[0], "-test.run=TestSecondSignalForceExitNamesAbandoned")
-	sub.Env = append(os.Environ(), "NETPEN_U6_DOUBLESIG_CHILD=1")
-	var out bytes.Buffer
-	sub.Stdout = &out
-	sub.Stderr = &out
-
-	if err := sub.Start(); err != nil {
-		t.Fatalf("start child: %v", err)
-	}
-	time.Sleep(150 * time.Millisecond)
-
-	// First signal engages teardown; second forces exit.
-	if err := sub.Process.Signal(os.Interrupt); err != nil {
-		t.Fatalf("first signal: %v", err)
-	}
-	time.Sleep(20 * time.Millisecond)
-	if err := sub.Process.Signal(os.Interrupt); err != nil {
-		t.Fatalf("second signal: %v", err)
-	}
-
-	err := sub.Wait()
-	exitCode := 0
-	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
-			exitCode = exitErr.ExitCode()
-		}
-	}
-	if exitCode != 1 {
-		t.Errorf("child exit code: got %d, want 1 (forced exit). output:\n%s", exitCode, out.String())
-	}
-	// The stderr output names the abandoned step.
-	if !strings.Contains(out.String(), "abandoned teardown steps") {
-		t.Errorf("stderr does not name abandoned steps. output:\n%s", out.String())
-	}
-	if !strings.Contains(out.String(), "slow-restore") {
-		t.Errorf("stderr does not name the abandoned step 'slow-restore'. output:\n%s", out.String())
-	}
-}
-
-// runSignalChild is the subprocess body for the single-signal teardown
-// tests. It builds a runner with a hooked temporary-restored behavior,
-// installs the signal handler, and blocks in Run until the signal
-// engages teardown and the run exits.
-func runSignalChild(t *testing.T, _ string) {
-	t.Helper()
-	leg := &sendCountingLeg{}
-
-	stub := func(ctx context.Context, deps runner.Deps) error {
-		deps.Teardown.Arm("restore-fails", func(_ context.Context) error {
-			return errors.New("restore failed")
-		})
-		<-ctx.Done()
-		return ctx.Err()
-	}
-
-	r := runner.NewRunner(runner.Options{
-		AttackLeg:      leg,
-		Attacks:        []runner.AttackRef{{Name: "arpspoof"}},
-		Behaviors:      map[string]runner.Behavior{"arpspoof": stub},
-		TeardownBudget: 2 * time.Second,
-	})
-
-	h := runner.NewSignalHandler(r)
-	stop := h.Install()
-
-	// Drain the stream in the background so the producer does not block.
-	go func() {
-		for range r.Stream().Iter() {
-		}
-	}()
-
-	err := r.Run(context.Background())
-	stop()
-	_ = leg.Close()
-	if err != nil {
-		// Exit with the runner's error code (teardown partial = 1).
-		os.Exit(errs.ExitCode(err))
-	}
-	os.Exit(0)
-}
-
-// runDoubleSignalChild is the subprocess body for the second-signal
-// force-exit test. The teardown step sleeps long enough that a second
-// signal arrives during teardown, triggering the force-exit path that
-// names the abandoned step.
-func runDoubleSignalChild(t *testing.T) {
-	t.Helper()
-	leg := &sendCountingLeg{}
-
-	stub := func(ctx context.Context, deps runner.Deps) error {
-		deps.Teardown.Arm("slow-restore", func(stepCtx context.Context) error {
-			// Sleep beyond the second-signal arrival. The step
-			// respects its context but the second signal forces
-			// exit before the budget elapses.
-			select {
-			case <-stepCtx.Done():
-				return stepCtx.Err()
-			case <-time.After(5 * time.Second):
-				return nil
-			}
-		})
-		<-ctx.Done()
-		return ctx.Err()
-	}
-
-	r := runner.NewRunner(runner.Options{
-		AttackLeg:      leg,
-		Attacks:        []runner.AttackRef{{Name: "arpspoof"}},
-		Behaviors:      map[string]runner.Behavior{"arpspoof": stub},
-		TeardownBudget: 10 * time.Second, // generous; force-exit preempts
-	})
-
-	h := runner.NewSignalHandler(r)
-	stop := h.Install()
-
-	go func() {
-		for range r.Stream().Iter() {
-		}
-	}()
-
-	_ = r.Run(context.Background())
-	stop()
-	_ = leg.Close()
-	// If we reach here, teardown completed before the second signal;
-	// the force-exit path in the handler calls os.Exit(1) directly.
-	os.Exit(1)
-}
-
-// TestSignalHandlerInstallStop proves Install/stop is idempotent and
-// does not leak goroutines: the stop function restores handlers and the
-// signal goroutine exits.
-func TestSignalHandlerInstallStop(t *testing.T) {
-	leg := &sendCountingLeg{}
-	t.Cleanup(func() { _ = leg.Close() })
-
-	stub := func(_ context.Context, deps runner.Deps) error {
-		deps.Teardown.Arm("restore", func(_ context.Context) error { return nil })
-		return nil
-	}
-
-	r := runner.NewRunner(runner.Options{
-		AttackLeg: leg,
-		Attacks:   []runner.AttackRef{{Name: "arpspoof"}},
-		Behaviors: map[string]runner.Behavior{"arpspoof": stub},
-	})
-
-	h := runner.NewSignalHandler(r)
-	stop := h.Install()
-	// Double stop is idempotent.
-	stop()
-	stop()
-
-	// The run completes normally (no signal arrived).
-	_, err := drainStreamAsync(t, context.Background(), r)
-	if err != nil {
-		t.Fatalf("Run returned error: %v", err)
-	}
-}
-
 // TestGateRefusalRecordFields pins the refusal record's fields: the
 // attack, mode, and reason are set so a consumer can match on them.
 func TestGateRefusalRecordFields(t *testing.T) {
 	leg := &sendCountingLeg{}
 	t.Cleanup(func() { _ = leg.Close() })
 
-	r := runner.NewRunner(runner.Options{
+	r := newRunner(runner.Options{
 		AttackLeg: leg,
 		Attacks:   []runner.AttackRef{{Name: "dtp", Mode: "keep-trunk"}},
-		Behaviors: map[string]runner.Behavior{"dtp": func(_ context.Context, _ runner.Deps) error { return nil }},
-	})
+		MaxImpact: check.ImpactPermanent,
+	}, map[string]check.Run{"dtp": func(_ context.Context, _ check.Deps) (check.Verdict, error) { return pending, nil }})
 
-	recs, err := drainStreamAsync(t, context.Background(), r)
+	recs, err := drainStreamAsync(context.Background(), r)
 	if err == nil {
 		t.Fatal("Run returned nil, want refusal")
 	}
 
-	var refusal *findings.Refusal
+	var seen bool
 	for _, rec := range recs {
 		if rec.Kind == findings.KindRefusal {
-			refusal = rec.Refusal
-		}
-	}
-	if refusal == nil {
-		t.Fatal("no refusal record")
-	}
-	// The refusal names the attack and mode (set on the record).
-	for _, rec := range recs {
-		if rec.Kind == findings.KindRefusal {
+			seen = true
 			if rec.Attack != "dtp" {
 				t.Errorf("refusal attack %q, want %q", rec.Attack, "dtp")
 			}
 			if rec.Mode != "keep-trunk" {
 				t.Errorf("refusal mode %q, want %q", rec.Mode, "keep-trunk")
 			}
+			if rec.Refusal == nil || rec.Refusal.Reason == "" {
+				t.Error("refusal record carries no reason")
+			}
 		}
+	}
+	if !seen {
+		t.Fatal("no refusal record")
 	}
 }
 
 // TestTeardownStepOrderHostLocalFirst proves the reverse-dependency
 // execution order: host-local state (armed first) restores before
-// neighbor-cache repairs (armed later). The behavior arms ip-forward
-// first, then neighbor-repair; teardown executes them in that order.
+// neighbor-cache repairs (armed later).
 func TestTeardownStepOrderHostLocalFirst(t *testing.T) {
 	leg := &sendCountingLeg{}
 	t.Cleanup(func() { _ = leg.Close() })
@@ -938,7 +696,7 @@ func TestTeardownStepOrderHostLocalFirst(t *testing.T) {
 	var order []string
 	var mu sync.Mutex
 
-	stub := func(_ context.Context, deps runner.Deps) error {
+	stub := func(_ context.Context, deps check.Deps) (check.Verdict, error) {
 		deps.Teardown.Arm("ip-forward-restore", func(_ context.Context) error {
 			mu.Lock()
 			order = append(order, "ip-forward-restore")
@@ -952,17 +710,16 @@ func TestTeardownStepOrderHostLocalFirst(t *testing.T) {
 			return nil
 		})
 		deps.Emitter.Finding("arp", []byte(`{}`))
-		return nil
+		return pending, nil
 	}
 
-	r := runner.NewRunner(runner.Options{
+	r := newRunner(runner.Options{
 		AttackLeg:      leg,
 		Attacks:        []runner.AttackRef{{Name: "arpspoof"}},
-		Behaviors:      map[string]runner.Behavior{"arpspoof": stub},
 		TeardownBudget: 2 * time.Second,
-	})
+	}, map[string]check.Run{"arpspoof": stub})
 
-	_, err := drainStreamAsync(t, context.Background(), r)
+	_, err := drainStreamAsync(context.Background(), r)
 	if err != nil {
 		t.Fatalf("Run returned error: %v", err)
 	}
@@ -986,25 +743,23 @@ func TestTeardownCompletionHappyPath(t *testing.T) {
 	leg := &sendCountingLeg{}
 	t.Cleanup(func() { _ = leg.Close() })
 
-	stub := func(_ context.Context, deps runner.Deps) error {
+	stub := func(_ context.Context, deps check.Deps) (check.Verdict, error) {
 		deps.Teardown.Arm("restore-a", func(_ context.Context) error { return nil })
 		deps.Teardown.Arm("restore-b", func(_ context.Context) error { return nil })
 		deps.Emitter.Finding("arp", []byte(`{}`))
-		return nil
+		return pending, nil
 	}
 
-	r := runner.NewRunner(runner.Options{
+	r := newRunner(runner.Options{
 		AttackLeg:      leg,
 		Attacks:        []runner.AttackRef{{Name: "arpspoof"}},
-		Behaviors:      map[string]runner.Behavior{"arpspoof": stub},
 		TeardownBudget: 2 * time.Second,
-	})
+	}, map[string]check.Run{"arpspoof": stub})
 
-	recs, err := drainStreamAsync(t, context.Background(), r)
+	recs, err := drainStreamAsync(context.Background(), r)
 	if err != nil {
 		t.Fatalf("Run returned error: %v", err)
 	}
-	// No error record (teardown succeeded).
 	for _, rec := range recs {
 		if rec.Kind == findings.KindError {
 			t.Errorf("unexpected error record: %+v", rec.Error)
@@ -1025,22 +780,22 @@ func TestCancellationPreservesTeardownContext(t *testing.T) {
 				AttackLeg:      leg,
 				Attacks:        []runner.AttackRef{{Name: "arpspoof"}},
 				TeardownBudget: time.Second,
-				Behaviors: map[string]runner.Behavior{
-					"arpspoof": func(ctx context.Context, deps runner.Deps) error {
-						deps.Teardown.Arm("restore", func(ctx context.Context) error {
-							if err := ctx.Err(); err != nil {
-								return err
-							}
-							if _, ok := ctx.Deadline(); !ok {
-								t.Error("teardown context has no deadline")
-							}
-							restored = true
-							return nil
-						})
-						close(armed)
-						<-ctx.Done()
-						return ctx.Err()
-					},
+			}
+			stubs := map[string]check.Run{
+				"arpspoof": func(ctx context.Context, deps check.Deps) (check.Verdict, error) {
+					deps.Teardown.Arm("restore", func(ctx context.Context) error {
+						if err := ctx.Err(); err != nil {
+							return err
+						}
+						if _, ok := ctx.Deadline(); !ok {
+							t.Error("teardown context has no deadline")
+						}
+						restored = true
+						return nil
+					})
+					close(armed)
+					<-ctx.Done()
+					return check.Verdict{}, ctx.Err()
 				},
 			}
 			wantErr := context.Canceled
@@ -1051,7 +806,7 @@ func TestCancellationPreservesTeardownContext(t *testing.T) {
 			case "consumer":
 				wantErr = nil
 			}
-			r := runner.NewRunner(opts)
+			r := newRunner(opts, stubs)
 			result := make(chan error, 1)
 			go func() { result <- r.Run(ctx) }()
 			<-armed
@@ -1070,5 +825,51 @@ func TestCancellationPreservesTeardownContext(t *testing.T) {
 				t.Error("cancellation prevented restoration")
 			}
 		})
+	}
+}
+
+// TestAbandonedStepsNamesTheRunningStep pins what a host reports on a
+// forced exit: the armed steps that have not completed, read while a step
+// is still running, and nil between behaviors.
+func TestAbandonedStepsNamesTheRunningStep(t *testing.T) {
+	leg := &sendCountingLeg{}
+	t.Cleanup(func() { _ = leg.Close() })
+
+	armed := make(chan struct{})
+	stepStarted := make(chan struct{})
+	release := make(chan struct{})
+	stub := func(ctx context.Context, deps check.Deps) (check.Verdict, error) {
+		deps.Teardown.Arm("done-first", func(context.Context) error { return nil })
+		deps.Teardown.Arm("slow-restore", func(context.Context) error {
+			close(stepStarted)
+			<-release
+			return nil
+		})
+		close(armed)
+		<-ctx.Done()
+		return check.Verdict{}, ctx.Err()
+	}
+	r := newRunner(runner.Options{
+		AttackLeg:      leg,
+		Attacks:        []runner.AttackRef{{Name: "arpspoof"}},
+		TeardownBudget: 5 * time.Second,
+	}, map[string]check.Run{"arpspoof": stub})
+	if got := r.AbandonedSteps(); got != nil {
+		t.Errorf("AbandonedSteps before the run = %v, want nil", got)
+	}
+
+	runCtx, runCancel := context.WithCancel(context.Background())
+	t.Cleanup(runCancel)
+	go func() { _ = r.Run(runCtx) }()
+	<-armed
+	go r.Interrupt()
+	<-stepStarted
+	got := r.AbandonedSteps()
+	close(release)
+	r.Wait()
+	for range r.Stream().Iter() {
+	}
+	if len(got) != 1 || got[0] != "slow-restore" {
+		t.Errorf("AbandonedSteps during the slow step = %v, want [slow-restore]", got)
 	}
 }

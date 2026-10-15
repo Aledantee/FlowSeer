@@ -5,6 +5,7 @@ package link
 import (
 	"context"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/gopacket/gopacket"
@@ -22,12 +23,20 @@ const pollTimeout = 100 * time.Millisecond
 
 // linuxLeg wraps an afpacket.TPacket behind the [Leg] interface.
 //
-// mu guards the socket and closed flag. Close waits for the current poll;
-// done also wakes Receive when it is waiting for the consumer to read.
+// Two locks keep a write from waiting on a poll: mu is the lifecycle lock
+// under which closed flips and a poll registers itself in polls, and wmu
+// orders every write and the final socket close. afpacket's Close writes
+// the socket's fields with no lock of its own while WritePacketData reads
+// them, so Close takes wmu before releasing the socket and only after the
+// last registered poll has returned. done also wakes Receive when it is
+// waiting for the consumer to read.
 type linuxLeg struct {
 	tp     packetSocket
-	mu     sync.Mutex // guards tp and closed
-	closed bool
+	addr   Addr
+	mu     sync.Mutex // guards closed transitions and polls registration
+	wmu    sync.Mutex // orders Send, SetFilter, and the socket close
+	polls  sync.WaitGroup
+	closed atomic.Bool
 	done   chan struct{}
 }
 
@@ -39,6 +48,10 @@ type packetSocket interface {
 }
 
 func open(iface string) (Leg, error) {
+	addr, err := readAddr(iface)
+	if err != nil {
+		return nil, err
+	}
 	tp, err := afpacket.NewTPacket(
 		afpacket.OptInterface(iface),
 		afpacket.TPacketVersion3,
@@ -61,18 +74,21 @@ func open(iface string) (Leg, error) {
 			Msgf("promiscuous mode on %q", iface)
 	}
 
-	return &linuxLeg{tp: tp, done: make(chan struct{})}, nil
+	return &linuxLeg{tp: tp, addr: addr, done: make(chan struct{})}, nil
 }
 
-// Send skips canceled writes and serializes socket access with Receive and Close.
+func (l *linuxLeg) Addr() Addr { return l.addr }
+
+// Send skips canceled writes and orders the write against SetFilter and
+// Close. It never waits on a poll.
 func (l *linuxLeg) Send(ctx context.Context, pkt []byte) error {
-	l.mu.Lock()
-	defer l.mu.Unlock()
+	l.wmu.Lock()
+	defer l.wmu.Unlock()
 
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	if l.closed {
+	if l.closed.Load() {
 		return errs.New().
 			Code(ErrCodeLegOpen).
 			Msg("send on closed leg")
@@ -87,13 +103,13 @@ func (l *linuxLeg) Send(ctx context.Context, pkt []byte) error {
 	return nil
 }
 
-// SetFilter replaces the socket filter; an empty program removes it.
+// SetFilter replaces the socket filter. An empty program removes it.
 // Call SetFilter before Receive.
 func (l *linuxLeg) SetFilter(raw []RawInstruction) error {
-	l.mu.Lock()
-	defer l.mu.Unlock()
+	l.wmu.Lock()
+	defer l.wmu.Unlock()
 
-	if l.closed {
+	if l.closed.Load() {
 		return errs.New().
 			Code(ErrCodeLegOpen).
 			Msg("set filter on closed leg")
@@ -173,38 +189,46 @@ func (l *linuxLeg) Receive(ctx context.Context) <-chan Frame {
 	return frames
 }
 
-// Close waits for an active poll before releasing the socket, then wakes any
-// receiver waiting for its consumer. Repeated calls do nothing.
+// Close marks the leg closed, wakes any receiver waiting for its consumer,
+// waits for an active poll, and then releases the socket under the write
+// lock so no write is in flight when the socket's fields change. Repeated
+// calls do nothing.
 func (l *linuxLeg) Close() error {
 	l.mu.Lock()
-	defer l.mu.Unlock()
-
-	if l.closed {
+	if l.closed.Swap(true) {
+		l.mu.Unlock()
 		return nil
 	}
-
-	l.tp.Close()
-	l.closed = true
 	close(l.done)
+	l.mu.Unlock()
+
+	l.polls.Wait()
+
+	l.wmu.Lock()
+	l.tp.Close()
+	l.wmu.Unlock()
 
 	return nil
 }
 
-// readOnce performs one guarded read. open is false when the leg has been
-// closed under the lock.
+// readOnce performs one read registered against Close. open is false when
+// the leg was closed before the read could register, so Close's wait covers
+// every read that reaches the socket.
 //
-// The lock is released by a defer because this runs on a supervised
+// The registration is released by a defer because this runs on a supervised
 // goroutine: a panic in ReadPacketData is recovered, so a release written
-// after the call would be skipped and l.mu would stay held for the life of
-// the process, leaving Close blocked on it forever — a hang in place of the
-// crash the recovery replaced.
+// after the call would be skipped and Close would wait on the poll for the
+// life of the process, a hang in place of the crash the recovery replaced.
 func (l *linuxLeg) readOnce() (data []byte, open bool, err error) {
 	l.mu.Lock()
-	defer l.mu.Unlock()
-
-	if l.closed {
+	if l.closed.Load() {
+		l.mu.Unlock()
 		return nil, false, nil
 	}
+	l.polls.Add(1)
+	l.mu.Unlock()
+	defer l.polls.Done()
+
 	data, _, err = l.tp.ReadPacketData()
 	return data, true, err
 }

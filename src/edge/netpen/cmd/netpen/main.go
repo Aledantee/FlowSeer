@@ -19,7 +19,8 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/spawn"
-	"go.aledante.io/FlowSeer/src/edge/netpen/catalog"
+	"go.aledante.io/FlowSeer/src/edge/netpen/attacks"
+	"go.aledante.io/FlowSeer/src/edge/netpen/check"
 	"go.aledante.io/FlowSeer/src/edge/netpen/findings"
 	"go.aledante.io/FlowSeer/src/edge/netpen/full"
 	"go.aledante.io/FlowSeer/src/edge/netpen/link"
@@ -31,6 +32,9 @@ import (
 // Default attack-leg interface, matching the baseline l2l3-audit.
 const defaultIface = "eth0"
 
+// shipped is the catalog every command dispatches through.
+var shipped = attacks.Default()
+
 // versionCmd is the version string printed by `netpen version`. It is
 // sourced from the version package so the release Taskfile can inject
 // the git commit, build date, and semantic tag via -ldflags '-X'.
@@ -38,7 +42,7 @@ var versionCmd = version.String
 
 // subcommand is one entry in the dispatch table. Each command gets its own
 // flag.FlagSet. setup registers the command-specific flags into the
-// cmdFlags struct; run reads them after parsing.
+// cmdFlags struct. run reads them after parsing.
 type subcommand struct {
 	name  string
 	short string
@@ -47,16 +51,19 @@ type subcommand struct {
 }
 
 // cmdFlags holds all per-command flags. Each command populates only the
-// fields it uses; the rest stay zero-valued.
+// fields it uses. The rest stay zero-valued.
 type cmdFlags struct {
 	// Global flags (available on every command).
-	iface    string
-	watch    string
-	jsonMode string
-	ack      ackList
-	rate     int
-	timeout  time.Duration
-	tdBudget time.Duration
+	iface     string
+	watch     string
+	jsonMode  string
+	ack       ackList
+	rate      int
+	timeout   time.Duration
+	tdBudget  time.Duration
+	maxImpact string
+	observe   time.Duration
+	target    targetFlags
 
 	// Full-specific.
 	scanTime    time.Duration
@@ -88,50 +95,19 @@ type ackList []runner.AttackRef
 // String formats the accumulated acknowledgments for flag help.
 func (a *ackList) String() string { return fmt.Sprint([]runner.AttackRef(*a)) }
 
-// Set appends a name=mode acknowledgment, or a mode with an empty name.
+// Set appends a name=mode acknowledgment. A value without the name=mode
+// shape is a usage error, since a bare mode can never match a gate key.
 func (a *ackList) Set(s string) error {
-	parts := strings.SplitN(s, "=", 2)
-	if len(parts) == 2 {
-		*a = append(*a, runner.AttackRef{Name: parts[0], Mode: parts[1]})
-	} else {
-		*a = append(*a, runner.AttackRef{Mode: s})
+	name, mode, ok := strings.Cut(s, "=")
+	if !ok || name == "" || mode == "" {
+		return errs.Msgf("want <name>=<mode>, got %q", s)
 	}
+	*a = append(*a, runner.AttackRef{Name: name, Mode: mode})
 	return nil
 }
 
-// catalogHelp is the name→help map built once at init time from the
-// catalog's mode-less entries, so per-command help does not re-expand
-// and re-scan [catalog.Entries].
-var catalogHelp = func() map[string]string {
-	m := make(map[string]string, len(catalog.Entries()))
-	for _, e := range catalog.Entries() {
-		if e.Mode == "" {
-			m[e.Name] = e.Help
-		}
-	}
-	return m
-}()
-
 // commands is the dispatch table.
 var commands []subcommand
-
-// stubNames is the list of all command names registered in the dispatch
-// table, kept as a literal so the catalog's CLI reconciliation test
-// (catalog_test.go) can parse it from the AST and verify every catalog
-// entry has a dispatch handler and vice versa. The list is the 35
-// catalog behavior names plus the orchestration-only "full" (scan is a
-// catalog entry; version is a proof stub the reconciliation test does
-// not enumerate). The runtime dispatch table (commands) is built from
-// the catalog in init(); this literal is the AST-readable mirror.
-var stubNames = []string{
-	"full", "scan", "arpsweep", "arpspoof", "stproot", "camflood", "dhcpstarve",
-	"roguedhcp", "roguedhcp6", "roguera", "ndpspoof", "daddos", "raguard",
-	"dtp", "doubletag", "vlanenum", "vlanhop", "voicevlan", "portsteal",
-	"ghost", "vtp", "mvrp", "hsrp", "icmpredirect", "gratarp", "llmnr", "vrrp",
-	"ospf", "eigrp", "wpad", "etherchannel", "mld", "raflood", "lldpspoof", "glbp",
-}
-
-var _ = stubNames // AST-readable mirror for catalog CLI reconciliation test
 
 func init() {
 	commands = []subcommand{
@@ -140,18 +116,16 @@ func init() {
 		{name: "scan", short: "passive detect + active VLAN probing (dual-segment observe)", setup: setupScan, run: runScan},
 	}
 
-	// Register every catalog command name as a single-attack handler.
-	for _, entry := range catalog.Entries() {
-		if entry.Name == "scan" {
-			continue // scan has its own orchestration handler.
-		}
-		if findCommand(entry.Name) != nil {
+	// Register every catalog behavior as a single-attack handler. The
+	// orchestration entry has its own handler above.
+	for _, entry := range shipped.Entries() {
+		if entry.Orchestration || findCommand(entry.Name) != nil {
 			continue // modes share the same command name.
 		}
 		name := entry.Name
 		commands = append(commands, subcommand{
 			name:  name,
-			short: catalogHelp[name],
+			short: entry.Help,
 			setup: func(fs *flag.FlagSet, cf *cmdFlags) { setupAttack(fs, cf, name) },
 			run:   runAttack,
 		})
@@ -194,6 +168,9 @@ func run(args []string, stdout, stderr io.Writer) int {
 	fs.IntVar(&cf.rate, "rate", 0, "packet rate limit (pps, 0=unlimited)")
 	fs.DurationVar(&cf.timeout, "timeout", 0, "bound the whole run")
 	fs.DurationVar(&cf.tdBudget, "td-budget", 0, "teardown budget (default 10s)")
+	fs.StringVar(&cf.maxImpact, "max-impact", string(check.ImpactTemporary), "impact ceiling: none, temporary, or permanent")
+	fs.DurationVar(&cf.observe, "observe", runner.DefaultObserve, "window a check waits for its observable")
+	cf.target.register(fs)
 
 	if cmd.setup != nil {
 		cmd.setup(fs, cf)
@@ -213,6 +190,12 @@ func run(args []string, stdout, stderr io.Writer) int {
 	if fs.NArg() != 0 {
 		fmt.Fprintf(stderr, "netpen %s: unexpected arguments: %q\n", name, fs.Args())
 		fs.Usage()
+		return 2
+	}
+	switch check.Impact(cf.maxImpact) {
+	case check.ImpactNone, check.ImpactTemporary, check.ImpactPermanent:
+	default:
+		fmt.Fprintf(stderr, "netpen %s: --max-impact must be none, temporary, or permanent, got %q\n", name, cf.maxImpact)
 		return 2
 	}
 	cf.commandName = name
@@ -261,9 +244,19 @@ func printUsage(stderr io.Writer, unknown string) {
 	fmt.Fprintln(stderr, "  -i string             attack interface (default eth0)")
 	fmt.Fprintln(stderr, "  -w string             watch interface (optional)")
 	fmt.Fprintln(stderr, "  --json value          output mode (empty=auto, true=JSON, false=TUI)")
-	fmt.Fprintln(stderr, "  --i-accept-permanent  acknowledge a permanent mode (repeatable)")
+	fmt.Fprintln(stderr, "  --i-accept-permanent  acknowledge a permanent mode as <name>=<mode> (repeatable)")
+	fmt.Fprintln(stderr, "  --max-impact string   impact ceiling: none, temporary, or permanent (default temporary)")
+	fmt.Fprintln(stderr, "  --observe duration    window a check waits for its observable (default 3s)")
 	fmt.Fprintln(stderr, "  --rate int            packet rate limit (pps, 0=unlimited)")
 	fmt.Fprintln(stderr, "  --timeout duration    bound the whole run")
+	fmt.Fprintln(stderr, "")
+	fmt.Fprintln(stderr, "Target flags (per command; a check names the ones it needs):")
+	fmt.Fprintln(stderr, "  --victim, --gateway, --victim6, --server6   host as <ip> or <ip>,<mac>")
+	fmt.Fprintln(stderr, "  --vip, --router-id, --offer-ip              address")
+	fmt.Fprintln(stderr, "  --group, --vrid                             number")
+	fmt.Fprintln(stderr, "  --outer-vlan, --inner-vlan, --voice-vlan    VLAN id")
+	fmt.Fprintln(stderr, "  --vtp-domain                                name")
+	fmt.Fprintln(stderr, "  --prefix6, --route4, --sweep-net            network in CIDR form")
 }
 
 // runVersion prints the netpen version.
@@ -371,15 +364,17 @@ func runAttack(ctx context.Context, cf *cmdFlags, stdout, stderr io.Writer) erro
 	ref := runner.AttackRef{Name: cf.commandName, Mode: mode}
 
 	opts := runner.Options{
+		Catalog:        shipped,
 		AttackLeg:      attackLeg,
 		WatchLeg:       watchLeg,
 		Attacks:        []runner.AttackRef{ref},
-		Behaviors:      full.MergedBehaviors(),
+		Target:         cf.target.Target,
+		MaxImpact:      check.Impact(cf.maxImpact),
+		Observe:        cf.observe,
 		Rate:           cf.rate,
 		Timeout:        cf.timeout,
 		Acknowledged:   cf.ack,
 		TeardownBudget: cf.tdBudget,
-		SuppressOutput: true,
 	}
 
 	return runAndOutput(ctx, opts, cf, stdout, stderr)
@@ -412,7 +407,10 @@ func runFull(ctx context.Context, cf *cmdFlags, stdout, stderr io.Writer) error 
 		ScanTime:       cf.scanTime,
 		NoSpoof:        cf.noSpoof,
 		Rate:           cf.rate,
-		Behaviors:      full.MergedBehaviors(),
+		Catalog:        shipped,
+		Target:         cf.target.Target,
+		MaxImpact:      check.Impact(cf.maxImpact),
+		Observe:        cf.observe,
 		TeardownBudget: cf.tdBudget,
 		SweepNet:       "172.16.0.0/24",
 	}
@@ -446,9 +444,9 @@ func streamAndRun(ctx context.Context, ch <-chan findings.Record, meta findings.
 	defer cancel()
 	done := make(chan error, 1)
 	// done is a rendezvous: runErr, <-done below blocks until exactly one
-	// send reaches it. The normal path sends at the end of fn; the sink
-	// sends on a panic, so a panicking output consumer cannot hang this
-	// call forever.
+	// send reaches it. The normal path sends at the end of fn. The sink
+	// sends on a panic instead, so a panicking output consumer cannot hang
+	// this call forever.
 	spawn.Go(ctx, "netpen stream output", func() {
 		var err error
 		if mode == output.ModeJSON {
@@ -507,8 +505,7 @@ func runScan(ctx context.Context, cf *cmdFlags, stdout, stderr io.Writer) error 
 // stream is consumed concurrently with Run.
 func runAndOutput(ctx context.Context, opts runner.Options, cf *cmdFlags, stdout, stderr io.Writer) error {
 	r := runner.NewRunner(opts)
-	sig := runner.NewSignalHandler(r)
-	stopSig := sig.Install()
+	stopSig := newSignalHandler(r, stderr).install()
 	defer stopSig()
 
 	// Bridge runner.Stream.Iter() to a channel for streamJSON/streamTUI.

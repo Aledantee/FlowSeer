@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -11,7 +12,9 @@ import (
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/spawn"
 	"go.aledante.io/FlowSeer/src/edge/netpen/catalog"
+	"go.aledante.io/FlowSeer/src/edge/netpen/check"
 	"go.aledante.io/FlowSeer/src/edge/netpen/findings"
+	"go.aledante.io/FlowSeer/src/edge/netpen/link"
 )
 
 // ErrCodeRunner is the wire identity for a runner-level failure that does
@@ -29,19 +32,24 @@ var errNoAttackLeg = errs.New().
 	Msg("attack leg is nil")
 
 // Runner is the embeddable run engine. It resolves each [Options.Attacks]
-// entry through the [catalog] (unknown name = usage-shaped coded error),
-// enforces leg preconditions uniformly (a behavior requiring a watch leg
-// when none is attached fails fast before invocation with a coded error),
-// and executes each behavior under a per-attack context derived from
-// Run's ctx (zgrab2's cancellation pattern).
+// entry through the host's catalog (unknown name = usage-shaped coded
+// error), gates it on the impact ceiling, the acknowledgments, and the
+// legs, executes each behavior under a per-attack context derived from
+// Run's ctx (zgrab2's cancellation pattern), and emits the behavior's
+// verdict as a record after it returns, so a behavior cannot forget to
+// decide.
 //
-// Error semantics: a behavior erroring mid-run surfaces as a typed
-// [findings.ErrorRecord] through the stream and the run of remaining
-// behaviors continues. Dispatch failures and context cancellation stop the
-// run. Teardown failures are also returned. Cancellation returns the run
+// Error semantics: a behavior erroring mid-run surfaces as a pending
+// verdict carrying the error text and the run of remaining behaviors
+// continues. A behavior whose target lacks a field it needs is a skipped
+// verdict. Outside orchestration Run then returns that coded error so a
+// single command exits 2. A ceiling refusal is a refusal record and a
+// skipped verdict, and the run continues. Dispatch failures, a permanent
+// entry without its acknowledgment, and context cancellation stop the run.
+// Teardown failures are also returned. Cancellation returns the run
 // context's error unwrapped unless teardown failed.
 //
-// The zero value is not usable; construct a Runner via [NewRunner].
+// Construct a Runner with [NewRunner]. The zero value is not usable.
 //
 // One goroutine calls Run while one consumer reads [Runner.Stream].
 // Interrupt and Wait may be called concurrently. Run must be called exactly once.
@@ -99,8 +107,8 @@ type Runner struct {
 // A zero Options is accepted but Run rejects a nil AttackLeg with a coded
 // error when Attacks is non-empty. The host is expected to validate
 // domain-level constraints (e.g. a named watch leg exists) before
-// constructing the Runner; the runner enforces only what it can check
-// itself (leg preconditions declared in the catalog).
+// constructing the Runner. The runner enforces only what it can check
+// itself, which is the gates the catalog entries declare.
 func NewRunner(opts Options) *Runner {
 	stopCtx, stopCancel := context.WithCancel(context.Background())
 	r := &Runner{
@@ -131,17 +139,24 @@ func (r *Runner) Stream() *Stream {
 	return r.stream
 }
 
+// StopContext returns the persistent stop context, done once the run is
+// stopping. A host's signal handler supervises its goroutines under it.
+func (r *Runner) StopContext() context.Context {
+	return r.stopCtx
+}
+
 // Run resolves and executes each attack in [Options.Attacks] order. It
 // blocks until all behaviors have run or the context is canceled. The
 // findings stream's producer is this method's dispatch loop: Run drives
 // send, and the stream's data channel is closed when Run returns.
 //
 // Run returns nil on successful completion (including when behaviors
-// emitted error records — those are findings, not run failures). It returns
-// a non-nil error for dispatch failures, teardown failures, or cancellation.
-// Cancellation returns the run context's error unwrapped unless teardown
-// failed. Closing the stream requests a graceful stop. Teardown runs with
-// its own budget even when the run context is canceled.
+// returned verdicts other than confirmed). It returns a non-nil error for
+// dispatch failures, teardown failures, a missing target outside
+// orchestration, or cancellation. Cancellation returns the run context's
+// error unwrapped unless teardown failed. Closing the stream requests a
+// graceful stop. Teardown runs with its own budget even when the run
+// context is canceled.
 func (r *Runner) Run(ctx context.Context) (result error) {
 	defer close(r.runDone)
 	defer r.stream.done()
@@ -188,14 +203,6 @@ func (r *Runner) Run(ctx context.Context) (result error) {
 		}
 	}()
 
-	// Build the entry lookup once: a map from (name, mode) to catalog
-	// entry. The catalog is the single source for dispatch metadata.
-	entries := catalog.Entries()
-	lookup := make(map[string]catalog.Entry, len(entries))
-	for _, e := range entries {
-		lookup[entryKey(e.Name, e.Mode)] = e
-	}
-
 	// Build the opt-in acknowledgment set: per (name, mode), so
 	// accepting "vtp wipe" does not accept "vtp set".
 	ack := make(map[string]bool, len(r.opts.Acknowledged))
@@ -203,7 +210,20 @@ func (r *Runner) Run(ctx context.Context) (result error) {
 		ack[entryKey(a.Name, a.Mode)] = true
 	}
 
-	// teardownBudget is the total time the executor may spend; tests
+	ceiling := r.opts.MaxImpact
+	if ceiling == "" {
+		ceiling = check.ImpactNone
+	}
+	observe := r.opts.Observe
+	if observe <= 0 {
+		observe = DefaultObserve
+	}
+	attackLeg := r.opts.AttackLeg
+	if r.opts.Rate > 0 {
+		attackLeg = newPacedLeg(attackLeg, r.opts.Rate)
+	}
+
+	// teardownBudget is the total time the executor may spend. Tests
 	// scale it down via [Options.TeardownBudget].
 	teardownBudget := r.opts.TeardownBudget
 
@@ -217,9 +237,9 @@ func (r *Runner) Run(ctx context.Context) (result error) {
 		// false) returns ctx.Err() unwrapped.
 		select {
 		case <-r.stream.pump.Stopped():
-			// The stream was stopped. If the interrupt path set an
-			// error (teardown partial failure), surface it; otherwise
-			// a consumer close returns nil.
+			// The stream was stopped. Surface the error the interrupt
+			// path set, if any (a teardown partial failure). A plain
+			// consumer close returns nil.
 			if err := r.interruptError(); err != nil {
 				r.stream.fail(err)
 				return err
@@ -243,7 +263,7 @@ func (r *Runner) Run(ctx context.Context) (result error) {
 			return err
 		}
 
-		entry, ok := lookup[entryKey(ref.Name, ref.Mode)]
+		entry, run, ok := r.opts.Catalog.Lookup(ref.Name, ref.Mode)
 		if !ok {
 			err := errs.New().
 				Code(catalog.ErrCodeUnknownBehavior).
@@ -255,50 +275,13 @@ func (r *Runner) Run(ctx context.Context) (result error) {
 			r.stream.fail(err)
 			return err
 		}
-
-		// Enforce the catalog's legs requirement uniformly. The
-		// runtime fails fast before invocation so no behavior
-		// re-checks it.
-		if entry.Legs == catalog.WatchRequired && r.opts.WatchLeg == nil {
-			err := errs.New().
-				Code(catalog.ErrCodeWatchLegRequired).
-				Attr("name", ref.Name).
-				UserMsg(fmt.Sprintf("%q requires a watch leg", ref.Name)).
-				Hint("pass -w <iface> to attach a watch leg").
-				Msgf("behavior %q requires a watch leg; none attached", ref.Name)
-			r.stream.fail(err)
-			return err
-		}
-
-		// Durability gate. The gate consults
-		// the catalog entry BEFORE the leg's TX is ever handed to the
-		// behavior: a refused behavior literally never receives a
-		// send-capable leg, so zero frames are possible.
-		dec := gate(r.stream, entry, ack, r.opts.Orchestrated)
-		if !dec.proceed {
-			// Refusal: the gate already emitted the typed refusal
-			// record. Return the coded non-zero exit (runtime
-			// failure = 1).
-			err := errs.New().
-				Code(catalog.ErrCodePermanentRefused).
-				Attr("name", ref.Name).
-				Attr("mode", ref.Mode).
-				ExitCode(1).
-				UserMsg(fmt.Sprintf("%q mode %q refused", ref.Name, ref.Mode)).
-				Hint("supply the per-run opt-in acknowledgment for this permanent mode").
-				Msgf("permanent-destructive %q (mode %q) refused by durability gate", ref.Name, ref.Mode)
-			r.stream.fail(err)
-			return err
-		}
-
-		fn, ok := r.opts.Behaviors[ref.Name]
-		if !ok || fn == nil {
+		if run == nil {
 			err := errs.New().
 				Code(catalog.ErrCodeUnknownBehavior).
 				Attr("name", ref.Name).
-				UserMsg(fmt.Sprintf("attack %q is registered but has no implementation", ref.Name)).
-				Hint("this is a netpen internal error; report it").
-				Msgf("no behavior function registered for %q", ref.Name)
+				UserMsg(fmt.Sprintf("%q is an orchestration entry and runs through its own command", ref.Name)).
+				Hint("run 'netpen "+ref.Name+"' directly").
+				Msgf("orchestration entry %q has no run function", ref.Name)
 			r.stream.fail(err)
 			return err
 		}
@@ -307,20 +290,31 @@ func (r *Runner) Run(ctx context.Context) (result error) {
 		// record emission.
 		r.stream.setAttack(ref.Name, entry.Mode)
 
+		// The gate consults the entry BEFORE the leg's TX is ever handed
+		// to the behavior: a refused behavior never receives a
+		// send-capable leg, so zero frames are possible.
+		dec := gate(r.stream, entry, ceiling, ack, r.opts.Orchestrated, r.opts.WatchLeg != nil)
+		if !dec.proceed {
+			if !dec.stop {
+				// A ceiling refusal. The refusal record is already out.
+				// Count it with a skipped verdict and move on to the
+				// next attack.
+				if !r.stream.send(verdictRecord(ref.Name, entry.Mode, check.Verdict{Kind: findings.VerdictSkipped, Detail: dec.announce.Refusal.Reason})) {
+					return r.terminated(runCtx)
+				}
+				continue
+			}
+			err := refusalError(entry, dec.announce.Refusal.Reason)
+			r.stream.fail(err)
+			return err
+		}
+
 		// Emit the run-start announcement (if any) before the first
-		// frame: transient-decay's decay bound, or the acknowledged-
-		// permanent accepted-mode + consequence.
+		// frame: a decaying entry's bound, or the acknowledged
+		// permanent entry's accepted mode.
 		if dec.announce != nil {
 			if !r.stream.send(*dec.announce) {
-				// Stream terminating; stop dispatching.
-				if r.closedByConsumer.Load() {
-					return nil
-				}
-				if runCtxErr := runCtx.Err(); runCtxErr != nil {
-					r.stream.fail(runCtxErr)
-					return runCtxErr
-				}
-				return nil
+				return r.terminated(runCtx)
 			}
 		}
 
@@ -340,25 +334,38 @@ func (r *Runner) Run(ctx context.Context) (result error) {
 		r.activeCancel = cancel
 		r.teardownMu.Unlock()
 
-		deps := Deps{
-			AttackLeg: r.opts.AttackLeg,
+		deps := check.Deps{
+			AttackLeg: attackLeg,
 			WatchLeg:  r.opts.WatchLeg,
-			Rate:      r.opts.Rate,
+			Target:    r.opts.Target,
 			Entry:     entry,
-			Emitter:   &Emitter{stream: r.stream},
-			Teardown:  dec.teardown,
+			Observe:   observe,
+			Emitter:   &emitter{stream: r.stream},
+			Listen:    listen,
+		}
+		// A nil *Teardown must not become a non-nil interface holding a
+		// nil pointer, which a behavior's nil check would pass.
+		if dec.teardown != nil {
+			deps.Teardown = dec.teardown
 		}
 
-		behErr := fn(attackCtx, deps)
+		verdict, behErr := run(attackCtx, deps)
 		cancel()
+
+		// A behavior that stopped on its target check sent nothing and
+		// armed nothing, so there is no restore to run or to miss.
+		skipped := false
+		if code, ok := errs.CodeOf(behErr); ok && code == check.ErrCodeTargetMissing {
+			skipped = true
+		}
 
 		// Run the armed teardown (if any) on completion or interrupt.
 		// The teardown executes the armed steps in reverse-dependency
 		// order, each in its own error scope, bounded by the budget.
-		// A temporary-restored behavior that armed zero steps is a
+		// An actively restored behavior that armed zero steps is a
 		// coded runtime failure (a required restore that restores
 		// nothing is a bug, not a silent skip).
-		if dec.teardown != nil {
+		if dec.teardown != nil && !skipped {
 			tdErr := r.runTeardown(runCtx, dec.teardown, teardownBudget)
 			if tdErr != nil {
 				// Surface the named partial-failure record through
@@ -393,30 +400,30 @@ func (r *Runner) Run(ctx context.Context) (result error) {
 
 		if behErr != nil {
 			// When the interrupt path engaged teardown, it canceled
-			// the behavior's context; the resulting context.Canceled
+			// the behavior's context. The resulting context.Canceled
 			// is an expected consequence, not an independent behavior
-			// error. Skip the behavior error record and let the
-			// teardown-partial error (if any) surface from the
-			// interrupt path.
+			// error. Skip the verdict and let the teardown-partial
+			// error (if any) surface from the interrupt path.
 			if r.interruptError() != nil && errors.Is(behErr, context.Canceled) {
 				continue
 			}
-			// A behavior error is a finding, not a run failure:
-			// surface it as a typed error record and continue
-			// with remaining behaviors.
-			if !emitErrorRecord(r.stream, ref.Name, entry.Mode, behErr) {
-				// The stream is terminating (ctx canceled or
-				// Close called). Stop dispatching.
-				if r.closedByConsumer.Load() {
-					return nil
-				}
-				if runCtxErr := runCtx.Err(); runCtxErr != nil {
-					r.stream.fail(runCtxErr)
-					return runCtxErr
-				}
-				return nil
+			verdict = check.Verdict{Kind: findings.VerdictPending, Detail: behErr.Error()}
+			if skipped {
+				verdict.Kind = findings.VerdictSkipped
 			}
-			continue
+		}
+
+		// The runner emits the verdict itself so a behavior cannot
+		// forget to decide.
+		if !r.stream.send(verdictRecord(ref.Name, entry.Mode, verdict)) {
+			return r.terminated(runCtx)
+		}
+		if verdict.Kind == findings.VerdictSkipped && !r.opts.Orchestrated {
+			// Outside orchestration a missing target is the operator's
+			// mistake on this one command, so the run stops with the
+			// coded error and the command exits 2.
+			r.stream.fail(behErr)
+			return behErr
 		}
 	}
 
@@ -435,6 +442,60 @@ func (r *Runner) Run(ctx context.Context) (result error) {
 	return nil
 }
 
+// terminated is Run's return once the stream refused a send: a consumer
+// close returns nil, a canceled run context returns its error, and a
+// stream that stopped for any other reason returns nil.
+func (r *Runner) terminated(runCtx context.Context) error {
+	if r.closedByConsumer.Load() {
+		return nil
+	}
+	if err := runCtx.Err(); err != nil {
+		r.stream.fail(err)
+		return err
+	}
+	return nil
+}
+
+// refusalError is the coded error Run returns when the gate refused an
+// entry the operator named: a permanent mode without its acknowledgment
+// or under orchestration, or a watch-required behavior without a watch
+// leg.
+func refusalError(entry check.Entry, reason string) error {
+	if entry.Legs == check.WatchRequired && reason == "requires a watch leg; none attached" {
+		return errs.New().
+			Code(catalog.ErrCodeWatchLegRequired).
+			Attr("name", entry.Name).
+			UserMsg(fmt.Sprintf("%q requires a watch leg", entry.Name)).
+			Hint("pass -w <iface> to attach a watch leg").
+			Msgf("behavior %q requires a watch leg; none attached", entry.Name)
+	}
+	return errs.New().
+		Code(catalog.ErrCodePermanentRefused).
+		Attr("name", entry.Name).
+		Attr("mode", entry.Mode).
+		ExitCode(1).
+		UserMsg(fmt.Sprintf("%q mode %q refused", entry.Name, entry.Mode)).
+		Hint("supply the per-run opt-in acknowledgment for this permanent mode").
+		Msgf("permanent %q (mode %q) refused: %s", entry.Name, entry.Mode, reason)
+}
+
+// verdictRecord builds the [findings.KindVerdict] record for one attack.
+func verdictRecord(name, mode string, v check.Verdict) findings.Record {
+	r := findings.NewRecord(findings.KindVerdict)
+	r.Time = time.Now()
+	r.Attack = name
+	r.Mode = mode
+	r.Verdict = &findings.Verdict{Kind: v.Kind, Detail: v.Detail, ObservedMS: v.Observed.Milliseconds()}
+	return r
+}
+
+// listen is the production [check.Deps.Listen]: the net package's own
+// listener.
+func listen(ctx context.Context, network, address string) (net.Listener, error) {
+	var lc net.ListenConfig
+	return lc.Listen(ctx, network, address)
+}
+
 // runTeardown executes the armed teardown steps and returns the partial-
 // failure error when one or more steps failed. It is the
 // single entry point shared by completion and interrupt: the dispatch
@@ -443,7 +504,7 @@ func (r *Runner) Run(ctx context.Context) (result error) {
 // [Teardown.Run] guard makes a second call a no-op, so completion-after-
 // interrupt does not double-execute.
 func (r *Runner) runTeardown(ctx context.Context, t *Teardown, budget time.Duration) error {
-	// A temporary-restored behavior that armed zero steps is a coded
+	// An actively restored behavior that armed zero steps is a coded
 	// runtime failure: a required restore that restores nothing is a
 	// bug, not a silent skip.
 	if !t.armed() {
@@ -454,7 +515,7 @@ func (r *Runner) runTeardown(ctx context.Context, t *Teardown, budget time.Durat
 			ExitCode(1).
 			UserMsg(fmt.Sprintf("%q armed no teardown steps", t.entry.Name)).
 			Hint("this is a netpen internal error; report it").
-			Msgf("temporary-restored %q armed zero teardown steps", t.entry.Name)
+			Msgf("actively restored %q armed zero teardown steps", t.entry.Name)
 		t.failed = []string{"<no-steps-armed>"}
 		return err
 	}
@@ -467,19 +528,15 @@ func (r *Runner) runTeardown(ctx context.Context, t *Teardown, budget time.Durat
 // SIGHUP). It cancels the in-flight behavior's per-attack context
 // (so the behavior returns promptly) and then runs the currently-armed
 // teardown through the same entry point completion uses. If no teardown
-// is armed (the run is between behaviors, or the current behavior is not
-// temporary-restored), it cancels the run context so the dispatch loop
+// is armed (the run is between behaviors, or the current behavior does
+// not restore actively), it cancels the run context so the dispatch loop
 // exits.
-//
-// forceExit is a channel closed by the signal handler when a second
-// signal arrives during teardown; the teardown loop observes it and
-// reports the abandoned steps by name before the process force-exits.
-// It may be nil when the caller does not need second-signal handling.
 //
 // Interrupt is idempotent: a second call (e.g. completion after the
 // signal already engaged teardown) is a no-op. It is safe to call from
-// any goroutine.
-func (r *Runner) Interrupt(forceExit <-chan struct{}) {
+// any goroutine. A host that force-exits on a second signal reads
+// [Runner.AbandonedSteps] first.
+func (r *Runner) Interrupt() {
 	r.interruptOnce.Do(func() {
 		r.interrupting.Store(true)
 		defer close(r.interruptDone)
@@ -495,8 +552,8 @@ func (r *Runner) Interrupt(forceExit <-chan struct{}) {
 		}
 
 		if td != nil {
-			// Run the teardown. The budget comes from Options; the
-			// signal path uses the same budget as completion. The
+			// Run the teardown under the budget from Options, the same
+			// one the completion path uses. The
 			// Teardown.Run guard makes the completion-path call a
 			// no-op, so completion and interrupt share one entry
 			// point without double-execution.
@@ -510,7 +567,7 @@ func (r *Runner) Interrupt(forceExit <-chan struct{}) {
 			// a no-op (runOnce), so only this path emits the record.
 			if tdErr != nil {
 				// Store the error for the dispatch loop to
-				// surface as Run's return value; do NOT call
+				// surface as Run's return value. Do NOT call
 				// stream.fail here, because that would stop the
 				// stream and make the dispatch loop treat the
 				// shutdown as a consumer close (returning nil).
@@ -520,33 +577,19 @@ func (r *Runner) Interrupt(forceExit <-chan struct{}) {
 				r.interruptErr = tdErr
 				r.interruptErrMu.Unlock()
 			}
-
-			// After teardown, cancel the run context so the
-			// dispatch loop exits and does not start the next
-			// behavior.
-			r.stopCancel()
-		} else {
-			// No teardown armed: cancel the run context so the
-			// dispatch loop exits promptly.
-			r.stopCancel()
 		}
 
-		// forceExit is closed by the signal handler when a second
-		// signal arrives during teardown; the handler's watcher reads
-		// the abandoned steps by name. The teardown here runs to
-		// completion (Run is bounded), so abandoned steps surface
-		// through the partial record; the force-exit itself is driven
-		// by the handler.
-		_ = forceExit
+		// Cancel the run context so the dispatch loop exits and does
+		// not start the next behavior.
+		r.stopCancel()
 	})
 }
 
-// abandonedSteps returns the names of the teardown steps that were
-// abandoned (did not complete) when a second signal force-exits during
-// teardown. The abandoned set is the armed steps minus the ones that
-// already finished (success or failure): a step still running or never
-// reached is abandoned.
-func (r *Runner) abandonedSteps() []string {
+// AbandonedSteps returns the names of the teardown steps that have not
+// completed when a host force-exits during teardown: the armed steps minus
+// the ones that already finished (success or failure). A step still
+// running or never reached is abandoned. It is nil between behaviors.
+func (r *Runner) AbandonedSteps() []string {
 	r.teardownMu.Lock()
 	td := r.activeTeardown
 	r.teardownMu.Unlock()
@@ -572,19 +615,6 @@ func (r *Runner) Wait() {
 	<-r.runDone
 }
 
-// ResolveEntry is a convenience for hosts that need to look up a catalog
-// entry by (name, mode) without running. It returns the entry and true on a
-// hit, or the zero entry and false when no catalog row matches. It is the
-// same lookup Run uses internally.
-func ResolveEntry(name, mode string) (catalog.Entry, bool) {
-	for _, e := range catalog.Entries() {
-		if e.Name == name && e.Mode == mode {
-			return e, true
-		}
-	}
-	return catalog.Entry{}, false
-}
-
 // entryKey builds the map key for a (name, mode) pair. The NUL byte separator
 // prevents collisions between (name="a", mode="bc") and (name="ab",
 // mode="c") — neither name nor mode may contain a NUL.
@@ -592,9 +622,4 @@ func entryKey(name, mode string) string {
 	return name + "\x00" + mode
 }
 
-// emitErrorRecord surfaces a behavior error as a typed
-// [findings.KindError] record through the stream. Returns false when the
-// stream is terminating (the send did not deliver).
-func emitErrorRecord(s *Stream, name, mode string, err error) bool {
-	return s.send(findings.NewErrorRecord(err, name, mode))
-}
+var _ link.Leg = (*pacedLeg)(nil)

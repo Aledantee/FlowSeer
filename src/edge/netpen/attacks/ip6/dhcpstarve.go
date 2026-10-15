@@ -10,9 +10,9 @@
 // frames with unique chaddr and the per-packet allocation cost
 // dominates the GC.
 //
-// Determinism pin: DHCP xids and chaddr are masked in field-set comparisons
-// (per-run randomness); the fixture uses fixed values for byte-stable
-// generation.
+// Determinism pin: DHCP xids and chaddr vary per run, so field-set
+// comparisons mask them. The fixture uses fixed values so its bytes stay
+// stable.
 
 package ip6
 
@@ -25,8 +25,7 @@ import (
 	"github.com/gopacket/gopacket/layers"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
-
-	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
+	"go.aledante.io/FlowSeer/src/edge/netpen/check"
 )
 
 type dhcpStarveFinding struct {
@@ -51,20 +50,21 @@ var dhcpParamRequest = []byte{
 	byte(layers.DHCPOptDNS),
 }
 
-// RunDHCPStarve sends DHCP DISCOVER frames with incrementing chaddr
-// tails to exhaust the lease pool. The burst count is bounded for the
-// in-memory test shape.
-func RunDHCPStarve(ctx context.Context, deps runner.Deps) error {
-	src := srcMAC()
+// RunDHCPStarve sends five DISCOVER frames with incrementing chaddr tails
+// from the attack leg's MAC. The behavior reads no target: the chaddr tails
+// and transaction IDs are probe content. The verdict is pending: whether
+// the pool ran dry needs an offer listener it does not have.
+func RunDHCPStarve(ctx context.Context, deps check.Deps) (check.Verdict, error) {
+	src := deps.AttackLeg.Addr().MAC
 
 	frameCount := 5
 	for i := 1; i <= frameCount; i++ {
 		pkt, err := craftDHCPDiscover(src, i)
 		if err != nil {
-			return errs.Wrapf(err, "dhcpstarve: craft frame %d", i)
+			return check.Verdict{}, errs.Wrapf(err, "dhcpstarve: craft frame %d", i)
 		}
 		if err := deps.AttackLeg.Send(ctx, pkt); err != nil {
-			return errs.Wrapf(err, "dhcpstarve: send frame %d", i)
+			return check.Verdict{}, errs.Wrapf(err, "dhcpstarve: send frame %d", i)
 		}
 	}
 
@@ -75,7 +75,7 @@ func RunDHCPStarve(ctx context.Context, deps runner.Deps) error {
 	})
 	deps.Emitter.Finding("dhcp", detail)
 
-	return nil
+	return check.Pending("no observable: pool exhaustion needs an offer listener"), nil
 }
 
 // craftDHCPDiscover builds a DHCP DISCOVER with a unique chaddr for the

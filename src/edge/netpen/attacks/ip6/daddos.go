@@ -2,8 +2,8 @@
 //
 // Durability (from the catalog): transient-decay. The attack sends a
 // Neighbor Solicitation for the target address during DAD to deny the
-// legitimate host's address configuration. The DAD window passes after
-// the attack stops; no explicit teardown.
+// legitimate host's address configuration. The DAD window passes on its
+// own after the attack stops, so there is no explicit teardown.
 //
 // Edge scenario: against a host that completes DAD before the attack
 // window, the behavior reports resisted rather than failed open. The
@@ -24,7 +24,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/errs"
 
 	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/internal/craft"
-	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
+	"go.aledante.io/FlowSeer/src/edge/netpen/check"
 )
 
 type dadDOSFinding struct {
@@ -34,23 +34,27 @@ type dadDOSFinding struct {
 	Frames   int    `json:"frames"`
 }
 
-// RunDADDOS sends a Neighbor Solicitation for the target address during
-// DAD to deny the legitimate host's address configuration. If the
-// behavior observes a defending Neighbor Advertisement from the
-// legitimate owner (the host completed DAD before the attack window),
-// it reports resisted rather than failed open.
-// Cancellation while observing returns ctx.Err(); terminal receive errors are wrapped.
-func RunDADDOS(ctx context.Context, deps runner.Deps) error {
-	src := srcMAC()
-	target := net.ParseIP("fd00::dead")
+// RunDADDOS sends a Neighbor Solicitation for the target's IPv6 victim
+// address during DAD to deny the legitimate host's address configuration.
+// A defending Neighbor Advertisement from the owner within 50 ms shows the
+// host completed DAD first, which the finding records. The verdict is
+// pending: whether the host gave up the address needs a later probe it does
+// not have. Cancellation while observing returns ctx.Err(). A terminal
+// receive error comes back wrapped.
+func RunDADDOS(ctx context.Context, deps check.Deps) (check.Verdict, error) {
+	if err := deps.Target.Need(check.FieldVictim6); err != nil {
+		return check.Verdict{}, err
+	}
+	src := deps.AttackLeg.Addr().MAC
+	target := deps.Target.Victim6.IP
 
 	// Craft and send the DAD NS.
 	pkt, err := craftDADNS(src, target)
 	if err != nil {
-		return errs.Wrap(err, "daddos: craft NS")
+		return check.Verdict{}, errs.Wrap(err, "daddos: craft NS")
 	}
 	if err := deps.AttackLeg.Send(ctx, pkt); err != nil {
-		return errs.Wrap(err, "daddos: send NS")
+		return check.Verdict{}, errs.Wrap(err, "daddos: send NS")
 	}
 
 	// Observe for a defending NA from the legitimate owner. If one
@@ -61,11 +65,11 @@ func RunDADDOS(ctx context.Context, deps runner.Deps) error {
 	select {
 	case frame, ok := <-ch:
 		if err := ctx.Err(); err != nil {
-			return err
+			return check.Verdict{}, err
 		}
 		if ok {
 			if frame.Err != nil {
-				return errs.Wrap(frame.Err, "daddos: receive defense")
+				return check.Verdict{}, errs.Wrap(frame.Err, "daddos: receive defense")
 			}
 			na, err := decodeNA(frame.Data)
 			if err == nil && na.TargetAddress.Equal(target) {
@@ -76,10 +80,10 @@ func RunDADDOS(ctx context.Context, deps runner.Deps) error {
 	case <-time.After(50 * time.Millisecond):
 		// No defending NA within the window — attack proceeds.
 	case <-ctx.Done():
-		return ctx.Err()
+		return check.Verdict{}, ctx.Err()
 	}
 	if err := ctx.Err(); err != nil {
-		return err
+		return check.Verdict{}, err
 	}
 
 	detail, _ := json.Marshal(dadDOSFinding{
@@ -90,7 +94,7 @@ func RunDADDOS(ctx context.Context, deps runner.Deps) error {
 	})
 	deps.Emitter.Finding("ipv6-nd", detail)
 
-	return nil
+	return check.Pending("no observable: address denial needs a later probe of the victim"), nil
 }
 
 // craftDADNS builds a DAD Neighbor Solicitation: source is unspecified,

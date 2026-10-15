@@ -1,8 +1,11 @@
-// Package fh provides first-hop and identity behaviors with fixed fixture
-// addresses and bounded send counts. Use [Behaviors] with runner.Options so
-// the runner supplies the required legs, emitter, and teardown handles and
-// applies catalog safety gates. Direct Run calls require those same handles.
-// The behaviors do not configure host IP forwarding or discover live targets.
+// Package fh provides first-hop and identity behaviors with bounded send
+// counts. [Behaviors] lists them for the shipped catalog. The runner supplies
+// the legs, the target, the emitter, and the teardown handle and applies the
+// catalog gates. Each behavior reads the hosts, groups, and addresses it acts
+// on from the target and its own addresses from the attack leg. A value that
+// only has to be well-formed, such as the redirected datagram's destination
+// or the LLDP system name, stays a constant in the behavior. The behaviors do
+// not configure host IP forwarding or discover live targets.
 //
 // ARP-class behaviors (arpsweep, arpspoof, gratarp) are L2-only frames
 // (Ethernet → ARP). L3 behaviors (hsrp, vrrp, icmpredirect, llmnr, glbp)
@@ -16,8 +19,6 @@ import (
 
 	"github.com/gopacket/gopacket"
 	"github.com/gopacket/gopacket/layers"
-
-	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/internal/craft"
 )
 
 // Well-known multicast destinations.
@@ -36,14 +37,6 @@ var (
 // Callers must preserve its six-byte length and must not mutate it while
 // a behavior is running.
 var GhostSA = net.HardwareAddr{0x01, 0x80, 0xc2, 0x00, 0x00, 0x01}
-
-// Fixture target addresses (matching the harvest script's constants).
-var (
-	victimMAC = net.HardwareAddr{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x01}
-	gwMAC     = net.HardwareAddr{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0xfe}
-	victimIP  = net.IPv4(172, 16, 0, 10)
-	gwIP      = net.IPv4(172, 16, 0, 1)
-)
 
 // craftL3Payload builds Ethernet → IPv4 → payload (no transport layer)
 // with proper checksums.
@@ -74,8 +67,4 @@ func craftUDPLayer(eth *layers.Ethernet, ip *layers.IPv4, udp *layers.UDP, layer
 		return nil, err
 	}
 	return append([]byte(nil), buf.Bytes()...), nil
-}
-
-func srcMAC() net.HardwareAddr {
-	return craft.FixtureSrcMAC
 }

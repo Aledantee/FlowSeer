@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"net"
 	"sync"
 	"testing"
 	"time"
@@ -29,6 +30,77 @@ type mockLeg struct {
 
 func newMockLeg(bufferSize int) *mockLeg {
 	return &mockLeg{frames: make(chan Frame, bufferSize)}
+}
+
+func (m *mockLeg) Addr() Addr {
+	return Addr{MAC: net.HardwareAddr{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}}
+}
+
+// TestMockAddr pins that the mock satisfies the Leg contract's address
+// method with a stable MAC behavior tests can assert against.
+func TestMockAddr(t *testing.T) {
+	var leg Leg = newMockLeg(1)
+	if got := leg.Addr().MAC.String(); got != "00:11:22:33:44:55" {
+		t.Errorf("Addr().MAC = %s, want 00:11:22:33:44:55", got)
+	}
+}
+
+// TestReadAddrPicksFirstIPv4AndLinkLocalIPv6 pins the selection rule on a
+// replaced interface seam: the first IPv4 wins over a later one, a global
+// IPv6 is passed over for the link-local one that neighbor discovery needs,
+// and a non-IP address is ignored.
+func TestReadAddrPicksFirstIPv4AndLinkLocalIPv6(t *testing.T) {
+	saved := interfaceAddrs
+	t.Cleanup(func() { interfaceAddrs = saved })
+	interfaceAddrs = func(name string) (net.HardwareAddr, []net.Addr, error) {
+		if name != "eth9" {
+			t.Errorf("interface name = %q, want eth9", name)
+		}
+		cidr := func(s string) *net.IPNet {
+			ip, n, err := net.ParseCIDR(s)
+			if err != nil {
+				t.Fatal(err)
+			}
+			n.IP = ip
+			return n
+		}
+		return net.HardwareAddr{0x02, 0x00, 0x00, 0x00, 0x00, 0x09}, []net.Addr{
+			&net.UnixAddr{Name: "ignored"},
+			cidr("2001:db8::9/64"),
+			cidr("192.0.2.9/24"),
+			cidr("192.0.2.10/24"),
+			cidr("fe80::9/64"),
+		}, nil
+	}
+
+	got, err := readAddr("eth9")
+	if err != nil {
+		t.Fatalf("readAddr: %v", err)
+	}
+	if got.MAC.String() != "02:00:00:00:00:09" {
+		t.Errorf("MAC = %s, want 02:00:00:00:00:09", got.MAC)
+	}
+	if !got.IPv4.Equal(net.IPv4(192, 0, 2, 9)) || len(got.IPv4) != net.IPv4len {
+		t.Errorf("IPv4 = %v (len %d), want 192.0.2.9 as 4 bytes", got.IPv4, len(got.IPv4))
+	}
+	if !got.IPv6.Equal(net.ParseIP("fe80::9")) {
+		t.Errorf("IPv6 = %v, want fe80::9", got.IPv6)
+	}
+}
+
+// TestReadAddrUnknownInterfaceIsCoded pins that an interface the kernel
+// does not know fails with the leg-open code, so the command reports it as
+// an open failure and not a crash.
+func TestReadAddrUnknownInterfaceIsCoded(t *testing.T) {
+	saved := interfaceAddrs
+	t.Cleanup(func() { interfaceAddrs = saved })
+	interfaceAddrs = func(string) (net.HardwareAddr, []net.Addr, error) {
+		return nil, nil, errors.New("no such network interface")
+	}
+	_, err := readAddr("eth9")
+	if code, ok := errs.CodeOf(err); !ok || code != ErrCodeLegOpen {
+		t.Errorf("readAddr error = %v (code %q ok %v), want %q", err, code, ok, ErrCodeLegOpen)
+	}
 }
 
 func (m *mockLeg) Send(_ context.Context, pkt []byte) error {

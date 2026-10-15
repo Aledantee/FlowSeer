@@ -19,8 +19,7 @@ import (
 	"github.com/gopacket/gopacket/layers"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
-
-	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
+	"go.aledante.io/FlowSeer/src/edge/netpen/check"
 )
 
 type camFloodFinding struct {
@@ -38,17 +37,18 @@ var camFloodDstIP = net.IPv4(255, 255, 255, 255)
 // camFloodPayload is the constant UDP payload for CAM-flood frames.
 var camFloodPayload = []byte("flood")
 
-// RunCAMFlood sends frames with unique source MACs to overflow the CAM
-// table. The burst count is bounded for the in-memory test shape.
-func RunCAMFlood(ctx context.Context, deps runner.Deps) error {
-	src := srcMAC(deps)
-
-	// Serialize the frame template once; each burst packet stamps its
-	// unique source MAC into a pooled copy, keeping the flood loop
+// RunCAMFlood sends five frames with unique source MACs to overflow the
+// CAM table. The stamped MACs, addresses, and payload are probe content and
+// the behavior reads no target. The verdict is pending: whether the switch
+// went fail-open needs a unicast probe through the watch leg it does not
+// have.
+func RunCAMFlood(ctx context.Context, deps check.Deps) (check.Verdict, error) {
+	// Serialize the frame template once. Each burst packet then stamps its
+	// unique source MAC into a pooled copy, which keeps the flood loop
 	// allocation-free after pool warmup.
-	template, err := craftCAMFloodFrame(src, 0)
+	template, err := craftCAMFloodFrame(0)
 	if err != nil {
-		return errs.Wrap(err, "camflood: craft template")
+		return check.Verdict{}, errs.Wrap(err, "camflood: craft template")
 	}
 
 	frameCount := 5
@@ -63,7 +63,7 @@ func RunCAMFlood(ctx context.Context, deps runner.Deps) error {
 		err := deps.AttackLeg.Send(ctx, pkt)
 		packetPool.Put(buf)
 		if err != nil {
-			return errs.Wrapf(err, "camflood: send frame %d", i)
+			return check.Verdict{}, errs.Wrapf(err, "camflood: send frame %d", i)
 		}
 	}
 
@@ -74,12 +74,12 @@ func RunCAMFlood(ctx context.Context, deps runner.Deps) error {
 	})
 	deps.Emitter.Finding("eth", detail)
 
-	return nil
+	return check.Pending("no observable: fail-open needs a unicast probe seen on the watch leg"), nil
 }
 
 // craftCAMFloodFrame builds a broadcast frame with a unique source MAC
 // to fill a CAM table entry. Uses the pool craft path.
-func craftCAMFloodFrame(_ net.HardwareAddr, seq int) ([]byte, error) {
+func craftCAMFloodFrame(seq int) ([]byte, error) {
 	floodSrc := net.HardwareAddr{
 		0x00, 0x00, 0x00, 0x00,
 		byte((seq >> 8) & 0xFF),

@@ -8,13 +8,14 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/routing"
-	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/testtest"
+	"go.aledante.io/FlowSeer/src/edge/netpen/catalog"
+	"go.aledante.io/FlowSeer/src/edge/netpen/check"
 	"go.aledante.io/FlowSeer/src/edge/netpen/link"
 	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
 )
 
 type receiveFailureLeg struct {
-	*testtest.Leg
+	link.Leg
 	err    error
 	cancel context.CancelFunc
 }
@@ -44,25 +45,31 @@ func TestRoutingReceiveFailureStopsSequence(t *testing.T) {
 			{name: "canceled receive", cancel: true, want: context.Canceled},
 		} {
 			t.Run(name+"/"+tc.name, func(t *testing.T) {
-				leg := &receiveFailureLeg{Leg: testtest.New(), err: tc.rxErr}
-				t.Cleanup(func() { _ = leg.Close() })
+				inner := fixtureLeg(t)
+				leg := &receiveFailureLeg{Leg: inner, err: tc.rxErr}
 				var behaviorErr error
-				behavior := routing.Behaviors()[name]
-				recs, err := runOne(t, runner.Options{
-					AttackLeg:      leg,
-					Attacks:        []runner.AttackRef{{Name: name}},
-					TeardownBudget: time.Second,
-					Behaviors: map[string]runner.Behavior{
-						name: func(ctx context.Context, deps runner.Deps) error {
+				bs := routing.Behaviors()
+				for i := range bs {
+					if bs[i].Name == name {
+						run := bs[i].Run
+						bs[i].Run = func(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 							ctx, cancel := context.WithCancel(ctx)
 							defer cancel()
 							if tc.cancel {
 								leg.cancel = cancel
 							}
-							behaviorErr = behavior(ctx, deps)
-							return behaviorErr
-						},
-					},
+							var v check.Verdict
+							v, behaviorErr = run(ctx, deps)
+							return v, behaviorErr
+						}
+					}
+				}
+				recs, err := runOne(t, runner.Options{
+					Catalog:        catalog.MustNew(bs...),
+					AttackLeg:      leg,
+					Attacks:        []runner.AttackRef{{Name: name}},
+					Target:         fixtureTarget(),
+					TeardownBudget: time.Second,
 				})
 				if err != nil {
 					t.Fatalf("run: %v", err)
@@ -80,7 +87,7 @@ func TestRoutingReceiveFailureStopsSequence(t *testing.T) {
 				if name == "ospf" {
 					wantSends++ // OSPF also arms an LSA flush.
 				}
-				if got := leg.SendCount(); got != wantSends {
+				if got := inner.SendCount(); got != wantSends {
 					t.Errorf("send count: got %d, want %d", got, wantSends)
 				}
 			})

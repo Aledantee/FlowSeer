@@ -109,12 +109,14 @@ func ConfigFromEnv() (Config, error) {
 }
 
 // InjectCommand builds a deterministic netpen command for the configured data
-// interface.
-func (c Config) InjectCommand(attack string, duration, timeout time.Duration) []string {
-	return []string{
+// interface. target carries the attack's target flags, such as the router
+// ID an OSPF injection speaks as, since the behavior exits 2 without them.
+func (c Config) InjectCommand(attack string, duration, timeout time.Duration, target ...string) []string {
+	argv := []string{
 		"sudo", "-S", "-p", "", "netpen", attack, "-i", c.InjectionInterface, "--json=true",
 		"--duration", duration.String(), "--timeout", timeout.String(),
 	}
+	return append(argv, target...)
 }
 
 // RunInjector executes argv on the configured injector. It preserves stdout

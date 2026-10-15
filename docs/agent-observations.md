@@ -25,3 +25,8 @@ Suggested change: <smallest edit to the skill, agent, or hook>.
 ```
 
 ## Entries
+
+## 2026-10-12 implement: semicolons in comments were replaced mechanically, not rewritten
+Skill or agent: `.claude/skills/implement/SKILL.md`, step 3.1 (Finish: read the final diff against `docs/code-style.md`).
+What happened: the doc style rules out semicolons in comments, and the implementer cleared about seventy of them in one pass by swapping `; ` for `, and `, which keeps the two clauses welded together. The user corrected this: the fix the style asks for is a rewritten sentence that reads as a person wrote it, which the swap is not. The step was followed as written, since it names the style but not how to apply it at the end.
+Suggested change: in Finish item 1, add one sentence: a comment that fails the doc style is rewritten by hand, and a mechanical substitution across many files (semicolon to conjunction, a phrase swap) is not a fix.
