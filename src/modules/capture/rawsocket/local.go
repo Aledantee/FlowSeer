@@ -11,16 +11,15 @@ import (
 	"go.aledante.io/FlowSeer/src/common/spawn"
 )
 
-// pollTimeout is the per-poll wait. It bounds how long a blocked Receive
-// stays unaware of ctx cancellation: the loop checks ctx.Done() after each
-// poll returns, so cancellation lands within this window. It also matches
-// SO_RCVTIMEO, so a blocking Recvmsg returns EAGAIN on its own rather than
-// blocking indefinitely.
+// pollTimeout lets receive loops check cancellation between blocked reads.
+// Linux local sockets and both platforms' mirror sockets use SO_RCVTIMEO.
+// The FreeBSD local reader sets bpfdev.ReadTimeout, which configures
+// BIOCSRTIMEOUT in src/common/net/bpfdev/device_freebsd.go.
 const pollTimeout = 100 * time.Millisecond
 
-// maxFrameLen bounds the receive buffer. It exceeds any Ethernet frame,
-// jumbo frames included; MSG_TRUNC still reports a longer wire length if one
-// somehow arrives, so truncation is never silent.
+// maxFrameLen sizes the socket receive buffer. The Linux local reader uses
+// MSG_TRUNC to retain a longer wire length. The FreeBSD local reader ignores
+// this buffer and uses bpfdev records' captured and wire lengths.
 const maxFrameLen = 65536
 
 // frameReader returns owned frame bytes that remain valid after the next read.

@@ -341,10 +341,15 @@ Waves: U1 U3 U6 | U2 U4 | U5
 
 - Whether a raw IPv4 socket on FreeBSD 14.3 delivers `IP_RECVIF` for a
   datagram that arrives through `lo0` (the self-sent TEB GRE case).
-  U5's test reads the index it gets and asserts only the destination for
-  that case. In the bento 14.3 guest it logged
-  `raw IPv4 receive interface index = 8`, so the kernel does deliver
-  `IP_RECVIF` there. Which jail interface holds index 8 is unchecked.
+  The earlier `raw IPv4 receive interface index = 8` log came from host
+  GRE traffic, so this question remains open. `TestMirrorReceiverDecodesTEBGRE`
+  in `src/modules/capture/rawsocket/mirror_vm_test.go` observes the self-sent
+  datagram by source `10.99.0.3` and logs its index and `IP_RECVIF` presence.
+  Its VM result is pending. FreeBSD 14.3's
+  [`ip_savecontrol`](https://github.com/freebsd/freebsd-src/blob/releng/14.3/sys/netinet/ip_input.c#L1166-L1195)
+  uses `m_pkthdr.rcvif` when available and otherwise emits a dummy
+  `sockaddr_dl` with index 0. The test retains the GRE arm, inner frame,
+  and destination assertions without asserting the loopback index.
 - The setup commands U6 wrote failed in the guest and were corrected:
   `ifconfig` takes one address family per call (`ifconfig: inet6: bad
   value` for `inet A inet6 ifdisabled up`), and vxlan(4) creates with
