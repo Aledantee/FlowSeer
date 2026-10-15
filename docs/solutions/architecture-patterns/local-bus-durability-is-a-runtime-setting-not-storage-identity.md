@@ -1,7 +1,7 @@
 ---
 title: Local Bus Durability Is a Runtime Setting, Not Storage Identity
 date: 2026-09-05
-last_verified: 2026-09-30
+last_verified: 2026-10-15
 category: architecture-patterns
 module: src/common/service
 problem_type: architecture_pattern
@@ -15,6 +15,7 @@ applies_when:
   - "profiling publish or settlement-journal latency and finding fsync in the hot path"
   - "a service fails to start with service/bus-config saying the local bus fsync policy must be declared"
   - "enabling AllowAtomicPublish on a JetStream stream and checking whether its storage mode is compatible"
+  - "central ingest throughput looks low and a larger edge batch does not raise it"
 related_components:
   - messaging
   - data_model
@@ -91,6 +92,7 @@ The original `SyncAlways` pin came from the Jepsen report on NATS 2.12.1 (Decemb
 - Choosing durability for a new service: the declaration is required, so pick one. `BusFsyncPeriodic` is right for edge buffers; `BusFsyncPerMessage` when an acknowledged record must survive a power cut.
 - Reading a durability benchmark: the per-message number includes a full fsync per publish and per settlement, so compare against the bare `write`+`fsync` floor on the same filesystem before attributing cost to the broker.
 - Investigating a handler that ran twice after a power cut: check the startup record for the policy, then expect a surviving message with a lost settlement rather than a delivery bug.
+- Sizing central ingest: the hub declares `BusFsyncPerMessage` (`src/services/device/internal/host/host.go:315`) and `intake` publishes each record of a batch as its own message (`src/services/device/internal/intake/handler.go:145`), so the rate is the fsync rate and a larger batch does not raise it. `BenchmarkDeliver` on 2026-10-15, Apple M3 Pro, darwin: 210 records/s at batch 64 and 199 records/s at batch 1024. A profile of the same run ends in `fileStore.StoreMsg`, `os.File.Sync`, `F_FULLFSYNC`. The same benchmark with `BusFsyncPeriodic` measured about 40,000 to 44,000 records/s in the intake stage (not re-run here). Which policy the hub should use is a decision for the direction record, not this entry.
 - Enabling `AllowAtomicPublish`: keep the stream's storage mode compatible with atomic batches, and verify the flag after restart when KV setup can rewrite the stream configuration.
 
 ## Examples

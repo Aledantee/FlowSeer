@@ -4,7 +4,7 @@
   "readiness": "implementation-ready",
   "review": "accept after fixes",
   "review_rounds": 0,
-  "compound": null,
+  "compound": "docs/solutions/architecture-patterns/local-bus-durability-is-a-runtime-setting-not-storage-identity.md",
   "outcome": {
     "units": 4,
     "from": "2026-10-15T08:23:55Z",
