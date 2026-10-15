@@ -328,16 +328,14 @@ plugin on the host that ran it, the box's guest is 14.3-RELEASE, and
 
 ## Review gaps
 
+Blocking, from the second fix round (behavior). The review stopped at its
+two-round cap with this open, so the verdict is rework:
+
+- src/common/net/bpfdev/device_freebsd.go:123: the one-tick floor `time.Second/time.Duration(hz)` floors in nanoseconds, and `NsecToTimeval` cannot recover the loss when hz does not divide 1e6; fails: with `kern.hz=1001` (a boot tunable the kernel allows) a 1µs `ReadTimeout` becomes 999µs, `999 * 1001 < 1e6` stores `bd_rtout` 0 (`sys/net/bpf.c:1665`, `sys/kern/kern_clock.c:564-629`), and `ReadBatch` on a quiet interface never returns; smallest fix: round the division up, `(time.Second+time.Duration(hz)-1)/time.Duration(hz)`; class: behavior
+
 Follow-ups, which do not hold the verdict:
 
-- test/conformance/crossbuild/crossbuild_test.go:81: vet type-checks and never links; fails: a body-less func in a FreeBSD file passes the gate while `GOOS=freebsd go build ./src/edge/agent/cmd/agent` fails; class: gap
-- test/conformance/crossbuild/doc.go:6: "across supported architectures and build tags" overstates two architectures and the VM tags, and "do not compile" reads as broken rather than excluded; fails: a reader trusts coverage the gate lacks; class: convention
-- src/common/net/bpfdev/device_freebsd.go:171: `Write` taking `mu.Lock` instead of `mu.RLock`; fails: a Write waits up to one ReadTimeout behind a blocked ReadBatch, and no test notices; class: gap
-- src/common/net/bpfdev/device_freebsd.go:115: zero-timeval guard removed; fails: `ReadTimeout: time.Nanosecond` passes a zero timeval and reads never time out; class: gap
-- src/common/net/bpfdev/device_freebsd.go:154: closed check in `ReadBatch` removed; fails: a read after Close returns a raw `EBADF` instead of `bpfdev/io`; class: gap
-- src/common/net/bpfdev/device_freebsd.go:175: closed check in `Write` removed; fails: a write after Close returns a raw `EBADF` instead of `bpfdev/io`; class: gap
-- src/common/net/bpfdev/buffer.go:71: short-remainder check replaced by `false`; fails: `parseBuffer(make([]byte, 10), hdrLayout64)` panics on a slice bound instead of returning `bpfdev/buffer`; class: gap
-- src/common/net/bpfdev/device_vm_test.go:149: the read-timeout test has no lower bound; fails: a ReadBatch that returns at once on a quiet interface passes; class: gap
-- tools/scripts/freebsd/vmtest.py:72: `-tags` dropped from the build; fails: the bpfdev suite builds without `bpfdev_vm` and runs only the parser tests, and no recorder test notices; class: gap
-- tools/scripts/freebsd/vmtest.py:117: the `vagrant up` failure return removed; fails: a failed boot goes on to arch discovery; class: gap
+- docs/plans/2026-10-12-2029-feat-freebsd-packet-io-phase1-plan.md:48: the ReadTimeout bullet states the kernel's tick truncation without citing `sys/net/bpf.c` and `sys/kern/kern_clock.c`; fails: a reader cannot check the claim; class: convention
+- src/common/net/bpfdev/device_freebsd.go:123: no host test pins the floor arithmetic; fails: the hz=1001 defect above survives every test, since the guest runs hz=100; a pure helper table-tested for hz 100, 1000, 1001, 1024, and 11111 against `usec*hz >= 1e6` would catch it; class: gap
+- src/common/net/bpfdev/device_freebsd.go:74: no upper cap on `ReadTimeout`; fails: a value near `math.MaxInt64` overflows `NsecToTimeval`'s rounding to a negative timeval and Open fails with EINVAL from `itimerfix` instead of a clear config error; class: hardening
 - tools/scripts/freebsd/vmtest.py:63: `uname -p` stderr captured and dropped; fails: an SSH failure reports only "cannot map the guest's uname -p"; class: convention
