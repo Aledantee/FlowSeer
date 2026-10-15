@@ -10,7 +10,11 @@ argument-hint: "[plan path]"
 
 - A plan path under `docs/plans/`, or a request whose design is settled.
 - The current worktree. On a protected branch in the primary checkout, enter a
-  worktree first (`AGENTS.md`, Isolation).
+  worktree first (`AGENTS.md`, Isolation). Run
+  `uv run tools/scripts/run.py worktree create <name>` from the source checkout,
+  then use the printed absolute path as the working directory. The command
+  branches from local `HEAD` in any harness. See
+  [worktree commands](../../../tools/scripts/worktree/README.md) for options.
 
 ## 1. Orient
 
