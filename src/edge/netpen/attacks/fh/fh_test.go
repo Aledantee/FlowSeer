@@ -37,7 +37,7 @@ func fixtureTarget() check.Target {
 		Victim:    check.Host{IP: net.IPv4(172, 16, 0, 10), MAC: net.HardwareAddr{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x01}},
 		Gateway:   check.Host{IP: net.IPv4(172, 16, 0, 1), MAC: net.HardwareAddr{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0xfe}},
 		VirtualIP: net.IPv4(10, 0, 0, 1),
-		Group:     1,
+		Group:     new(uint16(1)),
 		VRID:      51,
 		SweepNet:  sweep,
 	}

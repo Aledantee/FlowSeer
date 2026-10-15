@@ -42,7 +42,7 @@ func RunGLBP(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 		return check.Verdict{}, err
 	}
 	addr := deps.AttackLeg.Addr()
-	group := deps.Target.Group
+	group := *deps.Target.Group
 	priority := uint8(255)
 	vip := deps.Target.VirtualIP
 

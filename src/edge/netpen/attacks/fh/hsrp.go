@@ -41,7 +41,7 @@ func RunHSRP(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 		return check.Verdict{}, err
 	}
 	addr := deps.AttackLeg.Addr()
-	group := uint8(deps.Target.Group)
+	group := uint8(*deps.Target.Group)
 	priority := uint8(255)
 	vip := deps.Target.VirtualIP
 

@@ -27,7 +27,7 @@ func (t *targetFlags) register(fs *flag.FlagSet) {
 	fs.Var(ipFlag{&t.VirtualIP}, "vip", "first-hop redundancy virtual IP")
 	fs.Var(ipFlag{&t.RouterID}, "router-id", "routing-protocol router ID")
 	fs.Var(ipFlag{&t.OfferIP}, "offer-ip", "address the rogue DHCP server offers")
-	fs.Var(uintFlag{&t.Group, 16}, "group", "first-hop redundancy group")
+	fs.Var(groupFlag{&t.Group}, "group", "first-hop redundancy group")
 	fs.Var(uint8Flag{&t.VRID}, "vrid", "VRRP virtual router ID")
 	fs.Var(uintFlag{&t.OuterVLAN, 12}, "outer-vlan", "outer VLAN of a double-tagged frame")
 	fs.Var(uintFlag{&t.InnerVLAN, 12}, "inner-vlan", "inner VLAN of a double-tagged frame")
@@ -124,6 +124,26 @@ func (f uintFlag) Set(s string) error {
 		return errs.Msgf("want a number from 1 to %d, got %q", 1<<f.bits-1, s)
 	}
 	*f.value = uint16(v)
+	return nil
+}
+
+// groupFlag parses a decimal into the group pointer, so group 0 is a set
+// group and an omitted flag leaves the pointer nil.
+type groupFlag struct{ value **uint16 }
+
+func (f groupFlag) String() string {
+	if f.value == nil || *f.value == nil {
+		return ""
+	}
+	return strconv.Itoa(int(**f.value))
+}
+
+func (f groupFlag) Set(s string) error {
+	v, err := strconv.ParseUint(s, 10, 16)
+	if err != nil {
+		return errs.Msgf("want a number from 0 to 65535, got %q", s)
+	}
+	*f.value = new(uint16(v))
 	return nil
 }
 
