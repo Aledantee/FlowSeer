@@ -1,16 +1,24 @@
 {
   "contract": "flowseer-plan-state/v1",
-  "status": "planned",
+  "status": "implemented",
   "readiness": "implementation-ready",
   "review": null,
   "review_rounds": 0,
   "compound": null,
-  "outcome": null,
+  "outcome": {
+    "units": 2,
+    "from": "2026-10-15T15:41:42Z",
+    "to": "2026-10-15T15:41:42Z",
+    "note": ""
+  },
   "superseded_by": null,
   "branch": null,
   "parent": "docs/plans/2026-10-12-2029-feat-freebsd-packet-io-plan.md",
   "after": [],
-  "landed": null,
+  "landed": {
+    "first": "193c6b26",
+    "last": "08c7326a"
+  },
   "phases": [],
   "retired": []
 }
