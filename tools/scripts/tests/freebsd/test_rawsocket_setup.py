@@ -154,6 +154,16 @@ class RawsocketSetupTests(unittest.TestCase):
         self.assertIn("ifconfig gre0 create tunnel 10.99.0.1 10.99.0.2", calls)
         self.assertTrue(self.pidfile.exists())
 
+    def test_up_keeps_ping_pids_and_stops_when_pings_cannot_exit(self):
+        done = self.up(ping_exited=False)
+        calls = self.log.read_text().splitlines()
+        self.assertIn("kill -TERM 424242", calls)
+        self.assertNotEqual(done.returncode, 0)
+        self.assertIn("did not exit", done.stderr)
+        self.assertFalse(any(" create" in call for call in calls), calls)
+        self.assertFalse(any(call.startswith("jail -c") for call in calls), calls)
+        self.assertEqual(self.pidfile.read_text(), "424242 424243\n")
+
 
 if __name__ == "__main__":
     unittest.main()
