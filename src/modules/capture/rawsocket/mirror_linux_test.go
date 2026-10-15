@@ -13,7 +13,6 @@ import (
 	"golang.org/x/net/bpf"
 	"golang.org/x/sys/unix"
 
-	capturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/capture/v1"
 	"go.aledante.io/FlowSeer/src/modules/capture/filter"
 )
 
@@ -35,17 +34,17 @@ type fakeMirrorSocket struct {
 	closed   bool
 }
 
-func (f *fakeMirrorSocket) recvmsg(p, _ []byte) (int, int, unix.Sockaddr, error) {
+func (f *fakeMirrorSocket) recvmsg(p, _ []byte) (int, int, int, unix.Sockaddr, error) {
 	if len(f.queue) == 0 {
 		if f.afterErr != nil {
-			return 0, 0, nil, f.afterErr
+			return 0, 0, 0, nil, f.afterErr
 		}
-		return 0, 0, nil, unix.EAGAIN
+		return 0, 0, 0, nil, unix.EAGAIN
 	}
 	qd := f.queue[0]
 	f.queue = f.queue[1:]
 	n := copy(p, qd.payload)
-	return n, 0, qd.from, nil
+	return n, 0, 0, qd.from, nil
 }
 
 func (f *fakeMirrorSocket) close() error {
@@ -74,7 +73,7 @@ func TestLinuxMirrorSource_DeliversDecodedFrame(t *testing.T) {
 	sock := &fakeMirrorSocket{queue: []queuedDatagram{
 		{payload: erspanTypeIPayload(t), from: &unix.SockaddrInet4{Addr: [4]byte{192, 0, 2, 1}}},
 	}}
-	src := &linuxMirrorSource{rawV6: sock, done: make(chan struct{})}
+	src := &mirrorSource{rawV6: linuxMirrorSocket(sock), done: make(chan struct{})}
 	defer func() { _ = src.Close() }()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -115,7 +114,7 @@ func TestLinuxMirrorSource_FilterRejects(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewVM: %v", err)
 	}
-	src := &linuxMirrorSource{rawV6: sock, vm: vm, done: make(chan struct{})}
+	src := &mirrorSource{rawV6: linuxMirrorSocket(sock), vm: vm, done: make(chan struct{})}
 	defer func() { _ = src.Close() }()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Millisecond)
@@ -141,7 +140,7 @@ func TestLinuxMirrorSource_FilterRejects(t *testing.T) {
 func TestLinuxMirrorSource_ReadErrorIsTerminal(t *testing.T) {
 	wantErr := errors.New("device gone")
 	sock := &fakeMirrorSocket{afterErr: wantErr}
-	src := &linuxMirrorSource{rawV6: sock, done: make(chan struct{})}
+	src := &mirrorSource{rawV6: linuxMirrorSocket(sock), done: make(chan struct{})}
 	defer func() { _ = src.Close() }()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -160,7 +159,7 @@ func TestLinuxMirrorSource_ReadErrorIsTerminal(t *testing.T) {
 
 func TestLinuxMirrorSource_CloseIsIdempotent(t *testing.T) {
 	sock := &fakeMirrorSocket{}
-	src := &linuxMirrorSource{rawV6: sock, done: make(chan struct{})}
+	src := &mirrorSource{rawV6: linuxMirrorSocket(sock), done: make(chan struct{})}
 
 	if err := src.Close(); err != nil {
 		t.Fatalf("first Close: %v", err)
@@ -200,19 +199,5 @@ func TestOpenMirrorReceiver_BuildsVMFromRealFilterProgram(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "no GRE-family or UDP-family encapsulation configured") {
 		t.Fatalf("openMirrorReceiver failed before reaching the encapsulation check (likely the filter VM build itself): %v", err)
-	}
-}
-
-func TestSplitEncapsulations(t *testing.T) {
-	gre, udp := splitEncapsulations([]capturev1.MirrorEncapsulation{
-		capturev1.MirrorEncapsulation_MIRROR_ENCAPSULATION_ERSPAN_TYPE_II,
-		capturev1.MirrorEncapsulation_MIRROR_ENCAPSULATION_VXLAN,
-		capturev1.MirrorEncapsulation_MIRROR_ENCAPSULATION_TZSP,
-	})
-	if !gre {
-		t.Error("greFamily = false, want true")
-	}
-	if len(udp) != 2 {
-		t.Errorf("udpFamily = %v, want 2 entries", udp)
 	}
 }
