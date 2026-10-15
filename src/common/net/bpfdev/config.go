@@ -21,6 +21,10 @@ const (
 	DefaultBufferLen = 524288
 	// DefaultReadTimeout is the ReadTimeout used when the field is zero.
 	DefaultReadTimeout = 100 * time.Millisecond
+	// maxReadTimeout is the largest ReadTimeout Open accepts. Close waits up
+	// to one ReadTimeout, and a value near math.MaxInt64 overflows the
+	// rounding in unix.NsecToTimeval into a timeval the kernel refuses.
+	maxReadTimeout = time.Hour
 )
 
 // Direction selects which packets the device sees, as bpf(4) BIOCSDIRECTION
@@ -47,7 +51,7 @@ type Config struct {
 	// waits for an in-flight read. Zero means [DefaultReadTimeout], never
 	// "no timeout". A value under one kernel clock tick is raised to one
 	// tick, because the kernel rounds down and treats zero as no timeout.
-	// Negative is refused.
+	// Negative and over one hour are refused.
 	ReadTimeout time.Duration
 	// Immediate makes a read return as soon as a packet arrives instead of
 	// when the buffer fills or the timeout expires.
@@ -62,4 +66,38 @@ type Config struct {
 	// ReadFilter is the BPF program applied to incoming packets. Nil accepts
 	// all.
 	ReadFilter []bpf.RawInstruction
+}
+
+// resolve applies the defaults and refuses out-of-range values.
+func (c Config) resolve() (bufLen int, timeout time.Duration, err error) {
+	if c.BufferLen < 0 || c.BufferLen > int(^uint32(0)) {
+		return 0, 0, errs.New().Code(ErrCodeOpen).Attr("buffer_len", c.BufferLen).Msg("buffer length out of range")
+	}
+	if c.ReadTimeout < 0 {
+		return 0, 0, errs.New().Code(ErrCodeOpen).Attr("read_timeout", c.ReadTimeout.String()).Msg("read timeout is negative")
+	}
+	if c.ReadTimeout > maxReadTimeout {
+		return 0, 0, errs.New().Code(ErrCodeOpen).Attr("read_timeout", c.ReadTimeout.String()).Msg("read timeout is over one hour")
+	}
+	if c.Direction > DirectionOut {
+		return 0, 0, errs.New().Code(ErrCodeOpen).Attr("direction", uint32(c.Direction)).Msg("unknown direction")
+	}
+	bufLen, timeout = c.BufferLen, c.ReadTimeout
+	if bufLen == 0 {
+		bufLen = DefaultBufferLen
+	}
+	if timeout == 0 {
+		timeout = DefaultReadTimeout
+	}
+	return bufLen, timeout, nil
+}
+
+// minReadTimeout returns the shortest ReadTimeout the kernel turns into a
+// nonzero bd_rtout at the given kern.hz: one tick, rounded up to the
+// nanosecond. BIOCSRTIMEOUT stores tvtohz(tv) - 1 (sys/net/bpf.c) and tvtohz
+// is the truncated tick count plus one (sys/kern/kern_clock.c), so the stored
+// value is zero, which means no timeout, unless usec*hz >= 1000000. Rounding
+// down misses that for an hz that does not divide 1e6.
+func minReadTimeout(hz uint32) time.Duration {
+	return (time.Second + time.Duration(hz) - 1) / time.Duration(hz)
 }
