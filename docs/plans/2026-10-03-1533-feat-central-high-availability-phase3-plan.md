@@ -37,7 +37,8 @@ The parent's decisions apply
 - The election bucket and the lane records live on the cluster phase 2
   configures, R3 with `sync_interval: 100ms`. Why: clustered central relies on
   replication (the [central high availability record](../architecture/2026-10-03-central-high-availability-direction.md),
-  "NATS leaves the device service", as the hub fsync change amends it). A power cut on
+  "NATS leaves the device service", as U4 of
+  `docs/plans/2026-10-15-1542-perf-hub-periodic-fsync-plan.md` amends it). A power cut on
   every server at once, or one OS failure combined with a partition, can
   lose an acknowledged lane write.
 - Central serves a readiness endpoint on a port no Service exposes outside
