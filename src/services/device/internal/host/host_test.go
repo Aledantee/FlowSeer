@@ -2081,9 +2081,8 @@ func TestIntakeRepublishesAnEdgeRecord(t *testing.T) {
 	}
 }
 
-// enrolledEdgeClient installs the test edge as enrolled and returns an HTTP
-// client that signs each call as it, with a nonce no other client of the test
-// uses.
+// enrolledEdgeClient returns an HTTP client that signs each call as the test
+// edge, with a nonce no other client of the test uses.
 func enrolledEdgeClient(t *testing.T, private ed25519.PrivateKey, nonce byte) *http.Client {
 	t.Helper()
 	return &http.Client{
@@ -2184,7 +2183,9 @@ func TestTelemetryWithoutACollectorSettlesNothing(t *testing.T) {
 func TestACollectorOutageLeavesIngestFlowing(t *testing.T) {
 	// The service exports its own telemetry to the same collector, so the
 	// outage starts after the service is up and ends before it shuts down,
-	// where a failing flush would fail the shutdown.
+	// where a failing flush would fail the shutdown. The service's own log
+	// export posts to the same path, so a post counts only when its body is
+	// the delivered one.
 	var outage atomic.Bool
 	var posts atomic.Int32
 	collector := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -2192,7 +2193,8 @@ func TestACollectorOutageLeavesIngestFlowing(t *testing.T) {
 			w.WriteHeader(http.StatusOK)
 			return
 		}
-		if r.URL.Path == "/v1/logs" && r.Header.Get("Content-Type") == "application/x-protobuf" {
+		body, err := io.ReadAll(r.Body)
+		if err == nil && r.URL.Path == "/v1/logs" && r.Header.Get("Content-Type") == "application/x-protobuf" && bytes.Equal(body, []byte("body")) {
 			posts.Add(1)
 		}
 		w.WriteHeader(http.StatusServiceUnavailable)
