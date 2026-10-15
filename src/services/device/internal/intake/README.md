@@ -33,6 +33,45 @@ flowchart LR
     V -- publish error --> N[NakWithDelay]
 ```
 
+## The delivery call
+
+`NewHandler` returns central's `IngestService` handler. An edge calls
+`Deliver` with a batch of records instead of publishing to its stream. The
+handler and the stream consumer share `prepareRecord`, which validates a
+record, checks its provenance, picks its type, splits its evidence, and names
+its message id, so both paths refuse and publish alike.
+
+```mermaid
+flowchart LR
+    S[edge stream message] --> P1[subject and decode checks]
+    D[Deliver request record] --> M[marshal]
+    P1 --> R[prepareRecord]
+    M --> R
+    R -- refused --> X[settled and counted]
+    R --> I[typed ingest stream, then evidence stream]
+```
+
+The handler takes the edge from the call's assertion and the tenant from the
+edge store, where the consumer reads both from the stream a record arrived in.
+A lookup failure answers `unauthenticated` (no edge) or `unavailable` (no
+tenant) and publishes nothing. It then walks the records in order and answers
+with `settled`, the count of leading records stored, already stored, or
+refused for a reason about the record. A marshal failure, a validator failure
+that is not a rule violation, and a publish failure end the count and count a
+retry, and the call still answers so the edge resumes from `settled`. The
+handler does not use the consumer's full-stream gate. A full typed stream
+ends the count with a `stream_full` retry and the edge's backoff spaces the
+next attempt. It records `flowseer.intake.record.duration` per record and no
+age, since a request has no stream timestamp.
+
+`BenchmarkDeliver` delivers batches of 64 and 1024 records of 256-byte syslog
+messages to a hub that syncs every message, and reports `records/s` without a
+threshold:
+
+```bash
+go test -run '^$' -bench BenchmarkDeliver -benchtime 20x ./src/services/device/internal/intake/
+```
+
 A typed syslog record uses the device id in its payload, even when the edge
 published it on a different `ingest.<source>` branch. A record without raw
 evidence is republished as received. A record with raw evidence is published
@@ -59,7 +98,7 @@ Intake publishes these instruments in the scope
   duplicate (one count per delivery), stored raw evidence, refusals by
   reason, and retry requests by reason
 - `flowseer.intake.record.duration` in seconds from delivery to `Ack`, `Term`,
-  or `NakWithDelay`
+  or `NakWithDelay`, and on the delivery call to the record's final outcome
 - `flowseer.intake.record.age` in seconds from the edge stream timestamp to
   delivery
 

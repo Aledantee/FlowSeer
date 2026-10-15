@@ -362,3 +362,25 @@ This amendment replaces the 2026-10-08 bullet on 72-hour retention.
   removing their oldest messages at their bounds. This record does not claim
   that the pipeline loses nothing. Moving that loss to the edge needs a
   per-edge stream split, which no probe has covered.
+
+### 2026-10-15: records also enter through a delivery call
+
+Landed 2026-10-15: `src/services/device/internal/intake/handler.go`,
+`src/services/device/internal/otlpapi/handler.go`, and
+`spec/proto/flowseer/edge/ingest/v1/ingest_service.proto`.
+
+Records now also enter through `IngestService.Deliver`, beside the per-edge
+stream. The call shares intake's preparation (`prepareRecord`) and message
+id, so a record is refused, split into typed and evidence publications, and
+deduplicated the same way on either path. The two paths differ in where they
+read identity. The stream path reads the edge and tenant from the stream a
+record arrived in. The call reads the edge from the assertion and the tenant
+from the edge store, and refuses a record whose provenance names another
+edge.
+
+The response's `settled` counts the leading records central stored, already
+held, or refused for a reason about the record. A full typed stream, a publish
+failure, or a marshal failure ends the count, so the record waits in the
+edge's log. The call does not share the stream consumer's full-stream gate,
+which lives in the `Intake` the intake module owns. The edge's backoff spaces
+the retry.

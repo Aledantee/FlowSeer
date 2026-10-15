@@ -315,14 +315,19 @@ func (i *Intake) logRetry(ctx context.Context, edgeID, subject, errorType string
 }
 
 func (i *Intake) allowLog(key string) bool {
-	i.mu.Lock()
-	defer i.mu.Unlock()
+	return allowEvery(&i.mu, i.lastLogged, key)
+}
+
+// allowEvery reports whether key last logged at least refusalLogInterval ago,
+// and records now as its last time when it did. last is guarded by mu.
+func allowEvery(mu *sync.Mutex, last map[string]time.Time, key string) bool {
+	mu.Lock()
+	defer mu.Unlock()
 	now := time.Now()
-	previous := i.lastLogged[key]
-	if now.Sub(previous) < refusalLogInterval {
+	if now.Sub(last[key]) < refusalLogInterval {
 		return false
 	}
-	i.lastLogged[key] = now
+	last[key] = now
 	return true
 }
 
@@ -363,7 +368,7 @@ type publication struct {
 	evidence   bool
 }
 
-// prepare checks and converts one edge delivery without depending on JetStream.
+// prepare checks and converts one edge stream delivery without depending on JetStream.
 // It returns the typed publication first, so a full typed stream refuses a
 // record before its evidence is stored and a retry never stores evidence again.
 func prepare(tenantID, edgeID, subject string, data []byte, validate func(proto.Message) error) ([]publication, string, string) {
@@ -374,6 +379,15 @@ func prepare(tenantID, edgeID, subject string, data []byte, validate func(proto.
 	if err := proto.Unmarshal(data, record); err != nil {
 		return nil, reasonMalformed, ""
 	}
+	return prepareRecord(tenantID, edgeID, record, data, validate)
+}
+
+// prepareRecord checks and converts one decoded record for the edge and tenant
+// it arrived from, whether it came off the edge's stream or through the
+// delivery call. data is the record's encoding, which is the evidence
+// publication's payload. It returns what [prepare] returns, so both paths
+// refuse and publish alike.
+func prepareRecord(tenantID, edgeID string, record *ingestv1.IngestRecord, data []byte, validate func(proto.Message) error) ([]publication, string, string) {
 	if err := validate(record); err != nil {
 		var validationErr *protovalidate.ValidationError
 		if !errors.As(err, &validationErr) {
@@ -451,11 +465,11 @@ func newMetrics(provider metric.MeterProvider) (intakeMetrics, error) {
 	if err != nil {
 		return intakeMetrics{}, err
 	}
-	retried, err := meter.Int64Counter("flowseer.intake.records.retried", metric.WithUnit("{record}"), metric.WithDescription("Records negatively acknowledged for retry"))
+	retried, err := meter.Int64Counter("flowseer.intake.records.retried", metric.WithUnit("{record}"), metric.WithDescription("Records left for redelivery, by a stream negative acknowledgement or an unsettled delivery call"))
 	if err != nil {
 		return intakeMetrics{}, err
 	}
-	duration, err := meter.Float64Histogram("flowseer.intake.record.duration", metric.WithUnit("s"), metric.WithDescription("Time from delivery to the final intake acknowledgement"))
+	duration, err := meter.Float64Histogram("flowseer.intake.record.duration", metric.WithUnit("s"), metric.WithDescription("Time from delivery to the final outcome of a record, on the stream or the delivery call"))
 	if err != nil {
 		return intakeMetrics{}, err
 	}

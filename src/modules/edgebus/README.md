@@ -340,10 +340,17 @@ bytes unchanged, so it accepts only what it can pass on verbatim and answers
 `Protocol` `http/protobuf` and leaves compression off rather than letting the
 `OTEL_EXPORTER_OTLP_*` environment variables choose gzip or grpc. The receiver
 publishes each body into the buffer and answers 200; a refused buffer answers
-503 so the runtime retries. Central's `Forwarder` follows every edge's hub
-stream with a durable consumer, discovering edges attached after it started on
-an interval, and posts each body to central's collector endpoint,
-acknowledging only on a 2xx. A 400-class answer that describes this body —
+503 so the runtime retries. The receiver refuses a body over 255 KiB with a
+413, so an accepted body and its envelope fit one edge log record and one
+`TelemetryExport`. `Collector` posts a body to central's collector and
+classifies the answer as accepted, refused, retry for a configuration answer,
+or retry for an unavailable collector. `NewCollector` and `StartForwarder`
+refuse an endpoint that is not an absolute `http` or `https` URL. Central's
+`Forwarder` follows every edge's hub stream with a durable consumer,
+discovering edges attached after it started on an interval, and posts each
+body through a `Collector`, acknowledging only on a 2xx. The
+`TelemetryService.Deliver` call, served by `otlpapi` in the device service,
+posts through the same `Collector`. A 400-class answer that describes this body —
 malformed, oversized, the wrong content type — drops it on sight, since
 retrying cannot change the answer. A 401, 403, 404, 408 or 429 describes the
 collector's configuration instead, so the record is redelivered; the delivery

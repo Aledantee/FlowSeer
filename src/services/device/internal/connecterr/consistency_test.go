@@ -15,6 +15,8 @@ import (
 	"go.aledante.io/FlowSeer/src/services/device/internal/edgeapi"
 	"go.aledante.io/FlowSeer/src/services/device/internal/historyapi"
 	"go.aledante.io/FlowSeer/src/services/device/internal/identityapi"
+	"go.aledante.io/FlowSeer/src/services/device/internal/intake"
+	"go.aledante.io/FlowSeer/src/services/device/internal/otlpapi"
 	"go.aledante.io/FlowSeer/src/services/device/internal/rawwindowapi"
 )
 
@@ -34,6 +36,8 @@ func TestNoCodeAnswersTwoDifferentThings(t *testing.T) {
 		"edgeapi":      edgeapi.ClientErrors,
 		"historyapi":   historyapi.ClientErrors,
 		"identityapi":  identityapi.ClientErrors,
+		"intake":       intake.ClientErrors,
+		"otlpapi":      otlpapi.ClientErrors,
 		"rawwindowapi": rawwindowapi.ClientErrors,
 	}) {
 		t.Error(conflict)
