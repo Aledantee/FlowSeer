@@ -21,9 +21,11 @@ var errNoRecords = errs.New().Msg("no records this poll")
 // userspace, as the Linux source does, so the device's counters keep one
 // meaning on both platforms.
 //
-// The device sees both directions, because a FreeBSD descriptor defaults to
-// that and a SPAN capture of a local interface should include what the host
-// sends. It reads with Immediate set, so a frame is delivered when it
+// The device sees both directions. bpfdev's zero Config selects DirectionIn
+// (src/common/net/bpfdev/config.go), so the source sets DirectionInOut
+// explicitly: an AF_PACKET socket bound with ETH_P_ALL on Linux sees
+// outgoing frames too, and both platforms should capture both directions. It
+// reads with Immediate set, so a frame is delivered when it
 // arrives instead of when the buffer fills or the timeout expires.
 func openLocalInterface(iface string, promiscuous bool, prog []bpf.RawInstruction) (Source, error) {
 	var vm *bpf.VM
