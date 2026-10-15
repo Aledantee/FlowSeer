@@ -1,12 +1,8 @@
-// camflood.go implements the CAM-table overflow attack. It floods the
-// switch's Content Addressable Memory table with random-source-MAC frames,
-// forcing the switch into fail-open (flooding) mode where it forwards
-// unicast frames to all ports. Classified transient-decay: the CAM table
-// ages out after the attack stops.
-//
-// This is a flood-class behavior: it uses the sync.Pool craft path
-// for pre-serialized buffers, since the attack sends many frames with
-// unique source MACs and the per-packet allocation cost dominates the GC.
+// camflood.go implements the CAM-table overflow check. Impact temporary,
+// restore decay with no stated bound, affects device: the frames with
+// stamped source MACs fill the switch's CAM table so it floods unicast
+// frames to every port, and the entries age out on the switch's own
+// timer.
 
 package l2
 

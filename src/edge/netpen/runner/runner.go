@@ -2,7 +2,6 @@ package runner
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net"
 	"sync"
@@ -78,6 +77,22 @@ type Runner struct {
 	teardownMu     sync.Mutex
 	activeTeardown *Teardown
 	activeCancel   context.CancelFunc
+	// activeName, activeMode, and inFlight name the attack whose behavior
+	// is running, so the interrupt path can send its verdict. They are
+	// guarded by teardownMu.
+	activeName string
+	activeMode string
+	inFlight   bool
+	// verdictDone closes once the dispatch loop has published the current
+	// attack's verdict or given the attack up, so an interrupt that finds
+	// the loop owning that verdict waits for it before it cancels the
+	// stop context. It is guarded by teardownMu and replaced per attack.
+	verdictDone chan struct{}
+	// interrupted is set by [Runner.Interrupt] under teardownMu. Whichever
+	// of the interrupt path and the dispatch loop takes the lock first
+	// owns the in-flight attack's verdict, the dispatch loop starts no
+	// further attack once it is set, and Run returns context.Canceled.
+	interrupted bool
 
 	// interruptErr holds the teardown error from the signal
 	// [Runner.Interrupt] path, so the dispatch loop can surface it as
@@ -90,7 +105,6 @@ type Runner struct {
 	// interruptOnce guards the interrupt entry point so a second
 	// signal during teardown does not re-enter [Runner.Interrupt].
 	interruptOnce sync.Once
-	interrupting  atomic.Bool
 	interruptDone chan struct{}
 
 	// runDone closes when the dispatch loop (Run) returns, so a host
@@ -152,11 +166,12 @@ func (r *Runner) StopContext() context.Context {
 //
 // Run returns nil on successful completion (including when behaviors
 // returned verdicts other than confirmed). It returns a non-nil error for
-// dispatch failures, teardown failures, a missing target outside
+// dispatch failures, teardown failures, a missing or invalid target outside
 // orchestration, or cancellation. Cancellation returns the run context's
-// error unwrapped unless teardown failed. Closing the stream requests a
-// graceful stop. Teardown runs with its own budget even when the run
-// context is canceled.
+// error unwrapped unless teardown failed, and a run that [Runner.Interrupt]
+// stopped returns context.Canceled, whatever the scheduling of the stop.
+// Closing the stream requests a graceful stop. Teardown runs with its own
+// budget even when the run context is canceled.
 func (r *Runner) Run(ctx context.Context) (result error) {
 	defer close(r.runDone)
 	defer r.stream.done()
@@ -197,8 +212,15 @@ func (r *Runner) Run(ctx context.Context) (result error) {
 	stopStreamCancel := context.AfterFunc(runCtx, r.stream.pump.Cancel)
 	defer stopStreamCancel()
 	defer func() {
-		if result == nil && !r.closedByConsumer.Load() && runCtx.Err() != nil {
-			result = runCtx.Err()
+		if result != nil || r.closedByConsumer.Load() {
+			return
+		}
+		if r.interruptEngaged() {
+			result = context.Canceled
+		} else if err := runCtx.Err(); err != nil {
+			result = err
+		}
+		if result != nil {
 			r.stream.fail(result)
 		}
 	}()
@@ -261,6 +283,12 @@ func (r *Runner) Run(ctx context.Context) (result error) {
 			}
 			r.stream.fail(err)
 			return err
+		}
+		// An interrupt that engaged between attacks stops the run before
+		// the next attack's gate emits a record for it.
+		if r.interruptEngaged() {
+			<-r.interruptDone
+			break
 		}
 
 		entry, run, ok := r.opts.Catalog.Lookup(ref.Name, ref.Mode)
@@ -328,11 +356,22 @@ func (r *Runner) Run(ctx context.Context) (result error) {
 		// Register the active teardown + cancel so [Runner.Interrupt]
 		// (the signal path) can engage the same teardown the
 		// completion path runs (completion and interrupt share one
-		// entry point).
+		// entry point). An interrupt that already engaged starts no
+		// further attack, since its verdict would have no sender.
 		r.teardownMu.Lock()
+		if r.interrupted {
+			r.teardownMu.Unlock()
+			cancel()
+			<-r.interruptDone
+			break
+		}
 		r.activeTeardown = dec.teardown
 		r.activeCancel = cancel
+		r.activeName, r.activeMode, r.inFlight = ref.Name, entry.Mode, true
+		verdictDone := make(chan struct{})
+		r.verdictDone = verdictDone
 		r.teardownMu.Unlock()
+		published := sync.OnceFunc(func() { close(verdictDone) })
 
 		deps := check.Deps{
 			AttackLeg: attackLeg,
@@ -354,10 +393,7 @@ func (r *Runner) Run(ctx context.Context) (result error) {
 
 		// A behavior that stopped on its target check sent nothing and
 		// armed nothing, so there is no restore to run or to miss.
-		skipped := false
-		if code, ok := errs.CodeOf(behErr); ok && code == check.ErrCodeTargetMissing {
-			skipped = true
-		}
+		skipped := check.IsTargetError(behErr)
 
 		// Run the armed teardown (if any) on completion or interrupt.
 		// The teardown executes the armed steps in reverse-dependency
@@ -379,34 +415,27 @@ func (r *Runner) Run(ctx context.Context) (result error) {
 			}
 		}
 
-		// Clear the active teardown now that completion has run it.
+		// Clear the active teardown now that completion has run it. An
+		// interrupt that took the lock first owns this attack's verdict:
+		// wait for it to publish its result, then stop.
 		r.teardownMu.Lock()
+		interrupted := r.interrupted
 		r.activeTeardown = nil
 		r.activeCancel = nil
+		r.inFlight = false
 		r.teardownMu.Unlock()
-
-		// An interrupt may race the completion path for the one-shot
-		// teardown. Wait for the interrupt path to publish its result
-		// before classifying the behavior's expected cancellation or
-		// starting another behavior.
-		if r.interrupting.Load() {
+		if interrupted {
+			published()
 			<-r.interruptDone
 			break
 		}
 
 		if runCtx.Err() != nil {
+			published()
 			break
 		}
 
 		if behErr != nil {
-			// When the interrupt path engaged teardown, it canceled
-			// the behavior's context. The resulting context.Canceled
-			// is an expected consequence, not an independent behavior
-			// error. Skip the verdict and let the teardown-partial
-			// error (if any) surface from the interrupt path.
-			if r.interruptError() != nil && errors.Is(behErr, context.Canceled) {
-				continue
-			}
 			verdict = check.Verdict{Kind: findings.VerdictPending, Detail: behErr.Error()}
 			if skipped {
 				verdict.Kind = findings.VerdictSkipped
@@ -414,14 +443,17 @@ func (r *Runner) Run(ctx context.Context) (result error) {
 		}
 
 		// The runner emits the verdict itself so a behavior cannot
-		// forget to decide.
-		if !r.stream.send(verdictRecord(ref.Name, entry.Mode, verdict)) {
+		// forget to decide. An interrupt that arrived after the loop took
+		// this verdict waits for the send before it cancels the pump.
+		sent := r.stream.send(verdictRecord(ref.Name, entry.Mode, verdict))
+		published()
+		if !sent {
 			return r.terminated(runCtx)
 		}
 		if verdict.Kind == findings.VerdictSkipped && !r.opts.Orchestrated {
-			// Outside orchestration a missing target is the operator's
-			// mistake on this one command, so the run stops with the
-			// coded error and the command exits 2.
+			// Outside orchestration a missing or invalid target is the
+			// operator's mistake on this one command, so the run stops
+			// with the coded error and the command exits 2.
 			r.stream.fail(behErr)
 			return behErr
 		}
@@ -526,11 +558,11 @@ func (r *Runner) runTeardown(ctx context.Context, t *Teardown, budget time.Durat
 
 // Interrupt engages the teardown path from a signal (SIGINT, SIGTERM, or
 // SIGHUP). It cancels the in-flight behavior's per-attack context
-// (so the behavior returns promptly) and then runs the currently-armed
-// teardown through the same entry point completion uses. If no teardown
-// is armed (the run is between behaviors, or the current behavior does
-// not restore actively), it cancels the run context so the dispatch loop
-// exits.
+// (so the behavior returns promptly), runs the currently-armed
+// teardown through the same entry point completion uses, sends the
+// in-flight attack's verdict, pending with the detail "interrupted", and
+// then cancels the run context so the dispatch loop exits. Between
+// behaviors there is no teardown to run and no verdict to send.
 //
 // Interrupt is idempotent: a second call (e.g. completion after the
 // signal already engaged teardown) is a no-op. It is safe to call from
@@ -538,12 +570,14 @@ func (r *Runner) runTeardown(ctx context.Context, t *Teardown, budget time.Durat
 // [Runner.AbandonedSteps] first.
 func (r *Runner) Interrupt() {
 	r.interruptOnce.Do(func() {
-		r.interrupting.Store(true)
 		defer close(r.interruptDone)
 
 		r.teardownMu.Lock()
+		r.interrupted = true
 		td := r.activeTeardown
 		ac := r.activeCancel
+		name, mode, inFlight := r.activeName, r.activeMode, r.inFlight
+		verdictDone := r.verdictDone
 		r.teardownMu.Unlock()
 
 		// Cancel the in-flight behavior so it returns promptly.
@@ -579,10 +613,28 @@ func (r *Runner) Interrupt() {
 			}
 		}
 
+		// The attack in flight gets its verdict here, before the stop
+		// context cancels the pump, since the dispatch loop leaves it to
+		// this path. An attack whose behavior already returned has its
+		// verdict with the dispatch loop, which publishes it before the
+		// stop context may cancel the pump.
+		if inFlight {
+			_ = r.stream.send(verdictRecord(name, mode, check.Verdict{Kind: findings.VerdictPending, Detail: "interrupted"}))
+		} else if verdictDone != nil {
+			<-verdictDone
+		}
+
 		// Cancel the run context so the dispatch loop exits and does
 		// not start the next behavior.
 		r.stopCancel()
 	})
+}
+
+// interruptEngaged reports whether [Runner.Interrupt] has taken the run.
+func (r *Runner) interruptEngaged() bool {
+	r.teardownMu.Lock()
+	defer r.teardownMu.Unlock()
+	return r.interrupted
 }
 
 // AbandonedSteps returns the names of the teardown steps that have not

@@ -1,15 +1,11 @@
-// dtp.go implements the DTP (Dynamic Trunking Protocol) attack behavior.
-//
-// Parity deviation: the baseline's dtp flips a port to trunk and only
-// restores with --restore, leaving a persistent trunk otherwise. netpen
-// restores the access port by default. Skipping the restore takes the
-// explicit --keep-trunk flag, the permanent opt-in.
-//
-//  1. Sends a DTP "desirable" frame (trunk-status=0x03) to negotiate a trunk.
-//  2. Emits a finding reporting the negotiated trunk state.
-//  3. Unless --keep-trunk, arms a teardown step that sends a DTP "access"
-//     frame (trunk-status=0x02) to restore the port, asserted in the
-//     recorded TX order: negotiate frames then restore frames.
+// dtp.go implements the DTP (Dynamic Trunking Protocol) check. The base
+// entry is impact temporary, restore active, affects device: the DTP
+// "desirable" frame (trunk status 0x03) negotiates a trunk on the port,
+// and the armed teardown sends a DTP "access" frame (trunk status 0x02)
+// that puts the port back, in the recorded TX order negotiate then
+// restore. The keep-trunk mode is impact permanent with no restore and
+// runs only with the per-run acknowledgment. The baseline's dtp leaves the
+// trunk in place unless asked to restore; here the restore is the default.
 
 package l2
 

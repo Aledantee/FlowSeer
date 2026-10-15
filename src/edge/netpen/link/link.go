@@ -121,8 +121,11 @@ type Leg interface {
 
 	// Receive returns a channel that delivers captured frames until the
 	// context is canceled or the leg is closed, at which point the channel
-	// is closed. The implementation polls with a short timeout and checks
-	// ctx.Done() each cycle so cancellation unblocks within one poll.
+	// is closed. Frames the capture ring holds from before the call are
+	// delivered first, in capture order, so a consumer that wants only
+	// what follows its own send reads from the ring before sending. The
+	// implementation polls with a short timeout and checks ctx.Done()
+	// each cycle so cancellation unblocks within one poll.
 	// A terminal error frame is best effort and may be omitted if the
 	// channel is full. Drain the channel to wait for the receiver to exit
 	// before starting another Receive call.

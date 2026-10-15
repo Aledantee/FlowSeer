@@ -6,11 +6,12 @@
 // factory for the DHCP/IPv6 attack behaviors.
 //
 // Baseline-harvested (matching l2l3-audit's craft):
-//   - dhcpstarve, roguedhcp, roguedhcp6, daddos, ndpspoof, raguard,
-//     roguera
+//   - dhcpstarve, roguedhcp, roguedhcp6, daddos, ndpspoof, roguera
 //
 // Spec-authored (no baseline craft):
-//   - raflood (RA-flood variant), mld (MLD abuse flood)
+//   - raguard (the zero-lifetime probe RA of RFC 4861 section 6.3.4 and
+//     RFC 4862 section 5.5.3), raflood (RA-flood variant), mld (MLD abuse
+//     flood)
 //
 // Run from the attacks/ip6 directory:
 //
@@ -62,8 +63,8 @@ var (
 	dhcpClientIP  = net.IPv4(172, 16, 0, 10)
 	dhcpOfferIP   = net.IPv4(172, 16, 0, 100)
 
-	// Fixed xids keep the fixture bytes stable. Field-set comparisons
-	// mask them anyway, since a live run picks them at random.
+	// Fixed xids keep the fixture bytes stable and match the behaviors'
+	// own constants, which a live run sends unchanged.
 	dhcpXid   uint32 = 0x12345678
 	dhcpv6Xid        = []byte{0x00, 0x11, 0x22}
 )
@@ -446,7 +447,7 @@ func dadDOSFrames() [][]byte {
 }
 
 // dadDOSResistedFrames simulates a host that completed DAD before the
-// attack window — a Neighbor Advertisement from the legitimate owner
+// attack window: a Neighbor Advertisement from the legitimate owner
 // defending its address. The behavior observes this and reports resisted.
 func dadDOSResistedFrames() [][]byte {
 	// Legitimate owner's NA defending the address.
@@ -531,11 +532,45 @@ func rogueRAFrames() [][]byte {
 	return [][]byte{craft(eth, ip, icmp, ra)}
 }
 
-// RA Guard: the attack leg sends a forged RA. Seeing it arrive on the
-// watch leg proves traversal (the watch-leg rule).
-
+// RA Guard: the attack leg sends a probe RA that installs nothing on a
+// host. Every router parameter is zero, there is no source link-layer
+// address option and no MTU option, and the one Prefix Information option
+// has the L and A flags clear and both lifetimes zero. Seeing it arrive on
+// the watch leg proves traversal.
 func raGuardFrames() [][]byte {
-	return rogueRAFrames()
+	src := srcBytes()
+
+	eth := &layers.Ethernet{
+		DstMAC:       allNodesMAC,
+		SrcMAC:       src,
+		EthernetType: layers.EthernetTypeIPv6,
+	}
+	ip := &layers.IPv6{
+		Version:    6,
+		NextHeader: layers.IPProtocolICMPv6,
+		HopLimit:   255,
+		SrcIP:      linkLocalFromMAC(src),
+		DstIP:      allNodesIP,
+	}
+	icmp := &layers.ICMPv6{
+		TypeCode: layers.CreateICMPv6TypeCode(layers.ICMPv6TypeRouterAdvertisement, 0),
+	}
+	_ = icmp.SetNetworkLayerForChecksum(ip)
+
+	// Prefix info option: prefix fd00::/64, flags 0, both lifetimes 0.
+	prefixData := make([]byte, 30)
+	prefixData[0] = 64
+	copy(prefixData[14:30], net.ParseIP("fd00::").To16())
+
+	ra := &layers.ICMPv6RouterAdvertisement{
+		Options: layers.ICMPv6Options{
+			{
+				Type: layers.ICMPv6OptPrefixInfo,
+				Data: prefixData,
+			},
+		},
+	}
+	return [][]byte{craft(eth, ip, icmp, ra)}
 }
 
 // RA flood (spec-authored): bounded burst of RAs with varying source.
@@ -669,8 +704,8 @@ func craft(layersList ...gopacket.SerializableLayer) []byte {
 	return append([]byte(nil), buf.Bytes()...)
 }
 
-// writePcap writes pkts to path, recording the first failure — its own IO or
-// an assembly error a builder already recorded — into [genErr] and returning
+// writePcap writes pkts to path, recording the first failure, its own IO or
+// an assembly error a builder already recorded, into [genErr] and returning
 // without writing, so a bad packet never lands in a fixture and [run] reports
 // the fault.
 func writePcap(path string, pkts ...[]byte) {

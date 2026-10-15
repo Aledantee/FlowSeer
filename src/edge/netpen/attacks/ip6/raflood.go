@@ -1,14 +1,9 @@
-// raflood.go implements the RA-flood attack superset.
-//
-// Durability (from the catalog): transient-decay. The attack sends a
-// bounded burst of Router Advertisements with varying source. The
-// behavior is bounded by duration and exits on schedule, reporting
-// frame counts.
-//
-// This is a flood-class behavior: it uses the sync.Pool craft path
-// for pre-serialized buffers.
-//
-// Spec-authored — the baseline has no craft for this attack.
+// raflood.go implements the RA-flood check. Impact temporary, restore
+// decay with no stated bound, affects clients: the burst of five Router
+// Advertisements, each from its own stamped source, adds routers and
+// prefixes to the hosts that take them, and those entries expire on the
+// lifetimes the frames carry. The fixture is spec-authored, since the
+// baseline has no craft for it.
 
 package ip6
 

@@ -239,25 +239,15 @@ func TestCeilingFlag(t *testing.T) {
 	}
 }
 
-// TestMissingTargetExitsTwo pins the one-round contract on the command: a
-// check run without its target emits a skipped verdict naming the flags,
-// sends nothing, and exits 2 with the hint.
-func TestMissingTargetExitsTwo(t *testing.T) {
-	origLegOpen := legOpen
-	defer func() { legOpen = origLegOpen }()
-	leg := &noopLeg{}
-	legOpen = func(_ string) (link.Leg, error) { return leg, nil }
-
-	var stdout, stderr bytes.Buffer
-	code := run([]string{"arpspoof", "--json=true"}, &stdout, &stderr)
-	if code != 2 {
-		t.Errorf("exit code: got %d, want 2; stderr: %s", code, stderr.String())
-	}
-	if leg.sends.Load() != 0 {
-		t.Errorf("sends = %d, want 0", leg.sends.Load())
-	}
+// verdictFromStdout decodes the JSONL on stdout and returns the verdict
+// record's payload, or nil.
+func verdictFromStdout(t *testing.T, stdout string) *findings.Verdict {
+	t.Helper()
 	var verdict *findings.Verdict
-	for _, line := range strings.Split(strings.TrimSpace(stdout.String()), "\n") {
+	for _, line := range strings.Split(strings.TrimSpace(stdout), "\n") {
+		if line == "" {
+			continue
+		}
 		var rec findings.Record
 		if err := json.Unmarshal([]byte(line), &rec); err != nil {
 			t.Fatalf("decode JSONL record %q: %v", line, err)
@@ -266,21 +256,60 @@ func TestMissingTargetExitsTwo(t *testing.T) {
 			verdict = rec.Verdict
 		}
 	}
+	return verdict
+}
+
+// stubShipped replaces the shipped catalog for the test with one whose
+// named behavior runs stub, so a command test reads what the runner
+// handed the behavior.
+func stubShipped(t *testing.T, name string, stub check.Run) {
+	t.Helper()
+	orig := shipped
+	t.Cleanup(func() { shipped = orig })
+	bs := attacks.Behaviors()
+	for i := range bs {
+		if bs[i].Name == name {
+			bs[i].Run = stub
+		}
+	}
+	shipped = catalog.MustNew(bs...)
+}
+
+// TestMissingTargetExitsTwo pins the one-round contract on the command: a
+// check run with its hosts' addresses but not their MACs emits a skipped
+// verdict naming the two flags in the form that carries both parts, sends
+// nothing, prints that text on stderr, and exits 2.
+func TestMissingTargetExitsTwo(t *testing.T) {
+	origLegOpen := legOpen
+	defer func() { legOpen = origLegOpen }()
+	leg := &noopLeg{}
+	legOpen = func(_ string) (link.Leg, error) { return leg, nil }
+
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"arpspoof", "--json=true", "--victim", "172.16.0.10", "--gateway", "172.16.0.1"}, &stdout, &stderr)
+	if code != 2 {
+		t.Errorf("exit code: got %d, want 2; stderr: %s", code, stderr.String())
+	}
+	if leg.sends.Load() != 0 {
+		t.Errorf("sends = %d, want 0", leg.sends.Load())
+	}
+	verdict := verdictFromStdout(t, stdout.String())
 	if verdict == nil || verdict.Kind != findings.VerdictSkipped {
 		t.Fatalf("verdict = %+v, want skipped", verdict)
 	}
-	for _, field := range []string{"victim", "gateway"} {
-		if !strings.Contains(verdict.Detail, field) {
-			t.Errorf("verdict detail %q does not name %s", verdict.Detail, field)
-		}
+	const want = "the check needs: --victim <ip>,<mac>, --gateway <ip>,<mac>"
+	if verdict.Detail != want {
+		t.Errorf("verdict detail = %q, want %q", verdict.Detail, want)
 	}
-	if !strings.Contains(stderr.String(), "target flags") {
-		t.Errorf("stderr lacks the target hint: %s", stderr.String())
+	if !strings.Contains(stderr.String(), want) {
+		t.Errorf("stderr lacks %q: %s", want, stderr.String())
 	}
 }
 
 // TestTargetFlagsParse pins the flag shapes: a host with and without its
-// MAC, an address, a network, and the number ranges.
+// MAC, an address, a network, and the number ranges, each typed by family
+// so a value of the other family exits 2 at the flag with the form it
+// wants.
 func TestTargetFlagsParse(t *testing.T) {
 	origLegOpen := legOpen
 	defer func() { legOpen = origLegOpen }()
@@ -295,18 +324,129 @@ func TestTargetFlagsParse(t *testing.T) {
 		t.Errorf("exit code with a full target: got %d, want 0; stderr: %s", code, stderr.String())
 	}
 
-	for _, args := range [][]string{
-		{"arpspoof", "--victim", "not-an-ip"},
-		{"arpspoof", "--victim", "172.16.0.10,zz"},
-		{"roguera", "--prefix6", "fd00::"},
-		{"vrrp", "--vrid", "300"},
-		{"vlanhop", "--outer-vlan", "0"},
-		{"vlanhop", "--inner-vlan", "4096"},
+	for _, tc := range []struct {
+		args []string
+		want string
+	}{
+		{[]string{"arpspoof", "--victim", "not-an-ip"}, "want an IPv4 address as <ip> or <ip>,<mac>"},
+		{[]string{"arpspoof", "--victim", "172.16.0.10,zz"}, "want a six-octet MAC after the comma"},
+		{[]string{"arpspoof", "--victim", "10.0.0.1,0102.0304.0506.0708"}, "want a six-octet MAC after the comma"},
+		{[]string{"portsteal", "--victim", "2001:db8::1"}, "want an IPv4 address as <ip> or <ip>,<mac>"},
+		{[]string{"ndpspoof", "--victim6", "10.0.0.5"}, "want an IPv6 address as <ip> or <ip>,<mac>"},
+		{[]string{"ospf", "--router-id", "2001:db8::1"}, `invalid value "2001:db8::1" for flag -router-id: want an IPv4 address`},
+		{[]string{"roguera", "--prefix6", "fd00::"}, "want an IPv6 network in CIDR form"},
+		{[]string{"roguera", "--prefix6", "10.0.0.0/8"}, "want an IPv6 network in CIDR form"},
+		{[]string{"eigrp", "--route4", "2001:db8::/64"}, "want an IPv4 network in CIDR form"},
+		{[]string{"eigrp", "--route4", "::ffff:10.0.0.0/104"}, "want an IPv4 network in CIDR form"},
+		{[]string{"arpsweep", "--sweep-net", "::ffff:10.0.0.0/104"}, "want an IPv4 network in CIDR form"},
+		{[]string{"roguera", "--prefix6", "::ffff:10.0.0.0/104"}, "want an IPv6 network in CIDR form"},
+		{[]string{"vrrp", "--vrid", "300"}, "want a number from 1 to 255"},
+		{[]string{"vlanhop", "--outer-vlan", "0"}, "want a VLAN id from 1 to 4094"},
+		{[]string{"vlanhop", "--outer-vlan", "4095"}, "want a VLAN id from 1 to 4094"},
+		{[]string{"vlanhop", "--inner-vlan", "4096"}, "want a VLAN id from 1 to 4094"},
+		{[]string{"hsrp", "--group", "-1"}, "want a number from 0 to 65535"},
 	} {
 		stdout.Reset()
 		stderr.Reset()
-		if code := run(args, &stdout, &stderr); code != 2 {
-			t.Errorf("%v: exit code %d, want 2", args, code)
+		if code := run(tc.args, &stdout, &stderr); code != 2 {
+			t.Errorf("%v: exit code %d, want 2", tc.args, code)
+		}
+		if !strings.Contains(stderr.String(), tc.want) {
+			t.Errorf("%v: stderr lacks %q:\n%s", tc.args, tc.want, stderr.String())
+		}
+		if stdout.Len() != 0 {
+			t.Errorf("%v: stdout = %q, want no record", tc.args, stdout.String())
+		}
+	}
+}
+
+// TestGroupZeroReachesRunner pins that --group 0 is a set group: the
+// behavior sees a non-nil pointer to 0, since HSRP group 0 is a group.
+func TestGroupZeroReachesRunner(t *testing.T) {
+	origLegOpen := legOpen
+	defer func() { legOpen = origLegOpen }()
+	legOpen = func(_ string) (link.Leg, error) { return &noopLeg{}, nil }
+	var got *uint16
+	stubShipped(t, "hsrp", func(_ context.Context, deps check.Deps) (check.Verdict, error) {
+		deps.Teardown.Arm("stub", func(context.Context) error { return nil })
+		got = deps.Target.Group
+		return check.Pending("stub"), nil
+	})
+
+	var stdout, stderr bytes.Buffer
+	if code := run([]string{"hsrp", "--json=true", "--group", "0", "--vip", "10.0.0.1"}, &stdout, &stderr); code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr: %s", code, stderr.String())
+	}
+	if got == nil || *got != 0 {
+		t.Errorf("behavior saw group %v, want a pointer to 0", got)
+	}
+}
+
+// TestObserveFlagReachesRunner pins that --observe is the window the
+// behavior receives.
+func TestObserveFlagReachesRunner(t *testing.T) {
+	origLegOpen := legOpen
+	defer func() { legOpen = origLegOpen }()
+	legOpen = func(_ string) (link.Leg, error) { return &noopLeg{}, nil }
+	stubShipped(t, "arpspoof", func(_ context.Context, deps check.Deps) (check.Verdict, error) {
+		deps.Teardown.Arm("stub", func(context.Context) error { return nil })
+		return check.Pending(deps.Observe.String()), nil
+	})
+
+	var stdout, stderr bytes.Buffer
+	if code := run([]string{"arpspoof", "--json=true", "--observe", "750ms"}, &stdout, &stderr); code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr: %s", code, stderr.String())
+	}
+	if v := verdictFromStdout(t, stdout.String()); v == nil || v.Detail != "750ms" {
+		t.Errorf("verdict = %+v, want the 750ms window as its detail", v)
+	}
+}
+
+// TestTargetFlagsAcceptEachFamily pins the accepting side of every typed
+// flag at its range bound, and that the behavior reads the IPv4 values in
+// their 4-byte form and the networks with the mask length of their family.
+func TestTargetFlagsAcceptEachFamily(t *testing.T) {
+	origLegOpen := legOpen
+	defer func() { legOpen = origLegOpen }()
+	legOpen = func(_ string) (link.Leg, error) { return &noopLeg{}, nil }
+	var got check.Target
+	stubShipped(t, "arpspoof", func(_ context.Context, deps check.Deps) (check.Verdict, error) {
+		deps.Teardown.Arm("stub", func(context.Context) error { return nil })
+		got = deps.Target
+		return check.Pending("stub"), nil
+	})
+
+	var stdout, stderr bytes.Buffer
+	args := []string{
+		"arpspoof", "--json=true",
+		"--victim", "10.0.0.10,00:aa:bb:cc:dd:01", "--gateway", "10.0.0.1",
+		"--victim6", "fd00::10,00:aa:bb:cc:dd:02", "--server6", "fd00::1",
+		"--vip", "10.0.0.1", "--router-id", "10.0.0.2", "--offer-ip", "10.0.0.3",
+		"--group", "65535", "--vrid", "255",
+		"--outer-vlan", "4094", "--inner-vlan", "1", "--voice-vlan", "4094",
+		"--vtp-domain", strings.Repeat("d", 32),
+		"--prefix6", "fd00::/64", "--route4", "10.9.0.0/24", "--sweep-net", "10.9.0.0/30",
+	}
+	if code := run(args, &stdout, &stderr); code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr: %s", code, stderr.String())
+	}
+	for name, ip := range map[string]net.IP{"victim": got.Victim.IP, "gateway": got.Gateway.IP, "vip": got.VirtualIP, "router-id": got.RouterID, "offer-ip": got.OfferIP} {
+		if len(ip) != net.IPv4len {
+			t.Errorf("%s = %v (%d bytes), want the 4-byte form", name, ip, len(ip))
+		}
+	}
+	if !got.Victim6.IP.Equal(net.ParseIP("fd00::10")) || got.Victim6.MAC.String() != "00:aa:bb:cc:dd:02" || !got.Server6.IP.Equal(net.ParseIP("fd00::1")) {
+		t.Errorf("IPv6 hosts = %+v and %+v, want fd00::10 with its MAC and fd00::1", got.Victim6, got.Server6)
+	}
+	if got.Group == nil || *got.Group != 65535 || got.VRID != 255 || got.OuterVLAN != 4094 || got.InnerVLAN != 1 || got.VoiceVLAN != 4094 || len(got.VTPDomain) != 32 {
+		t.Errorf("numbers and domain = group %v vrid %d vlans %d %d %d domain %d bytes, want the bounds", got.Group, got.VRID, got.OuterVLAN, got.InnerVLAN, got.VoiceVLAN, len(got.VTPDomain))
+	}
+	if got.Prefix6 == nil || got.Prefix6.String() != "fd00::/64" || len(got.Prefix6.Mask) != net.IPv6len {
+		t.Errorf("prefix6 = %v, want fd00::/64 with a 16-byte mask", got.Prefix6)
+	}
+	for name, n := range map[string]*net.IPNet{"route4": got.Route4, "sweep-net": got.SweepNet} {
+		if n == nil || len(n.IP) != net.IPv4len || len(n.Mask) != net.IPv4len {
+			t.Errorf("%s = %v, want a 4-byte address and mask", name, n)
 		}
 	}
 }

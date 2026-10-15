@@ -32,8 +32,8 @@ var (
 
 // oracle pins all 40 pairs: 34 behaviors and 6 modes. The decay bounds are
 // the lifetimes the probes announce: 1800 s for the rogue RA and DHCPv4
-// lease, 300 s for the DHCPv6 lease, 6 s for the STP max age, and 30 s for
-// the LLMNR and WPAD answers' TTL.
+// lease, 600 s for the DHCPv6 lease's valid lifetime, 6 s for the STP max
+// age, and 30 s for the LLMNR and WPAD answers' TTL.
 var oracle = []oracleRow{
 	{"arpspoof", "", temporary, active, 0, check.AffectsClients},
 	{"arpsweep", "", none, noRestore, 0, check.AffectsNone},
@@ -61,7 +61,7 @@ var oracle = []oracleRow{
 	{"raflood", "", temporary, decay, 0, check.AffectsClients},
 	{"raguard", "", none, noRestore, 0, check.AffectsNone},
 	{"roguedhcp", "", temporary, decay, 1800 * time.Second, check.AffectsClients},
-	{"roguedhcp6", "", temporary, decay, 300 * time.Second, check.AffectsClients},
+	{"roguedhcp6", "", temporary, decay, 600 * time.Second, check.AffectsClients},
 	{"roguera", "", temporary, decay, 1800 * time.Second, check.AffectsClients},
 	{"scan", "", none, noRestore, 0, check.AffectsNone},
 	{"stproot", "", temporary, decay, 6 * time.Second, check.AffectsFabric},

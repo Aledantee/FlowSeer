@@ -1,8 +1,7 @@
-// etherchannel.go implements the EtherChannel (LACP/PAgP) superset attack.
-// It sends both LACP and PAgP frames to manipulate link aggregation state,
-// causing a port to join or leave an EtherChannel group. Classified
-// temporary-restored: the behavior arms a port-channel release teardown
-// step.
+// etherchannel.go implements the EtherChannel (LACP/PAgP) check. Impact
+// temporary, restore active, affects device: the LACP and PAgP frames
+// offer the switch a link aggregation partner, and the armed port-channel
+// release step is a no-op.
 //
 // The baseline (l2l3-audit) does not carry an EtherChannel attack. The
 // LACP/PAgP craft is authored from IEEE 802.1AX and Cisco/Wireshark specs.
@@ -28,8 +27,8 @@ type etherChannelFinding struct {
 
 // RunEtherChannel sends one LACPDU and one PAgP hello from the attack leg's
 // MAC. It reads no target: the keys, ports, and partner identity are probe
-// content. It arms a port-channel release step that does
-// no host work yet. The verdict is pending: whether a channel formed needs
+// content. It arms a port-channel release step that does no host work.
+// The verdict is pending: whether a channel formed needs
 // a partner-state listener it does not have.
 func RunEtherChannel(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	src := deps.AttackLeg.Addr().MAC

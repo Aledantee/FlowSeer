@@ -1,6 +1,7 @@
-// gratarp.go implements the gratuitous ARP attack behavior. It sends
-// broadcast ARP replies announcing an IP→MAC mapping. Classified
-// transient-decay: the neighbor cache ages out after the attack stops.
+// gratarp.go implements the gratuitous ARP check. Impact temporary,
+// restore decay with no stated bound, affects clients: the broadcast ARP
+// replies announce the virtual address at the attack leg's MAC, and the
+// hosts' neighbor caches age the entry out on their own timers.
 
 package fh
 

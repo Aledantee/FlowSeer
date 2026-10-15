@@ -1,9 +1,10 @@
-// glbp.go implements the GLBP virtual-router hijack attack behavior.
-//
-// Durability (from the catalog): temporary-restored. The attack sends a
-// GLBP hello with a high priority (255) and the active state to claim the
-// AVG (Active Virtual Gateway) role. The teardown arms a resign hello
-// (lowered priority, listen state) to restore the virtual-router state.
+// glbp.go implements the GLBP virtual-router hijack check. Impact
+// temporary, restore active, affects clients: the hello with priority 255
+// and the active state claims the active virtual gateway role for the
+// group, so the clients' gateway traffic goes to the attack leg, and the
+// armed resign hello (lowered priority, listen state) hands the role back
+// when the run ends. The group takes the full two octets its frame field
+// holds, since no vendored source states a narrower range.
 //
 // The baseline (l2l3-audit) does not carry a GLBP attack. The craft is
 // authored from Wireshark's packet-glbp.c at commit
@@ -42,7 +43,7 @@ func RunGLBP(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 		return check.Verdict{}, err
 	}
 	addr := deps.AttackLeg.Addr()
-	group := deps.Target.Group
+	group := *deps.Target.Group
 	priority := uint8(255)
 	vip := deps.Target.VirtualIP
 

@@ -2,8 +2,11 @@
 // A behavior is a [Run] over [Deps] that returns a [Verdict]. The catalog
 // describes each behavior and mode as an [Entry] whose [Impact], [Restore],
 // and [Affects] state what the check costs the network. The runner gates
-// dispatch on those fields. The package imports only findings and link so the
-// catalog, the runner, and every behavior package can share it.
+// dispatch on those fields. [Target.Need] checks the form of what a behavior
+// reads before its first frame, and [First] and [Collect] bound what it
+// observes by the run's window. The package imports nothing under netpen
+// beyond findings and link, so the catalog, the runner, and every behavior
+// package can share it.
 package check
 
 import (

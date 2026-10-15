@@ -463,9 +463,9 @@ func TestMissingTargetIsSkippedVerdict(t *testing.T) {
 			if !ok || v.Verdict == nil || v.Verdict.Kind != findings.VerdictSkipped {
 				t.Fatalf("arpspoof verdict = %+v, want skipped", v.Verdict)
 			}
-			for _, field := range []string{"victim", "gateway"} {
-				if !contains(v.Verdict.Detail, field) {
-					t.Errorf("verdict detail %q does not name %s", v.Verdict.Detail, field)
+			for _, flag := range []string{"--victim <ip>,<mac>", "--gateway <ip>,<mac>"} {
+				if !contains(v.Verdict.Detail, flag) {
+					t.Errorf("verdict detail %q does not name %s", v.Verdict.Detail, flag)
 				}
 			}
 			if sends.Load() != 0 {
@@ -490,6 +490,199 @@ func TestMissingTargetIsSkippedVerdict(t *testing.T) {
 				t.Error("the next attack ran after a missing target on a single command")
 			}
 		})
+	}
+}
+
+// TestInvalidTargetIsSkippedVerdict pins that a target field of the wrong
+// form is handled as a missing one: the behavior's invalid-code error
+// becomes a skipped verdict naming the flag and the form, nothing is sent,
+// and the single command exits 2 with that code.
+func TestInvalidTargetIsSkippedVerdict(t *testing.T) {
+	leg := newMockLeg()
+	closeLeg(t, leg)
+	var sends atomic.Int32
+	r := newRunner(runner.Options{
+		AttackLeg: leg,
+		Attacks:   []runner.AttackRef{{Name: "hsrp"}},
+		Target:    check.Target{Group: new(uint16(300)), VirtualIP: net.IPv4(10, 0, 0, 1)},
+	}, map[string]check.Run{
+		"hsrp": func(_ context.Context, deps check.Deps) (check.Verdict, error) {
+			if err := deps.Target.Within(check.FieldGroup, 255); err != nil {
+				return check.Verdict{}, err
+			}
+			sends.Add(1)
+			return pending, nil
+		},
+	})
+
+	recs, err := drainStreamAsync(context.Background(), r)
+	v, ok := verdicts(recs)["hsrp"]
+	if !ok || v.Verdict == nil || v.Verdict.Kind != findings.VerdictSkipped {
+		t.Fatalf("hsrp verdict = %+v, want skipped", v.Verdict)
+	}
+	if want := "the check needs: --group at most 255"; v.Verdict.Detail != want {
+		t.Errorf("verdict detail = %q, want %q", v.Verdict.Detail, want)
+	}
+	if sends.Load() != 0 {
+		t.Errorf("behavior sent %d times after an invalid target", sends.Load())
+	}
+	if code, ok := errs.CodeOf(err); !ok || code != check.ErrCodeTargetInvalid {
+		t.Errorf("Run error = %v (code %q), want %q", err, code, check.ErrCodeTargetInvalid)
+	}
+	if errs.ExitCode(err) != 2 {
+		t.Errorf("exit code = %d, want 2", errs.ExitCode(err))
+	}
+}
+
+// TestInterruptAfterReturnKeepsTheVerdict pins that an interrupt landing
+// as the behavior returns, whichever of the interrupt path and the
+// dispatch loop takes the verdict, leaves exactly one verdict for that
+// attack, across many iterations so the window between the loop taking
+// the verdict and sending it is hit. The next attack, when the loop
+// reaches it first, is interrupted in turn and gets at most one verdict.
+func TestInterruptAfterReturnKeepsTheVerdict(t *testing.T) {
+	for i := range 2000 {
+		leg := newMockLeg()
+		returned := make(chan struct{})
+		r := newRunner(runner.Options{
+			AttackLeg: leg,
+			Attacks:   []runner.AttackRef{{Name: "arpsweep"}, {Name: "gratarp"}},
+		}, map[string]check.Run{
+			"arpsweep": func(_ context.Context, _ check.Deps) (check.Verdict, error) {
+				close(returned)
+				return pending, nil
+			},
+			"gratarp": func(ctx context.Context, _ check.Deps) (check.Verdict, error) {
+				<-ctx.Done()
+				return check.Verdict{}, ctx.Err()
+			},
+		})
+
+		var (
+			recs []findings.Record
+			wg   sync.WaitGroup
+		)
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			recs = drainStream(r.Stream())
+		}()
+		result := make(chan error, 1)
+		go func() { result <- r.Run(context.Background()) }()
+		<-returned
+		r.Interrupt()
+		err := <-result
+		r.Wait()
+		wg.Wait()
+		_ = leg.Close()
+
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("iteration %d: Run error = %v, want %v", i, err, context.Canceled)
+		}
+		count := map[string]int{}
+		for _, rec := range recs {
+			if rec.Kind == findings.KindVerdict {
+				count[rec.Attack]++
+			}
+		}
+		if count["arpsweep"] != 1 {
+			t.Fatalf("iteration %d: %d verdict records for arpsweep, want 1", i, count["arpsweep"])
+		}
+		if count["gratarp"] > 1 {
+			t.Fatalf("iteration %d: %d verdict records for gratarp, want at most 1", i, count["gratarp"])
+		}
+	}
+}
+
+// TestInterruptBeforeAnAttackEmitsNoRecordForIt pins that an interrupt
+// that engaged before the dispatch loop reaches an attack stops the loop
+// ahead of that attack's gate, so no announcement and no verdict names an
+// attack that never ran. The interrupt lands before Run, where the stop
+// context's cancellation reaches the run context on another goroutine,
+// so only the loop's own check keeps the gate from running.
+func TestInterruptBeforeAnAttackEmitsNoRecordForIt(t *testing.T) {
+	for i := range 50 {
+		leg := newMockLeg()
+		r := newRunner(runner.Options{
+			AttackLeg: leg,
+			Attacks:   []runner.AttackRef{{Name: "gratarp"}},
+		}, map[string]check.Run{
+			"gratarp": func(_ context.Context, _ check.Deps) (check.Verdict, error) {
+				return pending, nil
+			},
+		})
+		r.Interrupt()
+		recs, err := drainStreamAsync(context.Background(), r)
+		r.Wait()
+		_ = leg.Close()
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("iteration %d: Run error = %v, want %v", i, err, context.Canceled)
+		}
+		for _, rec := range recs {
+			if rec.Attack == "gratarp" {
+				t.Fatalf("iteration %d: a %s record for gratarp after the interrupt", i, rec.Kind)
+			}
+		}
+	}
+}
+
+// TestInterruptYieldsVerdictAndCanceled pins that an interrupted attack
+// gets one verdict, pending with the detail "interrupted", and that Run
+// returns context.Canceled on every iteration rather than by the
+// scheduling of the stop.
+func TestInterruptYieldsVerdictAndCanceled(t *testing.T) {
+	for i := range 20 {
+		leg := newMockLeg()
+		started := make(chan struct{})
+		r := newRunner(runner.Options{
+			AttackLeg: leg,
+			Attacks:   []runner.AttackRef{{Name: "arpsweep"}, {Name: "gratarp"}},
+		}, map[string]check.Run{
+			"arpsweep": func(ctx context.Context, _ check.Deps) (check.Verdict, error) {
+				close(started)
+				<-ctx.Done()
+				return check.Verdict{}, ctx.Err()
+			},
+		})
+
+		var (
+			recs []findings.Record
+			wg   sync.WaitGroup
+		)
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			recs = drainStream(r.Stream())
+		}()
+		result := make(chan error, 1)
+		go func() { result <- r.Run(context.Background()) }()
+		<-started
+		r.Interrupt()
+		err := <-result
+		r.Wait()
+		wg.Wait()
+		_ = leg.Close()
+
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("iteration %d: Run error = %v, want %v", i, err, context.Canceled)
+		}
+		vs := verdicts(recs)
+		v, ok := vs["arpsweep"]
+		if !ok || v.Verdict == nil || v.Verdict.Kind != findings.VerdictPending || v.Verdict.Detail != "interrupted" {
+			t.Fatalf("iteration %d: arpsweep verdict = %+v, want pending with detail interrupted", i, v.Verdict)
+		}
+		if _, ran := vs["gratarp"]; ran {
+			t.Fatalf("iteration %d: the next attack got a verdict after the interrupt", i)
+		}
+		count := 0
+		for _, rec := range recs {
+			if rec.Kind == findings.KindVerdict {
+				count++
+			}
+		}
+		if count != 1 {
+			t.Fatalf("iteration %d: %d verdict records, want 1", i, count)
+		}
 	}
 }
 

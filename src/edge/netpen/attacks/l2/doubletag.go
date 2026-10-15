@@ -1,10 +1,8 @@
-// doubletag.go implements the VLAN double-tagging (QinQ) hopping attack.
-//
-// The attack injects a double-tagged Ethernet frame: outer tag = the
-// attacker's VLAN (matching the access port), inner tag = the target VLAN.
-// When the frame reaches a trunk port, the switch strips the outer tag and
-// forwards the frame into the target VLAN — a one-shot hop. Nothing
-// persists: the attack is transient-decay (one-shot injected frames).
+// doubletag.go implements the VLAN double-tagging (QinQ) hopping check.
+// Impact none, restore none, affects none: the one double-tagged frame,
+// outer tag the access port's VLAN and inner tag the target VLAN, is
+// forwarded into the target VLAN by a trunk that strips the outer tag, a
+// one-shot hop that leaves no state behind.
 
 package l2
 

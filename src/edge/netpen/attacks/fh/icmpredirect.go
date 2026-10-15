@@ -1,11 +1,8 @@
-// icmpredirect.go implements the ICMP redirect attack behavior.
-//
-// Durability (from the catalog): transient-decay. The attack sends ICMP
-// redirect messages (type=5, code=1) to poison the victim's route cache.
-// The victim's route cache entry decays naturally — no explicit teardown
-// is needed. The baseline's icmpredirect_cmd enables ip_forward and
-// restores it on Ctrl-C, but the behavior itself is transient: the redirect
-// is advisory and the victim re-learns the correct route.
+// icmpredirect.go implements the ICMP redirect check. Impact temporary,
+// restore decay with no stated bound, affects clients: the redirect (type
+// 5, code 1) points the victim's route cache at the attack leg, and the
+// victim drops the entry on its own route cache timer. The behavior does
+// not enable host forwarding, so the redirected traffic is not relayed.
 
 package fh
 

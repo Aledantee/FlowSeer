@@ -32,8 +32,8 @@ var (
 )
 
 // GhostSA is the reserved group MAC used as the source address in ghost
-// frames — an 802.3 §3.2.6 violation (reserved group MAC as source) that
-// conformant silicon should filter but non-conformant silicon forwards.
+// frames, an 802.3 section 3.2.6 violation (reserved group MAC as source)
+// that conformant silicon should filter but non-conformant silicon forwards.
 // Callers must preserve its six-byte length and must not mutate it while
 // a behavior is running.
 var GhostSA = net.HardwareAddr{0x01, 0x80, 0xc2, 0x00, 0x00, 0x01}

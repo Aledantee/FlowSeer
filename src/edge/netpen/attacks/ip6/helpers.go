@@ -7,8 +7,9 @@
 // address, stays a constant in the behavior. DHCPv4 shares this package with
 // DHCPv6 because both use the same fixture harness and runner contracts.
 //
-// Flood behaviors send five frames. [RunRogueDHCPv6] requires a context
-// deadline to bound an idle receive.
+// Flood behaviors send five frames. The behaviors that wait for a frame,
+// [RunRogueDHCPv6], [RunDADDOS], and [RunRAGuard], wait for the run's
+// observation window and no longer.
 package ip6
 
 import (

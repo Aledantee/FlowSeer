@@ -1,10 +1,8 @@
-// hsrp.go implements the HSRP active-router hijack attack behavior.
-//
-// Durability (from the catalog): temporary-restored. The attack sends a
-// Coup message (opcode=1, priority=255) to steal the active router role,
-// then hellos. The teardown arms a Resign message (opcode=2) to restore
-// the virtual-router state — matching the baseline's hsrp_cmd which
-// sends a resign on Ctrl-C.
+// hsrp.go implements the HSRP active-router hijack check. Impact
+// temporary, restore active, affects clients: the Coup (opcode 1,
+// priority 255) and the hello that follows take the active router role
+// for the group, so the clients' gateway traffic goes to the attack leg,
+// and the armed Resign (opcode 2) hands the role back when the run ends.
 
 package fh
 
@@ -33,6 +31,8 @@ type hsrpFinding struct {
 
 // RunHSRP arms a resign teardown before sending a Coup and hello for the
 // target's group and virtual IP from the attack leg's own addresses. The
+// group is bounded at 255, the one octet the HSRPv1 group field holds, so
+// a larger group is the operator's mistake and not another group. The
 // priority of 255 and the authentication string are probe content. The
 // verdict is pending: coup acceptance needs a hello listener it does not
 // have. Craft and send errors carry operation context.
@@ -40,8 +40,11 @@ func RunHSRP(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	if err := deps.Target.Need(check.FieldGroup, check.FieldVirtualIP); err != nil {
 		return check.Verdict{}, err
 	}
+	if err := deps.Target.Within(check.FieldGroup, 255); err != nil {
+		return check.Verdict{}, err
+	}
 	addr := deps.AttackLeg.Addr()
-	group := uint8(deps.Target.Group)
+	group := uint8(*deps.Target.Group)
 	priority := uint8(255)
 	vip := deps.Target.VirtualIP
 

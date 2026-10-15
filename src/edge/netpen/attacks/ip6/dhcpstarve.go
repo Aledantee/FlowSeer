@@ -1,18 +1,9 @@
-// dhcpstarve.go implements the DHCP starvation attack behavior.
-//
-// Durability (from the catalog): transient-decay. The attack sends DHCP
-// DISCOVER frames with incrementing chaddr tails to exhaust the DHCP
-// server's lease pool. The lease pool recovers after the attack stops
-// (unused leases expire). No explicit teardown.
-//
-// This is a flood-class behavior: it uses the sync.Pool craft path
-// for pre-serialized buffers, since the attack sends many
-// frames with unique chaddr and the per-packet allocation cost
-// dominates the GC.
-//
-// Determinism pin: DHCP xids and chaddr vary per run, so field-set
-// comparisons mask them. The fixture uses fixed values so its bytes stay
-// stable.
+// dhcpstarve.go implements the DHCP starvation check. Impact temporary,
+// restore decay with no stated bound, affects device: the DISCOVER frames
+// with incrementing chaddr tails take leases from the DHCP server's pool,
+// and the pool recovers as those unused leases expire on the server's own
+// lease time. The chaddr tails and transaction IDs are fixed, so the
+// fixture compares bytes.
 
 package ip6
 

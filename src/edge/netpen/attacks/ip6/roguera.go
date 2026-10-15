@@ -1,9 +1,8 @@
-// roguera.go implements the rogue router advertisement attack behavior.
-//
-// Durability (from the catalog): transient-decay. The attack sends a
-// Router Advertisement claiming to be a router with a ~1800s lifetime.
-// The RA lifetime runs out on its own after the attack stops, so there is
-// no explicit teardown.
+// roguera.go implements the rogue router advertisement check. Impact
+// temporary, restore decay with a 1800 s bound, affects clients: the
+// Router Advertisement claims to be a router with a 1800 s router
+// lifetime, so a host that takes it drops the route when that lifetime
+// runs out, and nothing is restored by the run.
 
 package ip6
 

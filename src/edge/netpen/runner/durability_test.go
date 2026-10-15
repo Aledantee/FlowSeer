@@ -471,11 +471,20 @@ func TestInterruptTeardownCompletesPartialFailure(t *testing.T) {
 		}
 	}
 
-	var partial *findings.ErrorRecord
+	var (
+		partial *findings.ErrorRecord
+		verdict *findings.Verdict
+	)
 	for rec := range r.Stream().Iter() {
-		if rec.Kind == findings.KindError {
+		switch rec.Kind {
+		case findings.KindError:
 			partial = rec.Error
+		case findings.KindVerdict:
+			verdict = rec.Verdict
 		}
+	}
+	if verdict == nil || verdict.Kind != findings.VerdictPending || verdict.Detail != "interrupted" {
+		t.Errorf("verdict = %+v, want pending with detail interrupted for the interrupted attack", verdict)
 	}
 	if partial == nil {
 		t.Fatal("no partial-failure record in stream")

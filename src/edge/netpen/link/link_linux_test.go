@@ -204,6 +204,21 @@ func TestLinuxCloseWaitsForPollThenRefusesSend(t *testing.T) {
 	}
 }
 
+// TestLinuxSocketOptionsAddVLANHeader pins that the leg asks AF_PACKET to
+// re-insert the 802.1Q header the NIC strips, since a behavior that counts
+// tags would otherwise see none.
+func TestLinuxSocketOptionsAddVLANHeader(t *testing.T) {
+	found := false
+	for _, opt := range socketOptions("eth0") {
+		if v, ok := opt.(afpacket.OptAddVLANHeader); ok && bool(v) {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("socketOptions lacks afpacket.OptAddVLANHeader(true)")
+	}
+}
+
 func TestLinuxSendCanceledContext(t *testing.T) {
 	socket := &fakePacketSocket{}
 	leg := &linuxLeg{tp: socket}

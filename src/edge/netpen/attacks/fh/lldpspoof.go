@@ -1,9 +1,8 @@
-// lldpspoof.go implements the generic LLDP spoofing attack behavior.
-//
-// Durability (from the catalog): transient-decay. The attack sends spoofed
-// LLDP frames with false chassis/port/system information to poison network
-// management topology maps. The spoofed entries decay after the LLDP
-// holdtime (TTL) expires — no explicit teardown.
+// lldpspoof.go implements the generic LLDP spoofing check. Impact
+// temporary, restore decay with no stated bound, affects device: the
+// spoofed LLDP frames with false chassis, port, and system information
+// enter the switch's neighbor table, and the entry expires with the
+// holdtime the frame carries.
 //
 // The baseline does not carry a generic LLDP spoofing attack. The craft
 // is authored from IEEE 802.1AB.

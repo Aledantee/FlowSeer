@@ -1,6 +1,11 @@
+// ghost.go implements the ghost-VLAN traversal check. Impact none, restore
+// none, affects none: the two probe frames are sent and watched for, and
+// nothing on the device or the hosts changes with them.
+
 package fh
 
 import (
+	"bytes"
 	"context"
 	"encoding/binary"
 	"encoding/json"
@@ -28,23 +33,24 @@ type ghostFinding struct {
 	Attributed string `json:"attributed"`
 }
 
-// RunGhost sends two ghost-SA frames and observes the required watch leg
-// for the observation window, or until three frames arrived or the
-// receive closed. The behavior reads no target: the ghost source address and
-// the sentinel are probe content. A ghost frame on the watch leg within the
-// window confirms traversal. An empty window is resisted. Cancellation during
-// the observation returns ctx.Err(). A receive error comes back wrapped and
-// emits no finding. Attribution matches the source MAC only, so it cannot
-// establish that an observed frame is one sent by this run.
+// RunGhost sends two ghost-SA frames and watches the required watch leg
+// for the window. Impact none, restore none, affects none: the frames
+// carry a reserved group MAC as their source, which conformant silicon
+// drops, and install nothing where they arrive. The behavior reads no
+// target: the ghost source address and the sentinel are probe content.
+// The verdict is confirmed when a frame with the ghost source address
+// crosses to the watch leg within the window and resisted when the window
+// ends without one, whatever else the watch leg carried. Cancellation
+// during the observation returns ctx.Err(). A receive error comes back
+// wrapped and emits no finding. Attribution matches the source MAC, which
+// no other sender on the segment uses lawfully.
 func RunGhost(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	// The runner guarantees a non-nil WatchLeg for WatchRequired
 	// behaviors, so this is not re-checked here.
 	watchLeg := deps.WatchLeg
 
 	sentinel := "sentinel-0x42"
-	count := 2
 
-	// Craft the ghost traversal frames (STP worst-prio + LLDP -0E).
 	stpPkt, err := craftGhostSTP()
 	if err != nil {
 		return check.Verdict{}, errs.Wrap(err, "ghost: craft STP")
@@ -55,62 +61,32 @@ func RunGhost(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	}
 
 	frames := [][]byte{stpPkt, lldpPkt}
-	// Record the ghost-SA bytes for watch-leg attribution.
-	ghostSABytes := GhostSA
-
-	// Send frames from the attack leg.
 	for i, frame := range frames {
 		if err := deps.AttackLeg.Send(ctx, frame); err != nil {
 			return check.Verdict{}, errs.Wrapf(err, "ghost: send frame %d", i)
 		}
 	}
 
-	observed := 0
-	attackAttributed := 0
-	ambientAttributed := 0
-	started := time.Now()
-	window := time.NewTimer(deps.Observe)
-	defer window.Stop()
-	ch := watchLeg.Receive(ctx)
-	for range count + 1 { // read sent frames + possible ambient
-		select {
-		case frame, ok := <-ch:
-			if err := ctx.Err(); err != nil {
-				return check.Verdict{}, err
-			}
-			if !ok {
-				goto done
-			}
-			if frame.Err != nil {
-				return check.Verdict{}, errs.Wrap(frame.Err, "ghost: receive watch frame")
-			}
-			observed++
-			if isGhostFrame(frame.Data, ghostSABytes) {
-				attackAttributed++
-			} else {
-				ambientAttributed++
-			}
-		case <-window.C:
-			goto done
-		case <-ctx.Done():
+	crossed, obs, err := check.First(ctx, watchLeg, deps.Observe, func(data []byte) bool {
+		return isGhostFrame(data, GhostSA)
+	})
+	if err != nil {
+		if ctx.Err() != nil {
 			return check.Verdict{}, ctx.Err()
 		}
+		return check.Verdict{}, errs.Wrap(err, "ghost: receive watch frame")
 	}
-done:
-	if err := ctx.Err(); err != nil {
-		return check.Verdict{}, err
-	}
-	elapsed := time.Since(started)
 
+	observed := obs.Skipped
 	traversal := "not-forwarded"
-	if attackAttributed > 0 {
-		traversal = "forwarded"
-	}
 	attributed := "none"
-	if attackAttributed > 0 && ambientAttributed > 0 {
-		attributed = "attack-distinguished-from-ambient"
-	} else if attackAttributed > 0 {
+	if crossed != nil {
+		observed++
+		traversal = "forwarded"
 		attributed = "attack-only"
+		if obs.Skipped > 0 {
+			attributed = "attack-distinguished-from-ambient"
+		}
 	}
 
 	detail, _ := json.Marshal(ghostFinding{
@@ -118,29 +94,23 @@ done:
 		GhostSA:    GhostSA.String(),
 		Sentinel:   sentinel,
 		Mode:       "traversal",
-		Sent:       count,
+		Sent:       len(frames),
 		Observed:   observed,
 		Traversal:  traversal,
 		Attributed: attributed,
 	})
 	deps.Emitter.Finding("arp", detail)
 
-	if attackAttributed > 0 {
-		return check.Confirmed(fmt.Sprintf("%d ghost frames crossed to the watch leg", attackAttributed), elapsed), nil
+	if crossed != nil {
+		return check.Confirmed("a ghost frame crossed to the watch leg", obs.Elapsed), nil
 	}
-	return check.Resisted(fmt.Sprintf("0 ghost frames in %s", elapsed.Round(time.Millisecond)), elapsed), nil
+	return check.Resisted(fmt.Sprintf("0 ghost frames in %s", obs.Elapsed.Round(time.Millisecond)), obs.Elapsed), nil
 }
 
-// isGhostFrame checks whether a frame's Ethernet source MAC matches the
-// ghost SA — the traversal-attribution test.
+// isGhostFrame reports whether a frame's Ethernet source MAC is the ghost
+// SA, the attribution a crossing rests on.
 func isGhostFrame(data []byte, ghostSA net.HardwareAddr) bool {
-	if len(data) < 14 {
-		return false
-	}
-	// Ethernet source MAC is bytes [6:12].
-	return data[6] == ghostSA[0] && data[7] == ghostSA[1] &&
-		data[8] == ghostSA[2] && data[9] == ghostSA[3] &&
-		data[10] == ghostSA[4] && data[11] == ghostSA[5]
+	return len(data) >= 14 && bytes.Equal(data[6:12], ghostSA)
 }
 
 // craftGhostSTP builds a worst-priority STP BPDU with the ghost SA.
