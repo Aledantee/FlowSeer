@@ -82,6 +82,15 @@ other event, since exit 2 at `Stop` would keep the session from stopping
 Do not copy a linter manual into `AGENTS.md`. Name the command and document only
 the project-specific judgment that the tool cannot express.
 
+Worktree creation has a [shared CLI](../tools/scripts/worktree/README.md)
+so isolation does not depend on a harness exposing `WorktreeCreate`.
+The Claude hook parses its event and calls the same implementation as the
+CLI. Its close command requires a clean checkout and history preserved on
+another local branch. `--force` skips only the history check. Both creation
+entry points apply the destination guards in
+[`lib/worktrees.py`](../tools/scripts/lib/worktrees.py) and branch from local
+`HEAD`.
+
 ## Skills and delegated agents
 
 A skill is appropriate for a conditional procedure with several steps, such as

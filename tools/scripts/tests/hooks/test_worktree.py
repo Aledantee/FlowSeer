@@ -227,7 +227,7 @@ class CreateWorktreeTest(WorktreeCase):
         """WorktreeCreate rejects unsafe names"""
         result = hook.run(self.name_payload("../escape"), env=self.root_env())
         self.assertEqual(result.code, 1)
-        self.assertEqual(result.stderr, "WorktreeCreate received an unsafe worktree name.\n")
+        self.assertEqual(result.stderr, "worktree create received an unsafe worktree name.\n")
         self.assertEqual(self.worktrees(), [str(self.fixture)])
 
     @across("create-worktree")
@@ -282,10 +282,10 @@ class CreateWorktreeTest(WorktreeCase):
 
     @across("create-worktree")
     def test_a_worktree_root_must_be_absolute(self, hook):
-        """WorktreeCreate requires an absolute worktree root"""
+        """worktree create requires an absolute worktree root"""
         result = hook.run(self.name_payload("relative-root"), env=self.root_env("relative/root"))
         self.assertEqual((result.code, result.stdout), (1, ""))
-        self.assertEqual(result.stderr, "WorktreeCreate requires an absolute worktree root.\n")
+        self.assertEqual(result.stderr, "worktree create requires an absolute worktree root.\n")
 
     @across("create-worktree")
     def test_names_are_checked_against_the_safe_pattern_and_the_length_limit(self, hook):
@@ -306,7 +306,7 @@ class CreateWorktreeTest(WorktreeCase):
         result = hook.run(self.name_payload("a..b"), env=self.root_env())
         self.assertEqual((result.code, result.stdout), (1, ""))
         self.assertTrue(
-            result.stderr.endswith("WorktreeCreate received a name that cannot form a Git branch.\n"), result.stderr
+            result.stderr.endswith("worktree create received a name that cannot form a Git branch.\n"), result.stderr
         )
 
     @across("create-worktree")
@@ -350,12 +350,12 @@ class CreateWorktreeTest(WorktreeCase):
 
     @across("create-worktree")
     def test_a_name_that_is_already_a_worktree_is_refused_without_output(self, hook):
-        """WorktreeCreate refuses a name whose worktree already exists"""
+        """worktree create refuses a name whose worktree already exists"""
         first = hook.run(self.name_payload("twice"), env=self.root_env())
         self.assertEqual(first.code, 0, first.stderr)
         second = hook.run(self.name_payload("twice"), env=self.root_env())
         self.assertEqual((second.code, second.stdout), (1, ""))
-        self.assertEqual(second.stderr, "WorktreeCreate refuses to place a worktree inside an existing checkout.\n")
+        self.assertEqual(second.stderr, "worktree create refuses to place a worktree inside an existing checkout.\n")
 
     @across("create-worktree")
     def test_a_worktree_made_from_a_linked_checkout_goes_beside_the_primary_one_and_branches_from_head(self, hook):
