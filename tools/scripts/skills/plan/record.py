@@ -9,6 +9,7 @@ a finished phase and one for a plan sent back to `plan`.
 
     run.py plan record init <plan> [--needs-decisions] [--parent <p> [--after <q>...]]
     run.py plan record ready <plan>
+    run.py plan record check <plan>
     run.py plan record after <plan> [<path>...]
     run.py plan record implemented <plan> --units <n> --from <t> --to <t> [--landed <first>..<last>]
     run.py plan record partial <plan> --units <n> --from <t> --to <t> --note <units left and why>
@@ -33,6 +34,15 @@ it, and each retired phase it holds that landed, from every `after` list
 naming them, since the entries that record them as finished go with it. A
 plan or entry not finished refuses to retire while an `after` names it.
 
+A unit that changes an output shape quotes the old output's distinctive
+token on a `Replaces:` line. `check`, `ready`, and `replan` without
+`--needs-decisions` refuse while a test file (Go, TypeScript, or Python)
+or a file under `testdata/` holds that token and neither the unit's
+`Files:` nor those of a unit on its `After:` line name it. That file would
+keep the unit's verifier red until some other unit lands. A `Replaces:`
+line with no backtick-quoted token refuses too, since it would turn the
+check off without a word.
+
 `is` exits 0 when the test holds, 1 when it does not, and 2 when it cannot
 be evaluated. `null` stands for an unset field, and `status` is the
 computed one.
@@ -44,6 +54,7 @@ import argparse
 import copy
 import json
 import os
+import re
 import sys
 import tempfile
 from pathlib import Path
@@ -55,6 +66,7 @@ from lib.plans import (
     LEDGER_NAME,
     PLANS,
     SHA,
+    UNIT,
     VERDICTS,
     StateError,
     branch_to_follow,
@@ -70,6 +82,10 @@ from lib.plans import (
     state_path,
     tree_root,
 )
+from skills.implement import plan_deviations
+
+UNIT_ID = re.compile(r"\bU\d+[a-z]?\b")
+TESTS = (":(glob)**/*_test.go", ":(glob)**/*.test.ts", ":(glob)**/*.spec.ts", ":(glob)**/test_*.py", ":(glob)**/testdata/**")
 
 
 def fail(message: str, code: int = 1) -> None:
@@ -155,6 +171,60 @@ def outcome(args: argparse.Namespace, note: str) -> dict:
     return {"units": args.units, "from": args.start, "to": args.end, "note": note}
 
 
+def unit_fields(text: str) -> dict[str, dict[str, list[str]]]:
+    """Each unit's `After:` unit ids and `Replaces:` tokens."""
+    result: dict[str, dict[str, list[str]]] = {}
+    current = None
+    for line in text.splitlines():
+        heading = UNIT.match(line)
+        if heading:
+            current = heading.group(1)
+            result[current] = {"After": [], "Replaces": []}
+            continue
+        field = plan_deviations.FIELD.match(line.strip())
+        if not (current and field) or line.startswith((" ", "\t")):
+            continue
+        if field.group(1) == "After":
+            result[current]["After"] += UNIT_ID.findall(field.group(2))
+        elif field.group(1) == "Replaces":
+            tokens = plan_deviations.QUOTED.findall(field.group(2))
+            if not tokens and field.group(2).strip().lower() != "none":
+                tokens = [""]
+            result[current]["Replaces"] += tokens
+    return result
+
+
+def unlisted_holders(root: Path, plan: str) -> list[str]:
+    """The test and testdata files holding a token a unit replaces that
+    neither that unit nor a unit it runs after lists in `Files:`."""
+    path = root / plan
+    if not path.is_file():
+        return []
+    fields = unit_fields(path.read_text(encoding="utf-8"))
+    files = plan_deviations.units(path, root)
+    faults = []
+    for unit, held in fields.items():
+        named = [entry for owner in [unit, *held["After"]] for entry in files.get(owner, [])]
+        for token in held["Replaces"]:
+            if not token:
+                faults.append(f"{unit}'s Replaces: line quotes no token; write it as Replaces: `<token>` on the same line")
+                continue
+            found = git(root, "grep", "-l", "-F", "--untracked", "-e", token, "--", *TESTS)
+            if found.code not in (0, 1):
+                fail(f"git grep for `{token}` failed: {found.stderr.strip()}", 2)
+            for hit in found.stdout.splitlines():
+                hit = plan_deviations.canonical(hit)
+                if not any(plan_deviations.covers(entry, hit) for entry in named):
+                    faults.append(f"{unit} replaces `{token}`, which {hit} holds; list it in {unit}'s Files: or in a unit on its After: line")
+    return faults
+
+
+def check_ready(root: Path, plan: str) -> None:
+    faults = unlisted_holders(root, plan)
+    if faults:
+        fail("refused, a unit leaves a file holding the output it replaces unlisted:\n" + "\n".join(f"  {fault}" for fault in faults))
+
+
 def cmd_init(root: Path, args: argparse.Namespace) -> None:
     plan = plan_arg(root, args.plan)
     if (root / state_path(plan)).exists():
@@ -178,9 +248,16 @@ def cmd_init(root: Path, args: argparse.Namespace) -> None:
 def cmd_ready(root: Path, args: argparse.Namespace) -> None:
     plan = plan_arg(root, args.plan)
     state = stored(root, plan)
+    check_ready(root, plan)
     state["readiness"] = "implementation-ready"
     transition(root, {plan: state})
     print(f"plan state: {plan} implementation-ready")
+
+
+def cmd_check(root: Path, args: argparse.Namespace) -> None:
+    plan = plan_arg(root, args.plan)
+    check_ready(root, plan)
+    print(f"plan state: {plan} lists every file holding a token it replaces")
 
 
 def cmd_after(root: Path, args: argparse.Namespace) -> None:
@@ -254,6 +331,8 @@ def cmd_replan(root: Path, args: argparse.Namespace) -> None:
     state.update(status="planned", review=None, review_rounds=0, compound=None, outcome=None, landed=None)
     state["superseded_by"] = None
     state["readiness"] = "needs-decisions" if args.needs_decisions else "implementation-ready"
+    if not args.needs_decisions:
+        check_ready(root, plan)
     # The ledger's passed units would make implement skip a redesigned unit
     # that kept its id, so a ledger that cannot be read stops the re-plan.
     ledger = Path(git(root, "rev-parse", "--absolute-git-dir").stdout.strip()) / LEDGER_NAME
@@ -395,6 +474,7 @@ def main(argv: list[str]) -> int:
     init.add_argument("--parent", help="the parent plan this phase belongs to")
     init.add_argument("--after", nargs="+", default=[], metavar="PLAN", help="phases this one runs after")
     command("ready", cmd_ready, "set readiness to implementation-ready")
+    command("check", cmd_check, "refuse a unit that leaves a file holding its replaced token unlisted")
     after = command("after", cmd_after, "replace a phase's prerequisites")
     after.add_argument("paths", nargs="*", metavar="PLAN")
     branch = command("branch", cmd_branch, "record or clear the plan's work branch")

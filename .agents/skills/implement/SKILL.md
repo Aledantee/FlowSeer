@@ -183,7 +183,10 @@ when the request skipped the plan, or when the session runs in Orca.
 
 1. Read the final diff against the plan's Definition of done and
    `docs/code-style.md`, Rules for coding agents. Remove process narration,
-   history references, and planning identifiers from comments.
+   history references, and planning identifiers from comments. Rewrite a
+   comment that fails the doc style by hand, sentence by sentence. A
+   substitution run across many comments (`; ` to `, and `) is not a fix,
+   since it keeps the welded clauses the style rules out.
 2. Record the outcome in the reference's records. Planless work stops at
    that and has no plan to edit. With a plan, record a finished run with
    `uv run tools/scripts/run.py plan record implemented <plan> --units <n>

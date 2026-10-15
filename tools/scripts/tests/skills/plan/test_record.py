@@ -211,6 +211,51 @@ class PlanRecordTest(unittest.TestCase):
         self.record("ready", PLAIN)
         self.assertEqual(self.state(PLAIN), plans.BLANK)
 
+    def test_ready_refuses_a_replaced_token_held_by_an_unlisted_test(self):
+        (self.root / "src/a/testdata").mkdir(parents=True)
+        (self.root / "src/b").mkdir(parents=True)
+        (self.root / "src/a/testdata/golden.txt").write_text("victim-mac\n", encoding="utf-8")
+        (self.root / "src/b/b_test.go").write_text('want := "victim-mac"\n', encoding="utf-8")
+        (self.root / "src/b/b.go").write_text('name := "victim-mac"\n', encoding="utf-8")
+        (self.root / PLAIN).write_text(
+            "# Plan\n\n### U1. Render flags\n\nFiles: `src/a/render.go`, `src/a/testdata/`\n"
+            "After: none\nReplaces: `victim-mac`\n\n### U2. Other\n\nFiles: `src/b/b_test.go`\nAfter: none\n",
+            encoding="utf-8",
+        )
+        self.record("init", PLAIN, "--needs-decisions")
+        out = self.record("ready", PLAIN, code=1)
+        self.assertIn("U1 replaces `victim-mac`, which src/b/b_test.go holds", out.stderr)
+        self.assertNotIn("b.go holds", out.stderr)
+        self.assertNotIn("golden.txt", out.stderr)
+        self.record("replan", PLAIN, code=1)
+        self.assertEqual(self.state(PLAIN)["readiness"], "needs-decisions")
+
+        (self.root / PLAIN).write_text(
+            (self.root / PLAIN).read_text(encoding="utf-8").replace("After: none\nReplaces", "After: U2\nReplaces"),
+            encoding="utf-8",
+        )
+        self.record("ready", PLAIN)
+        self.assertEqual(self.state(PLAIN)["readiness"], "implementation-ready")
+
+    def test_check_leaves_the_state_and_reads_every_test_language(self):
+        (self.root / "web").mkdir()
+        (self.root / "web/view.test.ts").write_text("old-token\n", encoding="utf-8")
+        (self.root / PLAIN).write_text("# Plan\n\n### U1. Change\n\nFiles: `y.go`\nReplaces: `old-token`\n", encoding="utf-8")
+        self.record("init", PLAIN, "--needs-decisions")
+        out = self.record("check", PLAIN, code=1)
+        self.assertIn("web/view.test.ts holds", out.stderr)
+        self.assertEqual(self.state(PLAIN)["readiness"], "needs-decisions")
+        (self.root / PLAIN).write_text("# Plan\n\n### U1. Change\n\nFiles: `y.go`, `web/`\nReplaces: `old-token`\n", encoding="utf-8")
+        self.record("check", PLAIN)
+        self.assertEqual(self.state(PLAIN)["readiness"], "needs-decisions")
+
+    def test_check_refuses_a_replaces_line_with_no_quoted_token(self):
+        (self.root / PLAIN).write_text("# Plan\n\n### U1. Change\n\nFiles: `y.go`\nReplaces: old-token\n", encoding="utf-8")
+        out = self.record("check", PLAIN, code=1)
+        self.assertIn("quotes no token", out.stderr)
+        (self.root / PLAIN).write_text("# Plan\n\n### U1. Change\n\nFiles: `y.go`\nReplaces: none\n", encoding="utf-8")
+        self.record("check", PLAIN)
+
     def test_after_replaces_the_prerequisites(self):
         self.phases()
         self.record("init", PLAIN, "--parent", PARENT)
