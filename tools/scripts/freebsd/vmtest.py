@@ -62,8 +62,20 @@ def is_running() -> bool:
 def guest_arch() -> str | None:
     done = vagrant("ssh", "-c", "uname -p", capture=True)
     if done.returncode != 0:
+        print(
+            f"vmtest: vagrant ssh -c 'uname -p' exited {done.returncode}",
+            file=sys.stderr,
+        )
+        print(done.stderr, end="", file=sys.stderr)
         return None
-    return GOARCH.get(done.stdout.strip())
+    arch = done.stdout.strip()
+    goarch = GOARCH.get(arch)
+    if goarch is None:
+        print(
+            f"vmtest: cannot map the guest's `uname -p` {arch} to a GOARCH",
+            file=sys.stderr,
+        )
+    return goarch
 
 
 def build(suite: Suite, goarch: str, output: Path) -> int:
@@ -120,7 +132,6 @@ def main(argv: list[str]) -> int:
             return status
     goarch = guest_arch()
     if goarch is None:
-        print("vmtest: cannot map the guest's `uname -p` to a GOARCH", file=sys.stderr)
         return 1
 
     first_failure = 0
