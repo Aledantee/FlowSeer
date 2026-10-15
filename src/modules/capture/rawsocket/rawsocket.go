@@ -100,8 +100,9 @@ func OpenLocalInterface(iface string, promiscuous bool, prog []bpf.RawInstructio
 // UDP-family arms (vxlan, tzsp), each bound to bindInterface when it is not
 // empty. prog runs against each decapsulated inner frame through
 // golang.org/x/net/bpf's VM; its field offsets assume an Ethernet frame
-// starting after the envelope. On Linux this opens real sockets; elsewhere
-// it returns ErrUnsupportedPlatform.
+// starting after the envelope. Linux binds sockets to bindInterface in the
+// kernel. FreeBSD (amd64 and arm64) drops datagrams from other receive
+// interfaces before counting them. Other platforms return ErrUnsupportedPlatform.
 func OpenMirrorReceiver(encapsulations []capturev1.MirrorEncapsulation, udpPort uint32, bindInterface string, prog []bpf.RawInstruction) (Source, error) {
 	return openMirrorReceiver(encapsulations, udpPort, bindInterface, prog)
 }
