@@ -20,7 +20,7 @@ stop_capture() {
 	pid=$(cat "$pidfile") || return $?
 	kill -TERM "$pid" 2>/dev/null || :
 	for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
-		if ! kill -0 "$pid" 2>/dev/null; then
+		if ! ps -p "$pid" >/dev/null 2>&1; then
 			rm -f "$pidfile"
 			return $?
 		fi
@@ -61,6 +61,7 @@ destroy() {
 
 case "${1:-}" in
 up)
+	stop_capture
 	destroy
 	ifconfig epair0 create
 	# ifdisabled keeps IPv6 from sending MLD reports and neighbour
