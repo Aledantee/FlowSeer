@@ -47,16 +47,24 @@ type packetSocket interface {
 	Close()
 }
 
+// socketOptions are the afpacket options a leg opens iface with. The VLAN
+// header option re-inserts the 802.1Q header the NIC strips, for a
+// non-zero TCI only, so a behavior that counts tags sees them.
+func socketOptions(iface string) []any {
+	return []any{
+		afpacket.OptInterface(iface),
+		afpacket.TPacketVersion3,
+		afpacket.OptPollTimeout(pollTimeout),
+		afpacket.OptAddVLANHeader(true),
+	}
+}
+
 func open(iface string) (Leg, error) {
 	addr, err := readAddr(iface)
 	if err != nil {
 		return nil, err
 	}
-	tp, err := afpacket.NewTPacket(
-		afpacket.OptInterface(iface),
-		afpacket.TPacketVersion3,
-		afpacket.OptPollTimeout(pollTimeout),
-	)
+	tp, err := afpacket.NewTPacket(socketOptions(iface)...)
 	if err != nil {
 		return nil, errs.From(err).
 			Code(ErrCodeLegOpen).
