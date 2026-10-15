@@ -25,30 +25,29 @@ type vlanEnumFinding struct {
 	Method string   `json:"method"`
 }
 
-// RunVlanEnum collects the tagged frames on the attack leg for the window
-// and reads no target. The verdict is confirmed with the VLAN ids seen as
-// the inventory, or pending with "no tagged frames in <window>" when none
-// arrived, with no finding. A frame without a readable 802.1Q header is
-// skipped. Cancellation returns ctx.Err(). A terminal receive error comes
-// back wrapped, with no partial finding.
+// RunVlanEnum scans the tagged frames on the attack leg for the window,
+// keeping the VLAN ids 1 to 4094 and no frame, and reads no target. The
+// verdict is confirmed with the VLAN ids seen as the inventory, or pending
+// with "no tagged frames in <window>" when none arrived, with no finding.
+// A frame without a readable 802.1Q header is skipped, as is a
+// priority-tagged frame (VID 0) and the reserved VID 4095. Cancellation
+// returns ctx.Err(). A terminal receive error comes back wrapped, with no
+// partial finding.
 func RunVlanEnum(ctx context.Context, deps check.Deps) (check.Verdict, error) {
-	tagged, obs, err := check.Collect(ctx, deps.AttackLeg, deps.Observe, func(data []byte) bool {
+	vlanSet := make(map[uint16]bool)
+	obs, err := check.Scan(ctx, deps.AttackLeg, deps.Observe, func(data []byte) {
 		pkt := gopacket.NewPacket(data, layers.LayerTypeEthernet, gopacket.Lazy)
-		return pkt.Layer(layers.LayerTypeDot1Q) != nil
+		q, ok := pkt.Layer(layers.LayerTypeDot1Q).(*layers.Dot1Q)
+		if !ok || q.VLANIdentifier == 0 || q.VLANIdentifier > 4094 {
+			return
+		}
+		vlanSet[q.VLANIdentifier] = true
 	})
 	if err != nil {
 		if ctx.Err() != nil {
 			return check.Verdict{}, ctx.Err()
 		}
 		return check.Verdict{}, errs.Wrap(err, "vlanenum: receive")
-	}
-
-	vlanSet := make(map[uint16]bool)
-	for _, data := range tagged {
-		pkt := gopacket.NewPacket(data, layers.LayerTypeEthernet, gopacket.Lazy)
-		if q, ok := pkt.Layer(layers.LayerTypeDot1Q).(*layers.Dot1Q); ok {
-			vlanSet[q.VLANIdentifier] = true
-		}
 	}
 	if len(vlanSet) == 0 {
 		return check.Pending(fmt.Sprintf("no tagged frames in %v", deps.Observe)), nil

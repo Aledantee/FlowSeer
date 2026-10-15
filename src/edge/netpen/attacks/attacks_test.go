@@ -30,10 +30,11 @@ var (
 	active    = check.RestoreActive
 )
 
-// oracle pins all 40 pairs: 34 behaviors and 6 modes. The decay bounds are
+// oracle pins all 39 pairs: 34 behaviors and 5 modes. The decay bounds are
 // the lifetimes the probes announce: 1800 s for the rogue RA and DHCPv4
 // lease, 600 s for the DHCPv6 lease's valid lifetime, 6 s for the STP max
-// age, and 30 s for the LLMNR and WPAD answers' TTL.
+// age, 120 s for the LLDP-MED frame's TTL, and 30 s for the LLMNR and WPAD
+// answers' TTL.
 var oracle = []oracleRow{
 	{"arpspoof", "", temporary, active, 0, check.AffectsClients},
 	{"arpsweep", "", none, noRestore, 0, check.AffectsNone},
@@ -56,8 +57,8 @@ var oracle = []oracleRow{
 	{"mvrp", "", temporary, decay, 0, check.AffectsFabric},
 	{"ndpspoof", "", temporary, decay, 0, check.AffectsClients},
 	{"ospf", "", temporary, active, 0, check.AffectsFabric},
-	{"portsteal", "", temporary, decay, 0, check.AffectsDevice},
-	{"portsteal", "relay", temporary, active, 0, check.AffectsDevice},
+	{"portsteal", "", temporary, decay, 0, check.AffectsClients},
+	{"portsteal", "relay", temporary, active, 0, check.AffectsClients},
 	{"raflood", "", temporary, decay, 0, check.AffectsClients},
 	{"raguard", "", none, noRestore, 0, check.AffectsNone},
 	{"roguedhcp", "", temporary, decay, 1800 * time.Second, check.AffectsClients},
@@ -66,10 +67,9 @@ var oracle = []oracleRow{
 	{"scan", "", none, noRestore, 0, check.AffectsNone},
 	{"stproot", "", temporary, decay, 6 * time.Second, check.AffectsFabric},
 	{"vlanenum", "", none, noRestore, 0, check.AffectsNone},
-	{"vlanhop", "", temporary, active, 0, check.AffectsDevice},
-	{"vlanhop", "persist", permanent, noRestore, 0, check.AffectsDevice},
+	{"vlanhop", "", none, noRestore, 0, check.AffectsNone},
 	{"voicevlan", "", temporary, active, 0, check.AffectsClients},
-	{"voicevlan", "persist", permanent, noRestore, 0, check.AffectsClients},
+	{"voicevlan", "persist", temporary, decay, 120 * time.Second, check.AffectsClients},
 	{"vrrp", "", temporary, decay, 0, check.AffectsClients},
 	{"vtp", "", temporary, decay, 0, check.AffectsFabric},
 	{"vtp", "set", permanent, noRestore, 0, check.AffectsFabric},
@@ -82,8 +82,8 @@ var oracle = []oracleRow{
 // here before it reaches the gate.
 func TestOracleCostFields(t *testing.T) {
 	entries := attacks.Default().Entries()
-	if len(entries) != 40 || len(oracle) != 40 {
-		t.Fatalf("shipped %d entries against %d oracle rows, want 40 each", len(entries), len(oracle))
+	if len(entries) != 39 || len(oracle) != 39 {
+		t.Fatalf("shipped %d entries against %d oracle rows, want 39 each", len(entries), len(oracle))
 	}
 	for i, row := range oracle {
 		e := entries[i]

@@ -241,9 +241,17 @@ The parent plan's Decisions apply. Local to this phase:
   stays unverified (IEEE 802.1D is not vendored), which is the open
   question phase 1 left, and the pinned bytes change with the baseline
   parity.
-- `doubletag`, `vlanhop`, `camflood`, and `voicevlan` become
-  `WatchOptional` and return `pending` without a watch leg, as `raguard`
-  does. Why: their observable lives on the other side of the switch.
+- `doubletag`, `vlanhop`, and `camflood` become `WatchOptional` and
+  return `pending` without a watch leg, as `raguard` does. Why: their
+  observable lives on the other side of the switch. `voicevlan` stays
+  `AttackOnly`: the LLDP-MED TLV requirement 17 reads is the switch's
+  LLDPDU to the port the phone is on, which arrives on the attack leg, so a
+  watch leg adds nothing to it.
+- The `mvrp` predicate reads a JoinIn event alone, since the owned decoder
+  (`layers/mvrp.go`) defines no plain In event; the matrix row says the
+  registrar semantics wait for the lab. The `dtp` and `vtp` pre-reads are
+  bounded by half the window, since no vendored source states either
+  protocol's interval and the probe keeps the other half.
 - `check.observe` treats a receive channel that closes under a live
   context as an error (`leg closed before the window`), which the runner
   turns into a `pending` verdict. Why: the phase 1 review found a watch

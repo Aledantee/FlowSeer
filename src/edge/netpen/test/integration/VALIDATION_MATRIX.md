@@ -78,8 +78,8 @@ difference, so a changed cost field is edited here in the same change.
 | mvrp | base | temporary | decay | fabric | pending: no observable: registration needs a read of the device's VLAN table | (c) | N/A | never |
 | ndpspoof | base | temporary | decay | clients | pending: no observable: cache acceptance needs a probe of the victim | (a) | N/A | never |
 | ospf | base | temporary | active | fabric | pending: no observable: neighbor formation needs a hello listener | (a) | 2026-09-27: source-(c), finding:ospf | 2026-09-25: IOS-XE (172.16.0.42) accepted neighbor 10.0.0.99 and cleared it after teardown; finding:ospf |
-| portsteal | base | temporary | decay | device | pending: no observable: port move needs a probe of the victim | (a) | N/A | never |
-| portsteal | relay | temporary | active | device | pending: no observable: port move needs a probe of the victim, and the ip-forward-restore step is a no-op | (a) | N/A | never |
+| portsteal | base | temporary | decay | clients | pending: no observable: port move needs a probe of the victim | (a) | N/A | never |
+| portsteal | relay | temporary | active | clients | pending: no observable: port move needs a probe of the victim, and the ip-forward-restore step is a no-op | (a) | N/A | never |
 | raflood | base | temporary | decay | clients | pending: no observable: router acceptance needs a probe of a host's router list | (a) | 2026-09-27: source-(c), finding:ra | never |
 | raguard | base | none | none | none | the probe is a Router Advertisement with router lifetime, hop limit, reachable time, and retransmit timer all zero, no source link-layer address or MTU option, and one prefix option with the L and A flags clear and zero lifetimes, so a host installs no router, prefix, address, or link parameter from it. A host already holding a neighbor cache entry for the probe's link-local source marks that entry a router. Confirmed on a Router Advertisement from the attack leg's MAC carrying the target prefix crossing to the watch leg within the window, resisted at the window's end without one, pending without a watch leg. Whether a vendor's RA-Guard or host stack treats the zero-lifetime probe as RFC 4861, 4862, and 6105 describe is unverified until the lab tier runs it | (c) | N/A | never |
 | roguedhcp | base | temporary | decay 30m0s | clients | pending: no observable: lease acceptance needs a REQUEST listener | (a) | N/A | never |
@@ -88,10 +88,9 @@ difference, so a changed cost field is edited here in the same change.
 | scan | base | none | none | none | orchestration entry, which reports discovery findings and carries no verdict | (a) | N/A | never |
 | stproot | base | temporary | decay 6s | fabric | pending: no observable: root acceptance needs a BPDU listener | (a) | N/A | never |
 | vlanenum | base | none | none | none | confirmed with the VLAN ids of the tagged frames seen during the window as the inventory, pending: no tagged frames in the window otherwise. The Linux leg re-inserts the 802.1Q header AF_PACKET strips only for a non-zero TCI, so a frame with VID 0, PCP 0, and DEI 0 arrives untagged and is not counted, while a priority-tagged frame arrives tagged with VID 0 | (a) | N/A | never |
-| vlanhop | base | temporary | active | device | pending: no observable: a hop into the inner VLAN needs a watch leg there, and the vlan-interface-restore step is a no-op | (a) | N/A | never |
-| vlanhop | persist | permanent | none | device | pending: no observable: a hop into the inner VLAN needs a watch leg there | (a) | N/A | never |
+| vlanhop | base | none | none | none | pending: no observable: a hop into the inner VLAN needs a watch leg there | (a) | N/A | never |
 | voicevlan | base | temporary | active | clients | pending: no observable: a phone's move needs a listener on the voice VLAN, and the lldp-voice-vlan-restore step is a no-op | (a) | N/A | never |
-| voicevlan | persist | permanent | none | clients | pending: no observable: a phone's move needs a listener on the voice VLAN | (a) | N/A | never |
+| voicevlan | persist | temporary | decay 2m0s | clients | pending: no observable: a phone's move needs a listener on the voice VLAN | (a) | N/A | never |
 | vrrp | base | temporary | decay | clients | pending: no observable: master preemption needs an advertisement listener | (a) | N/A | never |
 | vtp | base | temporary | decay | fabric | pending: no observable: revision acceptance needs a read of the device's VTP status | (c) | N/A | never |
 | vtp | set | permanent | none | fabric | pending: no observable: revision acceptance needs a read of the device's VTP status | (c) | N/A | never |
