@@ -46,10 +46,27 @@ This phase adds:
   100ms, the `pollTimeout` of `local_linux.go`, negative refused),
   `Immediate`, `Promiscuous`, `HeaderComplete`, `Direction`, and
   `ReadFilter` (`[]bpf.RawInstruction`, nil accepts all). A
-  `ReadTimeout` under one kernel clock tick is raised to one tick (read
-  from `kern.hz`), since the kernel truncates the timeout to whole ticks
-  and a result of zero means no timeout, and `Close` would then wait on a
-  read that never returns. `Close` waits up to one `ReadTimeout`.
+  `ReadTimeout` over one hour is refused. Why: `Close` waits up to one
+  `ReadTimeout`, and a value near `math.MaxInt64` overflows the `+999`
+  rounding of x/sys `NsecToTimeval` (`unix/timestruct.go:48`) into a
+  negative timeval that `itimerfix` refuses with `EINVAL`.
+  A `ReadTimeout` under one kernel clock tick is raised to one tick, with
+  the tick computed as `time.Second/hz` rounded up to the nanosecond from
+  `kern.hz`. Why: `BIOCSRTIMEOUT` stores `tvtohz(tv) - 1` as `bd_rtout`
+  (`sys/net/bpf.c` line 1665), `tvtohz` is the truncated tick count plus
+  one (`sys/kern/kern_clock.c` lines 564 to 565 and 626 to 629), and
+  `bpfread` passes `bd_rtout` to `msleep` (`sys/net/bpf.c` line 1070),
+  which hands `_sleep` a timeout of `tick_sbt * timo` (`sys/sys/systm.h`
+  lines 457 to 459), and `_sleep` arms a timeout only when that is nonzero
+  (`sys/kern/kern_synch.c` lines 208 to 222), so 0 sleeps until a packet
+  or a signal. So `bd_rtout` is 0 unless
+  `usec * hz >= 1000000`. A floor of `time.Second/hz` rounded down misses
+  that for an hz that does not divide 1e6: at `kern.hz=1001` it is 999000ns,
+  999µs, and `999 * 1001 < 1000000`. `kern.hz` is a boot tunable clamped
+  to `[HZ_MINIMUM, HZ_MAXIMUM]`, 8 to `INT_MAX/15625`
+  (`sys/kern/subr_param.c` line 187, `sys/sys/time.h` lines 591 to 592).
+  The floor is a pure function so a host test checks every hz from 8 to
+  137438.
 - `Open` runs the ioctls in this order: `BIOCSBLEN`, `BIOCSETIF`,
   `BIOCGDLT`, `BIOCIMMEDIATE`, `BIOCSRTIMEOUT`, `BIOCSHDRCMPLT`,
   `BIOCSDIRECTION`, `BIOCPROMISC`, `BIOCSETF`. Why: bpf(4) requires
@@ -121,8 +138,9 @@ This phase adds:
 
 - Ruled: setup scripts under `test/freebsd/` stay POSIX `sh` and the
   scripting gate exempts the directory. Why: they run inside the guest,
-  which holds no uv, and the user approved the exemption as a policy
-  change. Cost if wrong: moving each suite's setup into `vmtest.py`'s table.
+  which holds no uv, the same reason the container scripts in the gate's
+  exempt list stay shell (`docs/code-style-python.md`, the scripting gate
+  paragraph). Cost if wrong: moving each suite's setup into `vmtest.py`'s table.
 - Ruled: a zero `Config` applies `DirectionIn`, the plan's value 0, rather
   than leaving the kernel's in-out default. Why: the plan fixes the
   constants to `enum bpf_direction` and every field to optional with a zero
@@ -161,6 +179,21 @@ This phase adds:
 9. The gate catches a broken FreeBSD file on a non-FreeBSD host. Example:
    deleting a used import from `device_freebsd.go` fails
    `go test ./test/conformance/crossbuild` on macOS.
+10. A sub-tick `ReadTimeout` still times out for every hz the kernel
+    allows. Example: with `kern.hz=1001`, the raised timeout converts with
+    `NsecToTimeval` to at least 1000µs, so `usec * hz >= 1000000` and
+    `bd_rtout` is at least 1. The same holds for hz 8, 100, 1000, 1024,
+    11111, and 137438.
+11. `Open` refuses a `ReadTimeout` over one hour. Example:
+    `Config{ReadTimeout: 2 * time.Hour}` returns a `bpfdev/open` error from
+    `Config.resolve` on any host, and `Open` in the guest returns it before
+    opening `/dev/bpf`.
+12. `vmtest` names why it could not read the guest's architecture.
+    Example: when `vagrant ssh -c 'uname -p'` exits 255 with stderr
+    `ssh: connect to host 127.0.0.1 port 2222: Connection refused`,
+    `vmtest` prints that `vagrant ssh -c 'uname -p'` exited 255 and the
+    stderr line, prints no "cannot map" message, and exits 1. When
+    `uname -p` prints `riscv64`, the "cannot map" message names `riscv64`.
 
 ## Out of scope
 
@@ -173,130 +206,69 @@ This phase adds:
 
 ## Units
 
-### U1. Store lock builds for FreeBSD
+U1 to U6 are built on this branch. U7 makes the read-timeout floor hold for
+every hz and caps `ReadTimeout`. U8 makes `vmtest` name an ssh failure.
 
-Files: src/common/service/storelock_posix.go,
-docs/architecture/2026-10-03-edge-high-availability-direction.md,
-docs/plans/2026-10-03-1533-feat-edge-high-availability-plan.md
+### U7. One-tick read timeout floor for every hz
+
+Files: src/common/net/bpfdev/config.go,
+src/common/net/bpfdev/config_test.go,
+src/common/net/bpfdev/device_freebsd.go,
+src/common/net/bpfdev/device_vm_test.go,
+docs/plans/2026-10-12-2029-feat-freebsd-packet-io-phase1-plan.md
 After: none
-Change: `storelock_posix.go` builds for `linux || darwin || freebsd`. The
-edge high availability record's "The agent runs on Linux and FreeBSD"
-section no longer says the agent fails to build, and keeps the capture
-sentence until phase 2. That plan's requirement 9 drops "It fails today".
-Tests: `TestStartLocalBusIsListenerFreeDurableAndExclusive` runs unchanged
-on the host. The VM run is U5's `service` suite.
-Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/service/storelock_posix.go docs/architecture/2026-10-03-edge-high-availability-direction.md docs/plans/2026-10-03-1533-feat-edge-high-availability-plan.md`
+Change: `config.go`, which has no build constraint, holds
+`Config.resolve` (moved from `device_freebsd.go`), which refuses a
+negative `ReadTimeout` and one over one hour with an error coded
+`bpfdev/open`, and a pure
+`minReadTimeout(hz uint32) time.Duration` that returns `time.Second/hz`
+rounded up to the nanosecond. `configure` in `device_freebsd.go` reads
+`kern.hz` as now and raises the timeout to `minReadTimeout(hz)`, and its
+comment cites `sys/net/bpf.c` and `sys/kern/kern_clock.c`. The
+`ReadTimeout` doc names the one-hour cap. The plan's `Config` Decisions
+bullet states this behavior, and the unit keeps it matching the code.
+Tests: `config_test.go`: `TestMinReadTimeoutReachesOneTick` loops over
+every hz from 8 to 137438, converts `minReadTimeout(hz)` with
+`unix.NsecToTimeval`, and asserts
+`(int64(tv.Sec)*1_000_000 + int64(tv.Usec)) * int64(hz) >= 1_000_000`, the
+kernel's condition for a nonzero `bd_rtout` (requirement 10). The
+conversions are needed because `Timeval.Usec` is `int32` on darwin
+(x/sys `ztypes_darwin_arm64.go` line 28) and `int64` on FreeBSD
+(`ztypes_freebsd_arm64.go` line 28), and the file builds for both, since
+the crossbuild gate vets it with `GOOS=freebsd`. Named subtests for hz 1001
+and 11111 must fail with the floor rounded down. `TestResolveRefusesReadTimeoutOverOneHour`
+(requirement 11, asserting the `bpfdev/open` code) and
+`TestResolveRefusesNegativeReadTimeout`, both on the host. In
+`device_vm_test.go`, `TestDeviceOpenRefusesReadTimeoutOverOneHour` sits
+beside `TestDeviceOpenRefusesNegativeReadTimeout`. The VM suite still
+passes, including
+`TestDeviceReadTimeoutBelowOneTickReturns`.
+Verify: `uv run tools/scripts/run.py verify change -- src/common/net/bpfdev docs/plans/2026-10-12-2029-feat-freebsd-packet-io-phase1-plan.md`
 
-### U2. bpfdev buffer parser
+### U8. vmtest names an ssh failure
 
-Files: src/common/net/bpfdev/doc.go, src/common/net/bpfdev/buffer.go,
-src/common/net/bpfdev/buffer_test.go, src/common/README.md
+Files: tools/scripts/freebsd/vmtest.py,
+tools/scripts/tests/freebsd/test_vmtest.py
 After: none
-Change: `parseBuffer(buf []byte, layout hdrLayout) ([]Record, error)` walks
-the buffer with `BPF_WORDALIGN` on `layout.wordSize`, and errors carry
-`ErrCodeBuffer` (`bpfdev/buffer`). `Record` and `hdrLayout64` live here.
-`src/common/README.md` gets a `net/bpfdev` row.
-Tests: `buffer_test.go`: `TestParseBufferTwoRecordsAligned` (requirement
-2), `TestParseBufferWireLength` (3), `TestParseBufferTruncatedCaplen` (4),
-`TestParseBufferEmpty` (zero bytes gives no records and no error),
-`TestParseBufferShortHdrlen` (hdrlen 10 is refused).
-Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/net/bpfdev src/common/README.md`
+Change: when `vagrant ssh -c 'uname -p'` exits non-zero, `guest_arch`
+prints `vagrant ssh -c 'uname -p' exited <code>` and the captured stderr
+to standard error, and `main` returns 1 without the "cannot map" message.
+When `uname -p` succeeds with a value `GOARCH` does not map, the "cannot
+map" message names that value. `docs/code-style-python.md` asks a script to
+name a failure on standard error, and the old message pointed at the
+architecture when ssh had failed.
+Tests: `test_vmtest.py`. `Recorder` gains a `stderr` callable beside
+`fail`, returning the stderr text for a call, and `run_main` returns
+`(status, stderr_text)` (every existing caller is updated to take the
+status). `test_failed_uname_names_the_ssh_failure` (requirement 12): the
+recorder answers `uname -p` with exit 255 and the ssh stderr line, and the
+test asserts status 1, that the captured stderr holds `exited 255` and the
+ssh line, and that it holds no "cannot map" message.
+`test_unknown_architecture_fails_before_building` also asserts the message
+names `riscv64`.
+Verify: `uv run tools/scripts/run.py verify change -- tools/scripts/freebsd tools/scripts/tests/freebsd`
 
-### U3. bpfdev device on FreeBSD
-
-Files: src/common/net/bpfdev/device_freebsd.go,
-src/common/net/bpfdev/layout_freebsd.go,
-src/common/net/bpfdev/device_vm_test.go
-After: U2
-Change: `Open(iface string, cfg Config) (*Device, error)` applies the
-options in the order Decisions gives and returns coded errors
-(`bpfdev/open`) carrying the interface name. `ReadBatch` reads exactly the returned buffer length.
-`Write` is one `write(2)`. `Stats` returns `unix.BpfStat`. `SetReadFilter`
-calls `BIOCSETF`, which flushes and zeroes the counters per bpf(4).
-`LinkType` calls `BIOCGDLT`. Closing twice returns nil. A mutex serialises
-`Close` against an in-flight read, the pattern
-`src/modules/capture/rawsocket/local_linux.go` uses. `layout_freebsd.go`
-holds the compile-time assertions.
-Tests: `device_vm_test.go`, `//go:build freebsd && bpfdev_vm`, reading
-`FLOWSEER_BPFDEV_A` and `FLOWSEER_BPFDEV_B`:
-`TestDeviceWriteReadAcrossEpair` (requirement 6),
-`TestDeviceStatsCountUnread` (7), `TestDeviceReadTimeoutReturnsEmpty` (a
-quiet interface returns an empty batch within twice `ReadTimeout`),
-`TestDeviceLinkTypeEthernet` (`epair` is `DLT_EN10MB`),
-`TestDeviceOpenUnknownInterface` (a coded `bpfdev/open` error),
-`TestDeviceCloseDuringReadDefaultTimeout` (with a zero `Config`, `Close`
-during a blocked read returns within 200ms),
-`TestDeviceBufferLenIsKernelValue` (a request of twice the 524288-byte
-`net.bpf.maxbufsize`, which the kernel clamps and writes back, reads
-without `EINVAL`). The kernel does not round a request: FreeBSD 14.3's
-`bpf_buffer_ioctl_sblen` (`sys/net/bpf_buffer.c` lines 167 to 170) only
-clamps it to `BPF_MINBUFSIZE` and `bpf_maxbufsize`, so a 3000-byte request
-came back unchanged and the test passed with the write-back ignored.
-Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/net/bpfdev`
-
-### U4. FreeBSD cross-build gate
-
-Files: test/conformance/crossbuild/crossbuild_test.go,
-test/conformance/crossbuild/doc.go
-After: U1, U3
-Change: the test runs `go vet` for each `(GOARCH, tags)` pair over
-`./src/common/net/bpfdev/... ./src/common/service/... ./src/edge/agent/...
-./src/modules/capture/... ./src/edge/simload/...`, then from
-`src/edge/netpen` over `./...`, and fails with the vet output. The tag list
-starts as `bpfdev_vm`, and phases 2 and 3 append theirs.
-Tests: the gate itself. Requirement 9 is checked once by hand and recorded
-in the unit's commit message.
-Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- test/conformance/crossbuild`
-
-### U5. Vagrant VM and vmtest command
-
-Files: test/freebsd/Vagrantfile, test/freebsd/README.md,
-test/freebsd/bpfdev-setup.sh, tools/scripts/freebsd/__init__.py,
-tools/scripts/freebsd/vmtest.py, tools/scripts/tests/freebsd/__init__.py,
-tools/scripts/tests/freebsd/test_vmtest.py,
-docs/dependencies/statements/vagrant/bento-freebsd-14.md,
-docs/dependencies/README.md
-After: U3
-Change: `bpfdev-setup.sh` creates `epair0` and brings both ends up with
-`inet6 ifdisabled`, so no MLD or neighbour solicitation adds to the
-counters the VM tests assert on. `vmtest --suite {bpfdev,service,all}`
-runs `vagrant up` if the machine is not running, maps `uname -p` (`aarch64` to `arm64`, `amd64`)
-to `GOARCH`, builds and uploads each suite's binary, runs its setup
-script, runs the binary as root with the suite's environment, tears the
-setup down, and exits with the first failing status. The `service` suite
-runs `TestStartLocalBusIsListenerFreeDurableAndExclusive` and has no setup
-script. The README states the providers, the first `vagrant up`, and the
-suites. `docs/dependencies/README.md` names `statements/vagrant/` and says
-the statement gate does not read it, as it says for `statements/pypi/`.
-Tests: `test_vmtest.py` with `subprocess.run` replaced by a recorder:
-`uname -p` `aarch64` builds with `GOARCH=arm64`, a suite's environment
-reaches the remote command, a failing suite's status is the exit status,
-and teardown runs after a failure.
-Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- test/freebsd tools/scripts/freebsd tools/scripts/tests/freebsd docs/dependencies/statements/vagrant`
-
-### U6. FreeBSD read-buffer fixture
-
-Files: src/common/net/bpfdev/device_vm_test.go,
-src/common/net/bpfdev/buffer_test.go,
-src/common/net/bpfdev/testdata/freebsd14-arm64-read.bin,
-src/common/net/bpfdev/testdata/freebsd14-arm64.pcap,
-test/freebsd/bpfdev-setup.sh
-After: U2, U3, U5
-Change: with `FLOWSEER_BPFDEV_FIXTURE_DIR` set, the setup script starts
-`tcpdump -U -w <file> ether proto 0x88b5` on `epair0b` first. The VM test
-then opens its device on `epair0b` with a read filter for the same
-EtherType, sends three frames of 60, 98, and 1514 bytes with EtherType
-`0x88b5` (IEEE 802 local experimental) on `epair0a`, and writes the one
-read buffer that holds them. Both captures hold only those three frames,
-so no stray frame either side of the test's attach gets in.
-Both files are copied back with `vagrant ssh -c cat` and committed.
-Tests: `TestParseBufferMatchesTcpdump` in `buffer_test.go` reads the pcap
-with a test-local reader of the classic pcap format and compares its three
-frames to the parsed records (requirement 5). Tcpdump reads the kernel
-through libpcap, a decoder this repository did not write.
-Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/net/bpfdev test/freebsd`
-
-Waves: U1 U2 | U3 | U4 U5 | U6
+Waves: U7 U8
 
 ## Verification
 
@@ -316,7 +288,7 @@ Waves: U1 U2 | U3 | U4 U5 | U6
       commit message.
 - [ ] Outcome recorded with `uv run tools/scripts/run.py plan record
       implemented docs/plans/2026-10-12-2029-feat-freebsd-packet-io-phase1-plan.md
-      --units 6 --from <t> --to <t>`.
+      --units 2 --from <t> --to <t>`.
 - [ ] No plan labels in code.
 
 ## Open questions
@@ -325,17 +297,3 @@ None. The three this plan opened with are answered in
 `test/freebsd/README.md`: the provider is `utm` through the `vagrant_utm`
 plugin on the host that ran it, the box's guest is 14.3-RELEASE, and
 `/usr/sbin/tcpdump` is installed.
-
-## Review gaps
-
-Blocking, from the second fix round (behavior). The review stopped at its
-two-round cap with this open, so the verdict is rework:
-
-- src/common/net/bpfdev/device_freebsd.go:123: the one-tick floor `time.Second/time.Duration(hz)` floors in nanoseconds, and `NsecToTimeval` cannot recover the loss when hz does not divide 1e6; fails: with `kern.hz=1001` (a boot tunable the kernel allows) a 1µs `ReadTimeout` becomes 999µs, `999 * 1001 < 1e6` stores `bd_rtout` 0 (`sys/net/bpf.c:1665`, `sys/kern/kern_clock.c:564-629`), and `ReadBatch` on a quiet interface never returns; smallest fix: round the division up, `(time.Second+time.Duration(hz)-1)/time.Duration(hz)`; class: behavior
-
-Follow-ups, which do not hold the verdict:
-
-- docs/plans/2026-10-12-2029-feat-freebsd-packet-io-phase1-plan.md:48: the ReadTimeout bullet states the kernel's tick truncation without citing `sys/net/bpf.c` and `sys/kern/kern_clock.c`; fails: a reader cannot check the claim; class: convention
-- src/common/net/bpfdev/device_freebsd.go:123: no host test pins the floor arithmetic; fails: the hz=1001 defect above survives every test, since the guest runs hz=100; a pure helper table-tested for hz 100, 1000, 1001, 1024, and 11111 against `usec*hz >= 1e6` would catch it; class: gap
-- src/common/net/bpfdev/device_freebsd.go:74: no upper cap on `ReadTimeout`; fails: a value near `math.MaxInt64` overflows `NsecToTimeval`'s rounding to a negative timeval and Open fails with EINVAL from `itimerfix` instead of a clear config error; class: hardening
-- tools/scripts/freebsd/vmtest.py:63: `uname -p` stderr captured and dropped; fails: an SSH failure reports only "cannot map the guest's uname -p"; class: convention
