@@ -615,57 +615,61 @@ cd src/edge/netpen && go vet ./... && GOOS=linux go vet ./... && go test -race -
   unverified. The Out of scope entry on buffered frames rests on the
   afpacket source alone (`afpacket.go:316-352`), which shows only that
   the reader takes the next ring block in order.
+- The `stproot` decay bound. The Decision reads "`stproot` 6 s (the max age
+  its BPDU carries)", while the BPDU carries max age 20 and hello time 6
+  (`src/edge/netpen/attacks/l2/stproot.go:40-43`,
+  `attacks/l2/harvest_l2.go:109`), so the catalog bound of 6 s
+  (`attacks/l2/register.go:37`), the matrix row, and the Decision rest on
+  the hello time. Whether the bound is the max age in the 802.1D timer
+  unit, or `decay` with no bound, is a plan question. No vendored source
+  gives the unit.
+
 
 ## Review gaps
 
-Follow-ups from the review of 2026-10-12 (`rework`, round 0). None holds
-the verdict.
+Follow-ups from the review of 2026-10-15 (`accept after fixes`, round 1),
+with the items of the review of 2026-10-12 that stay open. None holds the
+verdict.
 
+- src/edge/netpen/runner/runner.go:292: an interrupt engaging after the loop-top check and before the attack's lock; fails: the gate emits a refusal or run-start record and the attack gets no verdict, which no test reaches deterministically; class: hardening
+- src/edge/netpen/runner/runner.go:623: `stopCancel` moved ahead of the interrupt path's verdict send; fails: the pump cancels on another goroutine, so twenty runs of TestInterruptYieldsVerdictAndCanceled still pass; class: gap
+- src/edge/netpen/runner/runner.go:619: the `inFlight` guard on the interrupt verdict removed; fails: no test interrupts between behaviors and reads the records; class: gap
+- src/edge/netpen/attacks/ip6/roguedhcp6.go:87: the detail reads `deps.Observe` where `obs.Elapsed` is the time listened; fails: a leg that closes early reports the full window; class: convention
+- src/edge/netpen/attacks/fh/ghost.go:104, src/edge/netpen/attacks/ip6/raguard.go:89, src/edge/netpen/attacks/ip6/daddos.go:64: a watch leg that closes under a live context (the Linux leg drops a terminal error when its one-slot channel is full, `link/link_linux.go:174,245-249`) ends the observation early and the verdict reads resisted, or the finding no defense, as if the window ran; predates the change; class: hardening
+- src/edge/netpen/attacks/l2/vlanenum.go:35: `Collect` keeps every tagged frame's copy until the window ends; fails: memory grows with frame rate times `--observe` on a busy trunk; class: hardening
+- src/edge/netpen/attacks/l2/vlanenum.go:49: VID 0 and 4095 counted as VLAN ids; fails: a port carrying only priority-tagged frames confirms "VLANs 0"; class: hardening
+- src/edge/netpen/attacks/routing/eigrp.go:148: any IPv4 protocol 88 packet with flag 0x02 counts as the goodbye, from any source and AS; fails: another router's packet in the window reads as a refused adjacency; class: hardening
+- src/edge/netpen/attacks/l2/stproot.go:2, src/edge/netpen/attacks/l2/register.go:37: the header and the bound read the 6 s hello time as the max age the BPDU carries (max age is 20); see Open questions; class: convention
+- src/edge/netpen/attacks/fh/hsrp.go:47: `*Group == 0` treated as absent; fails: no fh test runs hsrp with group 0 and reads the frame's group byte; class: gap
+- src/edge/netpen/check/target.go:118: `ipForm` and `macForm` swapped inside gateway, victim6, or server6; fails: both parts render one flag and no test sets one part of those hosts alone through `Need`; class: gap
+- src/edge/netpen/attacks/fh/arpspoof.go:1, src/edge/netpen/attacks/fh/llmnr.go:1, src/edge/netpen/attacks/ip6/roguedhcp.go:1: no cost-field header; em dashes in src/edge/netpen/attacks/fh/harvest_fh.go:624, src/edge/netpen/attacks/ip6/craft.go:17, src/edge/netpen/attacks/l2/harvest_l2.go:611, src/edge/netpen/attacks/routing/harvest_routing.go:119,501; class: convention
+- src/edge/netpen/attacks/ip6/craft.go, src/edge/netpen/attacks/l2/craft.go: the pooled serialize buffers have no caller; class: convention
+- src/edge/netpen/test/integration/VALIDATION_MATRIX.md:84: the raguard fixture labeled (c), T1 self-consistency, while the t1 column is N/A and the spec-authored raflood and mld rows carry (a); class: convention
 - src/edge/netpen/runner/durability.go:55: the acknowledgment check moved ahead of the ceiling; fails: a permanent mode without its acknowledgment under a temporary ceiling stops the run instead of recording a ceiling refusal and continuing; class: gap
 - src/edge/netpen/runner/runner.go:222: the paced leg wrapping removed; fails: a run with `Options.Rate` set sends unpaced; class: gap
 - src/edge/netpen/runner/emitter.go:31: `Progress` emitted as `KindFinding` or without the attack stamp; fails: no test reads the emitter's kind or stamp; class: gap
-- src/edge/netpen/runner/runner_test.go:538: `listen` made to fail always; fails: the test skips instead of failing; class: false test
+- src/edge/netpen/runner/runner_test.go:669: `listen` made to fail always; fails: the test skips instead of failing; class: false test
 - src/edge/netpen/runner/durability_test.go:148: `wantRun` derived from `Impact.Level()`, the code under test; fails: two levels swapped; class: convention
 - src/edge/netpen/full/full.go:219: `Target` or `Observe` dropped from the phase runner's options; fails: no test records what a phase's behavior received; class: gap
-- src/edge/netpen/cmd/netpen/main.go:373: `Observe` or `Acknowledged` dropped from the runner options; fails: no command test runs with a non-default window or an acknowledged permanent mode; class: gap
+- src/edge/netpen/cmd/netpen/main.go:373: `Acknowledged` dropped from the runner options; fails: no command test runs an acknowledged permanent mode; class: gap
 - src/edge/netpen/cmd/netpen/main.go:412: `MaxImpact` dropped from `full`'s config; fails: no test runs the `full` command through `run`; class: gap
-- src/edge/netpen/attacks/fh/ghost.go:129: confirmed on `observed > 0`; fails: ambient-only input must be resisted, which TestGhost_TraversalAttribution's comment states and no test feeds; class: false test
-- src/edge/netpen/attacks/ip6/raguard.go:122: confirmed on `observed > 0`; fails: the same ambient-only case; class: false test
-- src/edge/netpen/attacks/*/: a `Need` field dropped from hsrp, glbp, vrrp, gratarp, icmpredirect, llmnr, arpsweep, daddos, roguera, raguard, ndpspoof, roguedhcp6, doubletag, voicevlan, vtp, portsteal, eigrp; fails: only arpspoof, roguedhcp, vlanhop, and ospf have an empty-target test, and arpspoof's checks `Contains("victim")`, which `victim-mac` satisfies; class: gap
-- src/edge/netpen/attacks/fh/arpspoof.go:43: `Arm` moved after the poison sends; fails: no test reads the partial record's step names; class: gap
-- src/edge/netpen/attacks/routing/routing_test.go:578: the code compared with its own string; fails: `ErrCodeWPADPortCollision` removed from the bind error; class: false test
-- src/edge/netpen/attacks/routing/routing_test.go:626: step counts from TX frames only; fails: a renamed or extra no-op teardown step; class: gap
-- src/edge/netpen/check/target.go:118: one `has` case swapped for another field; fails: only victim versus victim-mac is pinned; class: gap
 - src/edge/netpen/catalog/catalog.go:150: the missing-help, mode-without-flag, unknown-restore-kind, and mode-bound checks removed; fails: no rejection case; class: gap
 - src/edge/netpen/catalog/catalog.go:143: the clones in `Lookup`, `New`, and `rows` removed; fails: the detachment the deleted snapshots test pinned; class: gap
 - src/edge/netpen/link/link_linux_test.go:773: the poll wait removed from `Close`; fails: only when the read goroutine loses the race, so the test is racy against its own mutation; class: false test
 - src/edge/netpen/cmd/netpen/signals_test.go:98: the planted step never runs; fails: the test asserts exit 1 only, which a canceled run also gives; class: false test
 - src/edge/netpen/findings/findings_test.go:21: `omitempty` added to `observed_ms`; fails: no zero-observed case; class: gap
 - test/conformance/netpen/process_policy_test.go:236: `NotifyContext` removed from the table, a dot import, a nested directory, `log.Fatal`, or `syscall.Exit`; fails: the fixture proves `Notify` and `os.Exit` only; class: hardening
-- src/edge/netpen/README.md:57: "the decay announcement" and "names `victim` and `gateway`"; fails: arpspoof restores actively and needs four fields including the MACs; class: convention
-- src/edge/netpen/check/target.go:63: "The names match the command's flags" and the hint "name the target through the command's target flags"; fails: `victim-mac` and the three other MAC fields are not flags; class: convention
-- src/edge/netpen/check/check.go:5: "imports only findings and link"; fails: target.go imports errs; class: convention
-- src/edge/netpen/check/target.go:12: `[Skipped]` doc link resolves to nothing; class: convention
 - src/edge/netpen/findings/findings.go:22: "Version 2 replaced the … rollup kinds"; fails: history wording; class: convention
-- src/edge/netpen/attacks/*/*.go: "Durability (from the catalog): …" and "Classified transient-decay" headers in 24 non-test files name the deleted classes; roadmap "yet" in etherchannel.go:31, portsteal.go:33, vlanhop.go:27, voicevlan.go:31; stale fixture text in eigrp.go:258, ospf.go:1, l2/helpers.go:3; em dashes in 15 non-test files; class: convention
-- src/edge/netpen/attacks/fh/vrrp.go:10: "verify the field set rather than the byte-for-byte checksum"; fails: TestVRRP_FixturePins compares bytes; class: convention
 - src/edge/netpen/full/full.go:25: "the command's signal handler engages the runner's teardown"; fails: `runFull` installs none; class: convention
 - src/edge/netpen/catalog/codes.go:27: `ErrCodeCeilingRefused` has no user; class: convention
-- src/edge/netpen/cmd/netpen/main.go:415: `SweepNet` hard-coded to `172.16.0.0/24` while `--sweep-net` is accepted and ignored, and `--ra-prefix` and `--stp-tag` are read by nothing; class: convention
-- src/edge/netpen/test/integration/VALIDATION_MATRIX.md:70: ghost and raguard "resisted on an empty window" and vlanenum confirmed-only; fails: the code resists after a frame count and vlanenum ends pending on no tags; class: convention
+- src/edge/netpen/cmd/netpen/main.go:419: `SweepNet` hard-coded to `172.16.0.0/24` while `--sweep-net` is accepted and ignored, and `--ra-prefix` and `--stp-tag` are read by nothing; class: convention
 - src/edge/netpen/test/integration/VALIDATION_MATRIX.md:119: the T1 target flags and the injector's IPv4 prerequisite are not listed; class: convention
-- src/edge/netpen/attacks/ip6/register.go:19: roguedhcp6 bound 300 s while the advertise's valid lifetime is 600 s; class: convention
-- src/edge/netpen/attacks/l2/register.go:25: vlanhop rated temporary/active/device for the frame doubletag sends as none, voicevlan and etherchannel active with no-op restore steps; class: convention
+- src/edge/netpen/attacks/l2/register.go:25: vlanhop rated temporary/active/device for the frame doubletag sends as none, voicevlan and etherchannel active with no-op restore steps, and portsteal rated affects device by CAM aging while its frames poison the hosts' ARP caches from the leg's own MAC; class: convention
 - src/edge/netpen/catalog/catalog.go:188: `New` accepts permanent with an active restore, temporary with none, none with a restore or affects, and an orchestration entry with modes or a run; class: hardening
 - src/edge/netpen/catalog/gen_catalog.go:132: a sub-second bound is emitted as whole seconds and `time` is imported when no row has a bound; class: hardening
 - src/edge/netpen/runner/runner.go:213: an unknown `MaxImpact` orders above permanent and admits everything; class: hardening
-- src/edge/netpen/runner/runner.go:421: a behavior-returned skipped verdict with a nil error ends the run with `fail(nil)`, and a teardown-partial `runErr` is replaced by a later target error; class: hardening
-- src/edge/netpen/runner/runner.go:418: an empty verdict kind passes through uncounted; class: hardening
-- src/edge/netpen/runner/runner.go:392: an interrupted or canceled attack gets no verdict record, and Run returns nil or `context.Canceled` by scheduling (the race predates the change); class: hardening
+- src/edge/netpen/runner/runner.go:452: a behavior-returned skipped verdict with a nil error ends the run with `fail(nil)`, and a teardown-partial `runErr` is replaced by a later target error; class: hardening
+- src/edge/netpen/runner/runner.go:440: an empty verdict kind passes through uncounted; class: hardening
 - src/edge/netpen/cmd/netpen/signals.go:71: `stop` closes the channel before `signal.Stop`, so a late signal can still force-exit; class: hardening
 - src/edge/netpen/cmd/netpen/stream.go:53: the single-attack summary's `Attacks` counts records (predates the change); class: hardening
-- src/edge/netpen/attacks/ip6/helpers.go:75: a MAC-less attack interface panics in `linkLocalFromMAC`, and a leg without IPv4 or link-local IPv6 fails in craft with an uncoded error; class: hardening
-- src/edge/netpen/attacks/ip6/raguard.go:98: `traversal: not-forwarded` recorded with no watch leg, and daddos.go:64 reads one frame in 50 ms for its `resisted` field; class: hardening
-- src/edge/netpen/attacks/routing/wpad.go:109: the PAC listener binds loopback and closes before return while the answers point clients at the leg IPv4, and the doc comment no longer says so; class: convention
-- src/edge/netpen/link/link_linux.go:55: `OptAddVLANHeader` not set, so an offloading NIC strips the 802.1Q tag before vlanenum sees it (afpacket/options.go:102-109); class: hardening
-- src/edge/netpen/link/link.go:122: `Receive` delivers frames buffered in the ring since open, undocumented, so a shared watch leg under `full` reads earlier attacks' frames first (kernel fill unverified); class: hardening
+- src/edge/netpen/attacks/ip6/helpers.go:75: a MAC-less attack interface panics in `linkLocalFromMAC`, which `raguard.go:106` now reaches too, and a leg without IPv4 or link-local IPv6 fails in craft with an uncoded error; class: hardening
