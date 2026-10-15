@@ -27,7 +27,7 @@ stop_pings() {
 		done
 		if [ "$still_running" -eq 0 ]; then
 			rm -f "$pidfile"
-			return 0
+			return $?
 		fi
 		sleep 0.25 || return $?
 	done
@@ -82,7 +82,7 @@ load_module() {
 
 case "${1:-}" in
 up)
-	stop_pings || :
+	stop_pings
 	destroy || :
 
 	load_module if_vxlan
