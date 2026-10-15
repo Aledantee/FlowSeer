@@ -136,19 +136,27 @@ as the receiving Edge in provenance and delivers its own buffered
 observations. Support for a specific sender's fallback behavior requires
 source evidence and a sender test.
 
-A device may also send each syslog emission to every configured node. Central
-must deduplicate those receipts into one operator-visible event while
-preserving the receiving Edges as evidence. Different devices, tenants, and
-separate sender emissions must remain distinct, even when message text matches.
+A device may send the same event to every configured node. Cross-node
+deduplication applies to device-originated events generally, including syslog
+and SNMP traps. Central combines copies of one source event into one
+operator-visible event while preserving the receiving Edges as evidence.
+Different devices, tenants, event types, and distinct occurrences remain
+separate, even when their payloads match. Every supported event producer
+must supply the source-event and receipt identities this contract requires.
 
-Current receipt identity does not provide this: `syslogsource/source.go`
+Existing syslog receipt identity does not provide this: `syslogsource/source.go`
 assigns a new UUID at each receiver, and `intake.prepare` constructs its
 publication identity from tenant and receipt UUID. Cross-node event identity
-needs an explicit contract, with a policy for indistinguishable repeated
-emissions, a bounded replay horizon, and durable coordination across central
-replicas. Body equality alone is not proof of one emission. Deduplication
-must preserve separately requested raw evidence and validate each receipt
-before combining its provenance.
+needs a protocol-specific contract, with a policy for indistinguishable
+occurrences, a bounded replay horizon, and durable coordination across
+central replicas. Payload equality alone is not proof of one event.
+Deduplication must preserve separately requested raw evidence and validate
+each receipt before combining its provenance. It must also preserve any
+protocol-required response for each receipt, independently of logical-event
+deduplication. Trap ingestion needs its own schema and producer: the current
+`IngestRecord` payload in
+`spec/proto/flowseer/integration/ingest/v1/ingest_record.proto` contains only
+syslog.
 
 Shared TLS receiver credentials and SNMP inform identity require a separate
 receiver contract. A shared engine ID alone does not establish correct
@@ -195,8 +203,9 @@ their separate blast-radius approval requirement.
   credential ownership, and secret-publication crash recovery.
 - Device-native account disable and session termination evidence, including
   commands already accepted by the device and late re-enable operations.
-- Cross-node syslog event identity, ambiguous repeated emissions, replay
-  horizon, receipt provenance, and storage semantics under concurrent replay.
+- Cross-node source-event identity for each notification protocol, ambiguous
+  occurrences, replay horizons, receipt provenance, trap ingestion, and
+  storage semantics under concurrent replay.
 - Receiver engine boots/time, secret rotation, individual endpoint security
   identity, and sender interoperability, including ordered syslog fallback.
 - Exact central HA election and watch interfaces after that work lands.

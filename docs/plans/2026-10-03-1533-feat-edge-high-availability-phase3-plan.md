@@ -14,8 +14,9 @@ execution: mixed
 
 Group members accept inbound traffic addressed to their own endpoints or
 the externally managed virtual address and report local address presence.
-Central deduplicates copies of one syslog emission received by several
-members. Sender tests prove fallback, fan-out, and virtual-address failover,
+Central deduplicates copies of device-originated events received by several
+members, including syslog and SNMP traps. Sender tests prove fallback,
+fan-out, cross-node event deduplication, and virtual-address failover,
 and FreeBSD checks prove the supported agent path.
 
 Stop condition: the phase cannot prove its device or receiver behavior from
@@ -30,12 +31,14 @@ The [parent's decisions](2026-10-03-1533-feat-edge-high-availability-plan.md) ap
 - Every member accepts traffic on its individual endpoint even when it does
   not hold the virtual address. Why: the parent permits device-configured
   primary and fallback destinations independently of address movement.
-- Cross-node syslog deduplication is distinct from delivery retry handling.
-  Why: `syslogsource/source.go` creates a new UUID for each receipt, while
-  `intake.prepare` uses tenant plus that UUID as its publication identity.
-  A shared emission received at A and B therefore has two ingest identities.
-  Re-plan must define sender-event identity and receipt provenance before
-  changing that contract.
+- Cross-node deduplication applies to every supported device-event producer,
+  including syslog and SNMP traps. Why: the source event and its receipts
+  have different identities regardless of notification protocol. Existing
+  syslog illustrates the gap: `syslogsource/source.go` creates a new UUID for
+  each receipt, while `intake.prepare` uses tenant plus that UUID as its
+  publication identity. Re-plan must define protocol-specific source-event
+  identity and receipt provenance. A future event producer must meet the
+  same contract before it is supported.
 - The address holder never selects the outbound read or write owner. Why:
   placement remains central's authority under the parent decisions.
 - FreeBSD packet I/O phase 1 supplies the agent build and platform gate.
@@ -64,21 +67,28 @@ The [parent's decisions](2026-10-03-1533-feat-edge-high-availability-plan.md) ap
    Verify the selected sender's actual fallback behavior before claiming
    device-family support.
 
-7. One sender emission delivered to A, B, and C produces one operator-visible
+7. One source event delivered to A, B, and C produces one operator-visible
    event, including when central replicas accept the copies concurrently.
-   Example: history counts one event and its receipt evidence identifies all
-   three receiving Edges. Validate every receipt before combining evidence.
-8. A delayed duplicate within the declared replay horizon stays deduplicated
-   after central restart. Example: A delivers immediately and B replays its
-   buffered copy after recovery, without adding another event to history.
-9. Deduplication does not merge different devices or tenants, or separate
-   emissions with identical text. Example: two sender event identities with
-   the same message body remain two events even when both reach all nodes.
-   Re-plan must state the policy for emissions whose source data cannot
-   distinguish them, rather than treating a payload hash as proof of identity.
+   Run this case for syslog and SNMP traps: each source event counts once,
+   with all three receiving Edges represented in its receipt evidence.
+   Validate every receipt before combining evidence.
+8. For each event type, a delayed duplicate within its declared replay
+   horizon stays deduplicated after central restart. Example: A delivers
+   immediately and B replays its buffered copy after recovery, without
+   adding another event to history.
+9. Deduplication does not merge different devices, tenants, or event types,
+   or distinct occurrences with identical payloads. Example: two separate
+   traps with equal payloads remain two events even when both reach all
+   nodes. Re-plan must state the policy for source data that cannot
+   distinguish occurrences, rather than treating a payload hash as proof
+   of identity.
 10. Deduplication preserves receiver provenance and separately requested raw
     evidence. Example: B's paid raw-window copy remains available even when
-    its typed syslog event has already arrived through A.
+    its typed event has already arrived through A.
+11. Receipt handling remains independent of event deduplication. Example:
+    where the selected protocol requires a response, a duplicate receipt
+    still completes that response while producing no second logical event.
+    Re-plan names the protocol-specific source and acceptance fixture.
 
 ## Out of scope
 
@@ -98,10 +108,14 @@ against the landed preceding phase. Device writes need separate approval.
 
 ## Open questions
 
-- Canonical sender-event identity, handling of indistinguishable repeated
-  emissions, the bounded replay horizon, and durable coordination across
-  central replicas. Receiver UUIDs, receipt timestamps, and body equality
-  alone do not establish that two receipts are one sender emission.
+- Canonical source-event identity for each protocol, handling of
+  indistinguishable occurrences, bounded replay horizons, and durable
+  coordination across central replicas. Receiver UUIDs, receipt timestamps,
+  and payload equality alone do not establish one source event.
+- The trap producer and ingestion boundary.
+  `spec/proto/flowseer/integration/ingest/v1/ingest_record.proto` currently
+  carries only a syslog payload. Re-plan must name the trap schema and its
+  producer rather than assuming trap ingestion already exists.
 - The schema and storage contract for one logical event with multiple receipt
   provenances, and any amendments to the accepted ingestion/history records.
 - Security identity for individual endpoints alongside the shared virtual

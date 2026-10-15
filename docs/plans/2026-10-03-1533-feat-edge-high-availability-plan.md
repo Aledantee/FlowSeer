@@ -64,6 +64,10 @@ The existing decisions remain:
 - Deduplicate copies of one syslog emission sent to several group members.
   Why: a device may send to every configured server rather than using an
   ordered fallback list (decided by the user, 2026-10-15).
+- Apply cross-node deduplication to device-originated events generally,
+  including syslog and SNMP traps. Why: copies received by several nodes
+  represent one source event regardless of the notification protocol
+  (decided by the user, 2026-10-15).
 - Each group contains one to 64 distinct Edges within one Site and one
   tenant. Why: bounded registry validation and deterministic assignment
   need a finite membership set. Tenant scope remains authenticated context.
@@ -115,10 +119,11 @@ The existing decisions remain:
    placement. Example: a real inform sender accepts the receiver after an
    address move, and a FreeBSD agent passes the selected end-to-end checks.
 
-10. Copies of one syslog emission received by several members produce one
-    operator-visible event. Example: a sender sends one event to A, B, and C,
-    and history queries count it once while retaining the receiving Edges as
-    evidence. Separate emissions remain separate even when their text matches.
+10. Copies of one device-originated event received by several members produce
+    one operator-visible event, for every supported event type. Example: run
+    the case with a syslog emission and an SNMP trap sent to A, B, and C.
+    Each source event is counted once, with every receiving Edge retained
+    as evidence. Distinct occurrences remain distinct even when payloads match.
 
 ## Out of scope
 
@@ -150,7 +155,7 @@ Verify: `uv run tools/scripts/run.py verify change -- docs/plans/2026-10-03-1533
 ### U3. Shared receiver identity and platform validation
 Files: docs/plans/2026-10-03-1533-feat-edge-high-availability-phase3-plan.md
 After: U1
-Change: group receiver identity, individual node destinations, cross-node syslog deduplication, and address-holder reporting support inbound failover.
+Change: group receiver identity, individual node destinations, cross-node event deduplication, and address-holder reporting support inbound failover.
 Tests: the phase requires real sender and FreeBSD evidence.
 Verify: `uv run tools/scripts/run.py verify change -- docs/plans/2026-10-03-1533-feat-edge-high-availability-phase3-plan.md`
 
@@ -182,8 +187,9 @@ write is authorized by this plan.
 - Accept or amend the proposed edge HA direction before implementation.
 - Device account protocols, recovery credentials, and supported device
   families are settled when phase 2 is re-planned.
-- Cross-node syslog event identity, ambiguous identical emissions, and the
-  replay horizon require an explicit policy during phase 3 re-plan.
+- Cross-node event identity for each notification protocol, ambiguous
+  identical occurrences, and the replay horizon require an explicit policy
+  during phase 3 re-plan.
 - Inform engine boots/time, receiver secret startup, and platform behavior
   need source evidence and sender tests in phase 3.
 - No device family's account disable and session termination procedure is
