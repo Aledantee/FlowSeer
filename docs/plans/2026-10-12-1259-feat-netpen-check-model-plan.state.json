@@ -12,10 +12,18 @@
   "after": [],
   "landed": null,
   "phases": [
-    "docs/plans/2026-10-12-1259-feat-netpen-check-model-phase1-plan.md",
     "docs/plans/2026-10-12-1259-feat-netpen-check-model-phase2-plan.md",
     "docs/plans/2026-10-12-1259-feat-netpen-check-model-phase3-plan.md",
     "docs/plans/2026-10-12-1259-feat-netpen-check-model-phase4-plan.md"
   ],
-  "retired": []
+  "retired": [
+    {
+      "plan": "docs/plans/2026-10-12-1259-feat-netpen-check-model-phase1-plan.md",
+      "status": "implemented",
+      "landed": {
+        "first": "a8600444",
+        "last": "0e4be851"
+      }
+    }
+  ]
 }
