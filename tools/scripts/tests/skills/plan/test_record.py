@@ -249,6 +249,22 @@ class PlanRecordTest(unittest.TestCase):
         self.record("check", PLAIN)
         self.assertEqual(self.state(PLAIN)["readiness"], "needs-decisions")
 
+    def test_check_refuses_each_kind_of_holder_alone(self):
+        holders = ["a/b_test.go", "web/view.test.ts", "web/view.spec.ts", "tools/test_x.py", "c/testdata/golden.txt"]
+        for holder in holders:
+            (self.root / holder).parent.mkdir(parents=True, exist_ok=True)
+        (self.root / PLAIN).write_text("# Plan\n\n### U1. Change\n\nFiles: `y.go`\nReplaces: `old-token`\n", encoding="utf-8")
+        for holder in holders:
+            with self.subTest(holder=holder):
+                (self.root / holder).write_text("old-token\n", encoding="utf-8")
+                out = self.record("check", PLAIN, code=1)
+                self.assertIn(f"{holder} holds", out.stderr)
+                (self.root / holder).unlink()
+
+    def test_check_refuses_a_missing_plan(self):
+        out = self.record("check", "docs/plans/2026-01-09-missing-plan.md", code=2)
+        self.assertIn("is not a file", out.stderr)
+
     def test_check_refuses_a_replaces_line_with_no_quoted_token(self):
         (self.root / PLAIN).write_text("# Plan\n\n### U1. Change\n\nFiles: `y.go`\nReplaces: old-token\n", encoding="utf-8")
         out = self.record("check", PLAIN, code=1)

@@ -199,7 +199,7 @@ def unlisted_holders(root: Path, plan: str) -> list[str]:
     neither that unit nor a unit it runs after lists in `Files:`."""
     path = root / plan
     if not path.is_file():
-        return []
+        fail(f"{plan} is not a file", 2)
     fields = unit_fields(path.read_text(encoding="utf-8"))
     files = plan_deviations.units(path, root)
     faults = []
