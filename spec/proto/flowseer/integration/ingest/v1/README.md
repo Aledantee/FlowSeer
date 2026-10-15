@@ -8,7 +8,7 @@ central ingestion pipeline over NATS JetStream.
 
 Imports: event/log, model/inventory, model/rawwindow
 
-Imported by: nothing FlowSeer-owned
+Imported by: edge/ingest
 
 Deliberately absent:
 

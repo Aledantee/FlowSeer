@@ -1,0 +1,62 @@
+edition = "2024";
+
+// The Connect call an edge delivers OTLP bodies through. Central posts each
+// body unchanged to its collector and answers with how many leading bodies
+// it settled.
+package flowseer.edge.telemetry.v1;
+
+import option "buf/validate/validate.proto";
+
+service TelemetryService {
+  // Delivers a batch of OTLP bodies in order. Answers with the count of
+  // leading bodies the collector accepted or refused for their content. A
+  // collector that cannot take a body now, or no configured collector, ends
+  // the count at the last settled body and the call still answers. The
+  // caller resends from the first unsettled body.
+  rpc Deliver(DeliverRequest) returns (DeliverResponse);
+}
+
+message DeliverRequest {
+  // Exports in delivery order. Must hold at least one. A request names no
+  // tenant or edge: central takes the edge from the call's assertion. The
+  // interceptor does not validate the exports, so one invalid export cannot
+  // refuse the batch. Central validates each export itself and settles an
+  // invalid one as refused.
+  repeated TelemetryExport exports = 1 [(buf.validate.field).repeated = {
+    min_items: 1
+    items: {ignore: IGNORE_ALWAYS}
+  }];
+}
+
+message DeliverResponse {
+  // The count of leading exports settled: accepted by the collector or
+  // refused for a reason about the export. Exports from this index on are
+  // the caller's to resend.
+  uint32 settled = 1;
+}
+
+// One OTLP request body and the signal it belongs to.
+message TelemetryExport {
+  // The signal the body carries. Must be present and defined.
+  TelemetrySignal signal = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).enum = {
+      defined_only: true
+      not_in: [0]
+    }
+  ];
+  // The serialized OTLP export request, sent to the collector unchanged.
+  // Must be present and at most 255 KiB.
+  bytes body = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).bytes.max_len = 261120
+  ];
+}
+
+// The OTLP signal a body carries.
+enum TelemetrySignal {
+  TELEMETRY_SIGNAL_UNSPECIFIED = 0;
+  TELEMETRY_SIGNAL_LOGS = 1;
+  TELEMETRY_SIGNAL_METRICS = 2;
+  TELEMETRY_SIGNAL_TRACES = 3;
+}

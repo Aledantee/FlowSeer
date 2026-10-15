@@ -1,0 +1,39 @@
+edition = "2024";
+
+// The Connect call an edge delivers ingest records through. Central
+// publishes each record to the typed ingest streams as intake does for a
+// record that arrives on the edge's own stream, and answers with how many
+// leading records it settled.
+package flowseer.edge.ingest.v1;
+
+import "flowseer/integration/ingest/v1/ingest_record.proto";
+import option "buf/validate/validate.proto";
+
+service IngestService {
+  // Delivers a batch of records in order. Answers with the count of leading
+  // records central holds or refused for a reason about the record. A
+  // failure that is not about a record, such as a full stream or a publish
+  // error, ends the count at the last settled record and the call still
+  // answers. The caller resends from the first unsettled record; a record
+  // delivered twice is stored once under its record id.
+  rpc Deliver(DeliverRequest) returns (DeliverResponse);
+}
+
+message DeliverRequest {
+  // Records in delivery order. Must hold at least one. A request names no
+  // tenant or edge: central takes the edge from the call's assertion and the
+  // tenant from its edge store. The interceptor does not validate the
+  // records, so one invalid record cannot refuse the batch. Central
+  // validates each record itself and settles an invalid one as refused.
+  repeated flowseer.integration.ingest.v1.IngestRecord records = 1 [(buf.validate.field).repeated = {
+    min_items: 1
+    items: {ignore: IGNORE_ALWAYS}
+  }];
+}
+
+message DeliverResponse {
+  // The count of leading records settled: stored, already stored, or refused
+  // for a reason about the record. Records from this index on are the
+  // caller's to resend.
+  uint32 settled = 1;
+}

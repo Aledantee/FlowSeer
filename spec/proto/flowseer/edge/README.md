@@ -17,13 +17,14 @@ never calls it.
 
 ## Boundaries
 
-Imports: errs, event/access, model/access, model/capture, model/credential,
-model/edge, model/policy, model/rawwindow, net/addr
+Imports: errs, event/access, integration/ingest, model/access, model/capture,
+model/credential, model/edge, model/policy, model/rawwindow, net/addr
 
 Imported by: nothing
 
-`edge/audit` imports `event/access`, the tree's only edge from one boundary
-consumer to another.
+`edge/audit` imports `event/access`, the tree's first edge from one boundary
+consumer to another. `edge/ingest` imports `integration/ingest` as the second,
+to carry `IngestRecord` typed.
 
 ## Packages
 
@@ -31,4 +32,5 @@ consumer to another.
 - `audit/v1/`: `AuditService`, delivering the durable `DeviceOperationEvent` audit record.
 - `capture/v1/`: Edge-facing `CaptureEdgeService`, carrying the capture assignments central owes an edge and the packets that edge uploads back.
 - `dispatch/v1/`: `DispatchService`, the execution envelope central and the edge hosting a device's lane exchange.
-- `ingest/v1/`: Edge-facing `RawWindowEdgeService`, carrying the raw window controls central owes an edge and the state the edge reports back.
+- `ingest/v1/`: Edge-facing `RawWindowEdgeService`, carrying the raw window controls central owes an edge and the state the edge reports back, and `IngestService`, delivering ingest records.
+- `telemetry/v1/`: `TelemetryService`, delivering OTLP bodies for central to post to its collector.
