@@ -99,6 +99,32 @@ class VmtestTests(unittest.TestCase):
         self.assertTrue(remote[-1].endswith(" down"), remote)
         self.assertIn(" up", remote[-3])
 
+    def test_teardown_failure_fails_a_passing_suite(self):
+        recorder = Recorder(fail=lambda args: 7 if args[-1].endswith(" down") else 0)
+        status, stderr = run_main(recorder, "--suite", "bpfdev")
+        self.assertEqual(status, 7)
+        self.assertIn("vmtest: suite bpfdev teardown failed with status 7\n", stderr)
+
+    def test_binary_failure_wins_over_teardown_failure(self):
+        recorder = Recorder(
+            fail=lambda args: 3 if "-test.v" in args[-1]
+            else 7 if args[-1].endswith(" down") else 0
+        )
+        status, stderr = run_main(recorder, "--suite", "bpfdev")
+        self.assertEqual(status, 3)
+        self.assertIn("vmtest: suite bpfdev teardown failed with status 7\n", stderr)
+
+    def test_setup_failure_still_tears_down_and_keeps_first_status(self):
+        recorder = Recorder(
+            fail=lambda args: 5 if args[-1].endswith(" up")
+            else 7 if args[-1].endswith(" down") else 0
+        )
+        status, stderr = run_main(recorder, "--suite", "bpfdev")
+        self.assertEqual(status, 5)
+        self.assertTrue(recorder.remote()[-1].endswith(" down"))
+        self.assertFalse(any("-test.v" in call for call in recorder.remote()))
+        self.assertIn("vmtest: suite bpfdev teardown failed with status 7\n", stderr)
+
     def test_service_suite_has_no_setup(self):
         recorder = Recorder()
         run_main(recorder, "--suite", "service")[0]
