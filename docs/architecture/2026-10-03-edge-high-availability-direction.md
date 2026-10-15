@@ -136,6 +136,20 @@ as the receiving Edge in provenance and delivers its own buffered
 observations. Support for a specific sender's fallback behavior requires
 source evidence and a sender test.
 
+A device may also send each syslog emission to every configured node. Central
+must deduplicate those receipts into one operator-visible event while
+preserving the receiving Edges as evidence. Different devices, tenants, and
+separate sender emissions must remain distinct, even when message text matches.
+
+Current receipt identity does not provide this: `syslogsource/source.go`
+assigns a new UUID at each receiver, and `intake.prepare` constructs its
+publication identity from tenant and receipt UUID. Cross-node event identity
+needs an explicit contract, with a policy for indistinguishable repeated
+emissions, a bounded replay horizon, and durable coordination across central
+replicas. Body equality alone is not proof of one emission. Deduplication
+must preserve separately requested raw evidence and validate each receipt
+before combining its provenance.
+
 Shared TLS receiver credentials and SNMP inform identity require a separate
 receiver contract. A shared engine ID alone does not establish correct
 boots/time behavior. Cold startup leaves a secure listener unready until
@@ -181,6 +195,8 @@ their separate blast-radius approval requirement.
   credential ownership, and secret-publication crash recovery.
 - Device-native account disable and session termination evidence, including
   commands already accepted by the device and late re-enable operations.
+- Cross-node syslog event identity, ambiguous repeated emissions, replay
+  horizon, receipt provenance, and storage semantics under concurrent replay.
 - Receiver engine boots/time, secret rotation, individual endpoint security
   identity, and sender interoperability, including ordered syslog fallback.
 - Exact central HA election and watch interfaces after that work lands.
