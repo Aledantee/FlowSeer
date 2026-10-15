@@ -24,6 +24,7 @@ covering port tables and VLAN membership.
 
 | Record | Status | Read when |
 | --- | --- | --- |
+| [Remote Agent Harness](2026-10-15-remote-agent-harness-direction.md) | Proposed direction | Adding Telegram control, persistent remote tasks, human decisions, or Linux Orca coordination for project development. |
 | [Device Service, Integrations, and Inventory](2026-08-20-device-service-and-inventory-direction.md) | Accepted direction | Working on the device service, integrations, inventory, discovery, ingestion, attachment, or the transport fabric. |
 | [Network Model Structure](2026-08-20-network-model-structure-direction.md) | Accepted direction | Adding or moving FlowSeer-owned protobuf packages, network primitives, entities, refs, or device-facing capability models, or a README under `spec/proto`. |
 | [YANG Protocol Libraries](2026-09-28-yang-protocol-libraries-direction.md) | Accepted direction | Working on the YANG runtime, the `yanggen` generator, the generated `generated/go/yang` bindings, or the NETCONF, RESTCONF, and gNMI client libraries. |
@@ -55,7 +56,7 @@ covering port tables and VLAN membership.
 | [Postgres Read Model](2026-10-08-postgres-read-model-direction.md) | Accepted direction | Adding Postgres query tables, tenant row policies, migration and runtime roles, replayable projections, or the read model's separate deployment. |
 | [Raw Window Control](2026-10-08-raw-window-control-direction.md) | Accepted direction | Adding raw-window selectors, edge control, aggregate budgets, or operator authorization for raw ingestion evidence. |
 | [Central High Availability](2026-10-03-central-high-availability-direction.md) | Proposed direction | Changing how the device service reaches NATS, which listener serves which service, a background module that must run once across replicas, or readiness. |
-| [Edge High Availability](2026-10-03-edge-high-availability-direction.md) | Proposed direction | Running more than one edge node at a site, the address devices send syslog and traps to, which Edge hosts a device lane, or an agent build for an operating system other than Linux. |
+| [Edge High Availability](2026-10-03-edge-high-availability-direction.md) | Proposed direction | Site and Edge group identity, separate read placement and write ownership, managed node accounts, device fencing, and shared receiver identity. |
 | [Edge Delivery over Connect](2026-10-04-edge-delivery-over-connect-direction.md) | Proposed direction | Changing how ingest records or the agent's telemetry travel from an edge to central, the edge's local buffer, `AttachBus`, per-edge NATS accounts, or the bus listener an edge dials. |
 | [Deployment](2026-10-03-deployment-direction.md) | Proposed direction | Adding or changing anything under `deploy/`, a container image, what a cluster exposes, a third-party store's installation, or how the edge agent is packaged. |
 | [FreeBSD Packet I/O](2026-10-12-freebsd-packet-io-direction.md) | Accepted direction | Capturing, sending, or receiving raw packets on FreeBSD, changing `src/common/net/bpfdev`, or running the FreeBSD VM test suite. |
