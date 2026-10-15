@@ -98,13 +98,17 @@ up)
 	ifconfig epair1a vnet "$jail_name"
 	ifconfig epair1b vnet "$jail_name"
 
-	ifconfig epair0a inet 10.99.0.1/24 inet6 ifdisabled up
-	jexec "$jail_name" ifconfig epair0b inet 10.99.0.2/24 inet6 ifdisabled up
+	# ifconfig takes one address family per call, so IPv6 is disabled
+	# before the IPv4 address is set.
+	ifconfig epair0a inet6 ifdisabled up
+	ifconfig epair0a inet 10.99.0.1/24
+	jexec "$jail_name" ifconfig epair0b inet6 ifdisabled up
+	jexec "$jail_name" ifconfig epair0b inet 10.99.0.2/24
 	jexec "$jail_name" ifconfig epair0b inet 10.99.0.3/32 alias
 	jexec "$jail_name" ifconfig epair1a inet6 ifdisabled up
 	jexec "$jail_name" ifconfig epair1b inet6 ifdisabled up
 
-	ifconfig vxlan0 create vni 42 local 10.99.0.1 remote 10.99.0.2
+	ifconfig vxlan0 create vxlanid 42 vxlanlocal 10.99.0.1 vxlanremote 10.99.0.2
 	ifconfig vxlan0 inet 10.99.42.1/24 up
 
 	ifconfig gre0 create tunnel 10.99.0.1 10.99.0.2

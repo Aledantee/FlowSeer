@@ -341,5 +341,12 @@ Waves: U1 U3 U6 | U2 U4 | U5
 
 - Whether a raw IPv4 socket on FreeBSD 14.3 delivers `IP_RECVIF` for a
   datagram that arrives through `lo0` (the self-sent TEB GRE case).
-  Unverified. U5's test reads the index it gets and asserts only the
-  destination for that case.
+  U5's test reads the index it gets and asserts only the destination for
+  that case. In the bento 14.3 guest it logged
+  `raw IPv4 receive interface index = 8`, so the kernel does deliver
+  `IP_RECVIF` there. Which jail interface holds index 8 is unchecked.
+- The setup commands U6 wrote failed in the guest and were corrected:
+  `ifconfig` takes one address family per call (`ifconfig: inet6: bad
+  value` for `inet A inet6 ifdisabled up`), and vxlan(4) creates with
+  `vxlanid`, `vxlanlocal`, and `vxlanremote` (`ifconfig: local: bad value`
+  for `vni`, `local`, `remote`; the guest's `man 4 vxlan`, EXAMPLES).
