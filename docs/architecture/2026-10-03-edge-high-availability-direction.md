@@ -34,8 +34,14 @@ Those accepted records are amended with the corresponding implementation.
 
 ### Site and group identity
 
-Add a minimal Site family in a leaf `model/site/v1` package and an EdgeGroup
-family in `model/edge/v1`, with typed refs and Config/State/Event messages.
+Add `Site` and `SiteEvent` in a leaf `model/site/v1` package, with typed
+`SiteLocalRef`/`SiteGlobalRef`. Site is pure intent. Its file-level doc comment
+declares `SiteConfig` and `SiteState` deliberately absent, following the
+[triad convention](../conventions/protobuf.md#the-triad). SiteEvent carries
+Site before and after a change. Add an EdgeGroup family in `model/edge/v1`,
+with typed refs and Config/State/Event messages because its healthy member
+count is observed state.
+
 Each Edge and group names a Site, and group membership must remain within
 one Site and tenant. The separate Site package avoids a generated Go import
 cycle: Integration already imports Edge, so Edge cannot import Integration's

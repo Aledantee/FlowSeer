@@ -25,14 +25,17 @@ central HA phase to land first. Re-check its elected background-module and
 watch contracts before implementation. The source paths here describe the
 current tree, not a prediction of that phase's final interfaces.
 
-- Add `Site` in `model/site/v1/site.proto`, with Config/State/Event and
-  LocalRef/GlobalRef. Config has its ref and optional display name. State
-  holds its ref, and Event describes a configuration change. Why: ownership
-  needs identity, not a new reachability or lifecycle taxonomy. The leaf
-  package imports no Edge or Integration, avoiding the generated Go import
-  cycle that putting Site beside Integration would create.
-- Add `EdgeGroup` in `model/edge/v1/group.proto`, with the same families,
-  required Site ref, and one to 64 distinct Edge refs in Config. State
+- Add `Site` and `SiteEvent` in `model/site/v1/site.proto`, with typed
+  `SiteLocalRef`/`SiteGlobalRef`. Site has its ref and optional display name.
+  Event carries Site before and after a change. The file-level doc comment
+  declares `SiteConfig` and `SiteState` deliberately absent because Site
+  is pure intent, following the [triad convention](../conventions/protobuf.md#the-triad).
+  Why: ownership needs identity, not a new reachability or lifecycle
+  taxonomy. The leaf package imports no Edge or Integration, avoiding the
+  generated Go import cycle that putting Site beside Integration would create.
+- Add `EdgeGroup` in `model/edge/v1/group.proto`, with Config/State/Event and
+  typed LocalRef/GlobalRef, required Site ref, and one to 64 distinct Edge
+  refs in Config. State
   reports healthy member count, and Event describes membership changes.
   `EdgeConfig.site` is required. Why: registry validation can reject a group
   whose members belong to different Sites. Do not add either entity to

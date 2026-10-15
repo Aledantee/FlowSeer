@@ -33,6 +33,8 @@ The existing decisions remain:
   2026-10-03)
 - Every node does outbound device access, and central places the lanes.
   (decided by the user, 2026-10-03)
+- The virtual IP is moved outside FlowSeer, by CARP for now. (decided by the
+  user, 2026-10-03)
 - FreeBSD is a deployment target for the agent. (decided by the user,
   2026-10-03)
 - A group is in a Site. (decided by the user, 2026-10-03)
