@@ -115,8 +115,8 @@ func (r *bpfFrameReader) stats() (uint64, uint64, error) {
 		return 0, 0, err
 	}
 	cur := counterPair{recv: st.Recv, drop: st.Drop}
-	received, dropped := cur.deltaSince(r.last)
-	r.last = cur
+	received, dropped, next := cur.deltaSince(r.last)
+	r.last = next
 	return received, dropped, nil
 }
 
