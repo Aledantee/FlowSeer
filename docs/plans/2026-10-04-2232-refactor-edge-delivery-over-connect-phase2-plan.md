@@ -398,3 +398,25 @@ outcome note, so the user can set the threshold before review.
   `intake.go` and leaves `intake_test.go` alone, so whichever lands second
   merges the other. The parent's open question about that plan concerns the
   follower, which the last phase deletes, and changes nothing here.
+- The ingest benchmark's threshold is still the user's to set. On an Apple
+  M3 Pro, `BenchmarkDeliver` measured 211.8 records/s at batch 64 and 217.9
+  at batch 1024 under `service.BusFsyncPerMessage`, and 44144 and 40593
+  records/s with only the bench's policy changed to `BusFsyncPeriodic`. The
+  handler publishes one record at a time and waits for each acknowledgement
+  (`I/handler.go:144-160`), and the hub syncs every write
+  (`nats-server/v2@v2.15.0/server/filestore.go:8777-8778`, `F_FULLFSYNC` on
+  darwin). Per-message sync is the hub's declared policy
+  (`H/host.go:315`, `E/hub.go:36-37`, `E/README.md`, Durability), not a
+  choice of the bounded ingest plan. The device service record asks for
+  thousands of messages per second sustained with tenfold bursts
+  (`docs/architecture/2026-08-20-device-service-and-inventory-direction.md:373-374`),
+  which the edge delivery record lists as unverified.
+
+## Review gaps
+
+- src/services/device/internal/intake/handler.go:145-153: a valid record whose encoding plus the `Nats-Msg-Id` header exceeds the hub's 1 MiB `MaxPayload` fails every publish with `ErrMaxPayload` (`nats.go@v1.54.0/nats.go:4666-4670`) and is counted `publish_failed`; fails: an edge that sends one such record never gets past it; class: hardening
+- src/services/device/internal/otlpapi/handler.go:115-121: no count bound on exports, and an empty `body` is valid, so a 1 MiB request can make central issue about 150k sequential collector posts; fails: one call from an enrolled edge fans out into that many posts; class: hardening
+- src/modules/edgebus/collector.go:74-83: `validateCollectorEndpoint` accepts userinfo, a query, or a fragment, so `Post` appends `/v1/<signal>` into the query or fragment; fails: `NewCollector` with `https://c/?t=x` posts to path `/` (the device host is shielded by `src/common/service/telemetry_config.go:241`); class: hardening
+- src/modules/edgebus/collector.go:107-109: a request build error now maps to `PostRetryUnavailable`, so `forward` retries it as `max_deliver_exceeded` where the base refused it as `collector_rejected`, against U3's "the reasons it uses today"; fails: only a `Forwarder` built by literal with a malformed endpoint, since `StartForwarder` validates it; class: convention
+- src/services/device/internal/intake/handler.go:28: `reasonValidation` is unused while `prepareRecord` returns the literals `"validation"` and `"marshal"` (`I/intake.go:394`, `418`); fails: none at runtime, a renamed constant would not rename the reason; class: convention
+- src/services/device/internal/intake/handler.go:132-134: no handler test makes the validator fail with an error that is not a rule violation; mutation: settle the record instead of returning false; fails: a validator runtime error would drop a record as settled; class: gap
