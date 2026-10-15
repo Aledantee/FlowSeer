@@ -4,7 +4,7 @@
   "readiness": "implementation-ready",
   "review": "accept after fixes",
   "review_rounds": 1,
-  "compound": null,
+  "compound": "docs/solutions/conventions/a-freebsd-kernel-timeout-truncates-to-ticks-so-round-a-duration-up.md",
   "outcome": {
     "units": 2,
     "from": "2026-10-15T15:41:42Z",
