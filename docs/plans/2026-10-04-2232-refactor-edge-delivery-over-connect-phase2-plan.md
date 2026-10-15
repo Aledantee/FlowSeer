@@ -141,6 +141,24 @@ The parent's decisions apply
   threshold chosen before a measurement would be a guess. (decided by the
   user, 2026-10-14)
 
+- This phase lands with the hub's per-message sync unchanged and the
+  benchmark still reporting a rate with no threshold. A follow-up plan
+  moves the hub to `BusFsyncPeriodic` at a 100 ms interval, amends the
+  device service record's power-loss rule
+  (`docs/architecture/2026-08-20-device-service-and-inventory-direction.md:473-478`),
+  and sets the benchmark's threshold against the new rate. Why: on an
+  Apple M3 Pro, per-message sync held `BenchmarkDeliver` near 215
+  records/s at batch 64 and 1024, while a 100 ms periodic sync measured
+  about 42,000 records/s with one publish at a time and about 107,000 with
+  the batch published at once. Throughput stays flat from about 100 ms
+  up and falls below 50 ms. The cost is a power-loss window of about one
+  interval of acknowledged records, which the edge has already deleted.
+  Publishing a batch at once under per-message sync gained nothing, since
+  nats-server v2.15.0 syncs each message of a stream in turn
+  (`nats-server/v2@v2.15.0/server/filestore.go:8777-8779`). The measuring
+  prototype is on branch `worktree-agent-afdd6a6e4f97d567a` (commit
+  `82724e0d8`), not merged. (decided by the user, 2026-10-15)
+
 - Full verification needs no repair to the verifier first.
   `uv run tools/scripts/run.py verify change --print-selection --
   ./generated/go/yang/foo.go` selects `module=generated/go/yang
@@ -398,19 +416,10 @@ outcome note, so the user can set the threshold before review.
   `intake.go` and leaves `intake_test.go` alone, so whichever lands second
   merges the other. The parent's open question about that plan concerns the
   follower, which the last phase deletes, and changes nothing here.
-- The ingest benchmark's threshold is still the user's to set. On an Apple
-  M3 Pro, `BenchmarkDeliver` measured 211.8 records/s at batch 64 and 217.9
-  at batch 1024 under `service.BusFsyncPerMessage`, and 44144 and 40593
-  records/s with only the bench's policy changed to `BusFsyncPeriodic`. The
-  handler publishes one record at a time and waits for each acknowledgement
-  (`I/handler.go:144-160`), and the hub syncs every write
-  (`nats-server/v2@v2.15.0/server/filestore.go:8777-8778`, `F_FULLFSYNC` on
-  darwin). Per-message sync is the hub's declared policy
-  (`H/host.go:315`, `E/hub.go:36-37`, `E/README.md`, Durability), not a
-  choice of the bounded ingest plan. The device service record asks for
-  thousands of messages per second sustained with tenfold bursts
-  (`docs/architecture/2026-08-20-device-service-and-inventory-direction.md:373-374`),
-  which the edge delivery record lists as unverified.
+- Unverified: every rate in Decisions was measured on darwin, where Go
+  syncs with `F_FULLFSYNC`. A Linux host on a drive with power-loss
+  protection may sync far faster. The follow-up plan measures on the
+  target hardware class.
 
 ## Review gaps
 
