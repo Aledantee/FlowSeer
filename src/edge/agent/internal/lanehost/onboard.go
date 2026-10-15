@@ -2,7 +2,6 @@ package lanehost
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 	"net/netip"
@@ -17,6 +16,7 @@ import (
 	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
 	addrv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/addr/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/fsconv"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access"
 )
 
@@ -186,23 +186,6 @@ func (o *Onboarder) perDeviceTimeout() time.Duration {
 	return defaultPerDeviceTimeout
 }
 
-// errorType classifies a failure for the error.type attribute: the error's
-// own code where it has one, and the two context causes by name where it does
-// not. Bounded, because it becomes a metric dimension downstream.
-func errorType(err error) string {
-	if code, ok := errs.CodeOf(err); ok {
-		return string(code)
-	}
-	switch {
-	case errors.Is(err, context.DeadlineExceeded):
-		return "context.deadline_exceeded"
-	case errors.Is(err, context.Canceled):
-		return "context.canceled"
-	default:
-		return "unknown"
-	}
-}
-
 // onboard onboards one unheld listed device into the lane, or reports how a
 // re-listing of a device already held differs from what it was onboarded with.
 // The index follows the listing and is already updated during Sync.
@@ -219,8 +202,8 @@ func (o *Onboarder) onboard(ctx context.Context, listed *attachv1.ListedDevice) 
 	if held {
 		if changed := divergedFields(previous, listed); len(changed) > 0 {
 			o.log.WarnContext(ctx, "listed device differs from the one onboarded",
-				slog.String("otel.event.name", "flowseer.edge.device.listing_diverged"),
-				slog.String("flowseer.device.id", deviceID),
+				fsconv.EventName("flowseer.edge.device.listing_diverged"),
+				fsconv.DeviceID(deviceID),
 				slog.Any("flowseer.edge.device.diverged", changed))
 		}
 		return
@@ -247,8 +230,8 @@ func (o *Onboarder) onboard(ctx context.Context, listed *attachv1.ListedDevice) 
 	o.mu.Unlock()
 
 	o.log.InfoContext(ctx, "device onboarded",
-		slog.String("otel.event.name", "flowseer.edge.device.onboarded"),
-		slog.String("flowseer.device.id", deviceID))
+		fsconv.EventName("flowseer.edge.device.onboarded"),
+		fsconv.DeviceID(deviceID))
 	if !listed.HasDelayedApplyHorizon() {
 		// Said at onboarding rather than left for the first mutation to
 		// discover. The lane refuses that mutation correctly and its error
@@ -256,8 +239,8 @@ func (o *Onboarder) onboard(ctx context.Context, listed *attachv1.ListedDevice) 
 		// the edge has been holding the device in that state since it
 		// started.
 		o.log.WarnContext(ctx, "device onboarded without a measured delayed-apply horizon",
-			slog.String("otel.event.name", "flowseer.edge.device.horizon_unmeasured"),
-			slog.String("flowseer.device.id", deviceID))
+			fsconv.EventName("flowseer.edge.device.horizon_unmeasured"),
+			fsconv.DeviceID(deviceID))
 	}
 }
 
@@ -268,9 +251,9 @@ func (o *Onboarder) onboard(ctx context.Context, listed *attachv1.ListedDevice) 
 // as it stays off.
 func (o *Onboarder) warnNotOnboarded(ctx context.Context, deviceID string, err error) {
 	o.log.WarnContext(ctx, "listed device was not onboarded; it will be tried again",
-		slog.String("otel.event.name", "flowseer.edge.device.onboarding_failed"),
-		slog.String("flowseer.device.id", deviceID),
-		slog.String("error.type", errorType(err)))
+		fsconv.EventName("flowseer.edge.device.onboarding_failed"),
+		fsconv.DeviceID(deviceID),
+		fsconv.ErrorType(err))
 }
 
 // deviceSession builds what the lane needs to reach one listed device.
@@ -349,7 +332,7 @@ func divergedFields(previous, current *attachv1.ListedDevice) []string {
 func renderAddress(ip *addrv1.IpAddress) string {
 	address, err := addressOf(ip)
 	if err != nil {
-		return fmt.Sprintf("<unusable: %s>", errorType(err))
+		return fmt.Sprintf("<unusable: %s>", fsconv.ErrorTypeOf(err))
 	}
 	return address
 }

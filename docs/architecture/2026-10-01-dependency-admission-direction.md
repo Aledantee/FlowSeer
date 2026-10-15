@@ -131,6 +131,14 @@ https://go.dev/ref/mod defines as the commit time, and a commit time is
 whatever its author wrote. The Go wait is therefore a convention checked at
 review, and the source review is what catches a backdated release.
 
+pnpm also refuses an npm version whose publish trust is weaker than earlier
+releases of the same package carried (`trustPolicy: no-downgrade` in
+`frontend/web/pnpm-workspace.yaml`, same page). A refused version is
+admitted only through a `trustPolicyExclude` entry naming its exact
+version, which a person approves on its own. The dependency admission work
+of 2026-10-14 added the setting with one such entry, `undici-types@6.21.0`,
+whose 6.x line stopped publishing provenance after 6.19.2.
+
 ### A pin moves only for a recorded reason
 
 An upgrade names one of three reasons: it fixes an advisory, it carries a

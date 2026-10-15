@@ -11,6 +11,13 @@ a branch; the coordinator integrates it and runs the verifier. Delegate
 when the work would flood this context or can run in parallel; answer a
 one-grep question yourself.
 
+When creating an isolated checkout outside Orca or native worktree isolation,
+run `uv run tools/scripts/run.py worktree create <name>` from the intended
+source checkout. Give the worker the printed absolute path as its working
+directory. The command branches from that checkout's local `HEAD`. See
+[worktree commands](../../../tools/scripts/worktree/README.md) for options.
+Creating a checkout does not launch a worker or change the model routing below.
+
 ## Pick the role, then resolve the lane
 
 Name work by role, never by model. Read `~/.claude/models/registry.yaml`

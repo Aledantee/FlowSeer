@@ -48,7 +48,7 @@ func TestJSONModeHygiene(t *testing.T) {
 		t.Errorf("first line kind = %v, want meta", first["kind"])
 	}
 
-	// Every line must carry schema_version: 1.
+	// Every line must carry schema_version: 2.
 	for i, line := range lines {
 		var rec map[string]any
 		if err := json.Unmarshal(line, &rec); err != nil {
@@ -60,8 +60,8 @@ func TestJSONModeHygiene(t *testing.T) {
 			t.Errorf("line %d: missing schema_version", i)
 			continue
 		}
-		if sv != float64(1) {
-			t.Errorf("line %d: schema_version = %v, want 1", i, sv)
+		if sv != float64(2) {
+			t.Errorf("line %d: schema_version = %v, want 2", i, sv)
 		}
 	}
 }
@@ -81,7 +81,7 @@ func TestJSONLAllRecordKinds(t *testing.T) {
 	lines := splitJSONL(t, stdout.Bytes())
 	wantKinds := []string{
 		"meta", "finding", "progress",
-		"resisted", "skipped", "pending",
+		"verdict", "verdict", "verdict",
 		"error", "refusal", "summary",
 	}
 	if len(lines) != len(wantKinds) {
@@ -244,9 +244,9 @@ func splitJSONL(t *testing.T, data []byte) [][]byte {
 	return lines
 }
 
-// TestRollupParityJSON verifies resisted/skipped/pending rollup records pass
-// through the JSON writer with their verdict intact.
-func TestRollupParityJSON(t *testing.T) {
+// TestVerdictParityJSON verifies verdict records pass through the JSON
+// writer with their kind, detail, and observation window intact.
+func TestVerdictParityJSON(t *testing.T) {
 	recs := syntheticFeed()
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}
@@ -257,23 +257,28 @@ func TestRollupParityJSON(t *testing.T) {
 	}
 
 	lines := splitJSONL(t, stdout.Bytes())
-	rollups := map[string]bool{}
+	verdicts := map[string]findings.Verdict{}
 	for _, line := range lines {
 		var rec findings.Record
 		if err := json.Unmarshal(line, &rec); err != nil {
 			continue
 		}
-		switch rec.Kind {
-		case findings.KindResisted, findings.KindSkipped, findings.KindPending:
-			if rec.Rollup != nil {
-				rollups[string(rec.Kind)] = true
-			}
+		if rec.Kind == findings.KindVerdict && rec.Verdict != nil {
+			verdicts[rec.Attack] = *rec.Verdict
 		}
 	}
-	for _, kind := range []string{"resisted", "skipped", "pending"} {
-		if !rollups[kind] {
-			t.Errorf("missing %s rollup record in JSON output", kind)
+	want := map[string]findings.Verdict{
+		"stproot": {Kind: findings.VerdictResisted, Detail: "root guard blocked the BPDU", ObservedMS: 3000},
+		"vtp":     {Kind: findings.VerdictSkipped, Detail: "no VTP domain detected"},
+		"dtp":     {Kind: findings.VerdictPending, Detail: "no watch-leg traversal evidence"},
+	}
+	for attack, w := range want {
+		if got := verdicts[attack]; got != w {
+			t.Errorf("%s verdict = %+v, want %+v", attack, got, w)
 		}
+	}
+	if !strings.Contains(stdout.String(), `"observed_ms":3000`) {
+		t.Errorf("JSON output lacks the observation window: %s", stdout.String())
 	}
 }
 

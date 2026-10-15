@@ -28,6 +28,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/fsconv"
 	"go.aledante.io/FlowSeer/src/common/secret"
 	"go.aledante.io/FlowSeer/src/services/device/internal/authz"
 	"go.aledante.io/FlowSeer/src/services/device/internal/credential"
@@ -408,12 +409,12 @@ func (c *Checker) callErrorType(callCtx context.Context, err error) string {
 		callerCtx = original
 	}
 	if ctxErr := contextError(callerCtx); ctxErr != nil {
-		return telemetry.ErrorType(ctxErr)
+		return fsconv.ErrorTypeOf(ctxErr)
 	}
 	if ctxErr := callCtx.Err(); ctxErr != nil && !errors.Is(context.Cause(callCtx), errCallTimeout) {
-		return telemetry.ErrorType(ctxErr)
+		return fsconv.ErrorTypeOf(ctxErr)
 	}
-	return telemetry.ErrorType(c.classifyError(err))
+	return fsconv.ErrorTypeOf(c.classifyError(err))
 }
 
 func (c *Checker) callContext(ctx context.Context) (context.Context, context.CancelFunc) {

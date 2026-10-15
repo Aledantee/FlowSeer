@@ -21,6 +21,9 @@ Binding on humans and agents equally; each doc states its own scope.
   logging, OpenTelemetry events, traces, metrics, semantic-convention versions,
   namespacing, cardinality, correlation, and privacy; read before adding or
   changing instrumentation.
+- [`docs/conventions/dependencies.md`](docs/conventions/dependencies.md) —
+  dependency statements, pin changes, the 14-day wait, and the `tools/deps`
+  commands; read before adding or changing a direct dependency.
 - [`docs/code-style-web.md`](docs/code-style-web.md) — TypeScript web frontend
   (`frontend/web/`; own toolchain, Go rules do not apply).
 - [`docs/code-style-python.md`](docs/code-style-python.md) — Python scripts under

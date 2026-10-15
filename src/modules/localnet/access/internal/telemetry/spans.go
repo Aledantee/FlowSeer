@@ -6,6 +6,8 @@ import (
 	"go.opentelemetry.io/otel/codes"
 	semconv "go.opentelemetry.io/otel/semconv/v1.43.0"
 	"go.opentelemetry.io/otel/trace"
+
+	"go.aledante.io/FlowSeer/src/common/fsconv"
 )
 
 // operationSpanName and routeSpanName are the two low-cardinality span names
@@ -27,7 +29,7 @@ func end(span trace.Span) EndFunc {
 		if errPtr == nil || *errPtr == nil {
 			return
 		}
-		errType := "unknown"
+		errType := fsconv.ErrorTypeOther
 		if classify != nil {
 			errType = classify(*errPtr)
 		}

@@ -71,6 +71,51 @@ class RecordedRunTest(support.VerifierCase):
         )
 
     @across
+    def test_tagged_vet_covers_only_the_tag_holders_and_their_importers(self):
+        self.write("go.mod", "module example.invalid/m\n\ngo 1.27\n")
+        self.write("base/base.go", "package base\n")
+        self.write("a/a.go", 'package a\n\nimport _ "example.invalid/m/base"\n')
+        self.write("a/a_t1.go", "//go:build t1\n\npackage a\n")
+        self.write("b/b.go", 'package b\n\nimport _ "example.invalid/m/a"\n')
+        self.write("c/c.go", 'package c\n\nimport _ "example.invalid/m/base"\n')
+        self.passes("--", "base/base.go")
+        calls = self.calls()
+        self.assertIn(".\tgo vet example.invalid/m/a example.invalid/m/b example.invalid/m/base example.invalid/m/c", calls)
+        self.assertIn(".\tgo vet -tags t1 example.invalid/m/a example.invalid/m/b", calls)
+
+    @across
+    def test_tagged_vet_follows_an_import_only_a_tagged_file_holds(self):
+        self.write("go.mod", "module example.invalid/m\n\ngo 1.27\n")
+        self.write("base/base.go", "package base\n")
+        self.write("d/doc.go", "package d\n")
+        self.write("d/d_t2_test.go", '//go:build t2\n\npackage d\n\nimport _ "example.invalid/m/base"\n')
+        self.passes("--", "base/base.go")
+        calls = self.calls()
+        self.assertIn(".\tgo vet example.invalid/m/base", calls)
+        self.assertIn(".\tgo vet -tags t2 example.invalid/m/d", calls)
+
+    @across
+    def test_tagged_vet_covers_a_changed_package_whose_dependency_holds_the_tag(self):
+        self.write("go.mod", "module example.invalid/m\n\ngo 1.27\n")
+        self.write("b/x.go", "//go:build !t3\n\npackage b\n")
+        self.write("b/x_t3.go", "//go:build t3\n\npackage b\n")
+        self.write("a/a.go", 'package a\n\nimport _ "example.invalid/m/b"\n')
+        self.write("c/c.go", 'package c\n\nimport _ "example.invalid/m/a"\n')
+        self.passes("--", "a/a.go")
+        self.assertIn(".\tgo vet -tags t3 example.invalid/m/a example.invalid/m/c", self.calls())
+
+    @across
+    def test_generated_packages_of_the_root_module_get_no_vet_or_race_test(self):
+        self.write("go.mod", "module example.invalid/m\n\ngo 1.27\n")
+        self.write("base/base.go", "package base\n")
+        self.write("generated/go/x/x.go", '//go:build t5 || !t5\n\npackage x\n\nimport _ "example.invalid/m/base"\n')
+        self.passes("--", "base/base.go")
+        calls = self.calls()
+        self.assertIn(".\tgo vet example.invalid/m/base", calls)
+        self.assertIn(".\tgo test -race example.invalid/m/base", calls)
+        self.assertFalse([call for call in calls if "generated" in call], calls)
+
+    @across
     def test_schema_path_runs_the_protobuf_gates_with_its_path(self):
         self.write("spec/proto/x/v1/a.proto", 'syntax = "proto3";\n')
         self.write("generated/go/proto/x.pb.go", "package proto\n")
@@ -162,8 +207,8 @@ class RecordedRunTest(support.VerifierCase):
             ".\tgofumpt -d a.go",
             ".\tgoimports -d a.go",
             ".\tgo build ./...",
-            ".\tgo vet ./...",
-            f".\tgo test -race -p {max(cpus // 2, 2)} ./...",
+            ".\tgo vet example.invalid/m",
+            f".\tgo test -race -p {max(cpus // 2, 2)} example.invalid/m",
             GOLANGCI,
             ".\tgo -C tools/buf mod verify",
             f"{BUF} format -d --exit-code",
@@ -219,7 +264,7 @@ class FixTest(support.VerifierCase):
     @across
     def test_full_run_bounds_test_parallelism(self):
         cpus = os.cpu_count() or 4
-        self.assertIn(f".\tgo test -race -p {max(cpus // 2, 2)} ./...", self.full_run())
+        self.assertIn(f".\tgo test -race -p {max(cpus // 2, 2)} example.invalid/m", self.full_run())
 
     @across
     def test_lint_waits_for_the_machine_lock(self):

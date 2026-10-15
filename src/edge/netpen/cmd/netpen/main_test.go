@@ -6,16 +6,19 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"net"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/edge/netpen/attacks"
 	"go.aledante.io/FlowSeer/src/edge/netpen/catalog"
+	"go.aledante.io/FlowSeer/src/edge/netpen/check"
 	"go.aledante.io/FlowSeer/src/edge/netpen/findings"
 	"go.aledante.io/FlowSeer/src/edge/netpen/full"
 	"go.aledante.io/FlowSeer/src/edge/netpen/link"
-	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
 )
 
 // TestBogusCommandExitsTwoWithUsage verifies that an unrecognized command
@@ -107,73 +110,33 @@ func TestRuntimeFailureExitsOne(t *testing.T) {
 	}
 }
 
-// TestAllCommandNamesPresent verifies every catalog name + full + version
-// is registered in the dispatch table. This subsumes the old
-// TestAllStubNamesPresent: no stub remains — every command dispatches to a
-// real behavior.
-func TestAllCommandNamesPresent(t *testing.T) {
-	seen := make(map[string]bool)
-	for _, cmd := range commands {
-		seen[cmd.name] = true
-	}
-
-	// Every catalog entry name must have a dispatch handler.
-	for _, e := range catalog.Entries() {
-		if !seen[e.Name] {
-			t.Errorf("catalog entry %q has no CLI dispatch handler", e.Name)
-		}
-	}
-
-	// The orchestration-only names.
-	for _, name := range []string{"version", "full", "scan"} {
-		if !seen[name] {
-			t.Errorf("missing orchestration command %q", name)
-		}
-	}
-}
-
-// TestCatalogAndBehaviorReconciliation is the coverage test: every catalog
-// row (attack+mode) reconciles against cmd's dispatch AND the four behavior
-// packages' maps. A missing behavior fn or a dispatch handler with no
-// catalog row is a failure (full is the sole CLI-only orchestration name).
-func TestCatalogAndBehaviorReconciliation(t *testing.T) {
-	// 1. Every catalog entry name has a dispatch handler.
+// TestCatalogAndDispatchReconcile walks the shipped catalog against the
+// dispatch table both ways: every entry name has a handler, and every
+// handler is a catalog entry, with full and version the only commands
+// outside the catalog.
+func TestCatalogAndDispatchReconcile(t *testing.T) {
 	cmdSet := make(map[string]bool)
 	for _, cmd := range commands {
 		cmdSet[cmd.name] = true
 	}
 	catalogNames := make(map[string]bool)
-	for _, e := range catalog.Entries() {
+	for _, e := range attacks.Default().Entries() {
 		catalogNames[e.Name] = true
 		if !cmdSet[e.Name] {
 			t.Errorf("catalog entry %q has no CLI dispatch handler", e.Name)
 		}
 	}
 	for name := range cmdSet {
+		if name == "version" || name == "full" {
+			continue
+		}
 		if !catalogNames[name] {
-			if name == "version" || name == "full" {
-				continue
-			}
 			t.Errorf("CLI dispatch handler %q has no catalog entry", name)
 		}
 	}
-
-	// 2. Every catalog behavior name has a behavior function in one of
-	// the four behavior packages.
-	behaviors := full.MergedBehaviors()
-	for _, e := range catalog.Entries() {
-		if e.Name == "scan" {
-			continue // scan is orchestration, no behavior fn.
-		}
-		if _, ok := behaviors[e.Name]; !ok {
-			t.Errorf("catalog entry %q has no behavior function in the merged behavior map", e.Name)
-		}
-	}
-
-	// 3. Every behavior-map key has a catalog entry.
-	for name := range behaviors {
-		if !catalogNames[name] {
-			t.Errorf("behavior map key %q has no catalog entry", name)
+	for _, name := range []string{"version", "full", "scan"} {
+		if !cmdSet[name] {
+			t.Errorf("missing orchestration command %q", name)
 		}
 	}
 }
@@ -181,14 +144,11 @@ func TestCatalogAndBehaviorReconciliation(t *testing.T) {
 // TestJSONModeEmitsJSONL verifies that --json=true produces JSONL output
 // with a meta header on stdout for a simple command.
 func TestJSONModeEmitsJSONL(t *testing.T) {
-	// Inject a test command that emits one finding via the runner.
 	orig := commands
 	defer func() { commands = orig }()
 
 	origLegOpen := legOpen
 	defer func() { legOpen = origLegOpen }()
-
-	// Use a mock leg that does nothing.
 	legOpen = func(_ string) (link.Leg, error) {
 		return &noopLeg{}, nil
 	}
@@ -222,8 +182,9 @@ func TestJSONModeEmitsJSONL(t *testing.T) {
 	}
 }
 
-// TestPermanentModeRequiresAck verifies that a permanent-destructive mode
-// without --i-accept-permanent is refused (exit 1).
+// TestPermanentModeRequiresAck verifies that a permanent mode admitted by
+// the ceiling but without --i-accept-permanent is refused (exit 1) with a
+// hint naming the acknowledgment in the flag's own form.
 func TestPermanentModeRequiresAck(t *testing.T) {
 	origLegOpen := legOpen
 	defer func() { legOpen = origLegOpen }()
@@ -232,17 +193,293 @@ func TestPermanentModeRequiresAck(t *testing.T) {
 	}
 
 	var stdout, stderr bytes.Buffer
-	// vtp --wipe without --i-accept-permanent should be refused.
-	code := run([]string{"vtp", "--wipe", "--json=true"}, &stdout, &stderr)
+	code := run([]string{"vtp", "--wipe", "--max-impact", "permanent", "--vtp-domain", "lab", "--json=true"}, &stdout, &stderr)
 	if code != 1 {
 		t.Errorf("exit code: got %d, want 1 (permanent mode refused without ack)", code)
 	}
+	if !strings.Contains(stdout.String(), "--i-accept-permanent vtp=wipe") {
+		t.Errorf("refusal does not name the acknowledgment; stdout:\n%s", stdout.String())
+	}
 }
 
-// noopLeg is a no-op link.Leg for tests.
-type noopLeg struct{}
+// TestCeilingFlag pins the ceiling on the command line: the default admits
+// a temporary entry, a ceiling of none refuses it with a refusal record
+// and exit 0, and an unknown value is a usage error.
+func TestCeilingFlag(t *testing.T) {
+	origLegOpen := legOpen
+	defer func() { legOpen = origLegOpen }()
+	legOpen = func(_ string) (link.Leg, error) {
+		return &noopLeg{}, nil
+	}
 
-func (n *noopLeg) Send(_ context.Context, _ []byte) error  { return nil }
+	var stdout, stderr bytes.Buffer
+	if code := run([]string{"camflood", "--max-impact", "none", "--json=true"}, &stdout, &stderr); code != 0 {
+		t.Errorf("exit code under a ceiling of none: got %d, want 0; stderr: %s", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), `"reason":"impact temporary exceeds ceiling none"`) {
+		t.Errorf("no ceiling refusal in stdout:\n%s", stdout.String())
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+	if code := run([]string{"camflood", "--json=true"}, &stdout, &stderr); code != 0 {
+		t.Errorf("exit code under the default ceiling: got %d, want 0; stderr: %s", code, stderr.String())
+	}
+	if strings.Contains(stdout.String(), `"kind":"refusal"`) {
+		t.Errorf("the default ceiling refused a temporary entry:\n%s", stdout.String())
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+	if code := run([]string{"camflood", "--max-impact", "catastrophic"}, &stdout, &stderr); code != 2 {
+		t.Errorf("exit code for an unknown ceiling: got %d, want 2", code)
+	}
+	if !strings.Contains(stderr.String(), "--max-impact must be none, temporary, or permanent") {
+		t.Errorf("stderr does not explain the ceiling values: %s", stderr.String())
+	}
+}
+
+// verdictFromStdout decodes the JSONL on stdout and returns the verdict
+// record's payload, or nil.
+func verdictFromStdout(t *testing.T, stdout string) *findings.Verdict {
+	t.Helper()
+	var verdict *findings.Verdict
+	for _, line := range strings.Split(strings.TrimSpace(stdout), "\n") {
+		if line == "" {
+			continue
+		}
+		var rec findings.Record
+		if err := json.Unmarshal([]byte(line), &rec); err != nil {
+			t.Fatalf("decode JSONL record %q: %v", line, err)
+		}
+		if rec.Kind == findings.KindVerdict {
+			verdict = rec.Verdict
+		}
+	}
+	return verdict
+}
+
+// stubShipped replaces the shipped catalog for the test with one whose
+// named behavior runs stub, so a command test reads what the runner
+// handed the behavior.
+func stubShipped(t *testing.T, name string, stub check.Run) {
+	t.Helper()
+	orig := shipped
+	t.Cleanup(func() { shipped = orig })
+	bs := attacks.Behaviors()
+	for i := range bs {
+		if bs[i].Name == name {
+			bs[i].Run = stub
+		}
+	}
+	shipped = catalog.MustNew(bs...)
+}
+
+// TestMissingTargetExitsTwo pins the one-round contract on the command: a
+// check run with its hosts' addresses but not their MACs emits a skipped
+// verdict naming the two flags in the form that carries both parts, sends
+// nothing, prints that text on stderr, and exits 2.
+func TestMissingTargetExitsTwo(t *testing.T) {
+	origLegOpen := legOpen
+	defer func() { legOpen = origLegOpen }()
+	leg := &noopLeg{}
+	legOpen = func(_ string) (link.Leg, error) { return leg, nil }
+
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"arpspoof", "--json=true", "--victim", "172.16.0.10", "--gateway", "172.16.0.1"}, &stdout, &stderr)
+	if code != 2 {
+		t.Errorf("exit code: got %d, want 2; stderr: %s", code, stderr.String())
+	}
+	if leg.sends.Load() != 0 {
+		t.Errorf("sends = %d, want 0", leg.sends.Load())
+	}
+	verdict := verdictFromStdout(t, stdout.String())
+	if verdict == nil || verdict.Kind != findings.VerdictSkipped {
+		t.Fatalf("verdict = %+v, want skipped", verdict)
+	}
+	const want = "the check needs: --victim <ip>,<mac>, --gateway <ip>,<mac>"
+	if verdict.Detail != want {
+		t.Errorf("verdict detail = %q, want %q", verdict.Detail, want)
+	}
+	if !strings.Contains(stderr.String(), want) {
+		t.Errorf("stderr lacks %q: %s", want, stderr.String())
+	}
+}
+
+// TestTargetFlagsParse pins the flag shapes: a host with and without its
+// MAC, an address, a network, and the number ranges, each typed by family
+// so a value of the other family exits 2 at the flag with the form it
+// wants.
+func TestTargetFlagsParse(t *testing.T) {
+	origLegOpen := legOpen
+	defer func() { legOpen = origLegOpen }()
+	legOpen = func(_ string) (link.Leg, error) { return &noopLeg{}, nil }
+
+	var stdout, stderr bytes.Buffer
+	code := run([]string{
+		"arpspoof", "--json=true",
+		"--victim", "172.16.0.10,00:aa:bb:cc:dd:01", "--gateway", "172.16.0.1,00:aa:bb:cc:dd:fe",
+	}, &stdout, &stderr)
+	if code != 0 {
+		t.Errorf("exit code with a full target: got %d, want 0; stderr: %s", code, stderr.String())
+	}
+
+	for _, tc := range []struct {
+		args []string
+		want string
+	}{
+		{[]string{"arpspoof", "--victim", "not-an-ip"}, "want an IPv4 address as <ip> or <ip>,<mac>"},
+		{[]string{"arpspoof", "--victim", "172.16.0.10,zz"}, "want a six-octet MAC after the comma"},
+		{[]string{"arpspoof", "--victim", "10.0.0.1,0102.0304.0506.0708"}, "want a six-octet MAC after the comma"},
+		{[]string{"portsteal", "--victim", "2001:db8::1"}, "want an IPv4 address as <ip> or <ip>,<mac>"},
+		{[]string{"ndpspoof", "--victim6", "10.0.0.5"}, "want an IPv6 address as <ip> or <ip>,<mac>"},
+		{[]string{"ospf", "--router-id", "2001:db8::1"}, `invalid value "2001:db8::1" for flag -router-id: want an IPv4 address`},
+		{[]string{"roguera", "--prefix6", "fd00::"}, "want an IPv6 network in CIDR form"},
+		{[]string{"roguera", "--prefix6", "10.0.0.0/8"}, "want an IPv6 network in CIDR form"},
+		{[]string{"eigrp", "--route4", "2001:db8::/64"}, "want an IPv4 network in CIDR form"},
+		{[]string{"eigrp", "--route4", "::ffff:10.0.0.0/104"}, "want an IPv4 network in CIDR form"},
+		{[]string{"arpsweep", "--sweep-net", "::ffff:10.0.0.0/104"}, "want an IPv4 network in CIDR form"},
+		{[]string{"roguera", "--prefix6", "::ffff:10.0.0.0/104"}, "want an IPv6 network in CIDR form"},
+		{[]string{"vrrp", "--vrid", "300"}, "want a number from 1 to 255"},
+		{[]string{"vlanhop", "--outer-vlan", "0"}, "want a VLAN id from 1 to 4094"},
+		{[]string{"vlanhop", "--outer-vlan", "4095"}, "want a VLAN id from 1 to 4094"},
+		{[]string{"vlanhop", "--inner-vlan", "4096"}, "want a VLAN id from 1 to 4094"},
+		{[]string{"hsrp", "--group", "-1"}, "want a number from 0 to 65535"},
+	} {
+		stdout.Reset()
+		stderr.Reset()
+		if code := run(tc.args, &stdout, &stderr); code != 2 {
+			t.Errorf("%v: exit code %d, want 2", tc.args, code)
+		}
+		if !strings.Contains(stderr.String(), tc.want) {
+			t.Errorf("%v: stderr lacks %q:\n%s", tc.args, tc.want, stderr.String())
+		}
+		if stdout.Len() != 0 {
+			t.Errorf("%v: stdout = %q, want no record", tc.args, stdout.String())
+		}
+	}
+}
+
+// TestGroupZeroReachesRunner pins that --group 0 is a set group: the
+// behavior sees a non-nil pointer to 0, since HSRP group 0 is a group.
+func TestGroupZeroReachesRunner(t *testing.T) {
+	origLegOpen := legOpen
+	defer func() { legOpen = origLegOpen }()
+	legOpen = func(_ string) (link.Leg, error) { return &noopLeg{}, nil }
+	var got *uint16
+	stubShipped(t, "hsrp", func(_ context.Context, deps check.Deps) (check.Verdict, error) {
+		deps.Teardown.Arm("stub", func(context.Context) error { return nil })
+		got = deps.Target.Group
+		return check.Pending("stub"), nil
+	})
+
+	var stdout, stderr bytes.Buffer
+	if code := run([]string{"hsrp", "--json=true", "--group", "0", "--vip", "10.0.0.1"}, &stdout, &stderr); code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr: %s", code, stderr.String())
+	}
+	if got == nil || *got != 0 {
+		t.Errorf("behavior saw group %v, want a pointer to 0", got)
+	}
+}
+
+// TestObserveFlagReachesRunner pins that --observe is the window the
+// behavior receives.
+func TestObserveFlagReachesRunner(t *testing.T) {
+	origLegOpen := legOpen
+	defer func() { legOpen = origLegOpen }()
+	legOpen = func(_ string) (link.Leg, error) { return &noopLeg{}, nil }
+	stubShipped(t, "arpspoof", func(_ context.Context, deps check.Deps) (check.Verdict, error) {
+		deps.Teardown.Arm("stub", func(context.Context) error { return nil })
+		return check.Pending(deps.Observe.String()), nil
+	})
+
+	var stdout, stderr bytes.Buffer
+	if code := run([]string{"arpspoof", "--json=true", "--observe", "750ms"}, &stdout, &stderr); code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr: %s", code, stderr.String())
+	}
+	if v := verdictFromStdout(t, stdout.String()); v == nil || v.Detail != "750ms" {
+		t.Errorf("verdict = %+v, want the 750ms window as its detail", v)
+	}
+}
+
+// TestTargetFlagsAcceptEachFamily pins the accepting side of every typed
+// flag at its range bound, and that the behavior reads the IPv4 values in
+// their 4-byte form and the networks with the mask length of their family.
+func TestTargetFlagsAcceptEachFamily(t *testing.T) {
+	origLegOpen := legOpen
+	defer func() { legOpen = origLegOpen }()
+	legOpen = func(_ string) (link.Leg, error) { return &noopLeg{}, nil }
+	var got check.Target
+	stubShipped(t, "arpspoof", func(_ context.Context, deps check.Deps) (check.Verdict, error) {
+		deps.Teardown.Arm("stub", func(context.Context) error { return nil })
+		got = deps.Target
+		return check.Pending("stub"), nil
+	})
+
+	var stdout, stderr bytes.Buffer
+	args := []string{
+		"arpspoof", "--json=true",
+		"--victim", "10.0.0.10,00:aa:bb:cc:dd:01", "--gateway", "10.0.0.1",
+		"--victim6", "fd00::10,00:aa:bb:cc:dd:02", "--server6", "fd00::1",
+		"--vip", "10.0.0.1", "--router-id", "10.0.0.2", "--offer-ip", "10.0.0.3",
+		"--group", "65535", "--vrid", "255",
+		"--outer-vlan", "4094", "--inner-vlan", "1", "--voice-vlan", "4094",
+		"--vtp-domain", strings.Repeat("d", 32),
+		"--prefix6", "fd00::/64", "--route4", "10.9.0.0/24", "--sweep-net", "10.9.0.0/30",
+	}
+	if code := run(args, &stdout, &stderr); code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr: %s", code, stderr.String())
+	}
+	for name, ip := range map[string]net.IP{"victim": got.Victim.IP, "gateway": got.Gateway.IP, "vip": got.VirtualIP, "router-id": got.RouterID, "offer-ip": got.OfferIP} {
+		if len(ip) != net.IPv4len {
+			t.Errorf("%s = %v (%d bytes), want the 4-byte form", name, ip, len(ip))
+		}
+	}
+	if !got.Victim6.IP.Equal(net.ParseIP("fd00::10")) || got.Victim6.MAC.String() != "00:aa:bb:cc:dd:02" || !got.Server6.IP.Equal(net.ParseIP("fd00::1")) {
+		t.Errorf("IPv6 hosts = %+v and %+v, want fd00::10 with its MAC and fd00::1", got.Victim6, got.Server6)
+	}
+	if got.Group == nil || *got.Group != 65535 || got.VRID != 255 || got.OuterVLAN != 4094 || got.InnerVLAN != 1 || got.VoiceVLAN != 4094 || len(got.VTPDomain) != 32 {
+		t.Errorf("numbers and domain = group %v vrid %d vlans %d %d %d domain %d bytes, want the bounds", got.Group, got.VRID, got.OuterVLAN, got.InnerVLAN, got.VoiceVLAN, len(got.VTPDomain))
+	}
+	if got.Prefix6 == nil || got.Prefix6.String() != "fd00::/64" || len(got.Prefix6.Mask) != net.IPv6len {
+		t.Errorf("prefix6 = %v, want fd00::/64 with a 16-byte mask", got.Prefix6)
+	}
+	for name, n := range map[string]*net.IPNet{"route4": got.Route4, "sweep-net": got.SweepNet} {
+		if n == nil || len(n.IP) != net.IPv4len || len(n.Mask) != net.IPv4len {
+			t.Errorf("%s = %v, want a 4-byte address and mask", name, n)
+		}
+	}
+}
+
+// TestAckListRejectsBareMode pins that the acknowledgment flag takes only
+// name=mode, since a bare mode can never match a gate key.
+func TestAckListRejectsBareMode(t *testing.T) {
+	var a ackList
+	for _, bad := range []string{"wipe", "=wipe", "vtp=", ""} {
+		if err := a.Set(bad); err == nil {
+			t.Errorf("Set(%q) = nil, want an error", bad)
+		}
+	}
+	if err := a.Set("vtp=wipe"); err != nil {
+		t.Fatalf("Set(vtp=wipe): %v", err)
+	}
+	if len(a) != 1 || a[0].Name != "vtp" || a[0].Mode != "wipe" {
+		t.Errorf("ackList = %+v, want [{vtp wipe}]", a)
+	}
+
+	var stdout, stderr bytes.Buffer
+	if code := run([]string{"vtp", "--i-accept-permanent", "wipe"}, &stdout, &stderr); code != 2 {
+		t.Errorf("exit code for a bare mode: got %d, want 2", code)
+	}
+}
+
+// noopLeg is a no-op link.Leg for tests that counts its sends.
+type noopLeg struct{ sends atomic.Int64 }
+
+func (n *noopLeg) Send(_ context.Context, _ []byte) error {
+	n.sends.Add(1)
+	return nil
+}
 func (n *noopLeg) SetFilter(_ []link.RawInstruction) error { return nil }
 func (n *noopLeg) Receive(ctx context.Context) <-chan link.Frame {
 	out := make(chan link.Frame)
@@ -253,6 +490,10 @@ func (n *noopLeg) Receive(ctx context.Context) <-chan link.Frame {
 	return out
 }
 func (n *noopLeg) Close() error { return nil }
+
+func (n *noopLeg) Addr() link.Addr {
+	return link.Addr{MAC: net.HardwareAddr{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}, IPv4: net.IPv4(10, 0, 0, 2).To4()}
+}
 
 // TestLegOpenErrorSeam verifies the legOpenError seam works.
 func TestLegOpenErrorSeam(t *testing.T) {
@@ -282,23 +523,20 @@ func TestResolveMode(t *testing.T) {
 
 // TestStreamingJSONWritesRecordsMidRun verifies that JSONL records are
 // written to stdout WHILE the run is in flight, not buffered until
-// completion. A slow producer emits
-// two records with a gap between them; the first record's bytes must
-// appear on stdout before the second is emitted.
+// completion.
 func TestStreamingJSONWritesRecordsMidRun(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 
-	// Slow channel: emit first record, wait, emit second, close.
 	ch := make(chan findings.Record, 2)
 	firstWritten := make(chan struct{})
 
-	// Producer goroutine.
 	go func() {
 		rec1 := findings.NewRecord(findings.KindFinding)
 		rec1.Attack = "first"
 		ch <- rec1
 		close(firstWritten)
-		// Wait for the consumer to confirm it saw the first record.
+		// The gap is the timing under test: the first record must be
+		// on stdout before the second is produced.
 		time.Sleep(50 * time.Millisecond)
 		rec2 := findings.NewRecord(findings.KindFinding)
 		rec2.Attack = "second"
@@ -306,54 +544,47 @@ func TestStreamingJSONWritesRecordsMidRun(t *testing.T) {
 		close(ch)
 	}()
 
-	// Consumer: streamJSON writes records as they arrive.
 	meta := findings.Meta{Tool: "netpen", Version: "test", AttackLeg: "lo", Started: time.Now()}
 	if err := streamJSON(&stdout, &stderr, ch, meta); err != nil {
 		t.Fatal(err)
 	}
 
 	out := stdout.String()
-	// Must have all three lines: meta, first, second, plus summary.
 	lines := strings.Split(strings.TrimSpace(out), "\n")
 	if len(lines) < 4 {
 		t.Fatalf("got %d JSONL lines, want at least 4: %q", len(lines), out)
 	}
-	// First line is meta, second is "first" finding.
 	if !strings.Contains(lines[1], `"first"`) {
 		t.Errorf("line 1 should contain 'first': %q", lines[1])
 	}
 	if !strings.Contains(lines[2], `"second"`) {
 		t.Errorf("line 2 should contain 'second': %q", lines[2])
 	}
-	// Last line is summary.
 	if !strings.Contains(lines[len(lines)-1], `"kind":"summary"`) {
 		t.Errorf("last line should be summary: %q", lines[len(lines)-1])
 	}
 }
 
 func TestFullStreamingJSONWritesOneAccurateSummary(t *testing.T) {
-	behavior := func(_ context.Context, deps runner.Deps) error {
-		if deps.Teardown != nil {
-			deps.Teardown.Arm("test-restore", func(context.Context) error { return nil })
+	bs := attacks.Behaviors()
+	for i := range bs {
+		if bs[i].Orchestration {
+			continue
 		}
-		deps.Emitter.Finding("test", []byte(`{"observed":true}`))
-		return nil
-	}
-	behaviors := map[string]runner.Behavior{
-		"stproot":    behavior,
-		"camflood":   behavior,
-		"dhcpstarve": behavior,
-		"gratarp":    behavior,
-		"dtp":        behavior,
-		"roguera":    behavior,
-		"llmnr":      behavior,
-		"voicevlan":  behavior,
+		bs[i].Run = func(_ context.Context, deps check.Deps) (check.Verdict, error) {
+			if deps.Teardown != nil {
+				deps.Teardown.Arm("test-restore", func(context.Context) error { return nil })
+			}
+			deps.Emitter.Finding("test", []byte(`{"observed":true}`))
+			return check.Pending("stub"), nil
+		}
 	}
 
 	f := full.NewFull(full.Config{
 		AttackLeg: &noopLeg{},
 		Duration:  10 * time.Millisecond,
-		Behaviors: behaviors,
+		Catalog:   catalog.MustNew(bs...),
+		MaxImpact: check.ImpactTemporary,
 		ReconFn: func(context.Context, full.Config) (full.Evidence, error) {
 			return full.Evidence{
 				full.EvVoiceVLAN: 200,
@@ -386,7 +617,7 @@ func TestFullStreamingJSONWritesOneAccurateSummary(t *testing.T) {
 	want := findings.Summary{
 		Attacks:  8,
 		Findings: 8,
-		Pending:  7,
+		Pending:  8,
 		SweepNet: "192.0.2.0/24",
 	}
 	if got != want {

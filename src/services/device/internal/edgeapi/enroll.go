@@ -17,6 +17,7 @@ import (
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/fsconv"
 	"go.aledante.io/FlowSeer/src/services/device/internal/edgestore"
 )
 
@@ -109,8 +110,8 @@ func (s *Service) Enroll(ctx context.Context, req *connect.Request[attachv1.Enro
 	if setupKey.GetStatus() == edgev1.SetupKeyStatus_SETUP_KEY_STATUS_CONSUMED {
 		if !ed25519.PublicKey(state.GetPublicKey()).Equal(public) {
 			s.log.WarnContext(ctx, "setup key presented with another key",
-				slog.String("otel.event.name", "flowseer.edge.setup_key.reused"),
-				slog.String("flowseer.edge.id", edgeID),
+				fsconv.EventName("flowseer.edge.setup_key.reused"),
+				fsconv.EdgeID(edgeID),
 				slog.String("flowseer.edge.setup_key.id", keyID),
 			)
 			return nil, connectErr(errs.New().Code(ErrCodeSetupKeyRefused).Attr("edge", edgeID).

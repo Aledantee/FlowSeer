@@ -11,6 +11,7 @@ import (
 
 	attachv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/fsconv"
 )
 
 // ErrCodeHeartbeat identifies a heartbeat loop that could not be started.
@@ -123,9 +124,9 @@ func RunHeartbeat(ctx context.Context, cfg HeartbeatConfig) error {
 				// and have opposite remedies. Without it the record says
 				// only that two attempts failed.
 				attrs := []any{
-					slog.String("otel.event.name", "flowseer.edge.contact.lost"),
+					fsconv.EventName("flowseer.edge.contact.lost"),
 					slog.Int("flowseer.edge.missed_heartbeats", consecutive),
-					slog.String("error.type", errorType(err)),
+					fsconv.ErrorType(err),
 				}
 				// Bounded by the interval: Freeze holds until its audit
 				// record is durable, and a central that stops answering
@@ -136,7 +137,7 @@ func RunHeartbeat(ctx context.Context, cfg HeartbeatConfig) error {
 				cancel()
 				if freezeErr != nil {
 					log.WarnContext(ctx, "lane frozen with records undelivered",
-						append(attrs, slog.String("flowseer.edge.freeze.error_type", errorType(freezeErr)))...)
+						append(attrs, slog.String("flowseer.edge.freeze.error_type", fsconv.ErrorTypeOf(freezeErr)))...)
 				} else {
 					log.WarnContext(ctx, "contact with central lost; lane frozen", attrs...)
 					frozen = true
@@ -147,7 +148,7 @@ func RunHeartbeat(ctx context.Context, cfg HeartbeatConfig) error {
 				cfg.Lane.Unfreeze(ctx)
 				frozen = false
 				log.InfoContext(ctx, "contact with central restored; lane unfrozen",
-					slog.String("otel.event.name", "flowseer.edge.contact.restored"))
+					fsconv.EventName("flowseer.edge.contact.restored"))
 			}
 			consecutive = 0
 		}

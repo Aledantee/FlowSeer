@@ -10,7 +10,6 @@ package telemetry
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 	"strings"
 
@@ -22,6 +21,7 @@ import (
 
 	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/fsconv"
 )
 
 // scopeName is the device service's instrumentation scope.
@@ -39,12 +39,15 @@ var ErrCodeInstrument = errs.NewCode("device-telemetry/instrument")
 // on the event; the descriptions are operator-written text about a customer's
 // topology and belong on the event and nowhere else.
 const (
-	attrKeyDevice         = "flowseer.device.id"
-	attrKeyInterface      = "flowseer.device.interface"
+	// InterfaceKey names the interface a drift detection is about.
+	InterfaceKey = "flowseer.device.interface"
+	// DriftOutcomeKey names what central did about a detected difference.
+	DriftOutcomeKey = "flowseer.device.drift.outcome"
+
 	attrKeyExpected       = "flowseer.device.description.expected"
 	attrKeyObserved       = "flowseer.device.description.observed"
 	attrKeyManagementMode = attribute.Key("flowseer.device.management_mode")
-	attrKeyDriftOutcome   = attribute.Key("flowseer.device.drift.outcome")
+	attrKeyDriftOutcome   = attribute.Key(DriftOutcomeKey)
 )
 
 // DriftOutcome is what central did about a difference it found. It is a closed
@@ -192,12 +195,12 @@ func (v *View) DriftDetected(
 	}
 
 	v.logger.LogAttrs(ctx, slog.LevelInfo, "drift detected",
-		slog.String("otel.event.name", "flowseer.device.drift.detected"),
-		slog.String(attrKeyDevice, deviceID),
-		slog.String(attrKeyInterface, iface),
+		fsconv.EventName("flowseer.device.drift.detected"),
+		fsconv.DeviceID(deviceID),
+		slog.String(InterfaceKey, iface),
 		slog.String(attrKeyExpected, expected),
 		slog.String(attrKeyObserved, observed),
-		slog.String(string(attrKeyDriftOutcome), string(outcome)),
+		slog.String(DriftOutcomeKey, string(outcome)),
 	)
 	v.driftDetections.Add(ctx, 1, metric.WithAttributes(
 		attrKeyManagementMode.String(mode.String()),
@@ -223,23 +226,4 @@ func (v *View) DriftDetected(
 // in go.mod before changing this.
 func RPCMethod(procedure string) string {
 	return strings.TrimPrefix(procedure, "/")
-}
-
-// ErrorType classifies a failure for semconv's error.type: the error's own
-// code where it has one, and the two context causes by name where it does
-// not. Bounded on purpose, because it becomes a metric dimension downstream,
-// and never the error's own message, which carries whatever the transport put
-// in it.
-func ErrorType(err error) string {
-	if code, ok := errs.CodeOf(err); ok {
-		return string(code)
-	}
-	switch {
-	case errors.Is(err, context.DeadlineExceeded):
-		return "context.deadline_exceeded"
-	case errors.Is(err, context.Canceled):
-		return "context.canceled"
-	default:
-		return "unknown"
-	}
 }

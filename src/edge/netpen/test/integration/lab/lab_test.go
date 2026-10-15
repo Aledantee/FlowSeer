@@ -65,12 +65,19 @@ func TestConfigFromEnv(t *testing.T) {
 	}
 }
 
+// TestInjectCommand pins the command line the injector runs, including the
+// target flags the behavior needs, since without them the command exits 2
+// before sending a frame.
 func TestInjectCommand(t *testing.T) {
 	cfg := Config{InjectionInterface: "eth0"}
-	got := cfg.InjectCommand("ospf", 2*time.Second, 20*time.Second)
-	want := []string{"sudo", "-S", "-p", "", "netpen", "ospf", "-i", "eth0", "--json=true", "--duration", "2s", "--timeout", "20s"}
+	got := cfg.InjectCommand("ospf", 2*time.Second, 20*time.Second, "--router-id", "10.0.0.99")
+	want := []string{"sudo", "-S", "-p", "", "netpen", "ospf", "-i", "eth0", "--json=true", "--duration", "2s", "--timeout", "20s", "--router-id", "10.0.0.99"}
 	if !slices.Equal(got, want) {
 		t.Errorf("InjectCommand() = %q, want %q", got, want)
+	}
+	bare := cfg.InjectCommand("full", 3*time.Second, 20*time.Second)
+	if len(bare) != 13 {
+		t.Errorf("InjectCommand() without a target = %q, want the 13 base arguments", bare)
 	}
 }
 

@@ -288,7 +288,7 @@ func vrrpFrame(vrid, priority uint8, vips []net.IP) []byte {
 	body[3] = byte(len(vips))
 	body[4] = 0 // auth type
 	body[5] = 1 // adver interval
-	// checksum at [6:8] — left 0; field-set verified.
+	// The checksum at [6:8] stays 0. The fixture compares the field set, not the bytes.
 	for i, vip := range vips {
 		copy(body[8+4*i:], vip.To4())
 	}

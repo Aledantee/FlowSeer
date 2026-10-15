@@ -11,20 +11,22 @@ amends: docs/architecture/2026-09-05-verified-device-access-direction.md
 
 ## Goal
 
-A site runs one to n edge nodes behind one virtual IP and keeps managing its
-devices when a node stops. The means are an edge group in the registry, a
-placement rule in central that spreads device lanes over the group's nodes,
-shared receiver identity for syslog and traps, and an agent that builds for
-FreeBSD.
+A Site runs several enrolled Edges, distributes device reads across them,
+and keeps reads available when a node stops. Later phases provision each
+node's device accounts through typed mutations, provide the shared inbound
+receiver identity, and enable write failover only for verified device fences.
 
-Stop condition: the plan is wrong if a device can be written by two nodes
-for one sequence.
+Stop condition: no successor may receive write authority while a predecessor
+can still write to the device.
 
 ## Decisions
 
-The shape is in the
-[edge high availability record](../architecture/2026-10-03-edge-high-availability-direction.md),
-proposed and awaiting acceptance. The ones the user settled:
+The [edge HA direction](../architecture/2026-10-03-edge-high-availability-direction.md)
+is proposed. It records the staged design and awaits acceptance. The
+[verified access direction](../architecture/2026-09-05-verified-device-access-direction.md),
+decisions 8 and 9, still requires positive fencing and per-operation secrets.
+
+The existing decisions remain:
 
 - A group has one to n nodes. (decided by the user, 2026-10-03)
 - The nodes share a virtual IP for syslog and traps. (decided by the user,
@@ -38,77 +40,160 @@ proposed and awaiting acceptance. The ones the user settled:
 - A group is in a Site. (decided by the user, 2026-10-03)
 - Device credentials reach a node on demand and are never stored. (decided
   by the user, 2026-10-03)
-- No credential cache across operations. Why: the agent already keeps
-  nothing standing (`src/edge/agent/README.md`), and a cache buys no
-  availability because a node without central receives no dispatch.
-- A write moves to another node only behind a positive fence. Why: decision
-  8 of the verified device access record.
 - The fence is the old node's own account on the device: every node has its
   own account, and the successor disables the old one, closes its sessions,
   and reads both back. (decided by the user, 2026-10-03)
-- A device with no fence procedure keeps today's behavior for writes. Why:
-  blocking is always safe, and reads still move.
-- This plan starts after the central high availability plan lands. Why: both
-  change the device service host and the registry, and moving a lane relies
-  on any central replica serving an edge.
-- Each node is its own enrolled Edge with its own key and NATS account. Why:
-  `CONCEPTS.md` makes an Edge the process that holds a self-generated key,
-  and the account per edge is the security boundary
-  (`src/modules/edgebus/README.md`).
-- Only central decides which node hosts a lane. Why: both halves of every
-  comparison are central's (`src/services/device/README.md`), and nodes
-  electing between themselves would be a second source of truth.
+
+- First deliver group placement and read failover. Writes remain bound to
+  their original node until a separately verified fence exists. Why: the
+  device-specific fence procedure has not been verified for any family
+  (decided by the user, 2026-10-15).
+- FlowSeer provisions per-node accounts through typed mutations. Why:
+  account lifecycle belongs to the managed configuration, rather than an
+  operator-maintained prerequisite (decided by the user, 2026-10-15).
+- Keep central HA as a prerequisite. Why: placement must work when the
+  dispatch connection and placement controller run on different replicas
+  (decided by the user, 2026-10-15).
+- Add a minimal Site entity with typed refs and group membership. Why:
+  Edge and group ownership must refer to the same Site contract. Broader
+  inventory administration waits (decided by the user, 2026-10-15).
+- Devices may target individual group members as well as the shared virtual
+  address. Why: a device can configure one node as its primary syslog server
+  and other nodes as fallbacks, without waiting for virtual-address movement
+  (decided by the user, 2026-10-15).
+- Deduplicate copies of one syslog emission sent to several group members.
+  Why: a device may send to every configured server rather than using an
+  ordered fallback list (decided by the user, 2026-10-15).
+- Apply cross-node deduplication to device-originated events generally,
+  including syslog and SNMP traps. Why: copies received by several nodes
+  represent one source event regardless of the notification protocol
+  (decided by the user, 2026-10-15).
+- Each group contains one to 64 distinct Edges within one Site and one
+  tenant. Why: bounded registry validation and deterministic assignment
+  need a finite membership set. Tenant scope remains authenticated context.
+- Read placement and write ownership are separate durable facts. Why:
+  `dispatchapi/relay.go` currently derives both from `Resolver.Devices`,
+  and changing that list alone would resend an open mutation to a successor.
+- Initial assignments spread devices evenly across healthy members. An
+  automatic read move does not rebalance healthy devices or move them back
+  when a member returns. Why: recovery should not create another outage.
+- The existing `edge_stale_after` threshold, default three minutes, controls
+  read failover. Why: `edgeapi/contact.go` already derives contact from
+  heartbeat timestamps. Configure that threshold rather than introducing
+  a competing clock.
+- Phases 2 through 4 require re-planning against their landed predecessors.
+  Why: device account management and receiver security contracts do not yet
+  exist. Their requirements below stay in scope without inventing vendor
+  guarantees or duplicating the FreeBSD packet I/O work.
 
 ## Requirements
 
-1. A group keeps its devices managed through the loss of one node. Example:
-   with the hosting node stopped, a read of a managed interface completes
-   through another node within the stale threshold plus one poll interval.
-2. A device is never written by two nodes for one sequence. Example: when a
-   node goes stale while a mutation is at `POSSIBLY_APPLIED`, no other node
-   receives an `ExecuteRequest` for that device until a fence operation has
-   read back that the old node's account is disabled and holds no session.
-3. A node gets a device credential only for a lane placed on it. Example:
-   `AcquireReadCredential` from a group member that does not host the
-   device's lane is refused.
-4. A node keeps no device credential after the operation. Example: after a
-   read completes, the agent's state directory holds no credential material
-   and a second read makes a second `AcquireReadCredential` call.
-5. A returning node does not take its lanes back by itself. Example: after
-   the stopped node restarts and reports `Onboarded`, its former lanes stay
-   where central moved them.
-6. Lanes are spread over the healthy nodes. Example: a group of three nodes
-   and thirty devices places no more than ten lanes on any node.
-7. Every node of a group presents one receiver identity. Example: two nodes
-   answer an SNMPv3 inform with the same engine ID.
-8. A node reports whether it holds the group address. Example: after the
-   address moves, central's record of the holder changes within one
-   heartbeat.
-9. The agent builds for FreeBSD. Example:
+1. A group and every member name one Site. Example: loading a group with a
+   member from another Site or tenant fails before any dispatch.
+2. Reads survive a node loss. Example: after A becomes stale, B receives a
+   new read assignment within one placement interval, with a new sequence
+   for each retried open read. Its result is queryable through central.
+3. Write ownership survives read movement. Example: A holds a submitted
+   mutation when its reads move to B. B receives no mutation, submission
+   credential, checkpoint, or mutation recovery work for that lane.
+4. Placement generations prevent old read reports from changing current
+   state. Example: A to B to A does not accept A's first generation report.
+   The check and the journal update occur in the same compare-and-set.
+5. Only an authorized operation owner obtains a read credential.
+   Example: C's request for B's read sequence and generation is refused.
+   Typed onboarding probes check the corresponding read or write owner.
+   Credentials already issued cannot be recalled by a placement change.
+6. Account management is typed and recoverable. Example: interrupted account
+   creation is reconciled from a fresh device read before retry, preserves
+   an administrative recovery path, and never enables write failover itself.
+7. A write moves only after its device-specific procedure verifies disabled
+   predecessor accounts and absent sessions. Example: a partial or unknown
+   fence outcome leaves successor write authority refused across restart.
+8. Inbound traffic accepts the shared virtual address and individual node
+   addresses. Example: a sender configured with A as primary and B and C as
+   fallbacks sends to B after A fails, without virtual-address movement.
+   Records retain the receiving Edge as provenance, while A's older buffered
+   records can still arrive. Neither destination selection nor address
+   ownership grants outbound lane ownership.
+9. Receiver identity and FreeBSD behavior are verified independently of
+   placement. Example: a real inform sender accepts the receiver after an
+   address move, and a FreeBSD agent passes the selected end-to-end checks.
+   The agent already builds for FreeBSD:
    `CGO_ENABLED=0 GOOS=freebsd GOARCH=amd64 go build ./src/edge/agent/cmd/agent`
    exits 0.
 
+10. Copies of one device-originated event received by several members produce
+    one operator-visible event, for every supported event type. Example: run
+    the case with a syslog emission and an SNMP trap sent to A, B, and C.
+    Each source event is counted once, with every receiving Edge retained
+    as evidence. Distinct occurrences remain distinct even when payloads match.
+
 ## Out of scope
 
-- Moving the virtual IP. A site configures CARP or another mechanism.
-- The syslog and trap listeners themselves, which the ingestion plan adds.
-  This plan gives them a shared identity and an address to bind.
-- Telemetry buffered on a failed node. It is delivered when that node
-  returns.
-- Nodes of one group in different subnets.
-- Local capture on FreeBSD.
+- Moving the virtual IP, cross-subnet groups, and delivery of datagrams lost
+  during address movement.
+- A general Site inventory API, automatic inventory discovery, and adapter
+  hosts without a Site.
+- Treating central report generations or expired credentials as a device
+  fence. Group members are enrolled participants, not mutually trusted with
+  unrestricted device credentials. A compromised member that already holds
+  a credential is outside the read-placement authorization guarantee.
+
+## Units
+
+### U1. Site, groups, and read failover
+Files: docs/plans/2026-10-03-1533-feat-edge-high-availability-phase1-plan.md
+After: none
+Change: the first phase implements group identity and durable read placement after central HA.
+Tests: the phase names the schema, placement, credential, and restart checks.
+Verify: `uv run tools/scripts/run.py verify change -- docs/plans/2026-10-03-1533-feat-edge-high-availability-phase1-plan.md`
+
+### U2. Typed per-node account lifecycle
+Files: docs/plans/2026-10-03-1533-feat-edge-high-availability-phase2-plan.md
+After: U1
+Change: FlowSeer provisions and reconciles node-specific device accounts before they become failover credentials.
+Tests: the phase defines account interruption and recovery acceptance cases.
+Verify: `uv run tools/scripts/run.py verify change -- docs/plans/2026-10-03-1533-feat-edge-high-availability-phase2-plan.md`
+
+### U3. Shared receiver identity and platform validation
+Files: docs/plans/2026-10-03-1533-feat-edge-high-availability-phase3-plan.md
+After: U1
+Change: group receiver identity, individual node destinations, cross-node event deduplication, and address-holder reporting support inbound failover.
+Tests: the phase requires real sender and FreeBSD evidence.
+Verify: `uv run tools/scripts/run.py verify change -- docs/plans/2026-10-03-1533-feat-edge-high-availability-phase3-plan.md`
+
+### U4. Verified device fencing and write failover
+Files: docs/plans/2026-10-03-1533-feat-edge-high-availability-phase4-plan.md
+After: U2
+Change: verified device-family fences permit successor write ownership.
+Tests: the phase requires a paused predecessor, session termination evidence, and durable refusal on ambiguous fences.
+Verify: `uv run tools/scripts/run.py verify change -- docs/plans/2026-10-03-1533-feat-edge-high-availability-phase4-plan.md`
+
+Waves: U1 | U2 U3 | U4
+
+## Verification
+
+Each phase runs its focused checks and diff-aware verifier. Schema phases
+finish with the full verifier. Device-family evidence requires a separately
+approved live-device write with its blast radius stated first. No such
+write is authorized by this plan.
+
+## Definition of done
+
+- Every phase has an accepted review, compound outcome, and landed range.
+- The accepted access and inventory direction amendments land with code.
+- Package READMEs and lab instructions describe actual supported devices.
+- No plan labels enter code or commit messages.
 
 ## Open questions
 
-- Which device families can disable an account and close its sessions.
-  Unverified for every vendor, including the lab ICX7150. A lab check is a
-  live-device write and needs its own approval.
-- Who provisions the per-node accounts on a device.
-- The shape of the fence credential and the fence operation in the schema.
-- What the stale threshold is, and whether a short partition moves lanes.
-- How central refuses the old host's late report: by Edge, by a placement
-  generation in the lane record, or both.
-- How a device reacts when an inform receiver's engine boots and time change
-  on failover. Unverified.
-- Whether the embedded NATS leaf node behaves on FreeBSD as on Linux.
-  Unverified.
+- Accept or amend the proposed edge HA direction before implementation.
+- Device account protocols, recovery credentials, and supported device
+  families are settled when phase 2 is re-planned.
+- Cross-node event identity for each notification protocol, ambiguous
+  identical occurrences, and the replay horizon require an explicit policy
+  during phase 3 re-plan.
+- Inform engine boots/time, receiver secret startup, and platform behavior
+  need source evidence and sender tests in phase 3.
+- No device family's account disable and session termination procedure is
+  verified. Phase 4 cannot be made ready from a self-authored fixture alone.

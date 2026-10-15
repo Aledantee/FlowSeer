@@ -17,15 +17,15 @@ import (
 const feedLineLimit = 1000
 
 type progressEntry struct {
-	attack string
-	mode   string
-	phase  string
-	rollup string // non-empty when a rollup verdict has arrived
+	attack  string
+	mode    string
+	phase   string
+	verdict string // non-empty once the attack's verdict record has arrived
 }
 
 // Model is the bubbletea v2 model for netpen's TUI. It holds a live findings
 // feed (a bounded, scrollable viewport) and a per-attack progress map driven
-// by progress and rollup records from the findings stream.
+// by progress and verdict records from the findings stream.
 //
 // The model never owns signal handling or teardown. Quitting (q or Ctrl-C)
 // transitions the model to a finished state that main reads to drive its own
@@ -122,12 +122,12 @@ func (m *Model) applyRecord(r findings.Record) {
 			entry.phase = r.Progress.Phase
 		}
 
-	case findings.KindResisted, findings.KindSkipped, findings.KindPending:
-		if r.Rollup != nil {
+	case findings.KindVerdict:
+		if r.Verdict != nil {
 			key := attackKey(r.Attack, r.Mode)
 			entry := m.getOrCreate(key, r.Attack, r.Mode)
-			entry.rollup = string(r.Kind)
-			m.appendFeed(fmt.Sprintf("[%s] %s: %s", r.Attack, r.Kind, r.Rollup.Detail))
+			entry.verdict = string(r.Verdict.Kind)
+			m.appendFeed(fmt.Sprintf("[%s] %s: %s", r.Attack, r.Verdict.Kind, r.Verdict.Detail))
 		}
 
 	case findings.KindError:
@@ -143,8 +143,8 @@ func (m *Model) applyRecord(r findings.Record) {
 	case findings.KindSummary:
 		if r.Summary != nil {
 			s := r.Summary
-			m.appendFeed(fmt.Sprintf("summary: %d attacks, %d findings, %d resisted, %d skipped, %d pending, %d errors",
-				s.Attacks, s.Findings, s.Resisted, s.Skipped, s.Pending, s.Errors))
+			m.appendFeed(fmt.Sprintf("summary: %d attacks, %d findings, %d confirmed, %d resisted, %d skipped, %d pending, %d errors",
+				s.Attacks, s.Findings, s.Confirmed, s.Resisted, s.Skipped, s.Pending, s.Errors))
 		}
 	}
 
@@ -218,8 +218,8 @@ func (m Model) renderProgress() string {
 		if entry.mode != "" {
 			line += " (" + entry.mode + ")"
 		}
-		if entry.rollup != "" {
-			line += " → " + entry.rollup
+		if entry.verdict != "" {
+			line += " → " + entry.verdict
 		} else if entry.phase != "" {
 			line += " → " + entry.phase
 		}

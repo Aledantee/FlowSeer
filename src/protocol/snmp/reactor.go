@@ -11,10 +11,10 @@ import (
 	"time"
 
 	"go.opentelemetry.io/otel/attribute"
-	semconv "go.opentelemetry.io/otel/semconv/v1.43.0"
 	"go.opentelemetry.io/otel/trace"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/fsconv"
 	"go.aledante.io/FlowSeer/src/common/secret"
 	"go.aledante.io/FlowSeer/src/common/service"
 	"go.aledante.io/FlowSeer/src/common/spawn"
@@ -796,7 +796,7 @@ func (r *reactor) readLoop() {
 		for _, w := range m.warnings {
 			service.Logger(r.logCtx).WarnContext(r.logCtx,
 				"tolerated decode warning",
-				slog.String(string(semconv.ErrorTypeKey), classifyError(w)))
+				fsconv.ErrorTypeString(classifyError(w)))
 		}
 	}
 }

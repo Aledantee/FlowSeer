@@ -20,6 +20,7 @@ import (
 
 	ingestv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/ingest/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/fsconv"
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
 )
 
@@ -295,8 +296,8 @@ func (i *Intake) logRefusal(ctx context.Context, edgeID, subject, reason string)
 		return
 	}
 	i.logger.WarnContext(ctx, "record refused",
-		slog.String("otel.event.name", "flowseer.intake.record.refused"),
-		slog.String("flowseer.edge.id", edgeID),
+		fsconv.EventName("flowseer.intake.record.refused"),
+		fsconv.EdgeID(edgeID),
 		slog.String("flowseer.intake.reason", reason),
 		slog.String("flowseer.intake.subject", subject),
 	)
@@ -307,7 +308,7 @@ func (i *Intake) logRetry(ctx context.Context, edgeID, subject, errorType string
 		return
 	}
 	i.logger.WarnContext(ctx, "record retry scheduled",
-		slog.String("flowseer.edge.id", edgeID),
+		fsconv.EdgeID(edgeID),
 		slog.String("flowseer.intake.subject", subject),
 		slog.String(string(semconv.ErrorTypeKey), errorType),
 	)
@@ -335,7 +336,7 @@ func (i *Intake) logConsumeError(ctx context.Context, edgeID string, err error) 
 		message = "intake consumer stopped"
 	}
 	i.logger.WarnContext(ctx, message,
-		slog.String("flowseer.edge.id", edgeID),
+		fsconv.EdgeID(edgeID),
 		slog.String(string(semconv.ErrorTypeKey), errorType),
 	)
 }

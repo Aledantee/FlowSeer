@@ -1,17 +1,21 @@
-// raguard.go implements the RA-Guard observation behavior.
-//
-// Durability (from the catalog): non-destructive. The behavior observes
-// forged RA handling under RA-Guard. The attack leg sends a forged RA,
-// and the watch leg observes whether it traverses (the watch-leg rule).
-//
-// Integration scenario: raguard observes its own forged RA under attack
-// and records traversal per the watch-leg rule.
+// raguard.go implements the RA-Guard check. Impact none, restore none,
+// affects none: the probe advertisement carries a zero router lifetime,
+// zero hop limit, zero reachable time and retransmit timer, no
+// link-layer address option, and a prefix option whose on-link and
+// autonomous flags are clear with zero lifetimes, so a host that receives
+// it installs no default router, prefix, address, or link parameter. A
+// host that already holds a neighbor cache entry for the probe's
+// link-local source marks that entry a router. The guard still sees the
+// sender's link-layer address, the ingress port, the IP source, and the
+// prefix, which is what it decides on.
 
 package ip6
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net"
 	"time"
 
@@ -19,8 +23,8 @@ import (
 	"github.com/gopacket/gopacket/layers"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
-
-	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
+	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/internal/craft"
+	"go.aledante.io/FlowSeer/src/edge/netpen/check"
 )
 
 type raGuardFinding struct {
@@ -31,93 +35,130 @@ type raGuardFinding struct {
 	Attributed string `json:"attributed"`
 }
 
-// RunRAGuard sends a forged RA from the attack leg and observes the
-// watch leg for traversal evidence (the watch-leg rule). The behavior
-// records whether the forged RA traversed the fabric.
-// Cancellation while observing returns ctx.Err(); terminal receive errors are wrapped.
-func RunRAGuard(ctx context.Context, deps runner.Deps) error {
-	src := srcMAC()
+// RunRAGuard sends one probe Router Advertisement for the target's prefix
+// from the attack leg and watches the watch leg for the window. The
+// verdict is confirmed when a Router Advertisement from the attack leg's
+// MAC carrying the target prefix crosses to the watch leg, resisted when
+// the window ends without one, and pending without a watch leg, with the
+// finding's traversal field reading unobserved. Cancellation while
+// observing returns ctx.Err(). A terminal receive error comes back wrapped.
+func RunRAGuard(ctx context.Context, deps check.Deps) (check.Verdict, error) {
+	if err := deps.Target.Need(check.FieldPrefix6); err != nil {
+		return check.Verdict{}, err
+	}
+	src := deps.AttackLeg.Addr().MAC
+	prefix := deps.Target.Prefix6
 
-	// Craft and send the forged RA (same as rogue RA).
-	pkt, err := craftRogueRA(src)
+	pkt, err := craftProbeRA(src, prefix)
 	if err != nil {
-		return errs.Wrap(err, "raguard: craft RA")
+		return check.Verdict{}, errs.Wrap(err, "raguard: craft RA")
 	}
 	if err := deps.AttackLeg.Send(ctx, pkt); err != nil {
-		return errs.Wrap(err, "raguard: send RA")
+		return check.Verdict{}, errs.Wrap(err, "raguard: send RA")
 	}
 
-	sent := 1
-	observed := 0
-	attackAttributed := 0
-	ambientAttributed := 0
+	finding := raGuardFinding{
+		Action:     "raguard-observation",
+		Sent:       1,
+		Traversal:  "unobserved",
+		Attributed: "none",
+	}
+	if deps.WatchLeg == nil {
+		emitRAGuardFinding(deps, finding)
+		return check.Pending("no observable: traversal needs a watch leg"), nil
+	}
 
-	// Observe the watch leg for traversal evidence. The observation
-	// is bounded by a short timeout: if no frame arrives within the
-	// window, the behavior records what it observed and exits.
-	if deps.WatchLeg != nil {
-		ch := deps.WatchLeg.Receive(ctx)
-		for range sent + 1 { // sent + possible ambient
-			select {
-			case frame, ok := <-ch:
-				if err := ctx.Err(); err != nil {
-					return err
-				}
-				if !ok {
-					goto done
-				}
-				if frame.Err != nil {
-					return errs.Wrap(frame.Err, "raguard: receive observation")
-				}
-				observed++
-				if isRAGuardFrame(frame.Data, src) {
-					attackAttributed++
-				} else {
-					ambientAttributed++
-				}
-			case <-time.After(100 * time.Millisecond):
-				goto done
-			case <-ctx.Done():
-				return ctx.Err()
-			}
+	crossed, obs, err := check.First(ctx, deps.WatchLeg, deps.Observe, func(data []byte) bool {
+		return isProbeRA(data, src, prefix)
+	})
+	if err != nil {
+		return check.Verdict{}, errs.Wrap(err, "raguard: receive observation")
+	}
+	finding.Observed = obs.Skipped
+	finding.Traversal = "not-forwarded"
+	if crossed != nil {
+		finding.Observed++
+		finding.Traversal = "forwarded"
+		finding.Attributed = "attack-only"
+		if obs.Skipped > 0 {
+			finding.Attributed = "attack-distinguished-from-ambient"
 		}
 	}
-done:
-	if err := ctx.Err(); err != nil {
-		return err
-	}
+	emitRAGuardFinding(deps, finding)
 
-	traversal := "not-forwarded"
-	if attackAttributed > 0 {
-		traversal = "forwarded"
+	if crossed != nil {
+		return check.Confirmed("the probe RA crossed to the watch leg", obs.Elapsed), nil
 	}
-	attributed := "none"
-	if attackAttributed > 0 && ambientAttributed > 0 {
-		attributed = "attack-distinguished-from-ambient"
-	} else if attackAttributed > 0 {
-		attributed = "attack-only"
-	}
-
-	detail, _ := json.Marshal(raGuardFinding{
-		Action:     "raguard-observation",
-		Sent:       sent,
-		Observed:   observed,
-		Traversal:  traversal,
-		Attributed: attributed,
-	})
-	deps.Emitter.Finding("ra", detail)
-
-	return nil
+	return check.Resisted(fmt.Sprintf("0 probe RA in %s", obs.Elapsed.Round(time.Millisecond)), obs.Elapsed), nil
 }
 
-// isRAGuardFrame checks whether a frame's Ethernet source MAC matches
-// the attacker's — the traversal-attribution test.
-func isRAGuardFrame(data []byte, attackMAC net.HardwareAddr) bool {
-	if len(data) < 14 {
+func emitRAGuardFinding(deps check.Deps, f raGuardFinding) {
+	detail, _ := json.Marshal(f)
+	deps.Emitter.Finding("ra", detail)
+}
+
+// craftProbeRA builds the probe Router Advertisement for prefix from src
+// and its EUI-64 link-local address: every router parameter zero and one
+// Prefix Information option with both flags clear and both lifetimes
+// zero, so the frame installs nothing on a host and still crosses an
+// RA-Guard that lets router advertisements through.
+func craftProbeRA(src net.HardwareAddr, prefix *net.IPNet) ([]byte, error) {
+	linkLocal := linkLocalFromMAC(src)
+	prefixLen, _ := prefix.Mask.Size()
+
+	eth := &layers.Ethernet{
+		DstMAC:       allNodesMAC,
+		SrcMAC:       src,
+		EthernetType: layers.EthernetTypeIPv6,
+	}
+	ip := &layers.IPv6{
+		Version:    6,
+		NextHeader: layers.IPProtocolICMPv6,
+		HopLimit:   255,
+		SrcIP:      linkLocal,
+		DstIP:      allNodesIPv6,
+	}
+	icmp := &layers.ICMPv6{
+		TypeCode: layers.CreateICMPv6TypeCode(layers.ICMPv6TypeRouterAdvertisement, 0),
+	}
+	_ = icmp.SetNetworkLayerForChecksum(ip)
+
+	prefixData := make([]byte, 30)
+	prefixData[0] = byte(prefixLen)
+	copy(prefixData[14:30], prefix.IP.To16())
+
+	ra := &layers.ICMPv6RouterAdvertisement{
+		Options: layers.ICMPv6Options{
+			{
+				Type: layers.ICMPv6OptPrefixInfo,
+				Data: prefixData,
+			},
+		},
+	}
+	return craft.Default(eth, ip, icmp, ra)
+}
+
+// isProbeRA reports whether data is an ICMPv6 Router Advertisement whose
+// Ethernet source is attackMAC and whose Prefix Information option carries
+// prefix, the attribution a crossing rests on. A frame it cannot decode is
+// not a crossing.
+func isProbeRA(data []byte, attackMAC net.HardwareAddr, prefix *net.IPNet) bool {
+	if len(data) < 14 || !bytes.Equal(data[6:12], attackMAC) {
 		return false
 	}
-	srcMAC := net.HardwareAddr(data[6:12])
-	return srcMAC.String() == attackMAC.String()
+	pkt := gopacket.NewPacket(data, layers.LayerTypeEthernet, gopacket.Default)
+	ra, ok := pkt.Layer(layers.LayerTypeICMPv6RouterAdvertisement).(*layers.ICMPv6RouterAdvertisement)
+	if !ok {
+		return false
+	}
+	prefixLen, _ := prefix.Mask.Size()
+	for _, opt := range ra.Options {
+		if opt.Type != layers.ICMPv6OptPrefixInfo || len(opt.Data) < 30 {
+			continue
+		}
+		if int(opt.Data[0]) == prefixLen && bytes.Equal(opt.Data[14:30], prefix.IP.To16()) {
+			return true
+		}
+	}
+	return false
 }
-
-var _ gopacket.SerializableLayer = (*layers.ICMPv6RouterAdvertisement)(nil)

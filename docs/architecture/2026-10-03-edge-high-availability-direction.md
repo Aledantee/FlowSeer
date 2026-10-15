@@ -2,6 +2,7 @@
 title: Edge High Availability - Direction
 type: direction
 date: 2026-10-03
+updated: 2026-10-15
 topic: edge-high-availability
 status: proposed-direction
 amends: docs/architecture/2026-09-05-verified-device-access-direction.md
@@ -9,286 +10,205 @@ amends: docs/architecture/2026-09-05-verified-device-access-direction.md
 
 # Edge High Availability - Direction
 
-How a site runs one to n edge nodes, keeps receiving what devices send to one
-address, and keeps managing its devices when a node stops.
-
 ## Context
 
-An Edge is one enrolled process at a site. `CONCEPTS.md` says it "is the
-process", that it holds a self-generated key registered at enrollment, and
-that contact (active, stale, dormant) is an axis central tracks apart from
-lifecycle.
+`RegistryIntegration.edge` in
+`spec/proto/flowseer/store/device/v1/registry.proto` binds the local-network
+integration to one Edge. `registry.Registry.Devices` and `Hosts` use that
+one Edge for device dispatch and report authorization. The read and mutation
+paths share `DeviceLaneRecord`, and `dispatchapi.Report` checks membership
+before applying journal writes.
 
-Three facts in the tree tie a site to one agent:
+Moving that membership to another Edge would move mutation work too.
+Decision 8 of the [verified access direction](2026-09-05-verified-device-access-direction.md)
+requires a positive device, network, session, or host fence before a
+successor writes. Heartbeat silence establishes no such fence.
 
-- The registry binds an Integration to one Edge
-  (`spec/proto/flowseer/store/device/v1/registry.proto`).
-- An edge that restarts loses its lanes and reports `Onboarded`, and central
-  re-derives what it owes from the lane record
-  (`src/services/device/README.md`).
-- Each edge has its own NATS account and its own buffer stream
-  (`src/modules/edgebus/README.md`).
-
-The [verified device access record](2026-09-05-verified-device-access-direction.md)
-already decides two things this record must keep:
-
-- **Positive fencing before failover** (decision 8). A successor edge may
-  write only after a device, network, session, or host fence proves the
-  predecessor cannot. Lease expiry alone is not enough, because a paused
-  process resumes after its time check. Until a fence exists, a deployment
-  runs one edge per local-network integration.
-- **Credentials per operation** (decision 9). A read credential comes from
-  `AcquireReadCredential` with an `expires_at`, and a write uses a one-use
-  submission grant bound to Edge, Integration, Device, and sequence. The
-  agent keeps nothing standing: no cached session, no standing SNMP user, no
-  lease (`src/edge/agent/README.md`, "Nothing standing").
-
-Two kinds of traffic cross an edge, and they fail over differently.
-
-| | Inbound: syslog, traps, informs | Outbound: polls, SSH, mutations |
-| --- | --- | --- |
-| Who picks the node | The device, by the one address it is configured with | Central, through the lane |
-| State | None worth keeping | One order per device, which must not get two writers |
-| Failover needs | The address to move | Central to fence the old node |
-
-A device sends syslog and traps to a configured address, so the nodes of a
-site need one address between them. The agent has no syslog or trap listener
-yet. `src/protocol/snmp` already handles traps and informs
-(`usm_trap.go`, `usm_inform.go`).
+`GOALS.md` requires a Site-owned Edge and supports enrolled adapter hosts
+without a Site. This record covers local-network Edge groups only. Site is
+not yet a schema entity. The [inventory direction](2026-08-20-device-service-and-inventory-direction.md)
+and `IntegrationConfig` currently describe one Edge hosting an integration.
+Those accepted records are amended with the corresponding implementation.
 
 ## Decision
 
+### Site and group identity
+
+Add `Site` and `SiteEvent` in a leaf `model/site/v1` package, with typed
+`SiteLocalRef`/`SiteGlobalRef`. Site is pure intent. Its file-level doc comment
+declares `SiteConfig` and `SiteState` deliberately absent, following the
+[triad convention](../conventions/protobuf.md#the-triad). SiteEvent carries
+Site before and after a change. Add an EdgeGroup family in `model/edge/v1`,
+with typed refs and Config/State/Event messages because its healthy member
+count is observed state.
+
+Each Edge and group names a Site, and group membership must remain within
+one Site and tenant. The separate Site package avoids a generated Go import
+cycle: Integration already imports Edge, so Edge cannot import Integration's
+package to obtain Site.
+
+A local-network integration names a group with one to 64 distinct enrolled
+Edges. Every Edge retains its own enrollment and producer identity. Static
+registry configuration supplies the initial Site and group definitions.
+General Site administration and inventory persistence are separate work.
+
+### Read placement is separate from write ownership
+
+A device lane stores its read owner, enrollment, and placement generation
+beside its write owner and enrollment. Initial assignment spreads devices
+across active members. Central moves reads when their owner becomes stale,
+using the existing configurable contact threshold. Existing healthy
+assignments stay in place when a member joins or returns.
+
 ```mermaid
 flowchart LR
-  D[devices]
-  subgraph group[Edge group]
-    V((virtual IP))
-    E1[node 1, Edge]
-    E2[node 2, Edge]
-    E3[node n, Edge]
-  end
-  C[central]
-  D -- syslog, traps --> V --> E1
-  E1 & E2 & E3 -- polls, SSH --> D
-  E1 & E2 & E3 -- own key, own buffer --> C
-  C -- places each device lane --> E1 & E2 & E3
+    H[heartbeat timestamps] --> P[elected placement pass]
+    P --> C[lane compare-and-set]
+    C --> R[new read sequence and generation]
+    R --> B[healthy read owner]
+    W[original write owner] --> M[mutation and recovery controls]
+    F[verified device fence] --> N[successor write authority]
 ```
 
-### An edge group has one to n nodes, each its own Edge
+A read move cannot move a mutation, reset its confirmations, release its
+barrier, or grant its submission credential. Dispatch, credential requests,
+onboard reports, and results carry the generation needed for read
+assignment. Journal updates validate it atomically with the state change.
+An A to B to A cycle cannot accept a report from A's first assignment.
 
-Each node enrolls with its own key and is its own Edge, with its own NATS
-account and buffer. Nothing private is shared between nodes. A group of one
-is the ordinary case and needs nothing a single agent lacks.
+Enrollment identity participates in ownership. A re-enrolled Edge does not
+inherit an earlier enrollment's write authority. The consumed setup key is
+the existing enrollment identity in `host.edgeEnrollment`. The
+[raw-window counter lesson](../solutions/architecture-patterns/a-counter-fence-kept-per-edge-id-must-reset-when-the-edge-re-enrolls.md)
+explains why Edge ID or a local boot counter alone is insufficient.
 
-An Integration is hosted by a group and not by one Edge. A group is in a
-Site, and a Site may hold more than one.
+Central HA lands before placement implementation. Its elected background
+work and cross-replica dispatch must serve the placement controller and the
+Edge stream even when they run on different replicas.
 
-### The group owns what devices see
+### FlowSeer manages per-node device accounts
 
-The group has a virtual IP and the identity behind it: the server certificate
-for syslog over TLS, and the SNMPv3 engine ID and users that receive informs.
-Every node presents the same ones, so a device cannot tell which node
-answered. Central delivers them to each member as it delivers device
-credentials.
+FlowSeer provisions each node's device accounts through typed mutations.
+The original write owner uses an administrative bootstrap credential for
+creation and verifies the resulting access before publishing the account
+as usable. The secret provider owns credential material, while config and
+audit data carry handles.
 
-### The virtual IP is moved by something outside FlowSeer
+Account creation, rotation, disable, and re-enable need explicit observed
+state and recovery outcomes. A lost creation response requires reconciliation
+before retry. An account change must preserve an administrative recovery
+path and any credential required by an unresolved mutation.
 
-The agent does not move the address. A site uses CARP or any other mechanism
-that puts one address on one node at a time. Every node listens on every
-address, so the node that holds the virtual IP receives. The agent reports
-to central whether the group address is bound locally.
+The first read-failover stage may use existing read credentials and original
+writer credentials. Managed node accounts replace them in the account phase.
+This transitional scope does not claim device isolation between readers.
 
-A group of one should still be given a virtual IP, so adding a node later
-does not mean changing the syslog target on every device.
+### Writes move only after a verified account fence
 
-### Inbound follows the address, with no coordination
+Each node eventually has its own device accounts. The successor disables
+the predecessor's accounts, terminates their sessions, and verifies both
+through a device-family procedure. Central changes write ownership only
+once it has durable evidence for the correct device, predecessor enrollment,
+account versions, and ownership generation.
 
-The node that receives a record stamps it with its own Edge as provenance
-and publishes it to its own buffer. No node asks another or central first. A
-failover loses the datagrams sent while the address moves, and records
-buffered on a failed node arrive when it returns.
+No supported device procedure has been established. Account disable,
+session termination, delayed device effects, and recovery privileges all
+remain unverified until sourced and observed on the selected family.
+Unsupported devices keep writes unavailable after owner loss. A partial or
+unknown fence result has the same outcome.
 
-### Outbound is spread over all nodes, and only central places it
+A positive fence does not erase a mutation already submitted to the device.
+The existing horizon and reconciliation rules still resolve it before new
+writes. A returning node does not re-enable accounts through onboarding.
+Re-enable is a separate typed operation that cannot undo a newer fence.
 
-Central places each device lane on a healthy member and spreads lanes over
-all of them, so n nodes add capacity as well as availability. When a member
-goes stale, central moves its lanes to others. Which node holds the virtual
-IP is a fact central may read and never the authority: a node central did
-not place a lane on receives no dispatch for it, so a split in the address
-mechanism cannot produce two writers.
+### Inbound accepts the virtual address and individual node addresses
 
-Moving a lane is a restart of the lane. The new host is onboarded as a
-restarted edge is today, and a late report from the old host is refused. A
-returning node does not take its lanes back by itself.
+The group uses a virtual address managed outside FlowSeer, with CARP as the
+chosen deployment mechanism. Devices may also target individual members
+directly. For example, a sender can configure node A as its primary syslog
+destination and B and C as fallbacks. B accepts traffic on its own address
+without holding the virtual address or the device's read assignment.
 
-### Reads move on staleness, writes move only behind a fence
+FlowSeer reports local address presence and never uses it or the sender's
+destination choice to grant outbound ownership. Each node records itself
+as the receiving Edge in provenance and delivers its own buffered
+observations. Support for a specific sender's fallback behavior requires
+source evidence and a sender test.
 
-A read has no effect on the device, so central moves read work to another
-node as soon as the old one is stale. A write is different. Not dispatching
-to the old node does not stop a command it already holds: a paused process
-can resume and send it. Decision 8 of the verified device access record
-therefore still binds. Central dispatches a mutation for a device to a
-successor only after a fence proves the predecessor cannot write to that
-device.
+A device may send the same event to every configured node. Cross-node
+deduplication applies to device-originated events generally, including syslog
+and SNMP traps. Central combines copies of one source event into one
+operator-visible event while preserving the receiving Edges as evidence.
+Different devices, tenants, event types, and distinct occurrences remain
+separate, even when their payloads match. Every supported event producer
+must supply the source-event and receipt identities this contract requires.
 
-### The fence is the old node's own account on the device
+Existing syslog receipt identity does not provide this: `syslogsource/source.go`
+assigns a new UUID at each receiver, and `intake.prepare` constructs its
+publication identity from tenant and receipt UUID. Cross-node event identity
+needs a protocol-specific contract, with a policy for indistinguishable
+occurrences, a bounded replay horizon, and durable coordination across
+central replicas. Payload equality alone is not proof of one event.
+Deduplication must preserve separately requested raw evidence and validate
+each receipt before combining its provenance. It must also preserve any
+protocol-required response for each receipt, independently of logical-event
+deduplication. Trap ingestion needs its own schema and producer: the current
+`IngestRecord` payload in
+`spec/proto/flowseer/integration/ingest/v1/ingest_record.proto` contains only
+syslog.
 
-Every node has its own account on every device its group manages: its own
-SSH login and its own SNMPv3 user. To fence a stale node, central dispatches
-a fence operation to the successor. The successor disables the old node's
-account on the device, closes any session that account still holds, and
-reads back that both took effect. Only then does central dispatch a mutation
-for that device to the successor. Disabling the account alone is not a
-fence, because a session opened before it can outlive it.
+Shared TLS receiver credentials and SNMP inform identity require a separate
+receiver contract. A shared engine ID alone does not establish correct
+boots/time behavior. Cold startup leaves a secure listener unready until
+central supplies its identity. Real sender tests must establish receiver
+failover before it is claimed.
 
-The successor fences with a credential of its own kind: a fence credential
-central delivers for that one operation, as it delivers a submission grant.
-A node's ordinary account cannot disable another node's.
-
-A device that cannot disable an account and close its sessions has no fence.
-Its writes do not move, and a lane with an open mutation stays blocked until
-an operator resolves it, as today. Its reads still move.
-
-A fenced node's account stays disabled when the node returns. Re-enabling it
-is central's act, after the node reports `Onboarded`.
-
-This is the fence decision 8 of the verified device access record waits
-for, and it amends that record's sentence that a deployment runs one edge
-per local-network integration.
-
-### Device credentials are delivered per operation and never stored
-
-Decision 9 already delivers a credential for one operation. A group keeps
-that and narrows it: central answers `AcquireReadCredential` and opens a
-submission only for the node it placed the lane on. A node holds a device
-credential in memory for the operation that asked for it and drops it when
-the operation ends or `expires_at` passes, whichever is first. It writes
-none to disk and keeps none across operations.
-
-A cache across operations is not adopted. It would save one call per read
-and buy no availability, because a node that cannot reach central receives
-no dispatch to use a credential for. If the call rate becomes a measured
-problem, the remedy is reuse inside one dispatched batch, in memory, bounded
-by `expires_at`, and dropped when the lane moves.
-
-The group's receiver identity is the one exception to "nothing standing". A
-syslog or trap arrives without a dispatch, so every node holds the TLS key
-and the inform users in memory from start, fetched from central and never
-written to disk.
-
-Delivery on demand does not make a credential short-lived at the device. An
-SNMPv3 user or an SSH password stays valid on the device until it is
-rotated, and a node that held it once could replay it. Per-node accounts
-limit that to one node's account, attribute every device session to a node,
-and let central cut one node off.
-
-### The agent runs on Linux and FreeBSD
-
-FreeBSD is a deployment target, and CARP is the mechanism named for the
-address there. The agent builds for it, since the flock store lock in
-`src/common/service/storelock_posix.go` covers FreeBSD. Local capture is
-Linux-only, because it uses `AF_PACKET`
-(`src/modules/capture/rawsocket/local_other.go`).
+Linux and FreeBSD remain deployment targets. The existing FreeBSD packet I/O
+work supplies the build and platform gate. The agent builds for FreeBSD,
+since the flock store lock in `src/common/service/storelock_posix.go` covers
+it, and `test/conformance/crossbuild` keeps that true. HA adds validation of
+the combined receiver, placement, and restart behavior rather than
+duplicating that work. No FreeBSD runtime or device protocol guarantee is
+asserted here.
 
 ## Alternatives
 
-- **Two hosts sharing one Edge identity.** Central needs almost no change.
-  Rejected because a shared key contradicts the Edge definition, and during
-  a split both hosts could write one device.
-- **Only the virtual IP holder does device access.** A device ACL then lists
-  one source address. Rejected because n nodes would add no capacity and
-  every failover would move every lane at once.
-- **A host fence that powers the old node off.** The classic cluster answer.
-  Rejected: it needs out-of-band access at every site, and it fences a whole
-  node where one device lane is the unit that moves.
-- **No automatic write failover.** Always safe and nothing to build. Kept as
-  the fallback for a device with no fence, and rejected as the rule because
-  an edge failure during a mutation would always need a person.
-- **One device account per group.** One account to provision. Rejected: it
-  gives no device fence and no attribution.
-- **Agents that elect a host among themselves.** Rejected: central would
-  learn the outcome late, and the lane's single order is central's to keep.
-- **VRRP through keepalived as the shipped default.** It is maintained on
-  Linux. Not chosen for now: the address is handled outside FlowSeer.
-- **CARP built into the agent.** One binary, authenticated advertisements.
-  Rejected: FlowSeer would own a protocol implementation.
-- **UCarp on Linux.** Its repository was archived in April 2019 and its last
-  release is from 2011, so a Linux site that wants CARP has no maintained
-  daemon. This is a limit of the external choice and not a decision here.
+- Moving one common owner for reads and writes would send mutations to a
+  successor without the required device fence.
+- Lease expiry or generation checks alone cannot stop a device command
+  already held by a paused predecessor.
+- Operator-managed node accounts would leave their lifecycle outside the
+  requested typed configuration management.
+- Sharing one Edge identity across nodes would remove enrollment isolation
+  and make the report source ambiguous.
+- Choosing the virtual address holder as lane owner would couple outbound
+  capacity to the inbound address mechanism.
 
 ## Consequences
 
-- The registry and the Integration entity change shape to name a group.
-- Central needs a placement rule and a rule for when to move lanes back.
-- Every device carries n accounts for a group of n nodes, and adding a node
-  means provisioning an account on every device. Devices with few local
-  accounts or SNMPv3 users limit the group size.
-- Each device family needs a fence procedure: disable an account, close its
-  sessions, read both back. That is vendor-specific work per family.
-- A fence credential is a new kind of credential with more privilege than a
-  node's own account, so it needs the same per-operation delivery and audit
-  as a submission grant.
-- Device ACLs must allow every node's own address for outbound access, or a
-  subnet that holds them.
-- Failover of outbound access takes at least the stale threshold. A short
-  partition either moves lanes or leaves devices unmanaged until it heals,
-  and the threshold decides which.
-- The virtual IP is active on one node at a time. More nodes add
-  availability for inbound traffic and no capacity.
-- A site whose nodes sit in different subnets cannot share an address this
-  way and needs routing to do it.
-- FlowSeer tests no address mechanism. A site's CARP configuration is its
-  own.
-- The agent's packaging needs an rc script for FreeBSD beside the systemd
-  unit.
+The registry, Integration schema, Edge onboarding, dispatch, and credential
+checks change together. These are breaking contract changes before the
+first stable release, with no compatibility shim.
+
+Read availability improves before automatic write failover exists. Operators
+must see read ownership and unavailable write ownership separately. Existing
+credentials cannot be recalled by changing a placement record.
+
+Site and group schema decisions require acceptance before implementation.
+Vendor account and fence support, and receiver protocol behavior, require
+source research and independent observations. Live-device writes retain
+their separate blast-radius approval requirement.
 
 ## Open questions
 
-- How a device reacts when an inform receiver's engine boots and time change
-  on failover while the engine ID stays the same. Unverified.
-- Which device families can disable an account and close its sessions, and
-  how. Unverified for every vendor, including the lab ICX7150.
-- Whether an SNMPv3 user can be disabled over SNMP itself or needs the
-  shell. Unverified.
-- Who provisions the per-node accounts on a device: an operator, or FlowSeer
-  as a typed mutation.
-- Whether a node that starts while central is unreachable may receive syslog
-  and traps. It has no receiver identity until it has fetched one.
-- What the stale threshold is.
-- How central refuses the old host's late report: by Edge, by a placement
-  generation in the lane record, or both.
-- What capture does on FreeBSD. `AF_PACKET` does not exist there, and BPF
-  devices are the usual substitute. Unverified.
-- Whether the embedded NATS leaf node and its file store behave on FreeBSD
-  as on Linux. Unverified.
-
-## Sources
-
-- Repository: `CONCEPTS.md` (Edge, Integration), `GOALS.md` (Site),
-  `spec/proto/flowseer/store/device/v1/registry.proto`,
-  `src/services/device/README.md`, `src/modules/edgebus/README.md`,
-  `src/edge/agent/README.md`,
-  `spec/proto/flowseer/edge/attach/v1/credential.proto`,
-  `src/protocol/snmp/usm_inform.go`, `src/protocol/snmp/usm_trap.go`,
-  `src/common/service/storelock_posix.go`,
-  `src/modules/capture/rawsocket/local_other.go`.
-- CARP shares addresses between hosts on one local network and authenticates
-  advertisements with a shared `pass`: <https://man.openbsd.org/carp.4>.
-- UCarp, a userland CARP for Linux, archived 24 April 2019, version 1.5.2,
-  needs scripts to add and remove the address:
-  <https://github.com/jedisct1/UCarp>.
-- Minimizing the time a secret is in memory and zeroing it after use, and
-  auditing who requested a secret: OWASP Secrets Management Cheat Sheet,
-  sections 2.5 and 2.6,
-  <https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html>.
-- A lease's expiry forces a consumer to check in, and revocation invalidates
-  a secret at once:
-  <https://developer.hashicorp.com/vault/docs/concepts/lease>.
-- A client-side secret cache as a cost and latency measure that is "not
-  security hardened" and has no invalidation:
-  <https://docs.aws.amazon.com/secretsmanager/latest/userguide/retrieving-secrets_cache-go.html>.
-- A worker that receives a credential at session time and authenticates on
-  the user's behalf, so the user never sees it:
-  <https://developer.hashicorp.com/boundary/docs/concepts/credential-management>.
-- VRRP version 3 defines no authentication: RFC 9568,
-  <https://www.rfc-editor.org/rfc/rfc9568.txt>.
+- First supported device family, account protocols, capacity, bootstrap
+  credential ownership, and secret-publication crash recovery.
+- Device-native account disable and session termination evidence, including
+  commands already accepted by the device and late re-enable operations.
+- Cross-node source-event identity for each notification protocol, ambiguous
+  occurrences, replay horizons, receipt provenance, trap ingestion, and
+  storage semantics under concurrent replay.
+- Receiver engine boots/time, secret rotation, individual endpoint security
+  identity, and sender interoperability, including ordered syslog fallback.
+- Exact central HA election and watch interfaces after that work lands.

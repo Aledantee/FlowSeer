@@ -79,6 +79,9 @@ SERVICE_OTEL = (
     "tools/scripts/verify/service_otel_integration.py",
 )
 GENERATED_GO = ("generated/*", "frontend/web/generated/*")
+# The generator of each module under generated/. Generated output gets no gate
+# of its own: a change to its generator alone selects the module.
+GENERATORS = {"generated/go/yang": ("src/protocol/yang/cmd/yanggen/*",)}
 GO_MODULE_FILES = ("go.mod", "go.sum", "*/go.mod", "*/go.sum")
 PROTO_FILES = ("*.proto", "buf.yaml", "buf.work.yaml", "buf.gen.yaml")
 UNSWEEPABLE_TAGS = frozenset(
@@ -542,6 +545,8 @@ class Verification:
             self.paths.append(candidate)
 
     def collect_paths(self) -> None:
+        if self.explicit:
+            self.refuse_unsplit_lists()
         self.paths = [canonical_path(path.rstrip("\n").removeprefix("./"), self.root_physical) for path in self.paths]
         if not self.explicit and not self.full:
             code, _ = git("rev-parse", "--verify", f"{self.base}^{{commit}}")
@@ -563,6 +568,22 @@ class Verification:
 
         if self.paths:
             self.expand_directories()
+
+    def refuse_unsplit_lists(self) -> None:
+        """Refuse an argument that names no file while the words in it do.
+
+        zsh leaves an unquoted `$paths` whole, so the list arrives as one
+        missing path. It clears no marker line and still passes on the gates
+        its suffix selects. The first word counts only as a file: a deleted
+        path holding a space can start with an existing directory.
+        """
+        for path in self.paths:
+            words = path.split()
+            if len(words) < 2 or os.path.lexists(path):
+                continue
+            if os.path.isfile(words[0]) or any(os.path.lexists(word) for word in words[1:]):
+                say(f"path argument {path!r} names no file but its words do; pass each path as its own argument.")
+                raise Stop(2)
 
     def refuse_empty(self, message: str) -> None:
         if self.print_selection:
@@ -621,7 +642,13 @@ class Verification:
             elif entry == "./tools/golangci-lint/go.mod":
                 self.lint_module = True
             else:
-                self.add_module(dirname(entry))
+                module = dirname(entry).removeprefix("./")
+                # A full run covers no generated module either: only a change
+                # to its generator selects one.
+                if not matches(module, *GENERATED_GO):
+                    self.add_module(module)
+        for path in self.changed_against_base():
+            self.select_generated(path)
         for entry in sorted(entries, key=treestate.sort_key):
             if entry.endswith(".go") and not entry.startswith(("./generated/", "./frontend/web/generated/")):
                 self.go_files.append(entry.removeprefix("./"))
@@ -648,14 +675,9 @@ class Verification:
             if os.path.isfile(path) and not matches(path, *GENERATED_GO):
                 self.go_files.append(path)
                 self.add_module(self.nearest_module(path))
-            elif matches(path, "generated/*"):
-                # Generated Go is not formatted or linted as hand-written code,
-                # and in the root module its generator's drift gate covers it.
-                # Output that is a module of its own is compiled by nothing
-                # else, so it selects that module, deleted files included.
-                module = self.nearest_module(path)
-                if module != ".":
-                    self.add_module(module)
+            # Generated Go selects no gate: in the root module its generator's
+            # drift gate covers it, and a module under generated/ is checked
+            # only when its generator changes (GENERATORS, below).
         elif matches(path, "tools/buf/go.mod", "tools/buf/go.sum"):
             # The tool module stays out of the generic Go selection. The
             # `tools/buf/*` arm below routes these files to the protobuf gates.
@@ -686,6 +708,19 @@ class Verification:
             self.buf_module = True
         if matches(path, *SERVICE_OTEL):
             self.service_otel_integration = True
+        self.select_generated(path)
+
+    def select_generated(self, path: str) -> None:
+        for module, generator in GENERATORS.items():
+            if matches(path, *generator) and os.path.isfile(f"{module}/go.mod"):
+                self.add_module(module)
+
+    def changed_against_base(self) -> list[str]:
+        """Return the paths changed against the base, untracked files included, or none when the base is no commit."""
+        if git("rev-parse", "-q", "--verify", f"{self.base}^{{commit}}", quiet=True)[0] != 0:
+            return []
+        paths = nul_records(git("diff", "--no-renames", "--name-only", "-z", self.base, "--")[1])
+        return [*paths, *nul_records(git("ls-files", "--others", "--exclude-standard", "-z")[1])]
 
     def select_dependent_modules(self) -> None:
         """Select the nested modules that replace the root module and reach a changed root package.
@@ -719,7 +754,7 @@ class Verification:
             if not replaces_root(entry):
                 continue
             dependent = dirname(entry.removeprefix("./"))
-            if dependent == ".":
+            if dependent == "." or matches(dependent, *GENERATED_GO):
                 continue
             if not root_all:
                 if not root_packages:
@@ -736,36 +771,43 @@ class Verification:
         if code != 0:
             return None
         packages = set(decode(listed).split("\n"))
-        for tag in self.build_tags(["./..."], directory, quiet=True):
+        for tag in self.module_tags(directory):
             code, listed = spawn([*arguments, "-tags", tag, "-f", "{{.ImportPath}}", "./..."], cwd=directory, capture=True, quiet=True)
             if code != 0:
                 return None
             packages |= set(decode(listed).split("\n"))
         return packages
 
-    def build_tags(self, packages: Sequence[str], directory: str | None, *, quiet: bool) -> list[str]:
-        """Return the sweepable build tags in the directories of the named packages, sorted by bytes.
+    def module_tags(self, directory: str) -> list[str]:
+        """Return the sweepable build tags the module's Go files name, sorted by bytes.
 
         GOOS and GOARCH names, ignore, and race are not sweepable tags.
         """
-        _, listed = spawn(["go", "list", "-f", "{{.Dir}}", *packages], cwd=directory, capture=True, quiet=quiet)
+        _, listed = spawn(["go", "list", "-e", "-f", "{{.Dir}}", "./..."], cwd=directory, capture=True, quiet=True)
         tags: set[str] = set()
         for package_directory in decode(listed).split("\n")[:-1]:
+            tags |= self.directory_tags(package_directory)
+        return sorted(tags)
+
+    @staticmethod
+    def directory_tags(package_directory: str) -> set[str]:
+        """Return the sweepable build tags the Go files of one directory name."""
+        tags: set[str] = set()
+        try:
+            names = sorted(os.listdir(package_directory))
+        except OSError:
+            return tags
+        for name in names:
+            if name.startswith(".") or not name.endswith(".go"):
+                continue
             try:
-                names = sorted(os.listdir(package_directory))
+                content = Path(package_directory, name).read_bytes()
             except OSError:
                 continue
-            for name in names:
-                if name.startswith(".") or not name.endswith(".go"):
-                    continue
-                try:
-                    content = Path(package_directory, name).read_bytes()
-                except OSError:
-                    continue
-                for line in content.split(b"\n"):
-                    if line.startswith(b"//go:build"):
-                        tags |= {decode(word) for word in re.findall(rb"[A-Za-z0-9_]+", line)}
-        return sorted(tags - UNSWEEPABLE_TAGS)
+            for line in content.split(b"\n"):
+                if line.startswith(b"//go:build"):
+                    tags |= {decode(word) for word in re.findall(rb"[A-Za-z0-9_]+", line)}
+        return tags - UNSWEEPABLE_TAGS
 
     def print_selected(self) -> None:
         out(f"service_otel_integration={str(self.service_otel_integration).lower()}")
@@ -781,8 +823,7 @@ class Verification:
             mode = "build-sample-lint" if module.startswith("generated/") else "full"
             out(f"module={module} mode={mode}")
         for dependent in self.dependent_modules:
-            mode = "build" if dependent.startswith("generated/") else "build-vet"
-            out(f"dependent={dependent} mode={mode}")
+            out(f"dependent={dependent} mode=build-vet")
 
     def gates_selected(self) -> bool:
         return bool(
@@ -928,15 +969,38 @@ class Verification:
         # The two tools run outside `run`, so the gate's name and time are recorded here.
         self.end_gate(started, 1 if failed else 0)
 
-    def vet_tagged(self, packages: Sequence[str], directory: str | None) -> None:
-        """Vet the targets once per build tag found in their directories.
+    def vet_tagged(self, changed: Sequence[str] | None, directory: str | None, written: set[str] | None = None) -> None:
+        """Vet, once per build tag the module's files name, the packages that tag changes.
 
         Files behind a build tag are invisible to the untagged build, so a
         signature change can leave them broken while the gate is green. Vet
-        compiles the tagged test files without running them.
+        compiles the tagged test files without running them. A tag changes
+        the packages holding a file it names and every package importing one
+        of those. Imports are read from a listing under that tag, since go
+        drops an excluded file's imports. With changed packages named, only
+        the ones among them or importing them are vetted; None vets them all.
+        Packages outside written, when it is given, are never vetted.
         """
-        for tag in self.build_tags(packages, directory, quiet=False):
-            self.run(["go", "vet", "-tags", tag, *packages], cwd=directory)
+        code, listed = spawn(["go", "list", "-e", "-f", "{{.ImportPath}}|{{.Dir}}", "./..."], cwd=directory, capture=True)
+        if code != 0:
+            raise Stop(code)
+        holders: dict[str, list[str]] = {}
+        for line in decode(listed).split("\n"):
+            import_path, _, package_directory = line.partition("|")
+            for tag in self.directory_tags(package_directory) if package_directory else ():
+                holders.setdefault(tag, []).append(import_path)
+        for tag in sorted(holders):
+            code, listed = spawn(["go", "list", "-e", "-tags", tag, "-f", GO_LIST_ROWS, "./..."], cwd=directory, capture=True)
+            if code != 0:
+                raise Stop(code)
+            rows = parse_rows(decode(listed))
+            vetted = set(affected(rows, holders[tag]))
+            if changed is not None:
+                vetted &= set(affected(rows, changed))
+            if written is not None:
+                vetted &= written
+            if vetted:
+                self.run(["go", "vet", "-tags", tag, *sorted(vetted)], cwd=directory)
 
     def check_module(self, module: str) -> None:
         out(f"== Go module: {module} ==")
@@ -954,21 +1018,36 @@ class Verification:
         # No -o: with an output directory, go refuses a module that builds no
         # main packages. Plain go build compiles everything and discards the binaries.
         self.run(["go", "build", "./..."], cwd=module)
-        targets = ["./..."]
-        changed = self.changed_packages(module)
-        if not self.full and changed:
+        module_dir = os.path.normpath(os.path.join(self.root, module))
+        code, listed = spawn(["go", "list", "-e", "-f", "{{.Dir}}|" + GO_LIST_ROWS, "./..."], cwd=module, capture=True)
+        if code != 0:
+            raise Stop(code)
+        rows = []
+        written = set()
+        for line in decode(listed).split("\n"):
+            directory, _, row = line.partition("|")
+            if not row:
+                continue
+            import_path, _, imports = row.partition("|")
+            rows.append((import_path, set(imports.split())))
+            # Generated packages get no vet, race test, or lint: their
+            # generator's drift gate checks them, and importers compile them.
+            if not re.search(r"/generated(/|$)", directory.removeprefix(module_dir)):
+                written.add(import_path)
+        targets = ["./..."] if len(written) == len(rows) else sorted(written)
+        changed = [] if self.full else self.changed_packages(module)
+        if changed:
             # A targeted run vets, tests, and lints only the packages that can
             # observe the change: those holding a changed file plus every
             # package that imports one of them, directly or through its test
             # imports. --full and a module selected without a changed Go file
             # (a go.mod edit) keep the module-wide scope.
-            code, listed = spawn(["go", "list", "-e", "-f", GO_LIST_ROWS, "./..."], cwd=module, capture=True)
-            if code != 0:
-                raise Stop(code)
-            targets = affected(parse_rows(decode(listed)), changed)
+            targets = [package for package in affected(rows, changed) if package in written]
             out(f"Targeted packages: {len(targets)} (changed: {' '.join(changed)})")
+        if not targets:
+            return
         self.run(["go", "vet", *targets], cwd=module)
-        self.vet_tagged(targets, module)
+        self.vet_tagged(changed or None, module, written)
         race = []
         if self.full:
             # Module-wide, go runs one package binary per CPU. Race-instrumented
@@ -980,7 +1059,6 @@ class Verification:
         self.run_race(["go", "test", "-race", *race, *targets], cwd=module)
         # Package directories without generated output keep the lint bounded
         # by hand-written code, since generated findings are excluded by configuration.
-        module_dir = os.path.normpath(os.path.join(self.root, module))
         _, listed = spawn(["go", "list", "-f", "{{.Dir}}", *targets], cwd=module, capture=True)
         lint_packages = []
         for directory in decode(listed).split("\n")[:-1]:
@@ -1059,14 +1137,10 @@ class Verification:
         return packages
 
     def check_dependent_module(self, dependent: str) -> None:
-        if dependent.startswith("generated/"):
-            out(f"== Dependent module: {dependent} (build only) ==")
-            self.run(["go", "build", "./..."], cwd=dependent)
-            return
         out(f"== Dependent module: {dependent} (build and vet only) ==")
         self.run(["go", "build", "./..."], cwd=dependent)
         self.run(["go", "vet", "./..."], cwd=dependent)
-        self.vet_tagged(["./..."], dependent)
+        self.vet_tagged(None, dependent)
 
     def check_repository_wide(self) -> None:
         # Some packages hold checks over repository-wide namespaces: error code

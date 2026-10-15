@@ -282,3 +282,32 @@ func TestEpochReprobeFailureIsVisibleOnTheOperationSpan(t *testing.T) {
 	}
 	t.Error("operation span has no bounded firmware epoch re-probe failure attribute")
 }
+
+func TestOperationSpanWithoutClassifierCarriesOtherErrorType(t *testing.T) {
+	recorder := tracetest.NewSpanRecorder()
+	provider := sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(recorder))
+	t.Cleanup(func() { _ = provider.Shutdown(context.Background()) })
+
+	view, err := telemetry.NewView(telemetry.ViewConfig{TracerProvider: provider})
+	if err != nil {
+		t.Fatalf("NewView() error: %v", err)
+	}
+
+	failure := errors.New("boom")
+	_, endOp := view.StartOperation(context.Background(), "interface_description")
+	endOp(&failure, nil)
+
+	ended := recorder.Ended()
+	if len(ended) != 1 {
+		t.Fatalf("ended spans = %d, want 1", len(ended))
+	}
+	var got string
+	for _, attr := range ended[0].Attributes() {
+		if string(attr.Key) == "error.type" {
+			got = attr.Value.AsString()
+		}
+	}
+	if got != "_OTHER" {
+		t.Errorf("operation span error.type = %q, want %q", got, "_OTHER")
+	}
+}

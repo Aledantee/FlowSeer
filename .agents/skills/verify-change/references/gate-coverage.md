@@ -10,14 +10,24 @@ These entries complete the closed list in `SKILL.md`.
   goroutine boundary, forbidden module imports) that no changed package's
   tests can see. A protobuf change also runs `test/conformance/proto`.
 - Packages are vetted once per build tag their files carry, so a tagged
-  integration or bench test that stopped compiling fails the gate.
+  integration or bench test that stopped compiling fails the gate. Each
+  tagged vet covers the module's packages that hold a file with that tag
+  or import one that does, read from a listing under that tag, and of
+  those only the ones that can observe the change.
 - A nested module that replaces the root module (`src/protocol/*/bench`,
-  `src/edge/netpen`, `generated/go/yang`) is built and vetted after a change
-  to a root package it depends on (test imports and build-tagged files
-  included) or to the root `go.mod` or `go.sum`; its race tests run under
-  `--full`. A module under `generated/` is built only. A changed file inside
-  it builds that module and lints its sample packages, since a full lint of
-  the YANG bindings runs for over an hour.
+  `src/edge/netpen`) is built and vetted after a change to a root package
+  it depends on (test imports and build-tagged files included) or to the
+  root `go.mod` or `go.sum`. Its race tests run under `--full`.
+- Generated packages inside a hand-written module (`generated/go/proto`,
+  `generated/go/mib` in the root) are compiled by `go build ./...` and
+  never vetted, race-tested, or linted. Their generator's drift gate
+  checks them.
+- Generated code gets no gate of its own, under `--full` included. Only a
+  change to its generator against the base, under `--full` too (`GENERATORS` in `tools/scripts/verify/change.py`,
+  `src/protocol/yang/cmd/yanggen/` for `generated/go/yang`) builds the
+  generated module and lints its sample packages. A full lint of the YANG
+  bindings runs for over an hour. A root change that breaks the bindings
+  therefore surfaces when the generator next runs, not in this gate.
 - A `tools/buf/` path selects the pinned protobuf format, lint, breaking, and
   generate gates plus `go -C tools/buf mod verify` and the protobuf
   conformance tests. The format, lint, and breaking gates omit `--path` so

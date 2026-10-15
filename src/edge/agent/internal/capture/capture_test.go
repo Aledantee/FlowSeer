@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"errors"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"sync"
@@ -626,5 +627,118 @@ func TestHandler_SourceFailureAbortsWithoutFinalChunk(t *testing.T) {
 
 	if fakeServer.HasFinal() {
 		t.Fatal("a capture killed off by its source sent final: true; central would record it COMPLETED")
+	}
+}
+
+type captureRecordingLogs struct {
+	mu      sync.Mutex
+	records []slog.Record
+}
+
+func (h *captureRecordingLogs) Enabled(context.Context, slog.Level) bool { return true }
+func (h *captureRecordingLogs) WithAttrs([]slog.Attr) slog.Handler       { return h }
+func (h *captureRecordingLogs) WithGroup(string) slog.Handler            { return h }
+
+func (h *captureRecordingLogs) Handle(_ context.Context, record slog.Record) error {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.records = append(h.records, record)
+	return nil
+}
+
+func (h *captureRecordingLogs) findErrorType(msg string) (string, bool) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	for _, r := range h.records {
+		if r.Message == msg {
+			var errType string
+			var found bool
+			r.Attrs(func(a slog.Attr) bool {
+				if a.Key == "error.type" {
+					errType = a.Value.String()
+					found = true
+					return false
+				}
+				return true
+			})
+			if found {
+				return errType, true
+			}
+		}
+	}
+	return "", false
+}
+
+func TestHandler_OpenSourceFailureErrorType(t *testing.T) {
+	tests := []struct {
+		name   string
+		sessID string
+		err    error
+		want   string
+	}{
+		{
+			name:   "connect unavailable",
+			sessID: "0192e6a0-0000-7000-8000-000000000021",
+			err:    connect.NewError(connect.CodeUnavailable, errors.New("x")),
+			want:   "connect.unavailable",
+		},
+		{
+			name:   "context canceled",
+			sessID: "0192e6a0-0000-7000-8000-000000000022",
+			err:    connect.NewError(connect.CodeCanceled, context.Canceled),
+			want:   "context.canceled",
+		},
+		{
+			name:   "other",
+			sessID: "0192e6a0-0000-7000-8000-000000000023",
+			err:    errors.New("boom"),
+			want:   "_OTHER",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := testSessionConfig(tt.sessID, 100)
+			fakeServer := newFakeCaptureServiceHandler()
+			client, closeServer := startTestServer(t, fakeServer)
+			t.Cleanup(closeServer)
+
+			logs := &captureRecordingLogs{}
+			logger := slog.New(logs)
+
+			h, errHandler := agentcapture.NewHandler(agentcapture.HandlerConfig{
+				Client:        client,
+				SignAssertion: testAssertionSigner(t),
+				OpenCaptureSource: func(_ context.Context, _ capture.Config) (capture.Source, bool, error) {
+					return nil, false, tt.err
+				},
+				Logger:            logger,
+				InactivityTimeout: 10 * time.Second,
+				ReassertInterval:  10 * time.Second,
+			})
+			if errHandler != nil {
+				t.Fatalf("NewHandler: %v", errHandler)
+			}
+			t.Cleanup(func() { _ = h.Close() })
+
+			if err := h.Handle(context.Background(), captureedgev1.SubscribeCaptureAssignmentsResponse_builder{
+				Start: cfg,
+			}.Build()); err != nil {
+				t.Fatalf("Handle(Start): %v", err)
+			}
+
+			select {
+			case <-fakeServer.closed:
+			case <-time.After(5 * time.Second):
+				t.Fatal("timed out waiting for upload stream closure")
+			}
+
+			got, ok := logs.findErrorType("open custom packet source failed")
+			if !ok {
+				t.Fatal("did not log open custom packet source failed with error.type")
+			}
+			if got != tt.want {
+				t.Errorf("error.type = %q, want %q", got, tt.want)
+			}
+		})
 	}
 }

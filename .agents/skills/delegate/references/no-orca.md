@@ -72,9 +72,13 @@ report `runtime.reachable: true`.
     (unverified): when the path is gone, start the stage again.
   - After the merge it runs `delegate runlog end --run <run> --head <sha>`, and
     `delegate runlog grade --run <run> --outcome <outcome> --verify <result>` in
-    place of `delegate orca-worker grade`. `git worktree remove <path>` takes the
-    place of `delegate orca-worker stop`. When the harness refuses it, the
-    report names the path. The rest of the calling skill's after-stage
+    place of `delegate orca-worker grade`. From the coordinator checkout, run
+    `uv run tools/scripts/run.py worktree close <path>` after the worker has
+    stopped. This removes the clean checkout and its branch once another
+    local branch contains its `HEAD`. When refused, report the path and
+    reason. Use `--force` only when the user explicitly chooses to discard
+    commits that no other local branch preserves. It skips only that check.
+    See [worktree commands](../../../../tools/scripts/worktree/README.md). The rest of the calling skill's after-stage
     steps run unchanged.
 - Other editing work whose role's fit set holds no Claude model:
   - The coordinator does the units itself, one at a time, along the calling

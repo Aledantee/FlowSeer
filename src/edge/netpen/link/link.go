@@ -12,6 +12,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"net"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 )
@@ -38,18 +39,79 @@ type Frame struct {
 	Err  error
 }
 
+// Addr is the interface's own addresses, read once when the leg opens. A
+// behavior stamps them as the source of what it sends. IPv4 is the first
+// IPv4 address on the interface and IPv6 the first link-local one, since
+// neighbor discovery and router advertisements must come from a link-local
+// source. A missing address is nil. Addr values are safe for concurrent
+// reads.
+type Addr struct {
+	MAC  net.HardwareAddr
+	IPv4 net.IP
+	IPv6 net.IP
+}
+
+// interfaceAddrs is the seam over the kernel's view of an interface that
+// [readAddr] reads and a test replaces.
+var interfaceAddrs = func(name string) (net.HardwareAddr, []net.Addr, error) {
+	ifi, err := net.InterfaceByName(name)
+	if err != nil {
+		return nil, nil, err
+	}
+	addrs, err := ifi.Addrs()
+	if err != nil {
+		return nil, nil, err
+	}
+	return ifi.HardwareAddr, addrs, nil
+}
+
+// readAddr builds the [Addr] of the named interface. It fails with
+// [ErrCodeLegOpen] when the interface cannot be read. An interface with no
+// address of a family leaves that field nil.
+func readAddr(name string) (Addr, error) {
+	mac, addrs, err := interfaceAddrs(name)
+	if err != nil {
+		return Addr{}, errs.From(err).
+			Code(ErrCodeLegOpen).
+			Attr("iface", name).
+			Msgf("read addresses of %q", name)
+	}
+	out := Addr{MAC: mac}
+	for _, a := range addrs {
+		ipNet, ok := a.(*net.IPNet)
+		if !ok {
+			continue
+		}
+		switch {
+		case ipNet.IP.To4() != nil:
+			if out.IPv4 == nil {
+				out.IPv4 = ipNet.IP.To4()
+			}
+		case ipNet.IP.IsLinkLocalUnicast():
+			if out.IPv6 == nil {
+				out.IPv6 = ipNet.IP.To16()
+			}
+		}
+	}
+	return out, nil
+}
+
 // Leg is one network interface opened for raw send and receive. Both the
-// attack and watch legs implement it; the concrete linux type wraps
-// afpacket.TPacket and the non-linux stub returns ErrUnsupportedPlatform.
+// attack and watch legs implement it. The concrete linux type wraps
+// afpacket.TPacket. The non-linux stub returns ErrUnsupportedPlatform.
 //
 // A Leg is safe for concurrent use by one writer and one reader: the RX loop
 // runs in a single goroutine and Close is called from the signal path. The fd
 // lifecycle is mutex-guarded inside the implementation; Close waits for an
-// in-flight poll before releasing the socket.
+// in-flight poll before releasing the socket, and a Send never waits on a
+// poll.
 type Leg interface {
+	// Addr returns the interface's own addresses, read once at open.
+	Addr() Addr
+
 	// Send writes pkt to the wire. It returns an error matching
 	// [ErrCodeLegOpen] when the leg is closed or the write fails.
-	// A canceled context returns ctx.Err() before writing; cancellation
+	// A canceled context returns ctx.Err() before writing. Cancellation
 	// does not interrupt a write already in progress.
 	Send(ctx context.Context, pkt []byte) error
 
@@ -59,8 +121,11 @@ type Leg interface {
 
 	// Receive returns a channel that delivers captured frames until the
 	// context is canceled or the leg is closed, at which point the channel
-	// is closed. The implementation polls with a short timeout and checks
-	// ctx.Done() each cycle so cancellation unblocks within one poll.
+	// is closed. Frames the capture ring holds from before the call are
+	// delivered first, in capture order, so a consumer that wants only
+	// what follows its own send reads from the ring before sending. The
+	// implementation polls with a short timeout and checks ctx.Done()
+	// each cycle so cancellation unblocks within one poll.
 	// A terminal error frame is best effort and may be omitted if the
 	// channel is full. Drain the channel to wait for the receiver to exit
 	// before starting another Receive call.
@@ -74,8 +139,8 @@ type Leg interface {
 
 // RawInstruction is one BPF instruction, the raw form afpacket.SetBPF accepts.
 // It is the [golang.org/x/net/bpf.RawInstruction] shape re-exported so the
-// platform-neutral file has no linux-only import; the bpf builder produces
-// these from [Instruction] values. Values may be copied; concurrent mutation
+// platform-neutral file has no linux-only import. The bpf builder produces
+// these from [Instruction] values. Values may be copied. Concurrent mutation
 // of the same value requires synchronization.
 type RawInstruction struct {
 	Op uint16
@@ -85,7 +150,7 @@ type RawInstruction struct {
 }
 
 // Open opens iface as a promiscuous raw leg. On Linux it creates an
-// afpacket.TPacket v3 ring; elsewhere it returns ErrUnsupportedPlatform. A
+// afpacket.TPacket v3 ring. Elsewhere it returns ErrUnsupportedPlatform. A
 // nonexistent or unprivileged interface surfaces as an error carrying
 // [ErrCodeLegOpen], never a panic.
 func Open(iface string) (Leg, error) {

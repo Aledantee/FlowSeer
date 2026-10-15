@@ -1,12 +1,11 @@
-// lldpspoof.go implements the generic LLDP spoofing attack behavior.
+// lldpspoof.go implements the generic LLDP spoofing check. Impact
+// temporary, restore decay with no stated bound, affects device: the
+// spoofed LLDP frames with false chassis, port, and system information
+// enter the switch's neighbor table, and the entry expires with the
+// holdtime the frame carries.
 //
-// Durability (from the catalog): transient-decay. The attack sends spoofed
-// LLDP frames with false chassis/port/system information to poison network
-// management topology maps. The spoofed entries decay after the LLDP
-// holdtime (TTL) expires — no explicit teardown.
-//
-// The baseline does not carry a generic LLDP spoofing attack; the craft
-// is spec-authored from IEEE 802.1AB.
+// The baseline does not carry a generic LLDP spoofing attack. The craft
+// is authored from IEEE 802.1AB.
 
 package fh
 
@@ -20,7 +19,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/errs"
 
 	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/internal/craft"
-	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
+	"go.aledante.io/FlowSeer/src/edge/netpen/check"
 )
 
 type lldpSpoofFinding struct {
@@ -29,21 +28,24 @@ type lldpSpoofFinding struct {
 	Count  int    `json:"count"`
 }
 
-// RunLLDPSpoof sends spoofed LLDP frames with a false chassis ID, port ID,
-// and system name. The in-memory test shape sends a bounded burst.
-func RunLLDPSpoof(ctx context.Context, deps runner.Deps) error {
-	src := srcMAC()
+// RunLLDPSpoof sends two LLDP frames from the attack leg's MAC with a
+// false port ID, system name, and capabilities. All three are probe
+// content, so the behavior reads no target. The verdict is pending: whether
+// the neighbor table took the entry needs a read of the device it does not
+// have.
+func RunLLDPSpoof(ctx context.Context, deps check.Deps) (check.Verdict, error) {
+	src := deps.AttackLeg.Addr().MAC
 	ttl := uint16(120)
 	count := 2
 
 	pkt, err := craftLLDPSpoof(src, ttl)
 	if err != nil {
-		return errs.Wrap(err, "lldpspoof: craft frame")
+		return check.Verdict{}, errs.Wrap(err, "lldpspoof: craft frame")
 	}
 
 	for range count {
 		if err := deps.AttackLeg.Send(ctx, pkt); err != nil {
-			return errs.Wrap(err, "lldpspoof: send frame")
+			return check.Verdict{}, errs.Wrap(err, "lldpspoof: send frame")
 		}
 	}
 
@@ -54,7 +56,7 @@ func RunLLDPSpoof(ctx context.Context, deps runner.Deps) error {
 	})
 	deps.Emitter.Finding("lldp", detail)
 
-	return nil
+	return check.Pending("no observable: neighbor table acceptance needs a read of the device"), nil
 }
 
 // craftLLDPSpoof builds an LLDP frame with spoofed chassis/port/TTL.

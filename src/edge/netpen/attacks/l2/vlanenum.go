@@ -1,25 +1,22 @@
-// vlanenum.go implements the VLAN enumeration behavior. It is a passive,
-// non-destructive attack: it listens on a trunk port for 802.1Q-tagged
-// frames and extracts the set of active VLAN IDs from the captured traffic.
-//
-// The behavior reads frames from the attack leg's RX channel, decodes each
-// as Ethernet → Dot1Q, and collects the VLAN IDs it sees. It emits a single
-// finding listing the enumerated VLANs.
+// vlanenum.go implements the VLAN enumeration check. Impact none, restore
+// none, affects none: it sends nothing and listens on the attack leg for
+// 802.1Q-tagged frames for the window, collecting the VLAN ids it sees.
 
 package l2
 
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"sort"
-	"time"
+	"strconv"
+	"strings"
 
 	"github.com/gopacket/gopacket"
 	"github.com/gopacket/gopacket/layers"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
-
-	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
+	"go.aledante.io/FlowSeer/src/edge/netpen/check"
 )
 
 type vlanEnumFinding struct {
@@ -28,58 +25,33 @@ type vlanEnumFinding struct {
 	Method string   `json:"method"`
 }
 
-// RunVlanEnum passively enumerates VLANs from tagged frames on the attack
-// leg. It reports the observed VLANs after 500 ms without a received frame
-// or when the receive channel closes. Cancellation returns ctx.Err(); a
-// terminal receive error is wrapped and no partial finding is emitted.
-func RunVlanEnum(ctx context.Context, deps runner.Deps) error {
-	const idleTimeout = 500 * time.Millisecond
-
-	if err := ctx.Err(); err != nil {
-		return err
+// RunVlanEnum collects the tagged frames on the attack leg for the window
+// and reads no target. The verdict is confirmed with the VLAN ids seen as
+// the inventory, or pending with "no tagged frames in <window>" when none
+// arrived, with no finding. A frame without a readable 802.1Q header is
+// skipped. Cancellation returns ctx.Err(). A terminal receive error comes
+// back wrapped, with no partial finding.
+func RunVlanEnum(ctx context.Context, deps check.Deps) (check.Verdict, error) {
+	tagged, obs, err := check.Collect(ctx, deps.AttackLeg, deps.Observe, func(data []byte) bool {
+		pkt := gopacket.NewPacket(data, layers.LayerTypeEthernet, gopacket.Lazy)
+		return pkt.Layer(layers.LayerTypeDot1Q) != nil
+	})
+	if err != nil {
+		if ctx.Err() != nil {
+			return check.Verdict{}, ctx.Err()
+		}
+		return check.Verdict{}, errs.Wrap(err, "vlanenum: receive")
 	}
 
-	rx := deps.AttackLeg.Receive(ctx)
 	vlanSet := make(map[uint16]bool)
-	timer := time.NewTimer(idleTimeout)
-	defer timer.Stop()
-
-	for {
-		select {
-		case <-timer.C:
-			goto done
-		case <-ctx.Done():
-			return ctx.Err()
-		case frame, ok := <-rx:
-			if !ok {
-				goto done
-			}
-			if !timer.Stop() {
-				<-timer.C
-			}
-			timer.Reset(idleTimeout)
-			if frame.Err != nil {
-				if err := ctx.Err(); err != nil {
-					return err
-				}
-				return errs.Wrap(frame.Err, "vlanenum: receive")
-			}
-			pkt := gopacket.NewPacket(frame.Data, layers.LayerTypeEthernet, gopacket.Lazy)
-			dot1q := pkt.Layer(layers.LayerTypeDot1Q)
-			if dot1q == nil {
-				continue
-			}
-			q, ok := dot1q.(*layers.Dot1Q)
-			if !ok {
-				continue
-			}
+	for _, data := range tagged {
+		pkt := gopacket.NewPacket(data, layers.LayerTypeEthernet, gopacket.Lazy)
+		if q, ok := pkt.Layer(layers.LayerTypeDot1Q).(*layers.Dot1Q); ok {
 			vlanSet[q.VLANIdentifier] = true
 		}
 	}
-
-done:
-	if err := ctx.Err(); err != nil {
-		return err
+	if len(vlanSet) == 0 {
+		return check.Pending(fmt.Sprintf("no tagged frames in %v", deps.Observe)), nil
 	}
 
 	vlans := make([]uint16, 0, len(vlanSet))
@@ -88,10 +60,6 @@ done:
 	}
 	sort.Slice(vlans, func(i, j int) bool { return vlans[i] < vlans[j] })
 
-	if len(vlans) == 0 {
-		return errs.Msg("vlanenum: no tagged frames observed")
-	}
-
 	detail, _ := json.Marshal(vlanEnumFinding{
 		VLANs:  vlans,
 		Count:  len(vlans),
@@ -99,5 +67,9 @@ done:
 	})
 	deps.Emitter.Finding("vlan", detail)
 
-	return nil
+	ids := make([]string, len(vlans))
+	for i, v := range vlans {
+		ids[i] = strconv.Itoa(int(v))
+	}
+	return check.Confirmed("VLANs "+strings.Join(ids, ", "), obs.Elapsed), nil
 }

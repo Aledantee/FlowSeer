@@ -6,6 +6,7 @@ nothing of FlowSeer's own.
 | Package                | What it does                                                        |
 | ---------------------- | ------------------------------------------------------------------- |
 | `errs`                 | error types, codes, and boundary filtering                           |
+| `fsconv`               | shared telemetry keys, `error.type` classifier, and span failure     |
 | `net/bpdu`             | IEEE 802.1D Spanning Tree and Cisco SSTP BPDU wire codecs            |
 | `net/bpfdev`           | FreeBSD BPF device reader and writer, with a pure-Go buffer parser   |
 | `net/ethernet`         | Ethernet II frame codec, tag stack, and EtherType constants          |

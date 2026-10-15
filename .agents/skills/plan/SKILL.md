@@ -144,6 +144,7 @@ What a reader might expect and will not find here.
 ### U1. <Unit name>
 Files: <paths>
 After: <units that must land first, or none>
+Replaces: `<old output token>`, only on a unit that changes an output shape
 Change: what the code does after the unit, in present tense.
 Tests: the test files and cases that prove it.
 Verify: `uv run tools/scripts/run.py verify change -- <paths>`
@@ -186,10 +187,9 @@ Rules:
   Decisions before writing it; two parts of one plan disagreeing is the
   normal case.
 - A unit that changes an output shape (emitted source, a golden file, a
-  rendered message) lists in `Files:` every existing test and golden file
-  holding the old shape; an unlisted one blocks the implement pass or
-  collides with a parallel unit. Grep `*_test.go` and `testdata/` for the
-  distinctive token of the old output (`with-hyphen`).
+  rendered message) quotes the old token on its line (``Replaces: `victim-mac` ``).
+  `plan record check`, `ready`, and `replan` refuse while a test or `testdata/`
+  file holds it and neither the unit's `Files:` nor its `After:` units list it.
 - A unit moving Python scripts names its caller audit and replacement-command
   fixture tests in `Tests:`. Load `references/script-moves.md` before writing
   those units.
@@ -245,10 +245,10 @@ that hold.
 
 ## 5. Hand off
 
-Run the verifier on the plan and any direction record it added. In Orca, set
-the worktree comment to the plan path and its readiness. Report the path,
-the readiness, any proposed direction record awaiting acceptance, the open
-questions, the waves, and the decision you are least sure of.
+Run `plan record check <plan>` and the verifier on the plan and any direction
+record it added. In Orca, set the worktree comment to the plan path and its
+readiness. Report the path, the readiness, any proposed direction record
+awaiting acceptance, the open questions, the waves, and the least sure call.
 
 End by asking the user what happens next (`AGENTS.md`, Agent behavior), with
 the options that fit:

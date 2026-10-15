@@ -26,6 +26,7 @@ import (
 	ingestedgev1connect "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/ingest/v1/ingestv1connect"
 	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/fsconv"
 	"go.aledante.io/FlowSeer/src/common/tenant"
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
 	"go.aledante.io/FlowSeer/src/services/device/internal/actiontrail"
@@ -195,7 +196,7 @@ func (h *assembly) mux(ctx context.Context, resources *busResources, log *slog.L
 	projectHook := func(ctx context.Context, objectType, id string) {
 		t, err := tenant.FromContext(ctx)
 		if err != nil {
-			log.ErrorContext(ctx, "projector hook missing tenant", slog.String("error.type", telemetry.ErrorType(err)))
+			log.ErrorContext(ctx, "projector hook missing tenant", fsconv.ErrorType(err))
 			return
 		}
 		if err := resources.projector.Sync(ctx, projector.Object{
@@ -206,7 +207,7 @@ func (h *assembly) mux(ctx context.Context, resources *busResources, log *slog.L
 			log.ErrorContext(ctx, "failed to project object relationship",
 				slog.String("flowseer.authz.object.type", objectType),
 				slog.String("flowseer.authz.object.id", id),
-				slog.String("error.type", telemetry.ErrorType(err)),
+				fsconv.ErrorType(err),
 			)
 		}
 	}
