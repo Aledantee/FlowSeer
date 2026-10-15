@@ -103,6 +103,34 @@ func TestParseBufferTruncatedCaplen(t *testing.T) {
 	}
 }
 
+func TestParseBufferValidRecordThenTruncatedCaplen(t *testing.T) {
+	var buf []byte
+	buf = appendRecord(buf, testRecord{hdrlen: 26, caplen: 4, datalen: 4, data: make([]byte, 4)}, true)
+	buf = appendRecord(buf, testRecord{hdrlen: 26, caplen: 2000, datalen: 2000, data: make([]byte, 10)}, false)
+
+	recs, err := parseBuffer(buf, hdrLayout64)
+	if !errors.Is(err, errs.New().Code(ErrCodeBuffer).Msg("")) {
+		t.Errorf("error = %v, want code %q", err, ErrCodeBuffer)
+	}
+	if recs != nil {
+		t.Errorf("got %d records with the error, want a nil batch", len(recs))
+	}
+}
+
+func TestParseBufferValidRecordThenIncompleteHeader(t *testing.T) {
+	var buf []byte
+	buf = appendRecord(buf, testRecord{hdrlen: 26, caplen: 4, datalen: 4, data: make([]byte, 4)}, true)
+	buf = append(buf, make([]byte, 10)...)
+
+	recs, err := parseBuffer(buf, hdrLayout64)
+	if !errors.Is(err, errs.New().Code(ErrCodeBuffer).Msg("")) {
+		t.Errorf("error = %v, want code %q", err, ErrCodeBuffer)
+	}
+	if recs != nil {
+		t.Errorf("got %d records with the error, want a nil batch", len(recs))
+	}
+}
+
 func TestParseBufferEmpty(t *testing.T) {
 	recs, err := parseBuffer(nil, hdrLayout64)
 	if err != nil {
