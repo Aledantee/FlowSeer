@@ -297,18 +297,3 @@ None. The three this plan opened with are answered in
 `test/freebsd/README.md`: the provider is `utm` through the `vagrant_utm`
 plugin on the host that ran it, the box's guest is 14.3-RELEASE, and
 `/usr/sbin/tcpdump` is installed.
-
-## Review gaps
-
-Follow-ups, which do not hold the verdict:
-
-- src/common/net/bpfdev/buffer.go:72: the three error returns changed to `return recs, ...`; fails: a valid record followed by a truncated one returns the valid prefix with the error, and no test has a valid first record; class: false test, other
-- tools/scripts/tests/freebsd/test_vmtest.py:95: the cleanup guard changed to `if suite.setup and status == 0`; fails: a setup that fails partway skips `down`; class: false test, other
-- tools/scripts/freebsd/vmtest.py:97: the return after a failed build, or after a failed setup, removed; fails: a failed `go test -c` still uploads, and a failed setup still runs the binary; class: gap
-- tools/scripts/freebsd/vmtest.py:86: the env merge reversed to `{"GOOS": ..., **os.environ}`; fails: a host with GOOS or GOARCH set builds for the wrong target; class: gap
-- test/conformance/crossbuild/crossbuild_test.go:14: `vmTags` is a hand-kept list; fails: a suite tag added to `vmtest.py` without this list leaves its files unvetted; class: convention
-- tools/scripts/freebsd/vmtest.py:28: "A later phase adds its suite here" narrates planned work; fails: the comment rule in docs/code-style-python.md; class: convention
-- tools/scripts/tests/freebsd/test_vmtest.py: `run_main(...)[0]` kept as bare statements; fails: reads as an assertion that is not there; class: convention
-- test/freebsd/bpfdev-setup.sh:42: `up` overwrites a kept `tcpdump.pid` without stopping that capture; fails: after a failed fixture `down`, the next `up` orphans the old tcpdump and nothing can stop it; class: gap
-- test/freebsd/bpfdev-setup.sh:23: `stop_capture` reads any `kill -0` failure as exited; fails: run without root against a root-owned tcpdump, EPERM removes the PID file while the capture lives; class: hardening
-- test/conformance/crossbuild/doc.go:9: "any source change reruns the gate" does not cover a `//go:embed` subdirectory of a dependency outside the target trees, which is read without descending; fails: a reader trusts coverage for embedded files, though no vetted target imports such a package today; class: convention
