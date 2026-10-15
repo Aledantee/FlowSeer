@@ -1,13 +1,13 @@
 package runner
 
 import (
-	"context"
 	"fmt"
 	"strings"
 	"sync"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/edge/netpen/catalog"
+	"go.aledante.io/FlowSeer/src/edge/netpen/check"
 	"go.aledante.io/FlowSeer/src/edge/netpen/findings"
 )
 
@@ -16,101 +16,97 @@ import (
 // to complete within this allowance.
 const DefaultTeardownBudget = 10 * time.Second
 
-// gateDecision is the outcome of the durability gate for one (attack,
-// mode) pair. It carries everything Run needs to dispatch the behavior
-// correctly: whether to proceed, the announcement to emit before the
-// first frame, and the teardown handle to arm (or nil).
+// gateDecision is the outcome of the dispatch gate for one (attack, mode)
+// pair. It carries everything Run needs to dispatch the behavior
+// correctly: whether to proceed and why not, the announcement to emit
+// before the first frame, and the teardown handle to arm (or nil).
 type gateDecision struct {
-	// proceed is false when the gate refuses (permanent without ack, or
-	// permanent under orchestration). A refused behavior receives a nil
-	// AttackLeg and is never invoked.
+	// proceed is false when the gate refuses. A refused behavior receives
+	// no leg and is never invoked.
 	proceed bool
 
+	// stop is set with proceed false when the refusal ends the run: a
+	// permanent entry the operator named without its acknowledgment, or
+	// under orchestration. A ceiling refusal leaves it false and the run
+	// continues with the next attack.
+	stop bool
+
 	// announce is a run-start announcement record emitted before the
-	// behavior runs. Non-nil for transient-decay (the decay bound) and
-	// acknowledged-permanent (the accepted mode + consequence); nil for
-	// non-destructive and temporary-restored (no announcement).
+	// behavior runs: the decay bound of a decaying entry or the accepted
+	// mode of an acknowledged permanent one. On refusal it is the refusal
+	// record the gate already sent. Any other entry leaves it nil.
 	announce *findings.Record
 
-	// teardown is the armed-teardown handle handed to a temporary-restored
-	// behavior via [Deps.Teardown]. Non-nil for temporary-restored and
-	// acknowledged-permanent entries (both arm teardown); nil otherwise.
+	// teardown is the armed-teardown handle handed to a behavior whose
+	// entry restores actively. Every other entry leaves it nil.
 	teardown *Teardown
 }
 
-// gate evaluates the durability class for one (attack, mode) pair and
-// decides whether and how to dispatch. It consults
-// the catalog entry BEFORE the leg's TX is ever handed to the behavior:
-// a refused behavior literally never receives a send-capable leg, so zero
-// frames are possible. The ack set is per (name, mode); the
-// orchestration flag closes the permanent path entirely.
+// gate decides whether and how to dispatch one (attack, mode) pair, in the
+// order ceiling, acknowledgment, legs. It consults the entry BEFORE the
+// leg's TX is ever handed to the behavior: a refused behavior never
+// receives a send-capable leg, so zero frames are possible. The ack set is
+// per (name, mode). The orchestration flag closes the permanent path
+// entirely.
 //
 // On refusal the gate emits the typed refusal record through the stream
-// and returns proceed=false; Run then returns the coded non-zero exit.
-func gate(s *Stream, entry catalog.Entry, ack map[string]bool, orchestrated bool) gateDecision {
-	switch entry.Class {
-	case catalog.NonDestructive:
-		return gateDecision{proceed: true}
+// and returns proceed=false.
+func gate(s *Stream, entry check.Entry, ceiling check.Impact, ack map[string]bool, orchestrated bool, watchLeg bool) gateDecision {
+	if entry.Impact.Level() > ceiling.Level() {
+		rec := refusalRecord(entry, fmt.Sprintf("impact %s exceeds ceiling %s", entry.Impact, ceiling))
+		_ = s.send(*rec)
+		return gateDecision{announce: rec}
+	}
 
-	case catalog.TransientDecay:
-		// Announce the catalog's decay bound as a run-start record
-		// before executing; arm nothing (transient-decay has no
-		// restore).
-		rec := decayAnnouncement(entry)
-		return gateDecision{proceed: true, announce: rec}
-
-	case catalog.TemporaryRestored:
-		// Teardown armed before the first frame; steps execute on
-		// completion or interrupt. The handle is returned; the
-		// behavior arms steps against it.
-		return gateDecision{proceed: true, teardown: newTeardown(s, entry)}
-
-	case catalog.PermanentDestructive:
+	var announce *findings.Record
+	if entry.Impact == check.ImpactPermanent {
 		// Under orchestration the permanent path is closed regardless
 		// of ack (full never dispatches a permanent mode).
 		if orchestrated {
-			rec := refusalRecord(entry, "permanent-destructive mode cannot dispatch under orchestration")
+			rec := refusalRecord(entry, "permanent mode cannot dispatch under orchestration")
 			_ = s.send(*rec)
-			return gateDecision{proceed: false, announce: rec}
+			return gateDecision{stop: true, announce: rec}
 		}
 		if !ack[entryKey(entry.Name, entry.Mode)] {
-			opt := requiredOptIn(entry)
 			rec := refusalRecord(entry, fmt.Sprintf(
-				"permanent-destructive mode %q requires the per-run opt-in %s", entry.Mode, opt))
+				"permanent mode %q requires the per-run opt-in %s", entry.Mode, requiredOptIn(entry)))
 			_ = s.send(*rec)
-			return gateDecision{proceed: false, announce: rec}
+			return gateDecision{stop: true, announce: rec}
 		}
-		// Acknowledged permanent: announce the accepted mode + consequence
-		// before the first frame, then treat like temporary-restored for
-		// teardown arming.
-		rec := acceptedAnnouncement(entry)
-		return gateDecision{proceed: true, announce: rec, teardown: newTeardown(s, entry)}
-
-	default:
-		// An unknown class is a catalog/registration bug; the family-guard
-		// test rejects these at registration, so this is defense in depth.
-		rec := refusalRecord(entry, fmt.Sprintf("unknown durability class %q", entry.Class))
-		_ = s.send(*rec)
-		return gateDecision{proceed: false, announce: rec}
+		announce = acceptedAnnouncement(entry)
 	}
+
+	if entry.Legs == check.WatchRequired && !watchLeg {
+		rec := refusalRecord(entry, "requires a watch leg; none attached")
+		_ = s.send(*rec)
+		return gateDecision{stop: true, announce: rec}
+	}
+
+	dec := gateDecision{proceed: true, announce: announce}
+	if entry.Restore.Kind == check.RestoreDecay {
+		dec.announce = decayAnnouncement(entry)
+	}
+	if entry.Restore.Kind == check.RestoreActive {
+		dec.teardown = newTeardown(s, entry)
+	}
+	return dec
 }
 
 // requiredOptIn returns the opt-in flag string the operator must supply to
-// acknowledge a permanent-destructive mode (the acknowledgment names
-// each permanent mode). It is the mode flag with the leading dashes the
-// CLI uses, mirroring the baseline's --i-know gate shape.
-func requiredOptIn(entry catalog.Entry) string {
+// acknowledge a permanent mode. It is the mode flag with the leading dashes
+// the CLI uses, mirroring the baseline's --i-know gate shape.
+func requiredOptIn(entry check.Entry) string {
 	if entry.Mode == "" {
-		return "--ack <name>"
+		return "--i-accept-permanent " + entry.Name + "="
 	}
-	return "--ack " + entry.Name + " --" + entry.Mode
+	return "--i-accept-permanent " + entry.Name + "=" + entry.Mode
 }
 
 // refusalRecord builds a typed [findings.KindRefusal] record naming the
 // attack, the mode, and the reason the gate declined before any frame.
 // The record's Reason is the stable machine-contract string a
 // consumer matches on.
-func refusalRecord(entry catalog.Entry, reason string) *findings.Record {
+func refusalRecord(entry check.Entry, reason string) *findings.Record {
 	r := findings.NewRecord(findings.KindRefusal)
 	r.Attack = entry.Name
 	r.Mode = entry.Mode
@@ -119,16 +115,16 @@ func refusalRecord(entry catalog.Entry, reason string) *findings.Record {
 }
 
 // decayAnnouncement builds the run-start announcement record for a
-// transient-decay entry: the catalog's recorded decay bound (the decay
-// bound is announced at run start). It rides as a progress record
-// so both output modes surface it before the first finding.
-func decayAnnouncement(entry catalog.Entry) *findings.Record {
+// decaying entry: the bound the probe itself announces, or a statement
+// that none is known. It rides as a progress record so both output modes
+// surface it before the first finding.
+func decayAnnouncement(entry check.Entry) *findings.Record {
 	r := findings.NewRecord(findings.KindProgress)
 	r.Attack = entry.Name
 	r.Mode = entry.Mode
-	bound := entry.Teardown
-	if bound == "" {
-		bound = "decay bound unrecorded"
+	bound := "decay bound unknown"
+	if entry.Restore.Bound > 0 {
+		bound = "decays within " + entry.Restore.Bound.String()
 	}
 	r.Progress = &findings.Progress{
 		Phase:  "decay-bound",
@@ -138,25 +134,25 @@ func decayAnnouncement(entry catalog.Entry) *findings.Record {
 }
 
 // acceptedAnnouncement builds the run-start announcement record for an
-// acknowledged permanent-destructive entry: it names the accepted mode and
-// its consequence before the first frame.
-func acceptedAnnouncement(entry catalog.Entry) *findings.Record {
+// acknowledged permanent entry: it names the accepted mode and whose state
+// it changes before the first frame.
+func acceptedAnnouncement(entry check.Entry) *findings.Record {
 	r := findings.NewRecord(findings.KindProgress)
 	r.Attack = entry.Name
 	r.Mode = entry.Mode
 	r.Progress = &findings.Progress{
 		Phase:  "accepted-permanent",
-		Detail: fmt.Sprintf("mode %q accepted; %s", entry.Mode, entry.Teardown),
+		Detail: fmt.Sprintf("mode %q accepted; permanent change to %s state", entry.Mode, entry.Affects),
 	}
 	return &r
 }
 
-// Teardown is the arming handle a temporary-restored behavior registers
-// its restore steps against. The runner constructs one
-// before invoking the behavior and hands it through [Deps.Teardown]; the
-// behavior arms each named restore step via [Teardown.Arm] before its
-// first frame. After the behavior returns (or is interrupted), the
-// runner executes the armed steps via [Teardown.Run].
+// Teardown is the arming handle a behavior whose entry restores actively
+// registers its restore steps against. The runner constructs one before
+// invoking the behavior and hands it through [check.Deps.Teardown]. The
+// behavior arms each named restore step via [Teardown.Arm] before its first
+// frame. After the behavior returns (or is interrupted), the runner
+// executes the armed steps via [Teardown.Run].
 //
 // Steps execute in the order armed — which the behavior establishes as
 // reverse-dependency order: least-dependent (host-local state, e.g.
@@ -173,13 +169,12 @@ func acceptedAnnouncement(entry catalog.Entry) *findings.Record {
 // guards the step and failed lists.
 type Teardown struct {
 	stream *Stream
-	entry  catalog.Entry
+	entry  check.Entry
 
-	// mu guards steps, failed, and completed. Arm holds the write lock
-	// to append; execute snapshots steps under the lock then runs them
-	// unlocked (step functions may block), publishing progress under
-	// the lock after each step; the reporting helpers read under the
-	// lock.
+	// mu guards steps, failed, and completed. Arm appends under the lock.
+	// execute snapshots the steps under the lock, runs them unlocked
+	// because a step may block, and takes the lock again after each step
+	// to publish progress. The reporting helpers read under the lock.
 	mu sync.Mutex
 
 	// steps is the ordered list of armed steps, in arm order.
@@ -204,28 +199,21 @@ type Teardown struct {
 // record) and the function the behavior registered.
 type teardownStep struct {
 	name string
-	fn   TeardownStep
+	fn   check.Step
 }
-
-// TeardownStep is the restore function a behavior registers against a
-// [Teardown] via [Teardown.Arm]. It runs under a context bounded by the
-// teardown budget; an error is collected into the partial-failure record
-// and does not stop later steps. It must return promptly on cancellation;
-// the executor waits for it to return before starting the next step.
-type TeardownStep func(ctx context.Context) error
 
 // newTeardown constructs a Teardown tied to the stream (for the
 // partial-failure record) and the catalog entry (for naming).
-func newTeardown(s *Stream, entry catalog.Entry) *Teardown {
+func newTeardown(s *Stream, entry check.Entry) *Teardown {
 	return &Teardown{stream: s, entry: entry}
 }
 
 // Arm registers one named restore step. The behavior calls this before
-// emitting its first frame; the order of Arm calls is the execution order
-// (reverse-dependency: least-dependent first). A step name identifies the
-// step in the partial-failure record; names should be stable and
-// descriptive (e.g. "ip-forward-restore", "neighbor-unicast-repair").
-func (t *Teardown) Arm(name string, fn TeardownStep) {
+// emitting its first frame. Steps execute in the order they were armed
+// (reverse-dependency: least-dependent first). The step name identifies the
+// step in the partial-failure record, so pick a stable, descriptive one
+// such as "ip-forward-restore" or "neighbor-unicast-repair".
+func (t *Teardown) Arm(name string, fn check.Step) {
 	t.mu.Lock()
 	t.steps = append(t.steps, teardownStep{name: name, fn: fn})
 	t.mu.Unlock()
@@ -233,7 +221,7 @@ func (t *Teardown) Arm(name string, fn TeardownStep) {
 
 // armed reports whether at least one step was armed. The runner calls
 // this after the behavior returns to enforce the loud-failure contract:
-// a temporary-restored behavior that arms zero steps is a coded runtime
+// an actively restored behavior that arms zero steps is a coded runtime
 // failure (a required restore that restores nothing is a bug).
 func (t *Teardown) armed() bool {
 	t.mu.Lock()

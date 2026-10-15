@@ -55,9 +55,9 @@ func parseFindingsClass(out string) (string, error) {
 }
 
 func TestParseFindingsClass(t *testing.T) {
-	const header = `{"schema_version":1,"kind":"meta","meta":{}}` + "\n"
-	const summary = `{"schema_version":1,"kind":"summary","summary":{}}`
-	const finding = `{"schema_version":1,"kind":"finding","finding":{"module":"ospf","detail":{}}}` + "\n"
+	const header = `{"schema_version":2,"kind":"meta","meta":{}}` + "\n"
+	const summary = `{"schema_version":2,"kind":"summary","summary":{}}`
+	const finding = `{"schema_version":2,"kind":"finding","finding":{"module":"ospf","detail":{}}}` + "\n"
 	cases := []struct {
 		name string
 		out  string
@@ -65,17 +65,17 @@ func TestParseFindingsClass(t *testing.T) {
 	}{
 		{"valid", header + finding + summary, "finding:ospf,meta:,summary:"},
 		{"duplicates", header + finding + finding + summary, "finding:ospf,meta:,summary:"},
-		{"JSON whitespace", header + `{ "schema_version": 1, "kind": "finding", "finding": {"module": "ospf"}}` + "\n" + summary, "finding:ospf,meta:,summary:"},
-		{"nested detail", header + `{"schema_version":1,"kind":"finding","finding":{"detail":{"module":"decoy"},"module":"ospf"}}` + "\n" + summary, "finding:ospf,meta:,summary:"},
-		{"no findings", header + `{"schema_version":1,"kind":"resisted","rollup":{"verdict":"resisted"}}` + "\n" + summary, "meta:,resisted:,summary:"},
+		{"JSON whitespace", header + `{ "schema_version": 2, "kind": "finding", "finding": {"module": "ospf"}}` + "\n" + summary, "finding:ospf,meta:,summary:"},
+		{"nested detail", header + `{"schema_version":2,"kind":"finding","finding":{"detail":{"module":"decoy"},"module":"ospf"}}` + "\n" + summary, "finding:ospf,meta:,summary:"},
+		{"no findings", header + `{"schema_version":2,"kind":"verdict","verdict":{"kind":"resisted"}}` + "\n" + summary, "meta:,summary:,verdict:"},
 		{"empty", "", ""},
 		{"no attack records", header + summary, ""},
 		{"missing summary", header + finding, ""},
 		{"missing header", finding + summary, ""},
 		{"malformed JSON", header + `{"kind":"finding","finding":{"module":"ospf"}` + "\n" + summary, ""},
 		{"diagnostic on stdout", header + finding + "warning\n" + summary, ""},
-		{"missing module", header + `{"schema_version":1,"kind":"finding"}` + "\n" + summary, ""},
-		{"wrong schema", header + `{"schema_version":2,"kind":"progress"}` + "\n" + summary, ""},
+		{"missing module", header + `{"schema_version":2,"kind":"finding"}` + "\n" + summary, ""},
+		{"wrong schema", header + `{"schema_version":1,"kind":"progress"}` + "\n" + summary, ""},
 		{"duplicate header", header + header + finding + summary, ""},
 	}
 	for _, tc := range cases {

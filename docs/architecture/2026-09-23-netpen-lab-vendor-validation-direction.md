@@ -15,9 +15,9 @@ over an interactive SSH session. A passing test therefore says that the vendor
 accepted the injected behavior, rather than only that netpen transmitted the
 expected frames.
 
-For example, the OSPF validation injects netpen's fixed fixture from the Linux
-host and runs `show ip ospf neighbor` on IOS-XE. The evidence is the attacker's
-router ID in the device's neighbor table. netpen's JSONL finding still matters,
+For example, the OSPF validation injects from the Linux host as the router ID
+the harness passes through `--router-id` and runs `show ip ospf neighbor` on
+IOS-XE. The evidence is that router ID in the device's neighbor table. netpen's JSONL finding still matters,
 but it describes transmitted frames and cannot establish the device-side state
 by itself.
 
@@ -31,13 +31,15 @@ an anchored vendor prompt, and the device's pagination marker.
 
 The management and injection paths are separate. SSH uses the target's management
 address. Packets leave the injector on a data interface that shares the protocol
-segment with the target. The operator supplies that wiring and a device baseline
-compatible with the behavior's fixture; the test verifies the prerequisite and
-does not configure the device.
+segment with the target. The target a behavior acts on comes from the command's
+target flags, which the harness passes with each injection. The operator
+supplies that wiring and a device baseline compatible with those flags. The
+test verifies the prerequisite and does not configure the device.
 
 This makes restoration part of the claim. A live check observes the expected
 state after injection and observes its removal after teardown or protocol expiry.
-If a fixed fixture cannot create the expected vendor state, the validation stops.
+If the target the flags name cannot create the expected vendor state, the
+validation stops.
 Changing the harness to accept a weaker proxy would turn source-(b) evidence into
 a transmission test.
 

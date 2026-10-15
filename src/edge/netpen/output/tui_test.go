@@ -76,13 +76,13 @@ func TestTUIUpdateProgress(t *testing.T) {
 		t.Errorf("arpsweep phase = %q, want sweep", entry.phase)
 	}
 
-	// stproot had a resisted rollup.
+	// stproot had a resisted verdict.
 	entry, ok = progress[attackKey("stproot", "")]
 	if !ok {
 		t.Fatal("progress map missing stproot entry")
 	}
-	if entry.rollup != "resisted" {
-		t.Errorf("stproot rollup = %q, want resisted", entry.rollup)
+	if entry.verdict != "resisted" {
+		t.Errorf("stproot verdict = %q, want resisted", entry.verdict)
 	}
 }
 
@@ -190,9 +190,9 @@ func TestTUIWindowSizeUpdate(t *testing.T) {
 	}
 }
 
-// TestTUIRollupParity verifies resisted/skipped/pending rollup records appear
-// as rollup entries in the TUI model.
-func TestTUIRollupParity(t *testing.T) {
+// TestTUIVerdictParity verifies verdict records appear as the attack's
+// verdict in the progress map and as one feed line per attack.
+func TestTUIVerdictParity(t *testing.T) {
 	recs := syntheticFeed()
 	m := NewModel(true, 80, 24)
 
@@ -202,19 +202,29 @@ func TestTUIRollupParity(t *testing.T) {
 	}
 
 	progress := m.progressEntries()
-	wantRollups := map[string]string{
+	wantVerdicts := map[string]string{
 		"stproot": "resisted",
 		"vtp":     "skipped",
 		"dtp":     "pending",
 	}
-	for attack, wantRollup := range wantRollups {
+	for attack, wantVerdict := range wantVerdicts {
 		entry, ok := progress[attackKey(attack, "")]
 		if !ok {
 			t.Errorf("progress map missing %s", attack)
 			continue
 		}
-		if entry.rollup != wantRollup {
-			t.Errorf("%s rollup = %q, want %q", attack, entry.rollup, wantRollup)
+		if entry.verdict != wantVerdict {
+			t.Errorf("%s verdict = %q, want %q", attack, entry.verdict, wantVerdict)
+		}
+	}
+	feed := strings.Join(m.Feed(), "\n")
+	for _, line := range []string{
+		"[stproot] resisted: root guard blocked the BPDU",
+		"[vtp] skipped: no VTP domain detected",
+		"[dtp] pending: no watch-leg traversal evidence",
+	} {
+		if !strings.Contains(feed, line) {
+			t.Errorf("feed lacks %q:\n%s", line, feed)
 		}
 	}
 }
@@ -248,22 +258,22 @@ func TestTUIParityWithJSON(t *testing.T) {
 		t.Fatal("TUI feed is empty; parity check failed")
 	}
 
-	// Both modes should carry the rollup verdicts.
+	// Both modes should carry the verdicts.
 	jsonOut := jsonStdout.String()
-	for _, rollup := range []string{"resisted", "skipped", "pending"} {
-		if !strings.Contains(jsonOut, rollup) {
-			t.Errorf("JSON output missing %s rollup", rollup)
+	for _, kind := range []string{"resisted", "skipped", "pending"} {
+		if !strings.Contains(jsonOut, kind) {
+			t.Errorf("JSON output missing %s verdict", kind)
 		}
 		progress := m.progressEntries()
 		found := false
 		for _, entry := range progress {
-			if entry.rollup == rollup {
+			if entry.verdict == kind {
 				found = true
 				break
 			}
 		}
 		if !found {
-			t.Errorf("TUI progress missing %s rollup", rollup)
+			t.Errorf("TUI progress missing %s verdict", kind)
 		}
 	}
 }

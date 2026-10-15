@@ -2,30 +2,65 @@
 // fixture-mirrored TX sequences: byte-for-byte where deterministic,
 // field-set where randomized. Tests use the in-memory [testtest.Leg]
 // harness (pcap-fed RX + recorded TX) and exercise each behavior through
-// the runner, which creates the Stream, Teardown, and Deps. Durability
-// duties, finding emission, and the restore-order invariant are
-// asserted via the recorded TX.
+// the runner, which creates the Stream, Teardown, and Deps. The target and
+// the leg's addresses are the fixture's values, so the frames the harvest
+// generator pinned still come out byte for byte.
 
 package fh_test
 
 import (
 	"context"
 	"encoding/json"
+	"net"
+	"strings"
 	"testing"
 
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/fh"
 	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/testtest"
 	"go.aledante.io/FlowSeer/src/edge/netpen/catalog"
+	"go.aledante.io/FlowSeer/src/edge/netpen/check"
 	"go.aledante.io/FlowSeer/src/edge/netpen/findings"
+	"go.aledante.io/FlowSeer/src/edge/netpen/link"
 	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
 )
 
-// runOne runs a single behavior through the runner and returns the findings
-// and the run error. The stream is drained concurrently with Run.
+// fixtureMAC is the attacker MAC every fixture frame carries as its source.
+var fixtureMAC = net.HardwareAddr{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
+
+// fixtureTarget builds the target the fixtures were harvested against: the
+// victim and gateway pair of the ARP fixtures, the virtual IP, group, and
+// VRID of the first-hop redundancy fixtures, and the sweep network.
+func fixtureTarget() check.Target {
+	_, sweep, _ := net.ParseCIDR("172.16.0.0/24")
+	return check.Target{
+		Victim:    check.Host{IP: net.IPv4(172, 16, 0, 10), MAC: net.HardwareAddr{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x01}},
+		Gateway:   check.Host{IP: net.IPv4(172, 16, 0, 1), MAC: net.HardwareAddr{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0xfe}},
+		VirtualIP: net.IPv4(10, 0, 0, 1),
+		Group:     new(uint16(1)),
+		VRID:      51,
+		SweepNet:  sweep,
+	}
+}
+
+// fixtureLeg returns a test leg whose own addresses are the fixture MAC and
+// the given IPv4, the attacker address the fixture frames carry.
+func fixtureLeg(t *testing.T, ipv4 net.IP) *testtest.Leg {
+	t.Helper()
+	leg := testtest.New()
+	t.Cleanup(func() { _ = leg.Close() })
+	leg.SetAddr(link.Addr{MAC: fixtureMAC, IPv4: ipv4.To4()})
+	return leg
+}
+
+// runOne runs the attacks through the runner over the family's own
+// catalog and returns the findings and the run error. The stream is drained
+// concurrently with Run.
 func runOne(t *testing.T, opts runner.Options) ([]findings.Record, error) {
 	t.Helper()
-	if opts.Behaviors == nil {
-		opts.Behaviors = fh.Behaviors()
+	opts.Catalog = catalog.MustNew(fh.Behaviors()...)
+	if opts.MaxImpact == "" {
+		opts.MaxImpact = check.ImpactTemporary
 	}
 	r := runner.NewRunner(opts)
 
@@ -44,26 +79,19 @@ func runOne(t *testing.T, opts runner.Options) ([]findings.Record, error) {
 	return recs, err
 }
 
-// runSingle is a convenience for running one attack on a single leg.
-//
-//nolint:unparam // mode mirrors l2's shape; fh behaviors are mode-less but the parameter is retained for parity.
-func runSingle(t *testing.T, leg *testtest.Leg, name, mode string, ack ...runner.AttackRef) ([]findings.Record, error) {
+// runSingle runs one attack on a single leg against the fixture target.
+func runSingle(t *testing.T, leg *testtest.Leg, name string, target check.Target) ([]findings.Record, error) {
 	t.Helper()
-	opts := runner.Options{
+	return runOne(t, runner.Options{
 		AttackLeg: leg,
-		Attacks:   []runner.AttackRef{{Name: name, Mode: mode}},
-		Behaviors: fh.Behaviors(),
-	}
-	if len(ack) > 0 {
-		opts.Acknowledged = ack
-	}
-	return runOne(t, opts)
+		Attacks:   []runner.AttackRef{{Name: name}},
+		Target:    target,
+	})
 }
 
-//nolint:unparam // mode mirrors l2's shape for catalog parity.
-func mustEntry(t *testing.T, name, mode string) catalog.Entry {
+func mustEntry(t *testing.T, name, mode string) check.Entry {
 	t.Helper()
-	e, ok := runner.ResolveEntry(name, mode)
+	e, _, ok := catalog.MustNew(fh.Behaviors()...).Lookup(name, mode)
 	if !ok {
 		t.Fatalf("catalog entry not found: %s/%s", name, mode)
 	}
@@ -81,16 +109,25 @@ func findFinding(t *testing.T, recs []findings.Record) *findings.Finding {
 	return nil
 }
 
+// verdictOf returns the attack's verdict record payload, or nil.
+func verdictOf(recs []findings.Record) *findings.Verdict {
+	for i := range recs {
+		if recs[i].Kind == findings.KindVerdict {
+			return recs[i].Verdict
+		}
+	}
+	return nil
+}
+
 func fixturePackets(t *testing.T, name string) [][]byte {
 	t.Helper()
 	return testtest.ReadPcap(t, testtest.FixturePath(t, "fh/"+name))
 }
 
 func TestARPSweep_FixturePins(t *testing.T) {
-	leg := testtest.New()
-	defer func() { _ = leg.Close() }()
+	leg := fixtureLeg(t, net.IPv4(172, 16, 0, 1))
 
-	recs, err := runSingle(t, leg, "arpsweep", "")
+	recs, err := runSingle(t, leg, "arpsweep", fixtureTarget())
 	if err != nil {
 		t.Fatalf("run arpsweep: %v", err)
 	}
@@ -105,160 +142,161 @@ func TestARPSweep_FixturePins(t *testing.T) {
 		testtest.AssertBytesEqual(t, "ARP sweep frame", frame, fixtures[i])
 	}
 
-	if len(recs) == 0 {
-		t.Fatal("no findings emitted")
+	v := verdictOf(recs)
+	if v == nil || v.Kind != findings.VerdictConfirmed {
+		t.Fatalf("verdict = %+v, want confirmed with the inventory", v)
+	}
+	if !strings.Contains(v.Detail, "172.16.0.3") {
+		t.Errorf("verdict detail %q does not list the requested hosts", v.Detail)
+	}
+}
+
+// TestEmptyTargetIsSkipped pins the one-round contract on a real behavior:
+// with no target the behavior sends nothing, the runner records a skipped
+// verdict naming the missing fields, and the single command's run returns
+// the exit-2 error.
+func TestEmptyTargetIsSkipped(t *testing.T) {
+	leg := fixtureLeg(t, net.IPv4(10, 0, 0, 2))
+	recs, err := runSingle(t, leg, "arpspoof", check.Target{})
+	if code, ok := errs.CodeOf(err); !ok || code != check.ErrCodeTargetMissing {
+		t.Fatalf("run arpspoof with no target = %v, want %q", err, check.ErrCodeTargetMissing)
+	}
+	if errs.ExitCode(err) != 2 {
+		t.Errorf("exit code = %d, want 2", errs.ExitCode(err))
+	}
+	if leg.SendCount() != 0 {
+		t.Errorf("sends = %d, want 0", leg.SendCount())
+	}
+	v := verdictOf(recs)
+	if v == nil || v.Kind != findings.VerdictSkipped {
+		t.Fatalf("verdict = %+v, want skipped", v)
+	}
+	if want := "the check needs: --victim <ip>,<mac>, --gateway <ip>,<mac>"; v.Detail != want {
+		t.Errorf("verdict detail = %q, want %q", v.Detail, want)
+	}
+}
+
+// TestNeedFieldsPerBehavior pins, per behavior that reads a target, the
+// exact flags an empty target reports, and that hsrp refuses a group its
+// one-octet frame field cannot carry with the invalid code and no frame.
+func TestNeedFieldsPerBehavior(t *testing.T) {
+	cases := []struct {
+		name   string
+		target check.Target
+		code   errs.Code
+		detail string
+	}{
+		{"arpsweep", check.Target{}, check.ErrCodeTargetMissing, "the check needs: --sweep-net <cidr>"},
+		{"arpspoof", check.Target{}, check.ErrCodeTargetMissing, "the check needs: --victim <ip>,<mac>, --gateway <ip>,<mac>"},
+		{"gratarp", check.Target{}, check.ErrCodeTargetMissing, "the check needs: --vip <ip>"},
+		{"hsrp", check.Target{}, check.ErrCodeTargetMissing, "the check needs: --group <n>, --vip <ip>"},
+		{"vrrp", check.Target{}, check.ErrCodeTargetMissing, "the check needs: --vrid <n>, --vip <ip>"},
+		{"icmpredirect", check.Target{}, check.ErrCodeTargetMissing, "the check needs: --victim <ip>,<mac>, --gateway <ip>,<mac>"},
+		{"llmnr", check.Target{}, check.ErrCodeTargetMissing, "the check needs: --victim <ip>,<mac>"},
+		{"llmnr victim without MAC", check.Target{Victim: check.Host{IP: net.IPv4(172, 16, 0, 10)}}, check.ErrCodeTargetMissing, "the check needs: --victim <ip>,<mac>"},
+		{"icmpredirect victim without MAC", check.Target{Victim: check.Host{IP: net.IPv4(172, 16, 0, 10)}, Gateway: check.Host{IP: net.IPv4(172, 16, 0, 1)}}, check.ErrCodeTargetMissing, "the check needs: --victim <ip>,<mac>"},
+		{"glbp", check.Target{}, check.ErrCodeTargetMissing, "the check needs: --group <n>, --vip <ip>"},
+		{"hsrp group 300", check.Target{Group: new(uint16(300)), VirtualIP: net.IPv4(10, 0, 0, 1)}, check.ErrCodeTargetInvalid, "the check needs: --group at most 255"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			leg := fixtureLeg(t, net.IPv4(10, 0, 0, 2))
+			name, _, _ := strings.Cut(tc.name, " ")
+			recs, err := runSingle(t, leg, name, tc.target)
+			if code, ok := errs.CodeOf(err); !ok || code != tc.code {
+				t.Fatalf("run %s = %v (code %q), want %q", name, err, code, tc.code)
+			}
+			if errs.ExitCode(err) != 2 {
+				t.Errorf("exit code = %d, want 2", errs.ExitCode(err))
+			}
+			if leg.SendCount() != 0 {
+				t.Errorf("sends = %d, want 0", leg.SendCount())
+			}
+			v := verdictOf(recs)
+			if v == nil || v.Kind != findings.VerdictSkipped {
+				t.Fatalf("verdict = %+v, want skipped", v)
+			}
+			if v.Detail != tc.detail {
+				t.Errorf("verdict detail = %q, want %q", v.Detail, tc.detail)
+			}
+		})
 	}
 }
 
 // TestARPSpoof_RestoreOrder: the arpspoof behavior arms ip-forward-
 // restore FIRST, then neighbor-unicast-repair steps. The runner executes
-// teardown in arm order, so the recorded TX after completion should show:
-// poison frames → (no ip_forward TX since it's host-local) → neighbor
-// repair frames. The ip-forward-restore step is host-local (no TX), so
-// we verify the neighbor repair frames appear in the correct order and
-// that the teardown completes within the scaled budget.
+// teardown in arm order, so the recorded TX after completion shows:
+// poison frames, then neighbor repair frames.
 func TestARPSpoof_RestoreOrder(t *testing.T) {
-	leg := testtest.New()
-	defer func() { _ = leg.Close() }()
+	leg := fixtureLeg(t, net.IPv4(10, 0, 0, 2))
 
-	recs, err := runSingle(t, leg, "arpspoof", "")
+	recs, err := runSingle(t, leg, "arpspoof", fixtureTarget())
 	if err != nil {
 		t.Fatalf("run arpspoof: %v", err)
 	}
 
 	tx := leg.TX()
-	// 2 poison frames + 2 restore frames = 4 total.
 	if len(tx) != 4 {
 		t.Fatalf("TX count: got %d, want 4 (2 poison + 2 restore)", len(tx))
 	}
 
-	// Verify poison frames match the fixture.
 	poisonFixtures := fixturePackets(t, "arpspoof.pcap")
 	testtest.AssertBytesEqual(t, "ARP poison victim", tx[0], poisonFixtures[0])
 	testtest.AssertBytesEqual(t, "ARP poison gateway", tx[1], poisonFixtures[1])
 
-	// Verify restore frames match the fixture.
 	restoreFixtures := fixturePackets(t, "arpspoof_restore.pcap")
 	testtest.AssertBytesEqual(t, "ARP restore victim", tx[2], restoreFixtures[0])
 	testtest.AssertBytesEqual(t, "ARP restore gateway", tx[3], restoreFixtures[1])
 
-	if len(recs) == 0 {
-		t.Fatal("no findings emitted")
+	if findFinding(t, recs) == nil {
+		t.Fatal("no finding emitted")
+	}
+	if v := verdictOf(recs); v == nil || v.Kind != findings.VerdictPending {
+		t.Errorf("verdict = %+v, want pending", v)
 	}
 }
 
-// TestARPSpoof_RestoreFramesOnTX asserts the poison-then-restore frame
-// sequence lands on the recorded TX in order: two poison frames, then the
-// neighbor-unicast repairs. The step-order invariant itself (host-local
-// ip_forward restore first, then the wire repairs) and the
-// mid-interruption half are covered at the runtime level, where a cancel
-// can actually land mid-run.
-func TestARPSpoof_RestoreFramesOnTX(t *testing.T) {
-	leg := testtest.New()
-	defer func() { _ = leg.Close() }()
-
-	recs, err := runSingle(t, leg, "arpspoof", "")
-	if err != nil {
-		t.Fatalf("run arpspoof: %v", err)
-	}
-
-	tx := leg.TX()
-	// 2 poison frames + 2 restore frames = 4 total.
-	if len(tx) != 4 {
-		t.Fatalf("TX count: got %d, want 4 (2 poison + 2 restore)", len(tx))
-	}
-
-	// The restore-order invariant: the teardown steps execute in
-	// arm order: ip-forward-restore (host-local, no TX) first, then
-	// neighbor-unicast-repair-victim, then neighbor-unicast-repair-
-	// gateway. The ip-forward-restore produces no TX (it's host-local),
-	// so the recorded TX shows: poison, poison, victim-repair, gw-repair.
-	// The victim repair must come before the gateway repair (the
-	// baseline restores the victim's cache first, then the gateway's).
-	restoreFixtures := fixturePackets(t, "arpspoof_restore.pcap")
-	testtest.AssertBytesEqual(t, "ARP restore victim", tx[2], restoreFixtures[0])
-	testtest.AssertBytesEqual(t, "ARP restore gateway", tx[3], restoreFixtures[1])
-
-	// Verify a finding was emitted.
-	foundFinding := false
-	for _, rec := range recs {
-		if rec.Kind == findings.KindFinding {
-			foundFinding = true
-		}
-	}
-	if !foundFinding {
-		t.Error("no finding emitted")
-	}
-}
-
-// TestARPSpoof_UnreachableTargetAfterPoison: the arpspoof with an
-// unreachable target after poisoning still restores forward-state and
-// records the unreachable neighbor in the partial record. In the
-// in-memory shape, we plant a TX error on the restore step to simulate
-// the unreachable neighbor, and verify the teardown reports a partial
-// failure naming the failed step.
-// TestARPSpoof_UnreachableTargetAfterPoison: the arpspoof with an
-// unreachable target after poisoning still restores forward-state and
-// records the unreachable neighbor in the partial record. In the
-// in-memory shape, we plant a TX error to simulate the unreachable
-// neighbor during the teardown restore step, and verify the finding
-// is still emitted and the teardown produces a partial-failure record.
+// TestARPSpoof_UnreachableTargetAfterPoison plants a TX error so the poison
+// send fails: the behavior's error becomes a pending verdict, the
+// host-local restore step still runs, the wire repairs fail into the
+// teardown's partial record, and the run completes without hanging.
 func TestARPSpoof_UnreachableTargetAfterPoison(t *testing.T) {
-	leg := testtest.New()
-	defer func() { _ = leg.Close() }()
-
-	// Plant a TX error to simulate the unreachable neighbor on the
-	// restore path. When all sends fail, the behavior errors on the
-	// first poison frame, and the teardown's repair steps also fail.
-	// The key assertion: ip-forward-restore (host-local, no TX) still
-	// succeeds, and the teardown partial-failure record names the
-	// failed neighbor-unicast-repair steps. The run does not hang.
+	leg := fixtureLeg(t, net.IPv4(10, 0, 0, 2))
 	leg.SetTXError(context.Canceled)
 
-	opts := runner.Options{
+	recs, err := runOne(t, runner.Options{
 		AttackLeg:      leg,
 		Attacks:        []runner.AttackRef{{Name: "arpspoof"}},
-		Behaviors:      fh.Behaviors(),
-		TeardownBudget: 1_000_000_000, // 1s — the run must complete within this
+		Target:         fixtureTarget(),
+		TeardownBudget: 1_000_000_000,
+	})
+	if code, _ := errs.CodeOf(err); code != catalog.ErrCodeTeardownPartial {
+		t.Errorf("run error = %v, want the teardown partial failure of the wire repairs", err)
 	}
-	r := runner.NewRunner(opts)
-
-	var recs []findings.Record
-	done := make(chan struct{})
-	go func() {
-		for rec := range r.Stream().Iter() {
-			recs = append(recs, rec)
-		}
-		close(done)
-	}()
-
-	_ = r.Run(context.Background())
-	r.Wait()
-	<-done
-
-	// The behavior errors on the first poison send (TX error), so an
-	// error record is emitted. The teardown still runs (ip-forward-
-	// restore is host-local; the neighbor repairs fail on TX). The
-	// run completes without hanging — the key assertion.
-	foundError := false
+	v := verdictOf(recs)
+	if v == nil || v.Kind != findings.VerdictPending || !strings.Contains(v.Detail, "send victim poison") {
+		t.Errorf("verdict = %+v, want pending with the send error", v)
+	}
+	var partial *findings.ErrorRecord
 	for _, rec := range recs {
-		if rec.Kind == findings.KindError {
-			foundError = true
+		if rec.Kind == findings.KindError && rec.Error != nil && rec.Error.Code == catalog.ErrCodeTeardownPartial.String() {
+			partial = rec.Error
 		}
 	}
-	if !foundError {
-		// The behavior error is emitted as an error record; the
-		// teardown partial may also surface. Either way, the run
-		// completed (we reached this line without hanging).
-		t.Log("run completed; no error record found (teardown may have succeeded for host-local step)")
+	if partial == nil {
+		t.Fatal("no teardown partial record naming the failed repairs")
+	}
+	for _, step := range []string{"neighbor-unicast-repair-victim", "neighbor-unicast-repair-gateway"} {
+		if !strings.Contains(partial.Message, step) {
+			t.Errorf("partial record %q does not name the failed step %s", partial.Message, step)
+		}
 	}
 }
 
 func TestGratARP_FixturePins(t *testing.T) {
-	leg := testtest.New()
-	defer func() { _ = leg.Close() }()
+	leg := fixtureLeg(t, net.IPv4(10, 0, 0, 2))
 
-	recs, err := runSingle(t, leg, "gratarp", "")
+	recs, err := runSingle(t, leg, "gratarp", fixtureTarget())
 	if err != nil {
 		t.Fatalf("run gratarp: %v", err)
 	}
@@ -273,45 +311,41 @@ func TestGratARP_FixturePins(t *testing.T) {
 		testtest.AssertBytesEqual(t, "GratARP frame", frame, fixtures[i])
 	}
 
-	if len(recs) == 0 {
-		t.Fatal("no findings emitted")
+	if findFinding(t, recs) == nil {
+		t.Fatal("no finding emitted")
 	}
 }
 
 func TestHSRP_ResignTeardown(t *testing.T) {
-	leg := testtest.New()
-	defer func() { _ = leg.Close() }()
+	leg := fixtureLeg(t, net.IPv4(10, 0, 0, 2))
 
-	recs, err := runSingle(t, leg, "hsrp", "")
+	recs, err := runSingle(t, leg, "hsrp", fixtureTarget())
 	if err != nil {
 		t.Fatalf("run hsrp: %v", err)
 	}
 
 	tx := leg.TX()
-	// 2 attack frames (coup + hello) + 1 restore frame (resign) = 3.
 	if len(tx) != 3 {
 		t.Fatalf("TX count: got %d, want 3 (coup + hello + resign)", len(tx))
 	}
 
-	// Verify the coup frame matches the fixture.
 	fixtures := fixturePackets(t, "hsrp.pcap")
 	testtest.AssertBytesEqual(t, "HSRP coup", tx[0], fixtures[0])
 	testtest.AssertBytesEqual(t, "HSRP hello", tx[1], fixtures[1])
 
-	// Verify the resign frame matches the fixture.
 	restoreFixtures := fixturePackets(t, "hsrp_restore.pcap")
 	testtest.AssertBytesEqual(t, "HSRP resign", tx[2], restoreFixtures[0])
 
-	if len(recs) == 0 {
-		t.Fatal("no findings emitted")
+	v := verdictOf(recs)
+	if v == nil || v.Kind != findings.VerdictPending || v.Detail != "no observable: coup acceptance needs a hello listener" {
+		t.Errorf("verdict = %+v, want the pending reason naming the hello listener", v)
 	}
 }
 
 func TestVRRP_FixturePins(t *testing.T) {
-	leg := testtest.New()
-	defer func() { _ = leg.Close() }()
+	leg := fixtureLeg(t, net.IPv4(10, 0, 0, 2))
 
-	recs, err := runSingle(t, leg, "vrrp", "")
+	recs, err := runSingle(t, leg, "vrrp", fixtureTarget())
 	if err != nil {
 		t.Fatalf("run vrrp: %v", err)
 	}
@@ -321,22 +355,18 @@ func TestVRRP_FixturePins(t *testing.T) {
 		t.Fatalf("TX count: got %d, want 2", len(tx))
 	}
 
-	// VRRP is field-set verified — the checksum is not byte-for-byte.
-	// Verify the frames match the fixture byte-for-byte (the harvest
-	// uses the same construction).
 	fixtures := fixturePackets(t, "vrrp.pcap")
 	testtest.AssertBytesEqual(t, "VRRP advertisement", tx[0], fixtures[0])
 
-	if len(recs) == 0 {
-		t.Fatal("no findings emitted")
+	if findFinding(t, recs) == nil {
+		t.Fatal("no finding emitted")
 	}
 }
 
 func TestICMPRedirect_FixturePins(t *testing.T) {
-	leg := testtest.New()
-	defer func() { _ = leg.Close() }()
+	leg := fixtureLeg(t, net.IPv4(10, 0, 0, 99))
 
-	recs, err := runSingle(t, leg, "icmpredirect", "")
+	recs, err := runSingle(t, leg, "icmpredirect", fixtureTarget())
 	if err != nil {
 		t.Fatalf("run icmpredirect: %v", err)
 	}
@@ -349,16 +379,20 @@ func TestICMPRedirect_FixturePins(t *testing.T) {
 	fixtures := fixturePackets(t, "icmpredirect.pcap")
 	testtest.AssertBytesEqual(t, "ICMP redirect", tx[0], fixtures[0])
 
-	if len(recs) == 0 {
-		t.Fatal("no findings emitted")
+	if findFinding(t, recs) == nil {
+		t.Fatal("no finding emitted")
 	}
 }
 
+// TestLLMNR_FixturePins pins the spoofed answer against the fixture, whose
+// victim is 10.0.0.2 behind the attacker's own MAC, and that the finding
+// carries no credential fields.
 func TestLLMNR_FixturePins(t *testing.T) {
-	leg := testtest.New()
-	defer func() { _ = leg.Close() }()
+	leg := fixtureLeg(t, net.IPv4(10, 0, 0, 1))
+	target := fixtureTarget()
+	target.Victim = check.Host{IP: net.IPv4(10, 0, 0, 2), MAC: fixtureMAC}
 
-	recs, err := runSingle(t, leg, "llmnr", "")
+	recs, err := runSingle(t, leg, "llmnr", target)
 	if err != nil {
 		t.Fatalf("run llmnr: %v", err)
 	}
@@ -372,73 +406,46 @@ func TestLLMNR_FixturePins(t *testing.T) {
 	fixtures := fixturePackets(t, "llmnr.pcap")
 	testtest.AssertBytesEqual(t, "LLMNR response", tx[0], fixtures[1])
 
-	if len(recs) == 0 {
-		t.Fatal("no findings emitted")
+	finding := findFinding(t, recs)
+	if finding == nil {
+		t.Fatal("no finding emitted")
 	}
-
-	// Verify the finding carries secret-material metadata (protocol +
-	// length, not the value).
-	for _, rec := range recs {
-		if rec.Kind == findings.KindFinding && rec.Finding != nil {
-			var detail struct {
-				Protocol string `json:"protocol"`
-				Length   int    `json:"length"`
-			}
-			if err := json.Unmarshal(rec.Finding.Detail, &detail); err != nil {
-				continue
-			}
-			if detail.Protocol != "ntlm" {
-				t.Errorf("secret protocol: got %q, want %q", detail.Protocol, "ntlm")
-			}
-			if detail.Length <= 0 {
-				t.Errorf("secret length: got %d, want > 0", detail.Length)
-			}
+	var detail map[string]any
+	if err := json.Unmarshal(finding.Detail, &detail); err != nil {
+		t.Fatalf("unmarshal finding: %v", err)
+	}
+	for _, field := range []string{"protocol", "length"} {
+		if _, ok := detail[field]; ok {
+			t.Errorf("finding carries %q; the behavior captures no credential", field)
 		}
+	}
+	if detail["answer"] != "10.0.0.1" {
+		t.Errorf("answer = %v, want the leg's own IPv4 10.0.0.1", detail["answer"])
 	}
 }
 
 // TestGhost_WithoutWatchLegFailsFast: ghost invoked without a watch
 // leg fails fast with a coded error and zero frames sent.
 func TestGhost_WithoutWatchLegFailsFast(t *testing.T) {
-	leg := testtest.New()
-	defer func() { _ = leg.Close() }()
+	leg := fixtureLeg(t, net.IPv4(10, 0, 0, 2))
 
-	// No watch leg set.
-	recs, err := runSingle(t, leg, "ghost", "")
-	if err == nil {
-		t.Fatal("expected watch-leg-required error, got nil")
+	_, err := runSingle(t, leg, "ghost", fixtureTarget())
+	if code, ok := errs.CodeOf(err); !ok || code != catalog.ErrCodeWatchLegRequired {
+		t.Fatalf("run ghost without a watch leg = %v, want %q", err, catalog.ErrCodeWatchLegRequired)
 	}
-
-	// Zero frames sent (the gate fails before dispatch).
 	if leg.SendCount() != 0 {
 		t.Errorf("frames sent: got %d, want 0 (fails fast before TX)", leg.SendCount())
 	}
-
-	// The error should carry the watch-leg-required code.
-	found := false
-	for _, rec := range recs {
-		if rec.Kind == findings.KindError {
-			found = true
-		}
-	}
-	// The runner returns a coded error; we check the code.
-	_ = found // the error is returned from Run, not as a finding record
 }
 
 // TestGhost_TraversalAttribution: the ghost behavior sends frames from
 // the attack leg, and the watch leg is fed matching frames (proving
 // traversal). The behavior distinguishes attack-leg-produced frames
-// (ghost SA source MAC) from ambient traffic on the two-leg fixture.
+// (ghost SA source MAC) from ambient traffic and confirms traversal.
 func TestGhost_TraversalAttribution(t *testing.T) {
-	attackLeg := testtest.New()
-	defer func() { _ = attackLeg.Close() }()
+	attackLeg := fixtureLeg(t, net.IPv4(10, 0, 0, 2))
+	watchLeg := fixtureLeg(t, net.IPv4(10, 0, 0, 2))
 
-	watchLeg := testtest.New()
-	defer func() { _ = watchLeg.Close() }()
-
-	// Feed the watch leg with the ghost frames (attack-leg-produced)
-	// plus an ambient frame. The ghost frames have the ghost SA as
-	// their source MAC; the ambient frame has a different source.
 	ghostFixtures := fixturePackets(t, "ghost.pcap")
 	ambientFixtures := fixturePackets(t, "ghost_ambient.pcap")
 	for _, f := range ghostFixtures {
@@ -448,39 +455,26 @@ func TestGhost_TraversalAttribution(t *testing.T) {
 		watchLeg.PushRX(f)
 	}
 
-	opts := runner.Options{
+	recs, err := runOne(t, runner.Options{
 		AttackLeg: attackLeg,
 		WatchLeg:  watchLeg,
 		Attacks:   []runner.AttackRef{{Name: "ghost"}},
-		Behaviors: fh.Behaviors(),
-	}
-	recs, err := runOne(t, opts)
+	})
 	if err != nil {
 		t.Fatalf("run ghost: %v", err)
 	}
 
-	// The attack leg sent 2 frames.
 	tx := attackLeg.TX()
 	if len(tx) != 2 {
 		t.Fatalf("attack TX count: got %d, want 2", len(tx))
 	}
-
-	// Verify the attack frames match the fixture.
 	testtest.AssertBytesEqual(t, "ghost STP", tx[0], ghostFixtures[0])
 	testtest.AssertBytesEqual(t, "ghost LLDP", tx[1], ghostFixtures[1])
 
-	// The finding should report traversal evidence and attribution.
-	var ghostRec *findings.Finding
-	for i := range recs {
-		if recs[i].Kind == findings.KindFinding {
-			ghostRec = recs[i].Finding
-			break
-		}
-	}
+	ghostRec := findFinding(t, recs)
 	if ghostRec == nil {
 		t.Fatal("no finding emitted")
 	}
-
 	var detail struct {
 		Sent       int    `json:"sent"`
 		Observed   int    `json:"observed"`
@@ -490,90 +484,84 @@ func TestGhost_TraversalAttribution(t *testing.T) {
 	if err := json.Unmarshal(ghostRec.Detail, &detail); err != nil {
 		t.Fatalf("unmarshal finding: %v", err)
 	}
-
 	if detail.Traversal != "forwarded" {
 		t.Errorf("traversal: got %q, want %q", detail.Traversal, "forwarded")
 	}
-	// The ghost frames are attributed to the attack leg; the ambient
-	// frame is distinguished from them.
 	if detail.Attributed == "none" {
 		t.Error("attribution: got none, want attack-distinguished-from-ambient or attack-only")
+	}
+	if v := verdictOf(recs); v == nil || v.Kind != findings.VerdictConfirmed {
+		t.Errorf("verdict = %+v, want confirmed", v)
 	}
 }
 
 func TestGLBP_ResignTeardown(t *testing.T) {
-	leg := testtest.New()
-	defer func() { _ = leg.Close() }()
+	leg := fixtureLeg(t, net.IPv4(10, 0, 0, 2))
 
-	recs, err := runSingle(t, leg, "glbp", "")
+	recs, err := runSingle(t, leg, "glbp", fixtureTarget())
 	if err != nil {
 		t.Fatalf("run glbp: %v", err)
 	}
 
 	tx := leg.TX()
-	// 1 attack frame (hello) + 1 restore frame (resign) = 2.
 	if len(tx) != 2 {
 		t.Fatalf("TX count: got %d, want 2 (hello + resign)", len(tx))
 	}
 
-	// Verify the hello frame matches the fixture.
 	fixtures := fixturePackets(t, "glbp.pcap")
 	testtest.AssertBytesEqual(t, "GLBP hello", tx[0], fixtures[0])
 
-	// Verify the resign frame matches the fixture.
 	restoreFixtures := fixturePackets(t, "glbp_restore.pcap")
 	testtest.AssertBytesEqual(t, "GLBP resign", tx[1], restoreFixtures[0])
 
-	if len(recs) == 0 {
-		t.Fatal("no findings emitted")
+	if findFinding(t, recs) == nil {
+		t.Fatal("no finding emitted")
 	}
 }
 
-// TestGLBP_Reproducibility: two in-memory runs over the same
-// fixture produce the same findings class.
-func TestGLBP_Reproducibility(t *testing.T) {
-	leg1 := testtest.New()
-	recs1, _ := runSingle(t, leg1, "glbp", "")
-	defer func() { _ = leg1.Close() }()
+// TestReproducibility: two in-memory runs over the same fixture produce
+// the same finding class and TX bytes.
+func TestReproducibility(t *testing.T) {
+	for _, name := range []string{"glbp", "lldpspoof"} {
+		t.Run(name, func(t *testing.T) {
+			leg1 := fixtureLeg(t, net.IPv4(10, 0, 0, 2))
+			recs1, _ := runSingle(t, leg1, name, fixtureTarget())
+			leg2 := fixtureLeg(t, net.IPv4(10, 0, 0, 2))
+			recs2, _ := runSingle(t, leg2, name, fixtureTarget())
 
-	leg2 := testtest.New()
-	recs2, _ := runSingle(t, leg2, "glbp", "")
-	defer func() { _ = leg2.Close() }()
-
-	f1 := findFinding(t, recs1)
-	f2 := findFinding(t, recs2)
-	if f1 == nil || f2 == nil {
-		t.Fatal("expected findings from both runs")
-	}
-	if f1.Module != f2.Module {
-		t.Errorf("module mismatch: %q vs %q", f1.Module, f2.Module)
-	}
-
-	var d1, d2 struct {
-		Action string `json:"action"`
-	}
-	_ = json.Unmarshal(f1.Detail, &d1)
-	_ = json.Unmarshal(f2.Detail, &d2)
-	if d1.Action != d2.Action {
-		t.Errorf("action mismatch: %q vs %q", d1.Action, d2.Action)
-	}
-
-	tx1, tx2 := leg1.TX(), leg2.TX()
-	if len(tx1) != len(tx2) {
-		t.Fatalf("TX count mismatch: %d vs %d", len(tx1), len(tx2))
-	}
-	for i := range tx1 {
-		if string(tx1[i]) != string(tx2[i]) {
-			t.Errorf("TX[%d] mismatch", i)
-		}
+			f1 := findFinding(t, recs1)
+			f2 := findFinding(t, recs2)
+			if f1 == nil || f2 == nil {
+				t.Fatal("expected findings from both runs")
+			}
+			if f1.Module != f2.Module {
+				t.Errorf("module mismatch: %q vs %q", f1.Module, f2.Module)
+			}
+			var d1, d2 struct {
+				Action string `json:"action"`
+			}
+			_ = json.Unmarshal(f1.Detail, &d1)
+			_ = json.Unmarshal(f2.Detail, &d2)
+			if d1.Action != d2.Action {
+				t.Errorf("action mismatch: %q vs %q", d1.Action, d2.Action)
+			}
+			tx1, tx2 := leg1.TX(), leg2.TX()
+			if len(tx1) != len(tx2) {
+				t.Fatalf("TX count mismatch: %d vs %d", len(tx1), len(tx2))
+			}
+			for i := range tx1 {
+				if string(tx1[i]) != string(tx2[i]) {
+					t.Errorf("TX[%d] mismatch", i)
+				}
+			}
+		})
 	}
 }
 
 func TestLLDPSpoof_FixturePins(t *testing.T) {
-	leg := testtest.New()
-	defer func() { _ = leg.Close() }()
+	leg := fixtureLeg(t, net.IPv4(10, 0, 0, 2))
 
-	recs, err := runSingle(t, leg, "lldpspoof", "")
+	recs, err := runSingle(t, leg, "lldpspoof", fixtureTarget())
 	if err != nil {
 		t.Fatalf("run lldpspoof: %v", err)
 	}
@@ -588,148 +576,40 @@ func TestLLDPSpoof_FixturePins(t *testing.T) {
 		testtest.AssertBytesEqual(t, "LLDP spoof frame", frame, fixtures[0])
 	}
 
-	if len(recs) == 0 {
-		t.Fatal("no findings emitted")
+	if findFinding(t, recs) == nil {
+		t.Fatal("no finding emitted")
 	}
 }
 
-// TestLLDPSpoof_Reproducibility: two in-memory runs over the
-// same fixture produce the same findings class.
-func TestLLDPSpoof_Reproducibility(t *testing.T) {
-	leg1 := testtest.New()
-	recs1, _ := runSingle(t, leg1, "lldpspoof", "")
-	defer func() { _ = leg1.Close() }()
-
-	leg2 := testtest.New()
-	recs2, _ := runSingle(t, leg2, "lldpspoof", "")
-	defer func() { _ = leg2.Close() }()
-
-	f1 := findFinding(t, recs1)
-	f2 := findFinding(t, recs2)
-	if f1 == nil || f2 == nil {
-		t.Fatal("expected findings from both runs")
+// TestCatalogCostFields pins each behavior's impact, restore, and legs
+// against what the plan assigns from the registration text they replace.
+func TestCatalogCostFields(t *testing.T) {
+	cases := []struct {
+		name    string
+		impact  check.Impact
+		restore check.RestoreKind
+		legs    check.Legs
+	}{
+		{"arpsweep", check.ImpactNone, check.RestoreNone, check.AttackOnly},
+		{"ghost", check.ImpactNone, check.RestoreNone, check.WatchRequired},
+		{"arpspoof", check.ImpactTemporary, check.RestoreActive, check.AttackOnly},
+		{"hsrp", check.ImpactTemporary, check.RestoreActive, check.AttackOnly},
+		{"glbp", check.ImpactTemporary, check.RestoreActive, check.AttackOnly},
+		{"vrrp", check.ImpactTemporary, check.RestoreDecay, check.AttackOnly},
+		{"icmpredirect", check.ImpactTemporary, check.RestoreDecay, check.AttackOnly},
+		{"gratarp", check.ImpactTemporary, check.RestoreDecay, check.AttackOnly},
+		{"llmnr", check.ImpactTemporary, check.RestoreDecay, check.AttackOnly},
+		{"lldpspoof", check.ImpactTemporary, check.RestoreDecay, check.AttackOnly},
 	}
-	if f1.Module != f2.Module {
-		t.Errorf("module mismatch: %q vs %q", f1.Module, f2.Module)
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			entry := mustEntry(t, c.name, "")
+			if entry.Impact != c.impact || entry.Restore.Kind != c.restore || entry.Legs != c.legs {
+				t.Errorf("%s = impact %s, restore %s, legs %s; want %s, %s, %s", c.name, entry.Impact, entry.Restore.Kind, entry.Legs, c.impact, c.restore, c.legs)
+			}
+		})
 	}
-
-	var d1, d2 struct {
-		Action string `json:"action"`
-	}
-	_ = json.Unmarshal(f1.Detail, &d1)
-	_ = json.Unmarshal(f2.Detail, &d2)
-	if d1.Action != d2.Action {
-		t.Errorf("action mismatch: %q vs %q", d1.Action, d2.Action)
-	}
-
-	tx1, tx2 := leg1.TX(), leg2.TX()
-	if len(tx1) != len(tx2) {
-		t.Fatalf("TX count mismatch: %d vs %d", len(tx1), len(tx2))
-	}
-	for i := range tx1 {
-		if string(tx1[i]) != string(tx2[i]) {
-			t.Errorf("TX[%d] mismatch", i)
-		}
-	}
-}
-
-func TestSecretMaterialRedaction(t *testing.T) {
-	secret := findings.NewSecret("llmnr", []byte("supersecret"))
-
-	data, err := json.Marshal(secret)
-	if err != nil {
-		t.Fatalf("marshal secret: %v", err)
-	}
-
-	var m map[string]any
-	if err := json.Unmarshal(data, &m); err != nil {
-		t.Fatalf("unmarshal: %v", err)
-	}
-
-	if m["protocol"] != "llmnr" {
-		t.Errorf("protocol: got %v, want %v", m["protocol"], "llmnr")
-	}
-	if m["length"] != float64(len("supersecret")) {
-		t.Errorf("length: got %v, want %d", m["length"], len("supersecret"))
-	}
-	if string(data) != `{"protocol":"llmnr","length":11}` {
-		t.Errorf("secret JSON leaked value: %s", string(data))
-	}
-}
-
-func TestARPSweepCatalogClassIsNonDestructive(t *testing.T) {
-	entry := mustEntry(t, "arpsweep", "")
-	if entry.Class != catalog.NonDestructive {
-		t.Errorf("arpsweep class: got %v, want %v", entry.Class, catalog.NonDestructive)
-	}
-}
-
-func TestGhostCatalogClassIsNonDestructive(t *testing.T) {
-	entry := mustEntry(t, "ghost", "")
-	if entry.Class != catalog.NonDestructive {
-		t.Errorf("ghost class: got %v, want %v", entry.Class, catalog.NonDestructive)
-	}
-}
-
-func TestARPSpoofCatalogClassIsTemporaryRestored(t *testing.T) {
-	entry := mustEntry(t, "arpspoof", "")
-	if entry.Class != catalog.TemporaryRestored {
-		t.Errorf("arpspoof class: got %v, want %v", entry.Class, catalog.TemporaryRestored)
-	}
-}
-
-func TestHSRPCatalogClassIsTemporaryRestored(t *testing.T) {
-	entry := mustEntry(t, "hsrp", "")
-	if entry.Class != catalog.TemporaryRestored {
-		t.Errorf("hsrp class: got %v, want %v", entry.Class, catalog.TemporaryRestored)
-	}
-}
-
-func TestGLBPCatalogClassIsTemporaryRestored(t *testing.T) {
-	entry := mustEntry(t, "glbp", "")
-	if entry.Class != catalog.TemporaryRestored {
-		t.Errorf("glbp class: got %v, want %v", entry.Class, catalog.TemporaryRestored)
-	}
-}
-
-func TestVRRPCatalogClassIsTransientDecay(t *testing.T) {
-	entry := mustEntry(t, "vrrp", "")
-	if entry.Class != catalog.TransientDecay {
-		t.Errorf("vrrp class: got %v, want %v", entry.Class, catalog.TransientDecay)
-	}
-}
-
-func TestICMPRedirectCatalogClassIsTransientDecay(t *testing.T) {
-	entry := mustEntry(t, "icmpredirect", "")
-	if entry.Class != catalog.TransientDecay {
-		t.Errorf("icmpredirect class: got %v, want %v", entry.Class, catalog.TransientDecay)
-	}
-}
-
-func TestGratARPCatalogClassIsTransientDecay(t *testing.T) {
-	entry := mustEntry(t, "gratarp", "")
-	if entry.Class != catalog.TransientDecay {
-		t.Errorf("gratarp class: got %v, want %v", entry.Class, catalog.TransientDecay)
-	}
-}
-
-func TestLLMNRCatalogClassIsTransientDecay(t *testing.T) {
-	entry := mustEntry(t, "llmnr", "")
-	if entry.Class != catalog.TransientDecay {
-		t.Errorf("llmnr class: got %v, want %v", entry.Class, catalog.TransientDecay)
-	}
-}
-
-func TestLLDPSpoofCatalogClassIsTransientDecay(t *testing.T) {
-	entry := mustEntry(t, "lldpspoof", "")
-	if entry.Class != catalog.TransientDecay {
-		t.Errorf("lldpspoof class: got %v, want %v", entry.Class, catalog.TransientDecay)
-	}
-}
-
-func TestGhostCatalogLegsIsWatchRequired(t *testing.T) {
-	entry := mustEntry(t, "ghost", "")
-	if entry.Legs != catalog.WatchRequired {
-		t.Errorf("ghost legs: got %v, want %v", entry.Legs, catalog.WatchRequired)
+	if bound := mustEntry(t, "llmnr", "").Restore.Bound; bound.Seconds() != 30 {
+		t.Errorf("llmnr decay bound = %v, want the 30 s TTL of the answer", bound)
 	}
 }

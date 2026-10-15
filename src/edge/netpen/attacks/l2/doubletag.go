@@ -1,10 +1,8 @@
-// doubletag.go implements the VLAN double-tagging (QinQ) hopping attack.
-//
-// The attack injects a double-tagged Ethernet frame: outer tag = the
-// attacker's VLAN (matching the access port), inner tag = the target VLAN.
-// When the frame reaches a trunk port, the switch strips the outer tag and
-// forwards the frame into the target VLAN — a one-shot hop. Nothing
-// persists: the attack is transient-decay (one-shot injected frames).
+// doubletag.go implements the VLAN double-tagging (QinQ) hopping check.
+// Impact none, restore none, affects none: the one double-tagged frame,
+// outer tag the access port's VLAN and inner tag the target VLAN, is
+// forwarded into the target VLAN by a trunk that strips the outer tag, a
+// one-shot hop that leaves no state behind.
 
 package l2
 
@@ -12,13 +10,14 @@ import (
 	"context"
 	"encoding/json"
 	"net"
+	"strconv"
 
 	"github.com/gopacket/gopacket/layers"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 
 	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/internal/craft"
-	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
+	"go.aledante.io/FlowSeer/src/edge/netpen/check"
 )
 
 type doubleTagFinding struct {
@@ -28,34 +27,35 @@ type doubleTagFinding struct {
 	Target    string `json:"target"`
 }
 
-// RunDoubleTag sends a QinQ double-tagged frame to hop from the access
-// VLAN to the target VLAN. The attack is one-shot (transient-decay).
-func RunDoubleTag(ctx context.Context, deps runner.Deps) error {
-	src := srcMAC(deps)
-
-	// Default VLANs: outer=10 (access), inner=20 (target). A real
-	// implementation would read these from flags; the fixture pins these
-	// values.
-	outerVLAN := uint16(10)
-	innerVLAN := uint16(20)
+// RunDoubleTag sends one QinQ frame tagged with the target's outer and
+// inner VLANs from the attack leg's MAC. The echo request inside and its
+// addresses are probe content. The verdict is pending: whether the frame
+// reached the inner VLAN needs a watch leg there, which it does not have.
+func RunDoubleTag(ctx context.Context, deps check.Deps) (check.Verdict, error) {
+	if err := deps.Target.Need(check.FieldOuterVLAN, check.FieldInnerVLAN); err != nil {
+		return check.Verdict{}, err
+	}
+	src := deps.AttackLeg.Addr().MAC
+	outerVLAN := deps.Target.OuterVLAN
+	innerVLAN := deps.Target.InnerVLAN
 
 	pkt, err := craftDoubleTagFrame(src, outerVLAN, innerVLAN)
 	if err != nil {
-		return errs.Wrap(err, "doubletag: craft frame")
+		return check.Verdict{}, errs.Wrap(err, "doubletag: craft frame")
 	}
 	if err := deps.AttackLeg.Send(ctx, pkt); err != nil {
-		return errs.Wrap(err, "doubletag: send")
+		return check.Verdict{}, errs.Wrap(err, "doubletag: send")
 	}
 
 	detail, _ := json.Marshal(doubleTagFinding{
 		Action:    "vlan-hop",
 		OuterVLAN: outerVLAN,
 		InnerVLAN: innerVLAN,
-		Target:    "20",
+		Target:    strconv.Itoa(int(innerVLAN)),
 	})
 	deps.Emitter.Finding("vlan", detail)
 
-	return nil
+	return check.Pending("no observable: a hop into the inner VLAN needs a watch leg there"), nil
 }
 
 // craftDoubleTagFrame builds a QinQ frame: Ethernet → Dot1Q(outer) →

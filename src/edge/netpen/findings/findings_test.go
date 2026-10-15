@@ -7,11 +7,68 @@ import (
 	"time"
 )
 
-// TestSchemaVersionIsOne pins the major-version contract: the machine
-// contract starts at 1.
-func TestSchemaVersionIsOne(t *testing.T) {
-	if SchemaVersion != 1 {
-		t.Fatalf("SchemaVersion = %d, want 1", SchemaVersion)
+// TestSchemaVersionIsTwo pins the major-version contract: the verdict kind
+// and the confirmed count ship under version 2.
+func TestSchemaVersionIsTwo(t *testing.T) {
+	if SchemaVersion != 2 {
+		t.Fatalf("SchemaVersion = %d, want 2", SchemaVersion)
+	}
+}
+
+// TestVerdictRecordRoundTrip pins the wire shape of the verdict record field
+// by field, since a consumer parses these names and nothing else proves
+// the tags.
+func TestVerdictRecordRoundTrip(t *testing.T) {
+	r := NewRecord(KindVerdict)
+	r.Attack = "ghost"
+	r.Verdict = &Verdict{Kind: VerdictResisted, Detail: "0 frames in 3s", ObservedMS: 3000}
+	b, err := json.Marshal(r)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	var got struct {
+		SchemaVersion int    `json:"schema_version"`
+		Kind          string `json:"kind"`
+		Attack        string `json:"attack"`
+		Verdict       struct {
+			Kind       string `json:"kind"`
+			Detail     string `json:"detail"`
+			ObservedMS int64  `json:"observed_ms"`
+		} `json:"verdict"`
+	}
+	if err := json.Unmarshal(b, &got); err != nil {
+		t.Fatalf("unmarshal %s: %v", b, err)
+	}
+	if got.SchemaVersion != 2 {
+		t.Errorf("schema_version = %d, want 2", got.SchemaVersion)
+	}
+	if got.Kind != "verdict" {
+		t.Errorf("kind = %q, want verdict", got.Kind)
+	}
+	if got.Attack != "ghost" {
+		t.Errorf("attack = %q, want ghost", got.Attack)
+	}
+	if got.Verdict.Kind != "resisted" {
+		t.Errorf("verdict.kind = %q, want resisted", got.Verdict.Kind)
+	}
+	if got.Verdict.Detail != "0 frames in 3s" {
+		t.Errorf("verdict.detail = %q, want %q", got.Verdict.Detail, "0 frames in 3s")
+	}
+	if got.Verdict.ObservedMS != 3000 {
+		t.Errorf("verdict.observed_ms = %d, want 3000", got.Verdict.ObservedMS)
+	}
+}
+
+// TestSummaryCountTalliesEachVerdictKind pins that every verdict kind has
+// its own summary column and an unknown kind touches none.
+func TestSummaryCountTalliesEachVerdictKind(t *testing.T) {
+	var s Summary
+	for _, k := range []VerdictKind{VerdictConfirmed, VerdictResisted, VerdictResisted, VerdictPending, VerdictSkipped, "bogus"} {
+		s.Count(k)
+	}
+	want := Summary{Confirmed: 1, Resisted: 2, Pending: 1, Skipped: 1}
+	if s != want {
+		t.Errorf("summary = %+v, want %+v", s, want)
 	}
 }
 
@@ -57,7 +114,7 @@ func TestRecordMarshalJSONEmitsSchemaVersion(t *testing.T) {
 func TestKindsEnumerate(t *testing.T) {
 	want := []Kind{
 		KindMeta, KindFinding, KindProgress, KindSummary,
-		KindError, KindRefusal, KindResisted, KindSkipped, KindPending,
+		KindError, KindRefusal, KindVerdict,
 	}
 	seen := make(map[Kind]bool)
 	for _, k := range want {

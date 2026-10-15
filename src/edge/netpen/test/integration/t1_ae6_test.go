@@ -23,6 +23,15 @@ var supersetAttacks = []string{
 	"glbp",
 }
 
+// targetFlags names the target each superset attack needs on the lab
+// segment: the router ID OSPF injects as, the route EIGRP injects, and the
+// group and virtual IP GLBP claims. The others read no target.
+var targetFlags = map[string][]string{
+	"ospf":  {"--router-id", "10.0.0.99"},
+	"eigrp": {"--route4", "10.99.0.0/24"},
+	"glbp":  {"--group", "1", "--vip", "10.99.0.1"},
+}
+
 // TestAE6_SupersetReproducibility compares the record kinds and finding modules
 // from two successful runs of each attack inside FRR r1 on the lab segment.
 // This checks reproducibility; it does not assert vendor behavior or wire shape.
@@ -52,8 +61,8 @@ func TestAE6_SupersetReproducibility(t *testing.T) {
 
 func runAttackClass(ctx context.Context, t *testing.T, attack string) string {
 	t.Helper()
-	cmd := exec.CommandContext(ctx, "docker", "exec", "netpen-t1-frr-r1",
-		"netpen", attack, "--json=true", "-i", "eth0", "--duration", "2s", "--timeout", "20s")
+	args := append([]string{"exec", "netpen-t1-frr-r1", "netpen", attack, "--json=true", "-i", "eth0", "--duration", "2s", "--timeout", "20s"}, targetFlags[attack]...)
+	cmd := exec.CommandContext(ctx, "docker", args...)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	out, err := cmd.Output()

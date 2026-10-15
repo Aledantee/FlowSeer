@@ -2,34 +2,80 @@
 // sequences: byte-for-byte where deterministic, field-set where
 // randomized. Tests use the in-memory [testtest.Leg] harness (pcap-fed RX
 // + recorded TX) and exercise each behavior through the runner, which
-// creates the Stream, Teardown, and Deps. Durability duties, finding
-// emission, and the DTP restore ordering are asserted via the recorded TX.
+// creates the Stream, Teardown, and Deps. The target and the leg's MAC are
+// the fixture's values, so the frames the harvest generator pinned still
+// come out byte for byte.
 
 package l2_test
 
 import (
 	"context"
 	"encoding/json"
+	"net"
+	"strings"
 	"testing"
+	"time"
 
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/l2"
 	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/testtest"
 	"go.aledante.io/FlowSeer/src/edge/netpen/catalog"
+	"go.aledante.io/FlowSeer/src/edge/netpen/check"
 	"go.aledante.io/FlowSeer/src/edge/netpen/findings"
+	"go.aledante.io/FlowSeer/src/edge/netpen/link"
 	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
 )
 
-// runOne runs a single behavior through the runner and returns the findings
-// and the run error. The stream is drained concurrently with Run.
+// fixtureMAC is the attacker MAC every fixture frame carries as its source.
+var fixtureMAC = net.HardwareAddr{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
+
+// fixtureTarget builds the target the fixtures were harvested against: the
+// VLAN pair of the double-tag frames, the voice VLAN, the VTP domain, and
+// the port-steal victim.
+func fixtureTarget() check.Target {
+	return check.Target{
+		Victim:    check.Host{IP: net.IPv4(10, 0, 0, 1)},
+		OuterVLAN: 10,
+		InnerVLAN: 20,
+		VoiceVLAN: 20,
+		VTPDomain: "LABDOMAIN",
+	}
+}
+
+// fixtureLeg returns a test leg whose own MAC is the fixture MAC.
+func fixtureLeg(t *testing.T) *testtest.Leg {
+	t.Helper()
+	leg := testtest.New()
+	t.Cleanup(func() { _ = leg.Close() })
+	leg.SetAddr(link.Addr{MAC: fixtureMAC})
+	return leg
+}
+
+// runOne runs a single behavior through the runner over the family's own
+// catalog against the fixture target and returns the findings and the run
+// error. An acknowledged permanent mode raises the ceiling to permanent.
 func runOne(t *testing.T, leg *testtest.Leg, name, mode string, ack ...runner.AttackRef) ([]findings.Record, error) {
 	t.Helper()
 	opts := runner.Options{
+		Catalog:   catalog.MustNew(l2.Behaviors()...),
 		AttackLeg: leg,
 		Attacks:   []runner.AttackRef{{Name: name, Mode: mode}},
-		Behaviors: l2.Behaviors(),
+		Target:    fixtureTarget(),
+		MaxImpact: check.ImpactTemporary,
 	}
 	if len(ack) > 0 {
 		opts.Acknowledged = ack
+		opts.MaxImpact = check.ImpactPermanent
+	}
+	return run(t, opts)
+}
+
+// run drives the runner over opts. A test that sets no window gets a short
+// one, so an observer that runs its window out does so in milliseconds.
+func run(t *testing.T, opts runner.Options) ([]findings.Record, error) {
+	t.Helper()
+	if opts.Observe == 0 {
+		opts.Observe = 20 * time.Millisecond
 	}
 	r := runner.NewRunner(opts)
 
@@ -49,13 +95,23 @@ func runOne(t *testing.T, leg *testtest.Leg, name, mode string, ack ...runner.At
 }
 
 // mustEntry looks up a catalog entry.
-func mustEntry(t *testing.T, name, mode string) catalog.Entry {
+func mustEntry(t *testing.T, name, mode string) check.Entry {
 	t.Helper()
-	e, ok := runner.ResolveEntry(name, mode)
+	e, _, ok := catalog.MustNew(l2.Behaviors()...).Lookup(name, mode)
 	if !ok {
 		t.Fatalf("catalog entry not found: %s/%s", name, mode)
 	}
 	return e
+}
+
+// verdictOf returns the attack's verdict record payload, or nil.
+func verdictOf(recs []findings.Record) *findings.Verdict {
+	for i := range recs {
+		if recs[i].Kind == findings.KindVerdict {
+			return recs[i].Verdict
+		}
+	}
+	return nil
 }
 
 func fixturePackets(t *testing.T, name string) [][]byte {
@@ -64,39 +120,51 @@ func fixturePackets(t *testing.T, name string) [][]byte {
 }
 
 func TestDTP_NegotiateAndRestore(t *testing.T) {
-	leg := testtest.New()
-	defer func() { _ = leg.Close() }()
+	leg := fixtureLeg(t)
 
 	recs, err := runOne(t, leg, "dtp", "")
 	if err != nil {
 		t.Fatalf("run dtp: %v", err)
 	}
 
-	// The behavior sends the desirable frame, then the teardown
-	// sends the access-restore frame. The runner runs teardown AFTER the
-	// behavior returns. So TX should be: [desirable, access-restore].
+	// The behavior sends the desirable frame, then the teardown sends
+	// the access-restore frame after the behavior returns.
 	tx := leg.TX()
 	if len(tx) != 2 {
 		t.Fatalf("TX count: got %d, want 2 (negotiate + restore)", len(tx))
 	}
 
-	// Verify the negotiate frame matches the fixture's desirable frame.
 	fixtures := fixturePackets(t, "dtp.pcap")
 	testtest.AssertBytesEqual(t, "DTP desirable", tx[0], fixtures[0])
 
-	// Verify the restore frame matches the fixture's access frame.
 	restoreFixtures := fixturePackets(t, "dtp_restore.pcap")
 	testtest.AssertBytesEqual(t, "DTP restore", tx[1], restoreFixtures[0])
 
-	// A finding was emitted.
-	if len(recs) == 0 {
-		t.Fatal("no findings emitted")
+	var finding *findings.Finding
+	for i := range recs {
+		if recs[i].Kind == findings.KindFinding {
+			finding = recs[i].Finding
+		}
+	}
+	if finding == nil {
+		t.Fatal("no finding emitted")
+	}
+	var detail struct {
+		Durability string `json:"durability"`
+	}
+	if err := json.Unmarshal(finding.Detail, &detail); err != nil {
+		t.Fatalf("unmarshal finding: %v", err)
+	}
+	if detail.Durability != "temporary/active" {
+		t.Errorf("durability = %q, want the entry's cost fields temporary/active", detail.Durability)
 	}
 }
 
+// TestDTP_KeepTrunkNoRestore pins the permanent mode: acknowledged and
+// admitted by a permanent ceiling, it sends the desirable frame only and
+// arms nothing.
 func TestDTP_KeepTrunkNoRestore(t *testing.T) {
-	leg := testtest.New()
-	defer func() { _ = leg.Close() }()
+	leg := fixtureLeg(t)
 
 	_, err := runOne(t, leg, "dtp", "keep-trunk",
 		runner.AttackRef{Name: "dtp", Mode: "keep-trunk"},
@@ -105,7 +173,6 @@ func TestDTP_KeepTrunkNoRestore(t *testing.T) {
 		t.Fatalf("run dtp keep-trunk: %v", err)
 	}
 
-	// keep-trunk: only the desirable frame, no restore.
 	tx := leg.TX()
 	if len(tx) != 1 {
 		t.Fatalf("TX count: got %d, want 1 (no restore in keep-trunk)", len(tx))
@@ -113,8 +180,7 @@ func TestDTP_KeepTrunkNoRestore(t *testing.T) {
 }
 
 func TestDoubleTag_ByteForByte(t *testing.T) {
-	leg := testtest.New()
-	defer func() { _ = leg.Close() }()
+	leg := fixtureLeg(t)
 
 	_, err := runOne(t, leg, "doubletag", "")
 	if err != nil {
@@ -129,11 +195,129 @@ func TestDoubleTag_ByteForByte(t *testing.T) {
 	testtest.AssertBytesEqual(t, "DoubleTag", tx[0], fixtures[0])
 }
 
-func TestVlanEnum_EnumeratesFixtureVLANs(t *testing.T) {
-	leg := testtest.New()
-	defer func() { _ = leg.Close() }()
+// TestEmptyTargetIsSkipped pins the one-round contract on a real behavior:
+// with no target the hop sends nothing, the runner records a skipped
+// verdict naming the missing VLANs, and the run returns the exit-2 error.
+func TestEmptyTargetIsSkipped(t *testing.T) {
+	leg := fixtureLeg(t)
+	recs, err := run(t, runner.Options{
+		Catalog:   catalog.MustNew(l2.Behaviors()...),
+		AttackLeg: leg,
+		Attacks:   []runner.AttackRef{{Name: "vlanhop"}},
+		MaxImpact: check.ImpactTemporary,
+	})
+	if code, ok := errs.CodeOf(err); !ok || code != check.ErrCodeTargetMissing {
+		t.Fatalf("run vlanhop with no target = %v, want %q", err, check.ErrCodeTargetMissing)
+	}
+	if errs.ExitCode(err) != 2 {
+		t.Errorf("exit code = %d, want 2", errs.ExitCode(err))
+	}
+	if leg.SendCount() != 0 {
+		t.Errorf("sends = %d, want 0", leg.SendCount())
+	}
+	v := verdictOf(recs)
+	if v == nil || v.Kind != findings.VerdictSkipped {
+		t.Fatalf("verdict = %+v, want skipped", v)
+	}
+	if want := "the check needs: --outer-vlan <n>, --inner-vlan <n>"; v.Detail != want {
+		t.Errorf("verdict detail = %q, want %q", v.Detail, want)
+	}
+}
 
-	// Feed the vlanenum fixture frames (VLANs 10, 20, 30, 40).
+// TestNeedFieldsPerBehavior pins, per behavior that reads a target, the
+// exact flags an empty target reports, and that a present field of the wrong
+// family or range is refused with the invalid code before any frame.
+func TestNeedFieldsPerBehavior(t *testing.T) {
+	cases := []struct {
+		name   string
+		target check.Target
+		code   errs.Code
+		detail string
+	}{
+		{"vlanhop", check.Target{}, check.ErrCodeTargetMissing, "the check needs: --outer-vlan <n>, --inner-vlan <n>"},
+		{"doubletag", check.Target{}, check.ErrCodeTargetMissing, "the check needs: --outer-vlan <n>, --inner-vlan <n>"},
+		{"voicevlan", check.Target{}, check.ErrCodeTargetMissing, "the check needs: --voice-vlan <n>"},
+		{"vtp", check.Target{}, check.ErrCodeTargetMissing, "the check needs: --vtp-domain <name>"},
+		{"portsteal", check.Target{}, check.ErrCodeTargetMissing, "the check needs: --victim <ip>,<mac>"},
+		{"portsteal IPv6 victim", check.Target{Victim: check.Host{IP: net.ParseIP("2001:db8::1")}}, check.ErrCodeTargetInvalid, "the check needs: --victim <ip>,<mac> wants an IPv4 address"},
+		{"doubletag VLAN 4095", check.Target{OuterVLAN: 4095, InnerVLAN: 20}, check.ErrCodeTargetInvalid, "the check needs: --outer-vlan <n> wants a VLAN id from 1 to 4094"},
+		{"voicevlan 200", check.Target{VoiceVLAN: 200}, check.ErrCodeTargetInvalid, "the check needs: --voice-vlan at most 127"},
+		{"vtp 33-byte domain", check.Target{VTPDomain: strings.Repeat("d", 33)}, check.ErrCodeTargetInvalid, "the check needs: --vtp-domain <name> wants a name of at most 32 bytes"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			leg := fixtureLeg(t)
+			name, _, _ := strings.Cut(tc.name, " ")
+			recs, err := run(t, runner.Options{
+				Catalog:   catalog.MustNew(l2.Behaviors()...),
+				AttackLeg: leg,
+				Attacks:   []runner.AttackRef{{Name: name}},
+				Target:    tc.target,
+				MaxImpact: check.ImpactTemporary,
+			})
+			if code, ok := errs.CodeOf(err); !ok || code != tc.code {
+				t.Fatalf("run %s = %v (code %q), want %q", name, err, code, tc.code)
+			}
+			if errs.ExitCode(err) != 2 {
+				t.Errorf("exit code = %d, want 2", errs.ExitCode(err))
+			}
+			if leg.SendCount() != 0 {
+				t.Errorf("sends = %d, want 0", leg.SendCount())
+			}
+			v := verdictOf(recs)
+			if v == nil || v.Kind != findings.VerdictSkipped {
+				t.Fatalf("verdict = %+v, want skipped", v)
+			}
+			if v.Detail != tc.detail {
+				t.Errorf("verdict detail = %q, want %q", v.Detail, tc.detail)
+			}
+		})
+	}
+}
+
+// TestVTP_FindingReportsMode pins that the finding's mode is the catalog
+// entry's mode, so a wipe run is not recorded as the default one.
+func TestVTP_FindingReportsMode(t *testing.T) {
+	for _, mode := range []string{"", "wipe", "set"} {
+		t.Run("mode "+mode, func(t *testing.T) {
+			leg := fixtureLeg(t)
+			var ack []runner.AttackRef
+			if mode != "" {
+				ack = []runner.AttackRef{{Name: "vtp", Mode: mode}}
+			}
+			recs, err := runOne(t, leg, "vtp", mode, ack...)
+			if err != nil {
+				t.Fatalf("run vtp %q: %v", mode, err)
+			}
+			var finding *findings.Finding
+			for i := range recs {
+				if recs[i].Kind == findings.KindFinding {
+					finding = recs[i].Finding
+				}
+			}
+			if finding == nil {
+				t.Fatal("no finding emitted")
+			}
+			var detail struct {
+				Mode string `json:"mode"`
+			}
+			if err := json.Unmarshal(finding.Detail, &detail); err != nil {
+				t.Fatalf("unmarshal finding: %v", err)
+			}
+			want := mode
+			if want == "" {
+				want = "default"
+			}
+			if detail.Mode != want {
+				t.Errorf("finding mode = %q, want %q", detail.Mode, want)
+			}
+		})
+	}
+}
+
+func TestVlanEnum_EnumeratesFixtureVLANs(t *testing.T) {
+	leg := fixtureLeg(t)
+
 	for _, f := range fixturePackets(t, "vlanenum.pcap") {
 		leg.PushRX(f)
 	}
@@ -143,7 +327,6 @@ func TestVlanEnum_EnumeratesFixtureVLANs(t *testing.T) {
 		t.Fatalf("run vlanenum: %v", err)
 	}
 
-	// Find the finding record (may not be the first record).
 	var findingRec *findings.Finding
 	for i := range recs {
 		if recs[i].Kind == findings.KindFinding {
@@ -171,18 +354,21 @@ func TestVlanEnum_EnumeratesFixtureVLANs(t *testing.T) {
 			t.Errorf("VLAN[%d]: got %d, want %d", i, detail.VLANs[i], v)
 		}
 	}
+	v := verdictOf(recs)
+	if v == nil || v.Kind != findings.VerdictConfirmed || v.Detail != "VLANs 10, 20, 30, 40" {
+		t.Errorf("verdict = %+v, want confirmed with the inventory", v)
+	}
 }
 
 func TestVlanHop_RestoreArmed(t *testing.T) {
-	leg := testtest.New()
-	defer func() { _ = leg.Close() }()
+	leg := fixtureLeg(t)
 
 	_, err := runOne(t, leg, "vlanhop", "")
 	if err != nil {
 		t.Fatalf("run vlanhop: %v", err)
 	}
-	// The runner runs the teardown step; if the behavior armed zero
-	// steps, the runner would fail. A nil error means restore ran.
+	// A nil error means the restore step ran: the runner executes the armed
+	// steps and fails the run for a behavior that armed none.
 	tx := leg.TX()
 	if len(tx) != 1 {
 		t.Fatalf("TX count: got %d, want 1", len(tx))
@@ -190,8 +376,7 @@ func TestVlanHop_RestoreArmed(t *testing.T) {
 }
 
 func TestVlanHop_PersistNoRestore(t *testing.T) {
-	leg := testtest.New()
-	defer func() { _ = leg.Close() }()
+	leg := fixtureLeg(t)
 
 	_, err := runOne(t, leg, "vlanhop", "persist",
 		runner.AttackRef{Name: "vlanhop", Mode: "persist"},
@@ -206,8 +391,7 @@ func TestVlanHop_PersistNoRestore(t *testing.T) {
 }
 
 func TestVoiceVLAN_RestoreArmed(t *testing.T) {
-	leg := testtest.New()
-	defer func() { _ = leg.Close() }()
+	leg := fixtureLeg(t)
 
 	_, err := runOne(t, leg, "voicevlan", "")
 	if err != nil {
@@ -220,8 +404,7 @@ func TestVoiceVLAN_RestoreArmed(t *testing.T) {
 }
 
 func TestSTPRoot_BurstSend(t *testing.T) {
-	leg := testtest.New()
-	defer func() { _ = leg.Close() }()
+	leg := fixtureLeg(t)
 
 	recs, err := runOne(t, leg, "stproot", "")
 	if err != nil {
@@ -244,8 +427,7 @@ func TestSTPRoot_BurstSend(t *testing.T) {
 }
 
 func TestCAMFlood_UniqueSourceMACs(t *testing.T) {
-	leg := testtest.New()
-	defer func() { _ = leg.Close() }()
+	leg := fixtureLeg(t)
 
 	_, err := runOne(t, leg, "camflood", "")
 	if err != nil {
@@ -264,8 +446,7 @@ func TestCAMFlood_UniqueSourceMACs(t *testing.T) {
 }
 
 func TestVTP_SafeMode(t *testing.T) {
-	leg := testtest.New()
-	defer func() { _ = leg.Close() }()
+	leg := fixtureLeg(t)
 
 	recs, err := runOne(t, leg, "vtp", "")
 	if err != nil {
@@ -286,8 +467,7 @@ func TestVTP_SafeMode(t *testing.T) {
 }
 
 func TestMVRP_JoinInFlood(t *testing.T) {
-	leg := testtest.New()
-	defer func() { _ = leg.Close() }()
+	leg := fixtureLeg(t)
 
 	_, err := runOne(t, leg, "mvrp", "")
 	if err != nil {
@@ -305,8 +485,7 @@ func TestMVRP_JoinInFlood(t *testing.T) {
 }
 
 func TestPortSteal_Default(t *testing.T) {
-	leg := testtest.New()
-	defer func() { _ = leg.Close() }()
+	leg := fixtureLeg(t)
 
 	_, err := runOne(t, leg, "portsteal", "")
 	if err != nil {
@@ -320,16 +499,13 @@ func TestPortSteal_Default(t *testing.T) {
 }
 
 func TestPortSteal_RelayArmsRestore(t *testing.T) {
-	leg := testtest.New()
-	defer func() { _ = leg.Close() }()
+	leg := fixtureLeg(t)
 
-	_, err := runOne(t, leg, "portsteal", "relay",
-		runner.AttackRef{Name: "portsteal", Mode: "relay"},
-	)
+	_, err := runOne(t, leg, "portsteal", "relay")
 	if err != nil {
 		t.Fatalf("run portsteal relay: %v", err)
 	}
-	// A nil error means the teardown ran (temporary-restored).
+	// A nil error means the armed restore step ran.
 	tx := leg.TX()
 	if len(tx) != 3 {
 		t.Fatalf("TX count: got %d, want 3", len(tx))
@@ -337,8 +513,7 @@ func TestPortSteal_RelayArmsRestore(t *testing.T) {
 }
 
 func TestEtherChannel_LACPandPAgP(t *testing.T) {
-	leg := testtest.New()
-	defer func() { _ = leg.Close() }()
+	leg := fixtureLeg(t)
 
 	recs, err := runOne(t, leg, "etherchannel", "")
 	if err != nil {
@@ -359,18 +534,13 @@ func TestEtherChannel_LACPandPAgP(t *testing.T) {
 	}
 }
 
-// TestEtherChannel_Reproducibility: two in-memory runs over
-// the same fixture produce the same findings class.
+// TestEtherChannel_Reproducibility: two in-memory runs over the same
+// fixture produce the same findings class.
 func TestEtherChannel_Reproducibility(t *testing.T) {
-	// Run 1.
-	leg1 := testtest.New()
+	leg1 := fixtureLeg(t)
 	recs1, _ := runOne(t, leg1, "etherchannel", "")
-	defer func() { _ = leg1.Close() }()
-
-	// Run 2.
-	leg2 := testtest.New()
+	leg2 := fixtureLeg(t)
 	recs2, _ := runOne(t, leg2, "etherchannel", "")
-	defer func() { _ = leg2.Close() }()
 
 	if len(recs1) == 0 || len(recs2) == 0 {
 		t.Fatal("expected findings from both runs")
@@ -399,60 +569,40 @@ func TestEtherChannel_Reproducibility(t *testing.T) {
 	}
 }
 
-func TestSecretMaterialRedaction(t *testing.T) {
-	secret := findings.NewSecret("vtp", []byte("supersecret"))
-
-	data, err := json.Marshal(secret)
-	if err != nil {
-		t.Fatalf("marshal secret: %v", err)
+// TestPermanentModesArePermanent pins the cost fields of the modes that
+// outlive the run, and that stproot carries the 6 s max age its BPDU
+// announces as its decay bound.
+func TestPermanentModesArePermanent(t *testing.T) {
+	for _, c := range []struct{ name, mode string }{{"vtp", "wipe"}, {"vtp", "set"}, {"dtp", "keep-trunk"}, {"vlanhop", "persist"}, {"voicevlan", "persist"}} {
+		entry := mustEntry(t, c.name, c.mode)
+		if entry.Impact != check.ImpactPermanent || entry.Restore.Kind != check.RestoreNone {
+			t.Errorf("%s/%s = impact %s restore %s, want permanent with no restore", c.name, c.mode, entry.Impact, entry.Restore.Kind)
+		}
 	}
-
-	var m map[string]any
-	if err := json.Unmarshal(data, &m); err != nil {
-		t.Fatalf("unmarshal: %v", err)
-	}
-
-	if m["protocol"] != "vtp" {
-		t.Errorf("protocol: got %v, want %v", m["protocol"], "vtp")
-	}
-	if m["length"] != float64(len("supersecret")) {
-		t.Errorf("length: got %v, want %d", m["length"], len("supersecret"))
-	}
-	if string(data) != `{"protocol":"vtp","length":11}` {
-		t.Errorf("secret JSON leaked value: %s", string(data))
+	if bound := mustEntry(t, "stproot", "").Restore.Bound.Seconds(); bound != 6 {
+		t.Errorf("stproot decay bound = %v s, want 6", bound)
 	}
 }
 
-func TestVTPWipeCatalogClassIsPermanent(t *testing.T) {
-	entry := mustEntry(t, "vtp", "wipe")
-	if entry.Class != catalog.PermanentDestructive {
-		t.Errorf("vtp/wipe class: got %v, want %v", entry.Class, catalog.PermanentDestructive)
-	}
-}
-
-func TestDTPKeepTrunkCatalogClassIsPermanent(t *testing.T) {
-	entry := mustEntry(t, "dtp", "keep-trunk")
-	if entry.Class != catalog.PermanentDestructive {
-		t.Errorf("dtp/keep-trunk class: got %v, want %v", entry.Class, catalog.PermanentDestructive)
-	}
-}
-
+// TestVTPWipeWithoutAckRefused pins the gate on a real behavior: under a
+// permanent ceiling but without the acknowledgment, vtp --wipe sends
+// nothing and the run stops on the refusal.
 func TestVTPWipeWithoutAckRefused(t *testing.T) {
-	leg := testtest.New()
-	defer func() { _ = leg.Close() }()
+	leg := fixtureLeg(t)
 
-	// Run vtp --wipe WITHOUT the ack — the gate should refuse.
-	recs, err := runOne(t, leg, "vtp", "wipe")
+	recs, err := run(t, runner.Options{
+		Catalog:   catalog.MustNew(l2.Behaviors()...),
+		AttackLeg: leg,
+		Attacks:   []runner.AttackRef{{Name: "vtp", Mode: "wipe"}},
+		Target:    fixtureTarget(),
+		MaxImpact: check.ImpactPermanent,
+	})
 	if err == nil {
 		t.Fatal("expected gate refusal error, got nil")
 	}
-
-	// No frames should have been sent — the gate was evaluated before TX.
 	if leg.SendCount() != 0 {
 		t.Errorf("frames sent: got %d, want 0 (gate refuses before TX)", leg.SendCount())
 	}
-
-	// A refusal record should be in the findings.
 	found := false
 	for _, rec := range recs {
 		if rec.Kind == findings.KindRefusal {
@@ -464,5 +614,3 @@ func TestVTPWipeWithoutAckRefused(t *testing.T) {
 		t.Error("no refusal record in findings")
 	}
 }
-
-// (The test runner's -timeout flag handles hangs.)

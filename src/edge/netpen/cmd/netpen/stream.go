@@ -30,12 +30,10 @@ func streamJSON(stdout, stderr io.Writer, ch <-chan findings.Record, meta findin
 		switch rec.Kind {
 		case findings.KindFinding:
 			summary.Findings++
-		case findings.KindResisted:
-			summary.Resisted++
-		case findings.KindSkipped:
-			summary.Skipped++
-		case findings.KindPending:
-			summary.Pending++
+		case findings.KindVerdict:
+			if rec.Verdict != nil {
+				summary.Count(rec.Verdict.Kind)
+			}
 		case findings.KindError:
 			summary.Errors++
 		case findings.KindSummary:

@@ -8,13 +8,14 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/routing"
-	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/testtest"
+	"go.aledante.io/FlowSeer/src/edge/netpen/catalog"
+	"go.aledante.io/FlowSeer/src/edge/netpen/check"
 	"go.aledante.io/FlowSeer/src/edge/netpen/link"
 	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
 )
 
 type receiveFailureLeg struct {
-	*testtest.Leg
+	link.Leg
 	err    error
 	cancel context.CancelFunc
 }
@@ -31,41 +32,68 @@ func (l *receiveFailureLeg) Receive(context.Context) <-chan link.Frame {
 	return ch
 }
 
+// TestRoutingReceiveFailureStopsSequence pins what the sequence does with
+// the leg's receive outcomes: a terminal frame error and a cancellation stop
+// it after the hello, while a receiver that closes with nothing to deliver
+// ends the window early and the sequence proceeds with every frame.
 func TestRoutingReceiveFailureStopsSequence(t *testing.T) {
 	for _, name := range []string{"ospf", "eigrp"} {
 		for _, tc := range []struct {
-			name   string
-			rxErr  error
-			cancel bool
-			want   error
+			name     string
+			rxErr    error
+			cancel   bool
+			want     error
+			proceeds bool
 		}{
 			{name: "terminal error", rxErr: io.ErrUnexpectedEOF, want: io.ErrUnexpectedEOF},
-			{name: "closed receiver", want: io.EOF},
+			{name: "closed receiver", proceeds: true},
 			{name: "canceled receive", cancel: true, want: context.Canceled},
 		} {
 			t.Run(name+"/"+tc.name, func(t *testing.T) {
-				leg := &receiveFailureLeg{Leg: testtest.New(), err: tc.rxErr}
-				t.Cleanup(func() { _ = leg.Close() })
+				inner := fixtureLeg(t)
+				leg := &receiveFailureLeg{Leg: inner, err: tc.rxErr}
 				var behaviorErr error
-				behavior := routing.Behaviors()[name]
-				recs, err := runOne(t, runner.Options{
-					AttackLeg:      leg,
-					Attacks:        []runner.AttackRef{{Name: name}},
-					TeardownBudget: time.Second,
-					Behaviors: map[string]runner.Behavior{
-						name: func(ctx context.Context, deps runner.Deps) error {
+				bs := routing.Behaviors()
+				for i := range bs {
+					if bs[i].Name == name {
+						run := bs[i].Run
+						bs[i].Run = func(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 							ctx, cancel := context.WithCancel(ctx)
 							defer cancel()
 							if tc.cancel {
 								leg.cancel = cancel
 							}
-							behaviorErr = behavior(ctx, deps)
-							return behaviorErr
-						},
-					},
+							var v check.Verdict
+							v, behaviorErr = run(ctx, deps)
+							return v, behaviorErr
+						}
+					}
+				}
+				recs, err := runOne(t, runner.Options{
+					Catalog:        catalog.MustNew(bs...),
+					AttackLeg:      leg,
+					Attacks:        []runner.AttackRef{{Name: name}},
+					Target:         fixtureTarget(),
+					TeardownBudget: time.Second,
 				})
 				if err != nil {
 					t.Fatalf("run: %v", err)
+				}
+				if tc.proceeds {
+					if behaviorErr != nil {
+						t.Errorf("behavior error: got %v, want nil, since a closed receiver ends the window", behaviorErr)
+					}
+					if f := findFinding(t, recs); f == nil {
+						t.Error("no finding after the window ended on a closed receiver")
+					}
+					wantSends := 3 // Hello, inject, and the armed goodbye.
+					if name == "ospf" {
+						wantSends = 5 // Hello, db-desc, lsa-update, flush, goodbye.
+					}
+					if got := inner.SendCount(); got != wantSends {
+						t.Errorf("send count: got %d, want %d", got, wantSends)
+					}
+					return
 				}
 				if !errors.Is(behaviorErr, tc.want) {
 					t.Errorf("behavior error: got %v, want %v", behaviorErr, tc.want)
@@ -80,7 +108,7 @@ func TestRoutingReceiveFailureStopsSequence(t *testing.T) {
 				if name == "ospf" {
 					wantSends++ // OSPF also arms an LSA flush.
 				}
-				if got := leg.SendCount(); got != wantSends {
+				if got := inner.SendCount(); got != wantSends {
 					t.Errorf("send count: got %d, want %d", got, wantSends)
 				}
 			})

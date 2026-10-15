@@ -1,14 +1,9 @@
-// raflood.go implements the RA-flood attack superset.
-//
-// Durability (from the catalog): transient-decay. The attack sends a
-// bounded burst of Router Advertisements with varying source. The
-// behavior is bounded by duration and exits on schedule, reporting
-// frame counts.
-//
-// This is a flood-class behavior: it uses the sync.Pool craft path
-// for pre-serialized buffers.
-//
-// Spec-authored — the baseline has no craft for this attack.
+// raflood.go implements the RA-flood check. Impact temporary, restore
+// decay with no stated bound, affects clients: the burst of five Router
+// Advertisements, each from its own stamped source, adds routers and
+// prefixes to the hosts that take them, and those entries expire on the
+// lifetimes the frames carry. The fixture is spec-authored, since the
+// baseline has no craft for it.
 
 package ip6
 
@@ -21,8 +16,7 @@ import (
 	"github.com/gopacket/gopacket/layers"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
-
-	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
+	"go.aledante.io/FlowSeer/src/edge/netpen/check"
 )
 
 type raFloodFinding struct {
@@ -31,22 +25,24 @@ type raFloodFinding struct {
 	Bounded    bool   `json:"bounded"`
 }
 
-// RunRAFlood sends a bounded burst of Router Advertisements with varying
-// source. The burst is bounded by a fixed frame count for the in-memory
-// test shape; the behavior exits on schedule and reports frame counts.
-func RunRAFlood(ctx context.Context, deps runner.Deps) error {
+// RunRAFlood sends five Router Advertisements, each from a stamped source
+// MAC and its derived link-local address. The behavior reads no target and
+// no leg address: the stamped sources are probe content. The verdict is
+// pending: whether hosts took the routers needs a probe of their tables
+// it does not have.
+func RunRAFlood(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	frameCount := 5
 
 	for i := 1; i <= frameCount; i++ {
 		pkt, err := craftRAFloodFrame(i)
 		if err != nil {
-			return errs.Wrapf(err, "raflood: craft frame %d", i)
+			return check.Verdict{}, errs.Wrapf(err, "raflood: craft frame %d", i)
 		}
 		if err := deps.AttackLeg.Send(ctx, pkt); err != nil {
-			return errs.Wrapf(err, "raflood: send frame %d", i)
+			return check.Verdict{}, errs.Wrapf(err, "raflood: send frame %d", i)
 		}
 		if err := ctx.Err(); err != nil {
-			return err
+			return check.Verdict{}, err
 		}
 	}
 
@@ -57,7 +53,7 @@ func RunRAFlood(ctx context.Context, deps runner.Deps) error {
 	})
 	deps.Emitter.Finding("ra", detail)
 
-	return nil
+	return check.Pending("no observable: router acceptance needs a probe of a host's router list"), nil
 }
 
 // craftRAFloodFrame builds a Router Advertisement with a unique source

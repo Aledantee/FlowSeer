@@ -1,6 +1,7 @@
-// gratarp.go implements the gratuitous ARP attack behavior. It sends
-// broadcast ARP replies announcing an IP→MAC mapping. Classified
-// transient-decay: the neighbor cache ages out after the attack stops.
+// gratarp.go implements the gratuitous ARP check. Impact temporary,
+// restore decay with no stated bound, affects clients: the broadcast ARP
+// replies announce the virtual address at the attack leg's MAC, and the
+// hosts' neighbor caches age the entry out on their own timers.
 
 package fh
 
@@ -14,7 +15,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/errs"
 
 	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/internal/craft"
-	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
+	"go.aledante.io/FlowSeer/src/edge/netpen/check"
 )
 
 type gratARPFinding struct {
@@ -24,19 +25,24 @@ type gratARPFinding struct {
 }
 
 // RunGratARP sends gratuitous ARP replies announcing the attacker's MAC
-// for a given IP. The in-memory test shape sends a bounded burst.
-func RunGratARP(ctx context.Context, deps runner.Deps) error {
-	src := srcMAC()
-	ip := net.IPv4(10, 0, 0, 1)
+// for the target's virtual IP, the address the attacker claims. The burst
+// of three is probe content. The verdict is pending: whether a neighbor
+// cache took the announcement needs a probe it does not have.
+func RunGratARP(ctx context.Context, deps check.Deps) (check.Verdict, error) {
+	if err := deps.Target.Need(check.FieldVirtualIP); err != nil {
+		return check.Verdict{}, err
+	}
+	src := deps.AttackLeg.Addr().MAC
+	ip := deps.Target.VirtualIP
 
 	count := 3
 	for i := range count {
 		pkt, err := craftGratARP(src, ip)
 		if err != nil {
-			return errs.Wrapf(err, "gratarp: craft frame %d", i)
+			return check.Verdict{}, errs.Wrapf(err, "gratarp: craft frame %d", i)
 		}
 		if err := deps.AttackLeg.Send(ctx, pkt); err != nil {
-			return errs.Wrapf(err, "gratarp: send frame %d", i)
+			return check.Verdict{}, errs.Wrapf(err, "gratarp: send frame %d", i)
 		}
 	}
 
@@ -47,7 +53,7 @@ func RunGratARP(ctx context.Context, deps runner.Deps) error {
 	})
 	deps.Emitter.Finding("arp", detail)
 
-	return nil
+	return check.Pending("no observable: cache acceptance needs a probe of the announced address"), nil
 }
 
 // craftGratARP builds a gratuitous ARP reply: announcing ip is-at src.
