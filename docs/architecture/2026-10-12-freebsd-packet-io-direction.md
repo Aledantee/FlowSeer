@@ -85,6 +85,12 @@ until their suites pass there.
   instructions working, which `filter.Compile` allows (`maxInstructions` in
   `src/modules/capture/filter/compile.go`). The cost is that every frame is
   copied out of the kernel.
+- **Local capture** opens its device with `BPF_D_INOUT` and `Immediate`.
+  A zero `Config` would apply `BPF_D_IN`, which would hide the frames the
+  host itself sends from a capture of a local interface. `Immediate` makes a
+  read return as soon as a frame arrives, instead of when the buffer fills
+  or the read timeout expires, so capture latency does not depend on the
+  traffic rate.
 - **Local capture** reports `bs_recv - bs_drop` as received and `bs_drop`
   as dropped, as deltas since the last `Stats` call, with modular `uint32`
   arithmetic. That matches the Linux contract in `rawsocket.Source.Stats`.

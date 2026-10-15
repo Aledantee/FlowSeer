@@ -25,13 +25,13 @@ var ErrCodeSourceOpen = errs.NewCode("capture/source-open")
 var ErrCodeUnsupportedPlatform = errs.NewCode("capture/unsupported-platform")
 
 // ErrUnsupportedPlatform is returned by OpenLocalInterface and
-// OpenMirrorReceiver on a platform with no AF_PACKET or raw-socket
-// implementation.
+// OpenMirrorReceiver on a platform with no AF_PACKET, BPF device, or
+// raw-socket implementation.
 var ErrUnsupportedPlatform = errs.New().
 	Code(ErrCodeUnsupportedPlatform).
 	UserMsg("raw packet capture is not supported on this platform").
-	Hint("run on Linux, where the capture engine uses AF_PACKET and raw IP sockets").
-	Msg("capture source is linux-only")
+	Hint("run on Linux, where the capture engine uses AF_PACKET and raw IP sockets, or on FreeBSD, where it uses BPF devices").
+	Msg("capture source is supported on linux and freebsd only")
 
 // IsUnsupported reports whether err is the unsupported-platform failure. It
 // matches through the code, so a wrapped or wire-reconstructed variant still
@@ -87,8 +87,9 @@ type Source interface {
 // OpenLocalInterface opens iface as a capture source: promiscuous when
 // asked, with prog applied after any VLAN tag removed by receive offload is
 // restored. An empty prog accepts every packet, matching filter.Compile's
-// own empty-filter contract. On Linux this is an AF_PACKET socket; elsewhere
-// it returns ErrUnsupportedPlatform.
+// own empty-filter contract. On Linux this is an AF_PACKET socket and on
+// FreeBSD (amd64, arm64) a BPF device in both directions, which refuses an
+// interface that is not Ethernet; elsewhere it returns ErrUnsupportedPlatform.
 func OpenLocalInterface(iface string, promiscuous bool, prog []bpf.RawInstruction) (Source, error) {
 	return openLocalInterface(iface, promiscuous, prog)
 }
