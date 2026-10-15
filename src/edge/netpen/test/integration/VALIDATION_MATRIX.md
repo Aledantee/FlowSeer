@@ -67,7 +67,7 @@ difference, so a changed cost field is edited here in the same change.
 | dtp | keep-trunk | permanent | none | device | pending: no observable: trunk formation needs a tagged probe across the port | (c) | N/A | never |
 | eigrp | base | temporary | active | fabric | resisted on a goodbye within 100 ms, otherwise pending: no observable: route acceptance needs an update listener | (a) | 2026-09-27: source-(c), finding:eigrp | never |
 | etherchannel | base | temporary | active | device | pending: no observable: channel formation needs a partner-state listener, and the port-channel-release step is a no-op | (a) | 2026-09-27: source-(c), finding:lacp | never |
-| ghost | base | none | none | none | confirmed on a ghost frame crossing to the watch leg within the window, resisted on an empty window | (a) | N/A | never |
+| ghost | base | none | none | none | confirmed on a ghost frame crossing to the watch leg within the window, resisted at the window's end without one, whatever else the watch leg carried | (a) | N/A | never |
 | glbp | base | temporary | active | clients | pending: no observable: AVG takeover needs a hello listener | (a) | 2026-09-27: source-(c), finding:glbp | never |
 | gratarp | base | temporary | decay | clients | pending: no observable: cache acceptance needs a probe of the announced address | (a) | N/A | never |
 | hsrp | base | temporary | active | clients | pending: no observable: coup acceptance needs a hello listener | (a) | N/A | never |
@@ -81,13 +81,13 @@ difference, so a changed cost field is edited here in the same change.
 | portsteal | base | temporary | decay | device | pending: no observable: port move needs a probe of the victim | (a) | N/A | never |
 | portsteal | relay | temporary | active | device | pending: no observable: port move needs a probe of the victim, and the ip-forward-restore step is a no-op | (a) | N/A | never |
 | raflood | base | temporary | decay | clients | pending: no observable: router acceptance needs a probe of a host's router list | (a) | 2026-09-27: source-(c), finding:ra | never |
-| raguard | base | none | none | none | confirmed on the forged RA crossing to the watch leg within the window, resisted on an empty window, pending without a watch leg | (a) | N/A | never |
+| raguard | base | none | none | none | the probe is a Router Advertisement with router lifetime, hop limit, reachable time, and retransmit timer all zero, no source link-layer address or MTU option, and one prefix option with the L and A flags clear and zero lifetimes, so a host installs no router, prefix, address, or link parameter from it; a host already holding a neighbor cache entry for the probe's link-local source marks that entry a router. Confirmed on a Router Advertisement from the attack leg's MAC carrying the target prefix crossing to the watch leg within the window, resisted at the window's end without one, pending without a watch leg. Whether a vendor's RA-Guard or host stack treats the zero-lifetime probe as RFC 4861, 4862, and 6105 describe is unverified until the lab tier runs it | (c) | N/A | never |
 | roguedhcp | base | temporary | decay 30m0s | clients | pending: no observable: lease acceptance needs a REQUEST listener | (a) | N/A | never |
-| roguedhcp6 | base | temporary | decay 5m0s | clients | pending: no observable: lease acceptance needs a REQUEST listener | (a) | N/A | never |
+| roguedhcp6 | base | temporary | decay 10m0s | clients | pending: no solicit in the window when the victim's MAC sends none, with nothing sent; after the advertise, pending: no observable: lease acceptance needs a REQUEST listener | (a) | N/A | never |
 | roguera | base | temporary | decay 30m0s | clients | pending: no observable: router acceptance needs a probe of a host's router list | (a) | N/A | never |
 | scan | base | none | none | none | orchestration entry, which reports discovery findings and carries no verdict | (a) | N/A | never |
 | stproot | base | temporary | decay 6s | fabric | pending: no observable: root acceptance needs a BPDU listener | (a) | N/A | never |
-| vlanenum | base | none | none | none | confirmed with the observed VLAN ids as the inventory | (a) | N/A | never |
+| vlanenum | base | none | none | none | confirmed with the VLAN ids of the tagged frames seen during the window as the inventory, pending: no tagged frames in the window otherwise. The Linux leg re-inserts the 802.1Q header AF_PACKET strips only for a non-zero TCI, so a frame with VID 0, PCP 0, and DEI 0 arrives untagged and is not counted, while a priority-tagged frame arrives tagged with VID 0 | (a) | N/A | never |
 | vlanhop | base | temporary | active | device | pending: no observable: a hop into the inner VLAN needs a watch leg there, and the vlan-interface-restore step is a no-op | (a) | N/A | never |
 | vlanhop | persist | permanent | none | device | pending: no observable: a hop into the inner VLAN needs a watch leg there | (a) | N/A | never |
 | voicevlan | base | temporary | active | clients | pending: no observable: a phone's move needs a listener on the voice VLAN, and the lldp-voice-vlan-restore step is a no-op | (a) | N/A | never |

@@ -1,14 +1,9 @@
-// daddos.go implements the duplicate-address denial attack via DAD.
-//
-// Durability (from the catalog): transient-decay. The attack sends a
-// Neighbor Solicitation for the target address during DAD to deny the
-// legitimate host's address configuration. The DAD window passes on its
-// own after the attack stops, so there is no explicit teardown.
-//
-// Edge scenario: against a host that completes DAD before the attack
-// window, the behavior reports resisted rather than failed open. The
-// behavior observes the legitimate owner's defending NA and reports
-// the resisted outcome.
+// daddos.go implements the duplicate-address denial check via DAD.
+// Impact temporary, restore decay, affects clients: the Neighbor
+// Solicitation for the victim's address makes a host that is running DAD
+// for it give the address up, and a host that already holds it defends
+// it, which the finding records. The DAD window passes on its own after
+// the check, so there is nothing to restore.
 
 package ip6
 
@@ -16,7 +11,6 @@ import (
 	"context"
 	"encoding/json"
 	"net"
-	"time"
 
 	"github.com/gopacket/gopacket"
 	"github.com/gopacket/gopacket/layers"
@@ -35,12 +29,12 @@ type dadDOSFinding struct {
 }
 
 // RunDADDOS sends a Neighbor Solicitation for the target's IPv6 victim
-// address during DAD to deny the legitimate host's address configuration.
-// A defending Neighbor Advertisement from the owner within 50 ms shows the
-// host completed DAD first, which the finding records. The verdict is
-// pending: whether the host gave up the address needs a later probe it does
-// not have. Cancellation while observing returns ctx.Err(). A terminal
-// receive error comes back wrapped.
+// address during DAD to deny the legitimate host's address configuration,
+// then waits for the window for a Neighbor Advertisement defending that
+// address, which shows the host holds it, and records that in the finding.
+// The verdict is pending: whether the host gave up the address needs a
+// later probe it does not have. Cancellation while observing returns
+// ctx.Err(). A terminal receive error comes back wrapped.
 func RunDADDOS(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	if err := deps.Target.Need(check.FieldVictim6); err != nil {
 		return check.Verdict{}, err
@@ -48,7 +42,6 @@ func RunDADDOS(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	src := deps.AttackLeg.Addr().MAC
 	target := deps.Target.Victim6.IP
 
-	// Craft and send the DAD NS.
 	pkt, err := craftDADNS(src, target)
 	if err != nil {
 		return check.Verdict{}, errs.Wrap(err, "daddos: craft NS")
@@ -57,39 +50,18 @@ func RunDADDOS(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 		return check.Verdict{}, errs.Wrap(err, "daddos: send NS")
 	}
 
-	// Observe for a defending NA from the legitimate owner. If one
-	// arrives within the DAD window, the attack is resisted (the host
-	// completed DAD before the attack window).
-	resisted := false
-	ch := deps.AttackLeg.Receive(ctx)
-	select {
-	case frame, ok := <-ch:
-		if err := ctx.Err(); err != nil {
-			return check.Verdict{}, err
-		}
-		if ok {
-			if frame.Err != nil {
-				return check.Verdict{}, errs.Wrap(frame.Err, "daddos: receive defense")
-			}
-			na, err := decodeNA(frame.Data)
-			if err == nil && na.TargetAddress.Equal(target) {
-				// The legitimate owner is defending — resisted.
-				resisted = true
-			}
-		}
-	case <-time.After(50 * time.Millisecond):
-		// No defending NA within the window — attack proceeds.
-	case <-ctx.Done():
-		return check.Verdict{}, ctx.Err()
-	}
-	if err := ctx.Err(); err != nil {
-		return check.Verdict{}, err
+	defense, _, err := check.First(ctx, deps.AttackLeg, deps.Observe, func(data []byte) bool {
+		na, err := decodeNA(data)
+		return err == nil && na.TargetAddress.Equal(target)
+	})
+	if err != nil {
+		return check.Verdict{}, errs.Wrap(err, "daddos: receive defense")
 	}
 
 	detail, _ := json.Marshal(dadDOSFinding{
 		Action:   "dad-denial",
 		Target:   target.String(),
-		Resisted: resisted,
+		Resisted: defense != nil,
 		Frames:   1,
 	})
 	deps.Emitter.Finding("ipv6-nd", detail)
@@ -133,7 +105,7 @@ func craftDADNS(src net.HardwareAddr, target net.IP) ([]byte, error) {
 }
 
 // decodeNA decodes an ICMPv6 Neighbor Advertisement from raw frame
-// bytes (Ethernet → IPv6 → ICMPv6 → NA).
+// bytes (Ethernet, IPv6, ICMPv6, NA).
 func decodeNA(data []byte) (*layers.ICMPv6NeighborAdvertisement, error) {
 	pkt := gopacket.NewPacket(data, layers.LayerTypeEthernet, gopacket.Default)
 	naLayer := pkt.Layer(layers.LayerTypeICMPv6NeighborAdvertisement)

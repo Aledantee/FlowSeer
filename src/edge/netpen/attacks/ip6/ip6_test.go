@@ -14,7 +14,11 @@ import (
 	"net"
 	"strings"
 	"testing"
+	"testing/synctest"
 	"time"
+
+	"github.com/gopacket/gopacket"
+	"github.com/gopacket/gopacket/layers"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/ip6"
@@ -208,10 +212,52 @@ func TestEmptyTargetIsSkipped(t *testing.T) {
 	if v == nil || v.Kind != findings.VerdictSkipped {
 		t.Fatalf("verdict = %+v, want skipped", v)
 	}
-	for _, field := range []string{"victim", "victim-mac", "offer-ip"} {
-		if !strings.Contains(v.Detail, field) {
-			t.Errorf("verdict detail %q does not name %s", v.Detail, field)
-		}
+	if want := "the check needs: --victim <ip>,<mac>, --offer-ip <ip>"; v.Detail != want {
+		t.Errorf("verdict detail = %q, want %q", v.Detail, want)
+	}
+}
+
+// TestNeedFieldsPerBehavior pins, per behavior that reads a target, the
+// exact flags an empty target reports and that a present field of the wrong
+// family is refused with the invalid code before any frame.
+func TestNeedFieldsPerBehavior(t *testing.T) {
+	cases := []struct {
+		name   string
+		target check.Target
+		code   errs.Code
+		detail string
+	}{
+		{"roguedhcp", check.Target{}, check.ErrCodeTargetMissing, "the check needs: --victim <ip>,<mac>, --offer-ip <ip>"},
+		{"roguedhcp6", check.Target{}, check.ErrCodeTargetMissing, "the check needs: --victim6 <ip>,<mac>, --server6 <ip>,<mac>"},
+		{"daddos", check.Target{}, check.ErrCodeTargetMissing, "the check needs: --victim6 <ip>,<mac>"},
+		{"ndpspoof", check.Target{}, check.ErrCodeTargetMissing, "the check needs: --victim6 <ip>,<mac>"},
+		{"raguard", check.Target{}, check.ErrCodeTargetMissing, "the check needs: --prefix6 <cidr>"},
+		{"roguera", check.Target{}, check.ErrCodeTargetMissing, "the check needs: --prefix6 <cidr>"},
+		{"daddos v4-mapped victim6", check.Target{Victim6: check.Host{IP: net.ParseIP("::ffff:10.0.0.5"), MAC: fixtureMAC}}, check.ErrCodeTargetInvalid, "the check needs: --victim6 <ip>,<mac> wants an IPv6 address"},
+		{"roguedhcp IPv6 offer", check.Target{Victim: check.Host{IP: net.IPv4(172, 16, 0, 10), MAC: fixtureMAC}, OfferIP: net.ParseIP("2001:db8::1")}, check.ErrCodeTargetInvalid, "the check needs: --offer-ip <ip> wants an IPv4 address"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			leg := fixtureLeg(t, nil)
+			name, _, _ := strings.Cut(tc.name, " ")
+			recs, err := runSingle(t, leg, name, tc.target)
+			if code, ok := errs.CodeOf(err); !ok || code != tc.code {
+				t.Fatalf("run %s = %v (code %q), want %q", name, err, code, tc.code)
+			}
+			if errs.ExitCode(err) != 2 {
+				t.Errorf("exit code = %d, want 2", errs.ExitCode(err))
+			}
+			if leg.SendCount() != 0 {
+				t.Errorf("sends = %d, want 0", leg.SendCount())
+			}
+			v := verdictOf(recs)
+			if v == nil || v.Kind != findings.VerdictSkipped {
+				t.Fatalf("verdict = %+v, want skipped", v)
+			}
+			if v.Detail != tc.detail {
+				t.Errorf("verdict detail = %q, want %q", v.Detail, tc.detail)
+			}
+		})
 	}
 }
 
@@ -248,9 +294,113 @@ func TestRogueDHCPv6_SolicitAdvertiseCycle(t *testing.T) {
 	if detail.Action != "rogue-dhcpv6-server" {
 		t.Errorf("action: got %q, want %q", detail.Action, "rogue-dhcpv6-server")
 	}
-	if detail.DecayNote != "~300s lifetime announced" {
-		t.Errorf("decay note: got %q, want %q", detail.DecayNote, "~300s lifetime announced")
+	if detail.DecayNote != "600s valid lifetime announced" {
+		t.Errorf("decay note: got %q, want %q", detail.DecayNote, "600s valid lifetime announced")
 	}
+}
+
+// recordingEmitter keeps the findings a behavior emits when a test calls it
+// directly inside a synctest bubble, where the runner's goroutines would
+// outlive the bubble.
+type recordingEmitter struct {
+	findings []json.RawMessage
+}
+
+func (e *recordingEmitter) Emit(findings.Record) bool { return true }
+
+func (e *recordingEmitter) Finding(_ string, detail json.RawMessage) bool {
+	e.findings = append(e.findings, detail)
+	return true
+}
+
+func (e *recordingEmitter) Progress(_, _ string) bool { return true }
+
+// directDeps builds the dependencies for a direct call to a behavior with
+// the given window.
+func directDeps(attack, watch *testtest.Leg, target check.Target, window time.Duration) (check.Deps, *recordingEmitter) {
+	em := &recordingEmitter{}
+	deps := check.Deps{
+		AttackLeg: attack,
+		Target:    target,
+		Observe:   window,
+		Emitter:   em,
+	}
+	if watch != nil {
+		deps.WatchLeg = watch
+	}
+	return deps, em
+}
+
+// TestRogueDHCPv6_QuietLegIsPending pins that a leg with no SOLICIT runs
+// the window out: the verdict is pending naming the window, nothing is
+// sent, and no finding is emitted.
+func TestRogueDHCPv6_QuietLegIsPending(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		leg := fixtureLeg(t, nil)
+		deps, em := directDeps(leg, nil, fixtureTarget(), 3*time.Second)
+		start := time.Now()
+		v, err := ip6.RunRogueDHCPv6(context.Background(), deps)
+		if err != nil {
+			t.Fatalf("RunRogueDHCPv6() error = %v, want nil", err)
+		}
+		if v.Kind != findings.VerdictPending || v.Detail != "no solicit in 3s" {
+			t.Errorf("verdict = %+v, want pending with detail %q", v, "no solicit in 3s")
+		}
+		if elapsed := time.Since(start); elapsed != 3*time.Second {
+			t.Errorf("returned after %v, want the 3s window", elapsed)
+		}
+		if leg.SendCount() != 0 {
+			t.Errorf("sends = %d, want 0", leg.SendCount())
+		}
+		if len(em.findings) != 0 {
+			t.Errorf("findings = %d, want 0", len(em.findings))
+		}
+	})
+}
+
+// TestRogueDHCPv6_IgnoresOtherClients pins that a SOLICIT from another MAC
+// is skipped and the victim's own SOLICIT behind it is the one answered,
+// with the advertise matching the fixture, so the reply goes to the
+// victim and not to whoever asked first.
+func TestRogueDHCPv6_IgnoresOtherClients(t *testing.T) {
+	fixtures := fixturePackets(t, "roguedhcp6.pcap")
+	other := append([]byte(nil), fixtures[0]...)
+	copy(other[6:12], net.HardwareAddr{0x00, 0xde, 0xad, 0xbe, 0xef, 0x02})
+	synctest.Test(t, func(t *testing.T) {
+		leg := fixtureLeg(t, nil)
+		leg.PushRX(other)
+		leg.PushRX(fixtures[0])
+		target := fixtureTarget()
+		target.Victim6.IP = net.ParseIP("fd00::100")
+		deps, em := directDeps(leg, nil, target, 3*time.Second)
+		v, err := ip6.RunRogueDHCPv6(context.Background(), deps)
+		if err != nil {
+			t.Fatalf("RunRogueDHCPv6() error = %v, want nil", err)
+		}
+		if v.Kind != findings.VerdictPending || !strings.Contains(v.Detail, "REQUEST listener") {
+			t.Errorf("verdict = %+v, want pending after the advertise", v)
+		}
+		tx := leg.TX()
+		if len(tx) != 1 {
+			t.Fatalf("TX count: got %d, want 1 (the advertise to the victim only)", len(tx))
+		}
+		testtest.AssertBytesEqual(t, "Rogue DHCPv6 ADVERTISE", tx[0], fixtures[1])
+		if len(em.findings) != 1 {
+			t.Errorf("findings = %d, want 1", len(em.findings))
+		}
+	})
+	synctest.Test(t, func(t *testing.T) {
+		leg := fixtureLeg(t, nil)
+		leg.PushRX(other)
+		deps, _ := directDeps(leg, nil, fixtureTarget(), 2*time.Second)
+		v, err := ip6.RunRogueDHCPv6(context.Background(), deps)
+		if err != nil {
+			t.Fatalf("RunRogueDHCPv6() error = %v, want nil", err)
+		}
+		if v.Detail != "no solicit in 2s" || leg.SendCount() != 0 {
+			t.Errorf("verdict %+v with %d sends, want pending at the window and 0 sends for another client's solicit", v, leg.SendCount())
+		}
+	})
 }
 
 func TestNDPSpoof_FixturePins(t *testing.T) {
@@ -274,37 +424,79 @@ func TestNDPSpoof_FixturePins(t *testing.T) {
 	}
 }
 
-func TestDADDOS_NoDefense_AttackProceeds(t *testing.T) {
-	leg := fixtureLeg(t, nil)
-	target := fixtureTarget()
-	target.Victim6.IP = net.ParseIP("fd00::dead")
-
-	recs, err := runSingle(t, leg, "daddos", target)
-	if err != nil {
-		t.Fatalf("run daddos: %v", err)
-	}
-
-	tx := leg.TX()
-	if len(tx) != 1 {
-		t.Fatalf("TX count: got %d, want 1", len(tx))
-	}
-
-	fixtures := fixturePackets(t, "daddos.pcap")
-	testtest.AssertBytesEqual(t, "DAD NS", tx[0], fixtures[0])
-
-	f := findFinding(t, recs)
-	if f == nil {
-		t.Fatal("no finding emitted")
+// dadResisted returns the resisted field of the one finding em holds.
+func dadResisted(t *testing.T, em *recordingEmitter) bool {
+	t.Helper()
+	if len(em.findings) != 1 {
+		t.Fatalf("findings = %d, want 1", len(em.findings))
 	}
 	var detail struct {
 		Resisted bool `json:"resisted"`
 	}
-	if err := json.Unmarshal(f.Detail, &detail); err != nil {
+	if err := json.Unmarshal(em.findings[0], &detail); err != nil {
 		t.Fatalf("unmarshal finding: %v", err)
 	}
-	if detail.Resisted {
-		t.Error("resisted: got true, want false (no defense observed)")
-	}
+	return detail.Resisted
+}
+
+// TestDADDOS_NoDefense_AttackProceeds pins the NS against the fixture and
+// that a quiet leg runs the window out with the finding reading no defense.
+func TestDADDOS_NoDefense_AttackProceeds(t *testing.T) {
+	fixtures := fixturePackets(t, "daddos.pcap")
+	synctest.Test(t, func(t *testing.T) {
+		leg := fixtureLeg(t, nil)
+		target := fixtureTarget()
+		target.Victim6.IP = net.ParseIP("fd00::dead")
+		deps, em := directDeps(leg, nil, target, 3*time.Second)
+		start := time.Now()
+		v, err := ip6.RunDADDOS(context.Background(), deps)
+		if err != nil {
+			t.Fatalf("RunDADDOS() error = %v, want nil", err)
+		}
+		if v.Kind != findings.VerdictPending {
+			t.Errorf("verdict = %+v, want pending", v)
+		}
+		if elapsed := time.Since(start); elapsed != 3*time.Second {
+			t.Errorf("returned after %v, want the 3s window", elapsed)
+		}
+		tx := leg.TX()
+		if len(tx) != 1 {
+			t.Fatalf("TX count: got %d, want 1", len(tx))
+		}
+		testtest.AssertBytesEqual(t, "DAD NS", tx[0], fixtures[0])
+		if dadResisted(t, em) {
+			t.Error("resisted: got true, want false (no defense observed)")
+		}
+	})
+}
+
+// TestDADDOS_LateDefenseIsRead pins that a defending advertisement arriving
+// after an unrelated frame and one second into the window is still read,
+// and that the behavior returns on it rather than at the window.
+func TestDADDOS_LateDefenseIsRead(t *testing.T) {
+	defense := fixturePackets(t, "daddos_resisted.pcap")[0]
+	unrelated := fixturePackets(t, "ndpspoof.pcap")[0]
+	synctest.Test(t, func(t *testing.T) {
+		leg := fixtureLeg(t, nil)
+		leg.PushRX(unrelated)
+		go func() {
+			time.Sleep(time.Second)
+			leg.PushRX(defense)
+		}()
+		target := fixtureTarget()
+		target.Victim6.IP = net.ParseIP("fd00::dead")
+		deps, em := directDeps(leg, nil, target, 3*time.Second)
+		start := time.Now()
+		if _, err := ip6.RunDADDOS(context.Background(), deps); err != nil {
+			t.Fatalf("RunDADDOS() error = %v, want nil", err)
+		}
+		if elapsed := time.Since(start); elapsed != time.Second {
+			t.Errorf("returned after %v, want 1s, when the defense arrived", elapsed)
+		}
+		if !dadResisted(t, em) {
+			t.Error("resisted: got false, want true (the owner defended the address)")
+		}
+	})
 }
 
 func TestDADDOS_HostCompletesDAD_ReportsResisted(t *testing.T) {
@@ -470,12 +662,139 @@ func TestRAGuard_WithoutWatchLeg_ReportsSentOnly(t *testing.T) {
 	if detail.Sent != 1 {
 		t.Errorf("sent: got %d, want 1", detail.Sent)
 	}
-	if detail.Traversal != "not-forwarded" {
-		t.Errorf("traversal: got %q, want %q (no watch leg)", detail.Traversal, "not-forwarded")
+	if detail.Traversal != "unobserved" {
+		t.Errorf("traversal: got %q, want %q (no watch leg)", detail.Traversal, "unobserved")
 	}
 	if v := verdictOf(recs); v == nil || v.Kind != findings.VerdictPending {
 		t.Errorf("verdict = %+v, want pending without a watch leg", v)
 	}
+}
+
+// TestRAGuard_ProbeInstallsNothing pins the probe byte for byte against the
+// fixture and decodes the fixture: every router parameter is zero, the
+// options are exactly one Prefix Information option with flags 0, both
+// lifetimes 0, and the target prefix, and there is no Source Link-Layer
+// Address and no MTU option, so a host installs nothing from it.
+func TestRAGuard_ProbeInstallsNothing(t *testing.T) {
+	leg := fixtureLeg(t, nil)
+	if _, err := runSingle(t, leg, "raguard", fixtureTarget()); err != nil {
+		t.Fatalf("run raguard: %v", err)
+	}
+	fixture := fixturePackets(t, "raguard.pcap")[0]
+	tx := leg.TX()
+	if len(tx) != 1 {
+		t.Fatalf("TX count: got %d, want 1", len(tx))
+	}
+	testtest.AssertBytesEqual(t, "RAGuard probe RA", tx[0], fixture)
+
+	pkt := gopacket.NewPacket(fixture, layers.LayerTypeEthernet, gopacket.Default)
+	ra, ok := pkt.Layer(layers.LayerTypeICMPv6RouterAdvertisement).(*layers.ICMPv6RouterAdvertisement)
+	if !ok {
+		t.Fatalf("fixture does not decode as a router advertisement: %v", pkt.ErrorLayer())
+	}
+	if ra.RouterLifetime != 0 || ra.HopLimit != 0 || ra.ReachableTime != 0 || ra.RetransTimer != 0 || ra.Flags != 0 {
+		t.Errorf("RA fields = lifetime %d hop %d reachable %d retrans %d flags %#x, want all 0", ra.RouterLifetime, ra.HopLimit, ra.ReachableTime, ra.RetransTimer, ra.Flags)
+	}
+	if len(ra.Options) != 1 {
+		t.Fatalf("options = %d, want exactly one (prefix information)", len(ra.Options))
+	}
+	opt := ra.Options[0]
+	if opt.Type != layers.ICMPv6OptPrefixInfo {
+		t.Fatalf("option type = %v, want prefix information", opt.Type)
+	}
+	if len(opt.Data) != 30 {
+		t.Fatalf("prefix option data = %d bytes, want 30", len(opt.Data))
+	}
+	if opt.Data[0] != 64 || opt.Data[1] != 0 {
+		t.Errorf("prefix length %d flags %#x, want 64 and 0x00", opt.Data[0], opt.Data[1])
+	}
+	for _, b := range opt.Data[2:10] {
+		if b != 0 {
+			t.Errorf("prefix lifetimes = % x, want all zero", opt.Data[2:10])
+			break
+		}
+	}
+	if !net.IP(opt.Data[14:30]).Equal(net.ParseIP("fd00::")) {
+		t.Errorf("prefix = %v, want fd00::", net.IP(opt.Data[14:30]))
+	}
+}
+
+// raGuardTraversal returns the traversal field of the one finding em holds.
+func raGuardTraversal(t *testing.T, em *recordingEmitter) string {
+	t.Helper()
+	if len(em.findings) != 1 {
+		t.Fatalf("findings = %d, want 1", len(em.findings))
+	}
+	var detail struct {
+		Traversal string `json:"traversal"`
+	}
+	if err := json.Unmarshal(em.findings[0], &detail); err != nil {
+		t.Fatalf("unmarshal finding: %v", err)
+	}
+	return detail.Traversal
+}
+
+// TestRAGuard_AmbientOnlyIsResisted pins attribution by content: a
+// broadcast ARP from the attack leg's MAC, an RA from that MAC with another
+// prefix, an RA from another MAC, and a truncated RA each leave the verdict
+// resisted at the window, and the probe itself makes it confirmed.
+func TestRAGuard_AmbientOnlyIsResisted(t *testing.T) {
+	probe := fixturePackets(t, "raguard.pcap")[0]
+	arpFromLeg := make([]byte, 42)
+	copy(arpFromLeg[0:6], net.HardwareAddr{0xff, 0xff, 0xff, 0xff, 0xff, 0xff})
+	copy(arpFromLeg[6:12], fixtureMAC)
+	arpFromLeg[12], arpFromLeg[13] = 0x08, 0x06
+	otherPrefix := append([]byte(nil), fixturePackets(t, "roguera.pcap")[0]...)
+	copy(otherPrefix[len(otherPrefix)-16:], net.ParseIP("fd01::"))
+	otherMAC := append([]byte(nil), probe...)
+	copy(otherMAC[6:12], net.HardwareAddr{0x00, 0xde, 0xad, 0xbe, 0xef, 0x02})
+	truncated := probe[:len(probe)-20]
+	ambient := [][]byte{arpFromLeg, otherPrefix, otherMAC, truncated}
+
+	synctest.Test(t, func(t *testing.T) {
+		attackLeg := fixtureLeg(t, nil)
+		watchLeg := fixtureLeg(t, nil)
+		for _, f := range ambient {
+			watchLeg.PushRX(f)
+		}
+		deps, em := directDeps(attackLeg, watchLeg, fixtureTarget(), 2*time.Second)
+		start := time.Now()
+		v, err := ip6.RunRAGuard(context.Background(), deps)
+		if err != nil {
+			t.Fatalf("RunRAGuard() error = %v, want nil", err)
+		}
+		if v.Kind != findings.VerdictResisted {
+			t.Errorf("verdict = %+v, want resisted with only ambient frames", v)
+		}
+		if elapsed := time.Since(start); elapsed != 2*time.Second {
+			t.Errorf("returned after %v, want the 2s window", elapsed)
+		}
+		if v.Observed != 2*time.Second {
+			t.Errorf("observed = %v, want 2s", v.Observed)
+		}
+		if got := raGuardTraversal(t, em); got != "not-forwarded" {
+			t.Errorf("traversal = %q, want not-forwarded", got)
+		}
+	})
+	synctest.Test(t, func(t *testing.T) {
+		attackLeg := fixtureLeg(t, nil)
+		watchLeg := fixtureLeg(t, nil)
+		for _, f := range ambient {
+			watchLeg.PushRX(f)
+		}
+		watchLeg.PushRX(probe)
+		deps, em := directDeps(attackLeg, watchLeg, fixtureTarget(), 2*time.Second)
+		v, err := ip6.RunRAGuard(context.Background(), deps)
+		if err != nil {
+			t.Fatalf("RunRAGuard() error = %v, want nil", err)
+		}
+		if v.Kind != findings.VerdictConfirmed || v.Observed != 0 {
+			t.Errorf("verdict = %+v, want confirmed at once on the probe", v)
+		}
+		if got := raGuardTraversal(t, em); got != "forwarded" {
+			t.Errorf("traversal = %q, want forwarded", got)
+		}
+	})
 }
 
 func TestBoundedBursts(t *testing.T) {
@@ -568,7 +887,7 @@ func TestReproducibility(t *testing.T) {
 }
 
 // TestCatalogCostFields pins each behavior's impact and restore, and the
-// decay bounds the probes announce: the DHCPv6 advertise's 300 s valid
+// decay bounds the probes announce: the DHCPv6 advertise's 600 s valid
 // lifetime and the 1800 s router lifetime and DHCPv4 lease.
 func TestCatalogCostFields(t *testing.T) {
 	cases := []struct {
@@ -579,7 +898,7 @@ func TestCatalogCostFields(t *testing.T) {
 	}{
 		{"dhcpstarve", check.ImpactTemporary, check.RestoreDecay, 0},
 		{"roguedhcp", check.ImpactTemporary, check.RestoreDecay, 1800 * time.Second},
-		{"roguedhcp6", check.ImpactTemporary, check.RestoreDecay, 300 * time.Second},
+		{"roguedhcp6", check.ImpactTemporary, check.RestoreDecay, 600 * time.Second},
 		{"daddos", check.ImpactTemporary, check.RestoreDecay, 0},
 		{"ndpspoof", check.ImpactTemporary, check.RestoreDecay, 0},
 		{"raguard", check.ImpactNone, check.RestoreNone, 0},

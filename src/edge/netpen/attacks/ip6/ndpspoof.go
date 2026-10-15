@@ -1,9 +1,8 @@
-// ndpspoof.go implements the IPv6 neighbor discovery spoofing attack.
-//
-// Durability (from the catalog): transient-decay. The attack sends a
-// spoofed Neighbor Advertisement claiming the victim's IP is at the
-// attacker's MAC. NUD / the real master resumes after the attack stops.
-// No explicit teardown.
+// ndpspoof.go implements the IPv6 neighbor discovery spoofing check.
+// Impact temporary, restore decay with no stated bound, affects clients:
+// the Neighbor Advertisement claims the victim's address is at the attack
+// leg's MAC, and neighbor unreachability detection on the hosts that took
+// it restores the real entry on its own schedule.
 
 package ip6
 

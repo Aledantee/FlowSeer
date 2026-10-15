@@ -1,13 +1,8 @@
-// mld.go implements the MLD abuse flood attack superset.
-//
-// Durability (from the catalog): transient-decay. The attack sends a
-// bounded burst of MLDv1 report frames. The behavior is bounded by
-// duration and exits on schedule, reporting frame counts.
-//
-// This is a flood-class behavior: it uses the sync.Pool craft path
-// for pre-serialized buffers.
-//
-// Spec-authored — the baseline has no craft for this attack.
+// mld.go implements the MLD abuse flood check. Impact temporary, restore
+// decay with no stated bound, affects device: the burst of five MLDv1
+// report frames registers a multicast group in the switch's snooping
+// table, and the entry ages out on the switch's own membership timer. The
+// fixture is spec-authored, since the baseline has no craft for it.
 
 package ip6
 
