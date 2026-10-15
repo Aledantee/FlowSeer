@@ -25,3 +25,8 @@ Suggested change: <smallest edit to the skill, agent, or hook>.
 ```
 
 ## Entries
+
+## 2026-10-15 delegate: a coordinator's record commit broke the next stage's fast-forward in the no-Orca path
+Skill or agent: `.claude/skills/delegate/references/no-orca.md`, hand-off between stage branches.
+What happened: after one stage finished, the drive coordinator committed a branch record on the plan branch. The next stage worker's `git merge --ff-only` of the previous stage's branch then failed because the two branches had diverged. The reference was followed as written.
+Suggested change: have no-orca.md say the coordinator commits its records only after the last stage merge, or that stages merge with `--no-edit` instead of `--ff-only`.

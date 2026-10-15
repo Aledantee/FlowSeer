@@ -18,9 +18,11 @@ var ErrCodeReceiver = errs.NewCode("edgebus/receiver")
 
 const (
 	otlpContentType = "application/x-protobuf"
-	// maxOTLPBody bounds one export request, matching the largest batch the
-	// runtime's exporter sends.
-	maxOTLPBody = 16 << 20
+	// maxOTLPBody bounds one export request at 255 KiB. The edge's log holds
+	// a body as one record of at most 256 KiB, and the delivery call's
+	// TelemetryExport.body holds at most 255 KiB, so a body central cannot
+	// carry is refused here with a 413 instead of stalling the log.
+	maxOTLPBody = 255 << 10
 )
 
 // Receiver is the loopback OTLP/HTTP endpoint the edge's own telemetry

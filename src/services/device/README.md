@@ -222,7 +222,8 @@ trail pollution by unverified callers. A full-payload expiry refusal after
 admission records a denied completion.
 
 The edge-facing services (`EdgeService`, `DispatchService`, `AuditService`,
-`CaptureEdgeService`, `RawWindowEdgeService`) are verified: every call carries a fresh assertion signed
+`CaptureEdgeService`, `RawWindowEdgeService`, `IngestService`,
+`TelemetryService`) are verified: every call carries a fresh assertion signed
 by the key central registered at enrollment, checked against the request body
 and the invoked procedure before Connect decodes anything.
 
@@ -339,7 +340,7 @@ authorized open. Edge enforcement and the intake path are described in the
 | `internal/journal` | the lane record, every write to it, and the owed-row derivation |
 | `internal/registry` | the operator-written device registry, read once at start |
 | `internal/edgestore` | the edge records and the setup-key index |
-| `internal/intake` | validation and republishing of edge ingestion records into central streams |
+| `internal/intake` | validation and republishing of edge ingestion records into central streams, and `IngestService`, the call that delivers them |
 | `internal/history` | the ClickHouse pools, the schema migrator, and the device dimension mirror |
 | `internal/historysink` | the consumer that inserts central syslog records into ClickHouse |
 | `internal/historyquery` | the history read statements, scoped by the admitted tenant set |
@@ -349,6 +350,7 @@ authorized open. Edge enforcement and the intake path are described in the
 | `internal/edgeapi` | `EdgeService`, `EdgeAdminService`, and the assertion middleware |
 | `internal/dispatchapi` | `DispatchService`: the outbox relay and the report handler |
 | `internal/auditapi` | `AuditService`: the edge's audit deliveries onto the stream |
+| `internal/otlpapi` | `TelemetryService`: the edge's OTLP bodies posted to the collector |
 | `internal/deviceapi` | `DeviceService`: the operator's calls |
 | `internal/captureapi` | `CaptureService`, `CaptureEdgeService`, pcapng artifact store, and live tail broadcaster |
 | `internal/rawwindowapi` | `RawWindowService`, `RawWindowEdgeService`, and the per-edge raw window record |

@@ -1072,3 +1072,14 @@ model package, `RawEvidence` for the window refs and the audit event for its
 target. `store/device/v1` gains the per-edge window record and `store/agent/v1`
 the boot counter file. The import-order table in
 `test/conformance/proto/layering_test.go` carries a row for each.
+
+### 2026-10-15: edge delivery calls
+
+`edge/telemetry/v1` joins the tree with `TelemetryService`, the call an edge
+delivers OTLP bodies through. It imports nothing, since a body is opaque
+bytes. `edge/ingest/v1` gains `IngestService`, which carries `IngestRecord`
+typed, so `edge/ingest` now imports `integration/ingest`. That is the
+second edge from one boundary consumer to another, after `edge/audit` to
+`event/access`. Both packages are sinks. The import-order table in
+`test/conformance/proto/layering_test.go` carries the new edge and the new
+row.

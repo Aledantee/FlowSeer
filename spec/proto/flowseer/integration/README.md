@@ -22,7 +22,7 @@ before one exists.
 
 Imports: event/log, model/inventory, model/rawwindow
 
-Imported by: nothing
+Imported by: edge/ingest
 
 ## Packages
 

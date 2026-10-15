@@ -146,9 +146,15 @@ forwarder consumers, and the bus listener an edge dials.
 ## Open questions
 
 - Whether the ingest call sustains the load the device service record
-  states, thousands of messages per second with tenfold bursts. Unverified.
-  The hub fsyncs every message, which bounds central's publish rate today
-  as well.
+  states, thousands of messages per second with tenfold bursts. Measured on
+  an Apple M3 Pro, it does not under per-message sync: about 215 records/s
+  at batch 64 and 1024, since nats-server v2.15.0 syncs each message of a
+  stream in turn (`server/filestore.go:8777-8779`). Periodic sync at a
+  100 ms interval measured about 42,000 records/s, and throughput stays flat
+  from there up. The user decided on 2026-10-15 that the hub moves to
+  periodic sync at 100 ms, which amends the device service record's
+  power-loss rule. That change has not landed. Target-hardware rates are
+  unverified, since Go syncs with `F_FULLFSYNC` on darwin.
 - Whether the process-local bus stays. It has no consumer in either host.
 - How the agent's configuration splits its buffer bounds between the two
   logs.
@@ -171,3 +177,31 @@ forwarder consumers, and the bus listener an edge dials.
   2026-10-04.
 - Grafana Alloy `prometheus.remote_write`:
   <https://grafana.com/docs/alloy/latest/reference/components/prometheus/prometheus.remote_write/>.
+
+## Amendments
+
+### 2026-10-15: central handlers landed
+
+Landed 2026-10-15: `src/services/device/internal/intake/handler.go`,
+`src/services/device/internal/otlpapi/handler.go`,
+`src/modules/edgebus/collector.go`, and the two `Deliver` calls under
+`spec/proto/flowseer/edge/`.
+
+- Both calls mount on central's edge listener behind the assertion
+  middleware. The telemetry call mounts whether or not a collector is
+  configured, so an edge never mistakes it for an older central.
+- No request carries an item count bound. The edge listener's 1 MiB body
+  bound limits the work, and one 512 KiB segment's records always fit one
+  call. Each item is validated by its handler, so one invalid item is
+  refused alone instead of refusing the batch.
+- A record stays at most 256 KiB. The loopback receiver accepts OTLP bodies
+  up to 255 KiB, and a telemetry item's body is bounded at 261120 bytes, so
+  a body with its envelope fits one record.
+- The telemetry call settles a body the collector accepted or refused for
+  its content (a 4xx other than 401, 403, 404, 408, and 429). Any other
+  answer ends the count, and no delivery backstop applies, so a body waits
+  in the edge's log until a collector accepts it or the log's bounds expire
+  it. With no collector configured the call settles nothing.
+- The forwarder and the telemetry call classify a collector's answer through
+  one `edgebus.Collector`. Both refuse to start on an endpoint that is not an
+  absolute `http` or `https` URL.
