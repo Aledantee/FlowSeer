@@ -57,6 +57,10 @@ The existing decisions remain:
 - Add a minimal Site entity with typed refs and group membership. Why:
   Edge and group ownership must refer to the same Site contract. Broader
   inventory administration waits (decided by the user, 2026-10-15).
+- Devices may target individual group members as well as the shared virtual
+  address. Why: a device can configure one node as its primary syslog server
+  and other nodes as fallbacks, without waiting for virtual-address movement
+  (decided by the user, 2026-10-15).
 - Each group contains one to 64 distinct Edges within one Site and one
   tenant. Why: bounded registry validation and deterministic assignment
   need a finite membership set. Tenant scope remains authenticated context.
@@ -98,9 +102,12 @@ The existing decisions remain:
 7. A write moves only after its device-specific procedure verifies disabled
    predecessor accounts and absent sessions. Example: a partial or unknown
    fence outcome leaves successor write authority refused across restart.
-8. Inbound traffic follows the externally managed address. Example: records
-   accepted by B after address movement retain B as provenance, while A's
-   older buffered records can still arrive. Address holder is not lane owner.
+8. Inbound traffic accepts the shared virtual address and individual node
+   addresses. Example: a sender configured with A as primary and B and C as
+   fallbacks sends to B after A fails, without virtual-address movement.
+   Records retain the receiving Edge as provenance, while A's older buffered
+   records can still arrive. Neither destination selection nor address
+   ownership grants outbound lane ownership.
 9. Receiver identity and FreeBSD behavior are verified independently of
    placement. Example: a real inform sender accepts the receiver after an
    address move, and a FreeBSD agent passes the selected end-to-end checks.
@@ -135,7 +142,7 @@ Verify: `uv run tools/scripts/run.py verify change -- docs/plans/2026-10-03-1533
 ### U3. Shared receiver identity and platform validation
 Files: docs/plans/2026-10-03-1533-feat-edge-high-availability-phase3-plan.md
 After: U1
-Change: group receiver identity and address-holder reporting support inbound failover.
+Change: group receiver identity, individual node destinations, and address-holder reporting support inbound failover.
 Tests: the phase requires real sender and FreeBSD evidence.
 Verify: `uv run tools/scripts/run.py verify change -- docs/plans/2026-10-03-1533-feat-edge-high-availability-phase3-plan.md`
 

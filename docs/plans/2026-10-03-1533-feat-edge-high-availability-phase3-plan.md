@@ -12,9 +12,10 @@ execution: mixed
 
 ## Goal
 
-All group members receive the inbound identity and report whether the
-externally managed virtual address is present locally. Sender tests prove
-receiver failover, and FreeBSD checks prove the supported agent path.
+Group members accept inbound traffic addressed to their own endpoints or
+the externally managed virtual address and report local address presence.
+Sender tests prove both destination fallback and virtual-address failover,
+and FreeBSD checks prove the supported agent path.
 
 Stop condition: the phase cannot prove its device or receiver behavior from
 source evidence and an independent observation.
@@ -25,6 +26,9 @@ The [parent's decisions](2026-10-03-1533-feat-edge-high-availability-plan.md) ap
 
 - Inbound records retain the actual receiving Edge as provenance. Why:
   intake validates the authenticated producer, not an address-holder claim.
+- Every member accepts traffic on its individual endpoint even when it does
+  not hold the virtual address. Why: the parent permits device-configured
+  primary and fallback destinations independently of address movement.
 - The address holder never selects the outbound read or write owner. Why:
   placement remains central's authority under the parent decisions.
 - FreeBSD packet I/O phase 1 supplies the agent build and platform gate.
@@ -46,6 +50,12 @@ The [parent's decisions](2026-10-03-1533-feat-edge-high-availability-plan.md) ap
    the verified sender protocol, including replay refusal.
 5. FreeBSD runs the selected heartbeat, read failover, receiver, and restart
    checks against real kernel networking. A Linux-only fixture is insufficient.
+6. A sender configured with node A as primary syslog destination and B and C
+   as fallbacks delivers to B after A stops. Example: B receives on its own
+   address while holding neither the virtual address nor the device read
+   assignment. Central records B as provenance without changing placement.
+   Verify the selected sender's actual fallback behavior before claiming
+   device-family support.
 
 ## Out of scope
 
@@ -65,6 +75,8 @@ against the landed preceding phase. Device writes need separate approval.
 
 ## Open questions
 
+- Security identity for individual endpoints alongside the shared virtual
+  endpoint, and which sender supplies evidence for ordered syslog fallback.
 - Receiver identity schema, secret rotation, and the authoritative engine
   boots/time strategy. Protocol guarantees remain unverified until sourced.
 - Whether an offline restart can recover receiver secrets without violating

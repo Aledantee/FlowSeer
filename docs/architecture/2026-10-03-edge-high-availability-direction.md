@@ -122,12 +122,19 @@ The existing horizon and reconciliation rules still resolve it before new
 writes. A returning node does not re-enable accounts through onboarding.
 Re-enable is a separate typed operation that cannot undo a newer fence.
 
-### Inbound follows the external address
+### Inbound accepts the virtual address and individual node addresses
 
 The group uses a virtual address managed outside FlowSeer, with CARP as the
-chosen deployment mechanism. FlowSeer reports local address presence and
-never uses it to grant outbound ownership. Each node records itself as the
-receiving Edge in provenance and delivers its own buffered observations.
+chosen deployment mechanism. Devices may also target individual members
+directly. For example, a sender can configure node A as its primary syslog
+destination and B and C as fallbacks. B accepts traffic on its own address
+without holding the virtual address or the device's read assignment.
+
+FlowSeer reports local address presence and never uses it or the sender's
+destination choice to grant outbound ownership. Each node records itself
+as the receiving Edge in provenance and delivers its own buffered
+observations. Support for a specific sender's fallback behavior requires
+source evidence and a sender test.
 
 Shared TLS receiver credentials and SNMP inform identity require a separate
 receiver contract. A shared engine ID alone does not establish correct
@@ -174,5 +181,6 @@ their separate blast-radius approval requirement.
   credential ownership, and secret-publication crash recovery.
 - Device-native account disable and session termination evidence, including
   commands already accepted by the device and late re-enable operations.
-- Receiver engine boots/time, secret rotation, and sender interoperability.
+- Receiver engine boots/time, secret rotation, individual endpoint security
+  identity, and sender interoperability, including ordered syslog fallback.
 - Exact central HA election and watch interfaces after that work lands.
