@@ -489,8 +489,10 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/edge/netpe
 Files: src/edge/netpen/attacks/fh/hsrp.go, src/edge/netpen/attacks/fh/glbp.go, src/edge/netpen/attacks/fh/ghost.go, src/edge/netpen/attacks/fh/arpsweep.go, src/edge/netpen/attacks/fh/vrrp.go, src/edge/netpen/attacks/fh/gratarp.go, src/edge/netpen/attacks/fh/icmpredirect.go, src/edge/netpen/attacks/fh/lldpspoof.go, src/edge/netpen/attacks/fh/llmnr.go, src/edge/netpen/attacks/fh/arpspoof.go, src/edge/netpen/attacks/fh/helpers.go, src/edge/netpen/attacks/fh/fh_test.go, src/edge/netpen/attacks/fh/ghost_test.go
 After: U5
 Change: `hsrp` calls `Within(FieldGroup, 255)` after `Need` and reads the
-pointer. `glbp` reads the pointer. `arpsweep` returns the invalid code
-when the sweep network yields no host. `ghost` observes through
+pointer. `glbp` reads the pointer. `arpsweep` keeps no empty-sweep
+branch, since `Need`'s sweep form rule refuses a network with no host
+address before the behavior runs, and its comment says so (the branch
+the first draft asked for would be unreachable). `ghost` observes through
 `check.First` with the ghost source address as its predicate and returns
 `confirmed` on the match or `resisted` at the window. The file headers
 describe each check in `Impact`, `Restore`, and `Affects` terms and carry
