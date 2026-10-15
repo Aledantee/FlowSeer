@@ -3,9 +3,11 @@ package crossbuild
 import (
 	"errors"
 	"fmt"
+	"go/build/constraint"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -150,10 +152,17 @@ func watchInputs(t *testing.T, dir, arch, tags string, targets []string) {
 
 	root := repoRoot(t)
 
+	dirs := map[string]bool{}
 	for _, target := range targets {
 		tree := filepath.Join(dir, strings.TrimSuffix(target, "/..."))
-		if err := filepath.WalkDir(tree, func(_ string, _ os.DirEntry, err error) error {
-			return err
+		if err := filepath.WalkDir(tree, func(path string, entry os.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			if entry.IsDir() {
+				dirs[path] = true
+			}
+			return nil
 		}); err != nil {
 			t.Fatalf("walking target tree %q: %v", tree, err)
 		}
@@ -169,21 +178,48 @@ func watchInputs(t *testing.T, dir, arch, tags string, targets []string) {
 		t.Fatalf("go list: %v", err)
 	}
 
-	dirs := map[string]bool{}
+	dependencies := 0
 	for line := range strings.SplitSeq(string(out), "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" || !within(root, line) {
 			continue
 		}
 		dirs[line] = true
+		dependencies++
 	}
-	if len(dirs) == 0 {
+	if dependencies == 0 {
 		t.Fatalf("go list found no first-party package under %s; the gate checked nothing", dir)
 	}
 
 	for d := range dirs {
-		if _, err := os.ReadDir(d); err != nil {
+		entries, err := os.ReadDir(d)
+		if err != nil {
 			t.Fatalf("reading directory %q: %v", d, err)
+		}
+		for _, entry := range entries {
+			if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".go") {
+				continue
+			}
+			path := filepath.Join(d, entry.Name())
+			data, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatalf("reading %q: %v", path, err)
+			}
+			for line := range strings.SplitSeq(string(data), "\n") {
+				if !constraint.IsGoBuild(line) {
+					continue
+				}
+				expr, err := constraint.Parse(line)
+				if err != nil {
+					t.Fatalf("parsing build constraint in %q: %v", path, err)
+				}
+				expr.Eval(func(tag string) bool {
+					if strings.HasSuffix(tag, "_vm") && !slices.Contains(vmTags, tag) {
+						t.Errorf("%s: VM build tag %q is missing from vmTags", path, tag)
+					}
+					return false
+				})
+			}
 		}
 	}
 
