@@ -25,7 +25,6 @@ class Suite:
     test_args: tuple[str, ...] = ()
 
 
-# A later phase adds its suite here with its own setup script.
 SUITES = {
     "bpfdev": Suite(
         package="./src/common/net/bpfdev",

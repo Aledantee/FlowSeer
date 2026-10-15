@@ -1,5 +1,6 @@
 import contextlib
 import io
+import os
 import subprocess
 import unittest
 from unittest import mock
@@ -44,6 +45,39 @@ def run_main(recorder, *argv):
 
 
 class VmtestTests(unittest.TestCase):
+    def test_guest_target_overrides_host_environment(self):
+        recorder = Recorder(arch="aarch64")
+        with mock.patch.dict(os.environ, {"GOOS": "linux", "GOARCH": "amd64"}):
+            self.assertEqual(run_main(recorder, "--suite", "service")[0], 0)
+        (_, kwargs), = recorder.builds()
+        self.assertEqual(kwargs["env"]["GOOS"], "freebsd")
+        self.assertEqual(kwargs["env"]["GOARCH"], "arm64")
+
+    def test_failed_build_stops_before_upload_or_guest_execution(self):
+        recorder = Recorder(fail=lambda args: 6 if args[0] == "go" else 0)
+        self.assertEqual(run_main(recorder, "--suite", "bpfdev")[0], 6)
+        self.assertEqual(len(recorder.builds()), 1)
+        self.assertEqual(recorder.calls[-1][0][0], "go")
+        self.assertEqual(recorder.remote(), ["uname -p"])
+
+    def test_failed_upload_stops_before_later_uploads_or_guest_execution(self):
+        for failed_upload in (1, 2):
+            with self.subTest(failed_upload=failed_upload):
+                uploads = []
+
+                def fail(args):
+                    if args[:2] == ["vagrant", "upload"]:
+                        uploads.append(args)
+                        return 8 if len(uploads) == failed_upload else 0
+                    return 0
+
+                recorder = Recorder(fail=fail)
+                self.assertEqual(run_main(recorder, "--suite", "bpfdev")[0], 8)
+                self.assertEqual(len(recorder.builds()), 1)
+                self.assertEqual(len(uploads), failed_upload)
+                self.assertEqual(recorder.calls[-1][0], uploads[-1])
+                self.assertEqual(recorder.remote(), ["uname -p"])
+
     def test_aarch64_guest_builds_with_goarch_arm64(self):
         recorder = Recorder(arch="aarch64")
         self.assertEqual(run_main(recorder, "--suite", "service")[0], 0)
@@ -55,26 +89,26 @@ class VmtestTests(unittest.TestCase):
 
     def test_amd64_guest_builds_with_goarch_amd64(self):
         recorder = Recorder(arch="amd64")
-        run_main(recorder, "--suite", "service")[0]
+        self.assertEqual(run_main(recorder, "--suite", "service")[0], 0)
         (_, kwargs), = recorder.builds()
         self.assertEqual(kwargs["env"]["GOARCH"], "amd64")
 
     def test_build_carries_the_suite_tag_only_when_the_suite_has_one(self):
         recorder = Recorder()
-        run_main(recorder, "--suite", "bpfdev")[0]
+        self.assertEqual(run_main(recorder, "--suite", "bpfdev")[0], 0)
         (bpfdev, _), = recorder.builds()
         self.assertEqual(bpfdev[:3], ["go", "test", "-c"])
         self.assertIn("-tags", bpfdev)
         self.assertEqual(bpfdev[bpfdev.index("-tags") + 1], "bpfdev_vm")
 
         recorder = Recorder()
-        run_main(recorder, "--suite", "service")[0]
+        self.assertEqual(run_main(recorder, "--suite", "service")[0], 0)
         (service, _), = recorder.builds()
         self.assertNotIn("-tags", service)
 
     def test_suite_environment_reaches_the_remote_command(self):
         recorder = Recorder()
-        run_main(recorder, "--suite", "bpfdev")[0]
+        self.assertEqual(run_main(recorder, "--suite", "bpfdev")[0], 0)
         command = next(c for c in recorder.remote() if "-test.v" in c)
         self.assertIn("FLOWSEER_BPFDEV_A=epair0a", command)
         self.assertIn("FLOWSEER_BPFDEV_B=epair0b", command)
@@ -94,7 +128,7 @@ class VmtestTests(unittest.TestCase):
 
     def test_teardown_runs_after_a_failure(self):
         recorder = Recorder(fail=lambda args: 1 if "-test.v" in args[-1] else 0)
-        run_main(recorder, "--suite", "bpfdev")[0]
+        self.assertEqual(run_main(recorder, "--suite", "bpfdev")[0], 1)
         remote = recorder.remote()
         self.assertTrue(remote[-1].endswith(" down"), remote)
         self.assertIn(" up", remote[-3])
@@ -127,14 +161,14 @@ class VmtestTests(unittest.TestCase):
 
     def test_service_suite_has_no_setup(self):
         recorder = Recorder()
-        run_main(recorder, "--suite", "service")[0]
+        self.assertEqual(run_main(recorder, "--suite", "service")[0], 0)
         self.assertFalse([c for c in recorder.remote() if "setup" in c])
         run_command = next(c for c in recorder.remote() if "-test.v" in c)
         self.assertIn("^TestStartLocalBusIsListenerFreeDurableAndExclusive$", run_command)
 
     def test_stopped_machine_is_brought_up_first(self):
         recorder = Recorder(state="poweroff")
-        run_main(recorder, "--suite", "service")[0]
+        self.assertEqual(run_main(recorder, "--suite", "service")[0], 0)
         self.assertEqual(recorder.calls[1][0], ["vagrant", "up"])
 
     def test_failed_boot_returns_before_building_or_uploading(self):
@@ -151,7 +185,7 @@ class VmtestTests(unittest.TestCase):
 
     def test_running_machine_is_not_brought_up(self):
         recorder = Recorder()
-        run_main(recorder, "--suite", "service")[0]
+        self.assertEqual(run_main(recorder, "--suite", "service")[0], 0)
         self.assertNotIn(["vagrant", "up"], [args for args, _ in recorder.calls])
 
     def test_failed_uname_names_the_ssh_failure(self):

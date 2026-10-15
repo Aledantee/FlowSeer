@@ -24,9 +24,11 @@ class BpfdevSetupTests(unittest.TestCase):
                 'if [ ! -f "$FLOWSEER_BPFDEV_FIXTURE_DIR/tcpdump.pid" ]; then\n'
                 '    echo "kill missing pid" >> "$CALL_LOG"\n'
                 'fi\n'
-                'if [ "$1" = -0 ]; then exit "$CAPTURE_EXITED"; fi\n'
+                'if [ "$1" = -0 ]; then exit "$PROBE_STATUS"; fi\n'
                 'exit "$TERM_STATUS"\n'
             ),
+            "ps": 'exit "$CAPTURE_EXITED"\n',
+            "nohup": 'echo "listening on epair0b"\n',
             "sleep": "",
         }
         for name, body in scripts.items():
@@ -37,11 +39,14 @@ class BpfdevSetupTests(unittest.TestCase):
             )
             shim.chmod(0o755)
 
-    def down(self, *, capture_exited, destroy_status=0, term_status=0):
+    def run_setup(
+        self, action, *, capture_exited, destroy_status=0, term_status=0,
+        probe_status=None,
+    ):
         # A function redirects the shell's built-in kill to the harmless shim.
         return subprocess.run(
             ["/bin/sh", "-c", 'kill() { "$SHIM_DIR/kill" "$@"; }; . "$SETUP_SCRIPT"',
-             "bpfdev-setup", "down"],
+             "bpfdev-setup", action],
             env={
                 **os.environ,
                 "PATH": f"{self.shims}:/usr/bin:/bin",
@@ -52,19 +57,42 @@ class BpfdevSetupTests(unittest.TestCase):
                 "CAPTURE_EXITED": str(int(capture_exited)),
                 "DESTROY_STATUS": str(destroy_status),
                 "TERM_STATUS": str(term_status),
+                "PROBE_STATUS": str(int(capture_exited) if probe_status is None
+                                    else probe_status),
             },
             capture_output=True, text=True, check=False, timeout=5,
         )
+
+    def down(self, **kwargs):
+        return self.run_setup("down", **kwargs)
+
+    def test_up_keeps_capture_pid_and_stops_when_capture_cannot_exit(self):
+        done = self.run_setup("up", capture_exited=False)
+        calls = self.log.read_text().splitlines()
+        self.assertIn("kill -TERM 424242", calls)
+        self.assertNotEqual(done.returncode, 0)
+        self.assertIn("tcpdump 424242 did not exit", done.stderr)
+        self.assertFalse(any(call.startswith("ifconfig ") for call in calls), calls)
+        self.assertEqual(self.pidfile.read_text(), "424242\n")
+
+    def test_up_stops_kept_capture_before_destroying_pair(self):
+        done = self.run_setup("up", capture_exited=True, destroy_status=9)
+        self.assertEqual(done.returncode, 9, done.stderr)
+        self.assertEqual(self.log.read_text().splitlines(), [
+            "kill -TERM 424242", "ps -p 424242",
+            "ifconfig epair0a", "ifconfig epair0a destroy",
+        ])
+        self.assertFalse(self.pidfile.exists())
 
     def test_stop_timeout_still_destroys_and_keeps_pid_for_retry(self):
         done = self.down(capture_exited=False)
         calls = self.log.read_text().splitlines()
         self.assertIn("kill -TERM 424242", calls)
-        self.assertEqual(calls.count("kill -0 424242"), 20)
-        self.assertIn("ifconfig epair0a destroy", calls)
         self.assertNotEqual(done.returncode, 0)
-        self.assertIn("tcpdump 424242 did not exit", done.stderr)
         self.assertEqual(self.pidfile.read_text(), "424242\n")
+        self.assertEqual(calls.count("ps -p 424242"), 20)
+        self.assertIn("ifconfig epair0a destroy", calls)
+        self.assertIn("tcpdump 424242 did not exit", done.stderr)
 
         done = self.down(capture_exited=True)
         self.assertEqual(done.returncode, 0, done.stderr)
@@ -75,7 +103,7 @@ class BpfdevSetupTests(unittest.TestCase):
         done = self.down(capture_exited=True)
         calls = self.log.read_text().splitlines()
         self.assertEqual(calls, [
-            "kill -TERM 424242", "kill -0 424242",
+            "kill -TERM 424242", "ps -p 424242",
             "ifconfig epair0a", "ifconfig epair0a destroy",
         ])
         self.assertEqual(done.returncode, 0, done.stderr)
@@ -88,13 +116,13 @@ class BpfdevSetupTests(unittest.TestCase):
         self.assertFalse(self.pidfile.exists())
 
     def test_failed_signal_still_checks_for_capture_exit(self):
-        done = self.down(capture_exited=False, term_status=1)
+        done = self.down(capture_exited=False, term_status=1, probe_status=1)
         calls = self.log.read_text().splitlines()
         self.assertIn("kill -TERM 424242", calls)
-        self.assertEqual(calls.count("kill -0 424242"), 20)
-        self.assertIn("ifconfig epair0a destroy", calls)
         self.assertNotEqual(done.returncode, 0)
         self.assertEqual(self.pidfile.read_text(), "424242\n")
+        self.assertEqual(calls.count("ps -p 424242"), 20)
+        self.assertIn("ifconfig epair0a destroy", calls)
 
 
 if __name__ == "__main__":
