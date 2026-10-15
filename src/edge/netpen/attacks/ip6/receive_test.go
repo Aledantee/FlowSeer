@@ -3,24 +3,40 @@ package ip6_test
 import (
 	"context"
 	"errors"
+	"net"
 	"testing"
+	"time"
 
 	"github.com/gopacket/gopacket"
 	"github.com/gopacket/gopacket/layers"
 
 	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/ip6"
-	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/testtest"
+	"go.aledante.io/FlowSeer/src/edge/netpen/catalog"
+	"go.aledante.io/FlowSeer/src/edge/netpen/check"
+	"go.aledante.io/FlowSeer/src/edge/netpen/findings"
 	"go.aledante.io/FlowSeer/src/edge/netpen/link"
 	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
 )
 
 type receiveLeg struct {
-	*testtest.Leg
+	link.Leg
 	receive func(context.Context) <-chan link.Frame
 }
 
 func (l *receiveLeg) Receive(ctx context.Context) <-chan link.Frame {
 	return l.receive(ctx)
+}
+
+// wrapped returns the family catalog with name's Run wrapped so a test can
+// observe the behavior's own error.
+func wrapped(name string, wrap func(run check.Run) check.Run) catalog.Catalog {
+	bs := ip6.Behaviors()
+	for i := range bs {
+		if bs[i].Name == name {
+			bs[i].Run = wrap(bs[i].Run)
+		}
+	}
+	return catalog.MustNew(bs...)
 }
 
 func TestReceiveFailures(t *testing.T) {
@@ -37,19 +53,16 @@ func TestReceiveFailures(t *testing.T) {
 			{name: "receive error", closed: true, want: errReceive},
 		} {
 			t.Run(name+"/"+tc.name, func(t *testing.T) {
-				leg := &receiveLeg{Leg: testtest.New()}
-				t.Cleanup(func() { _ = leg.Close() })
-				behavior := ip6.Behaviors()[name]
+				leg := &receiveLeg{Leg: fixtureLeg(t, nil)}
 				var got error
+				target := fixtureTarget()
+				target.Victim6.IP = net.ParseIP("fd00::100")
 				recs, err := runOne(t, runner.Options{
-					AttackLeg: leg,
-					WatchLeg:  leg,
-					Attacks:   []runner.AttackRef{{Name: name}},
-					Behaviors: map[string]runner.Behavior{
-						name: func(ctx context.Context, deps runner.Deps) error {
+					Catalog: wrapped(name, func(run check.Run) check.Run {
+						return func(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 							ctx, cancel := context.WithCancel(ctx)
 							defer cancel()
-							leg.receive = func(context.Context) <-chan link.Frame {
+							leg.receive = func(rxCtx context.Context) <-chan link.Frame {
 								ch := make(chan link.Frame, 1)
 								if tc.cancel {
 									cancel()
@@ -58,13 +71,22 @@ func TestReceiveFailures(t *testing.T) {
 								}
 								if tc.closed {
 									close(ch)
+								} else {
+									// The leg contract closes the channel once
+									// its context ends.
+									context.AfterFunc(rxCtx, func() { close(ch) })
 								}
 								return ch
 							}
-							got = behavior(ctx, deps)
-							return got
-						},
-					},
+							var v check.Verdict
+							v, got = run(ctx, deps)
+							return v, got
+						}
+					}),
+					AttackLeg: leg,
+					WatchLeg:  leg,
+					Attacks:   []runner.AttackRef{{Name: name}},
+					Target:    target,
 				})
 				if err != nil {
 					t.Fatalf("run: %v", err)
@@ -80,6 +102,11 @@ func TestReceiveFailures(t *testing.T) {
 	}
 }
 
+// TestRogueDHCPv6MalformedSolicit pins that a frame the predicate cannot
+// read as a SOLICIT from the victim with a client identifier is skipped: the
+// window runs out, the verdict is pending with the window in its detail,
+// nothing is sent, and no finding is emitted. The 20 ms window is real
+// time through the runner.
 func TestRogueDHCPv6MalformedSolicit(t *testing.T) {
 	fixture := fixturePackets(t, "roguedhcp6.pcap")[0]
 	pkt := gopacket.NewPacket(fixture, layers.LayerTypeEthernet, gopacket.Default)
@@ -113,25 +140,32 @@ func TestRogueDHCPv6MalformedSolicit(t *testing.T) {
 		{name: "empty client ID", data: buf.Bytes()},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			leg := testtest.New()
-			t.Cleanup(func() { _ = leg.Close() })
+			leg := fixtureLeg(t, nil)
 			leg.PushRX(tc.data)
 			var got error
+			target := fixtureTarget()
+			target.Victim6.IP = net.ParseIP("fd00::100")
 			recs, err := runOne(t, runner.Options{
+				Catalog: wrapped("roguedhcp6", func(run check.Run) check.Run {
+					return func(ctx context.Context, deps check.Deps) (check.Verdict, error) {
+						var v check.Verdict
+						v, got = run(ctx, deps)
+						return v, got
+					}
+				}),
 				AttackLeg: leg,
 				Attacks:   []runner.AttackRef{{Name: "roguedhcp6"}},
-				Behaviors: map[string]runner.Behavior{
-					"roguedhcp6": func(ctx context.Context, deps runner.Deps) error {
-						got = ip6.RunRogueDHCPv6(ctx, deps)
-						return got
-					},
-				},
+				Target:    target,
+				Observe:   20 * time.Millisecond,
 			})
 			if err != nil {
 				t.Fatalf("run: %v", err)
 			}
-			if got == nil {
-				t.Error("behavior error: got nil, want malformed input error")
+			if got != nil {
+				t.Errorf("behavior error: got %v, want nil, since an unreadable frame is skipped", got)
+			}
+			if v := verdictOf(recs); v == nil || v.Kind != findings.VerdictPending || v.Detail != "no solicit in 20ms" {
+				t.Errorf("verdict = %+v, want pending with detail %q", v, "no solicit in 20ms")
 			}
 			if n := leg.SendCount(); n != 0 {
 				t.Errorf("TX count: got %d, want 0", n)

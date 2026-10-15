@@ -1,19 +1,19 @@
 // Package ip6 provides DHCP and IPv6 first-hop behaviors for netpen's runner.
-// Behaviors use fixed fixture addresses, including the shared
-// [craft.FixtureSrcMAC], and send through the supplied legs. DHCPv4 shares this
-// package with DHCPv6 because both use the same fixture harness and runner
-// contracts.
+// [Behaviors] lists them for the shipped catalog. The runner supplies the
+// legs, the target, and the emitter. Each behavior reads the victim, server,
+// prefix, and offered address it acts on from the target and its own
+// addresses from the attack leg. A value that only has to be well-formed,
+// such as a DHCP transaction ID, a flood frame's stamped MAC, or a lease
+// address, stays a constant in the behavior. DHCPv4 shares this package with
+// DHCPv6 because both use the same fixture harness and runner contracts.
 //
-// Register [Behaviors] in the runner's behavior map. Callers must supply the
-// initialized dependencies promised by runner.Deps and must not mutate fixture
-// addresses during a run. Flood behaviors send five frames. [RunRogueDHCPv6]
-// requires a context deadline to bound an idle receive.
+// Flood behaviors send five frames. The behaviors that wait for a frame,
+// [RunRogueDHCPv6], [RunDADDOS], and [RunRAGuard], wait for the run's
+// observation window and no longer.
 package ip6
 
 import (
 	"net"
-
-	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/internal/craft"
 )
 
 // Well-known multicast destinations.
@@ -27,23 +27,9 @@ var (
 	solicitedMACPrefix = []byte{0x33, 0x33, 0xff}
 )
 
-// Fixture target addresses (matching the harvest script's constants).
-var (
-	victimMAC6 = net.HardwareAddr{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x01}
-	victimIP6  = net.ParseIP("fd00::10")
-	serverIP6  = net.ParseIP("fd00::1")
-	clientIP6  = net.ParseIP("fd00::100")
-
-	// DHCPv4 targets.
-	dhcpClientMAC        = net.HardwareAddr{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x01}
-	dhcpClientIP         = net.IPv4(172, 16, 0, 10)
-	dhcpOfferIP          = net.IPv4(172, 16, 0, 100)
-	dhcpXid       uint32 = 0x12345678
-)
-
-func srcMAC() net.HardwareAddr {
-	return craft.FixtureSrcMAC
-}
+// dhcpXid is the transaction ID of the rogue DHCPv4 server's replies, probe
+// content a client would match only by chance.
+const dhcpXid uint32 = 0x12345678
 
 // solicitedNodeMAC computes the solicited-node multicast MAC for the
 // given IPv6 address: 33:33:ff:<last-3-bytes-of-addr>.

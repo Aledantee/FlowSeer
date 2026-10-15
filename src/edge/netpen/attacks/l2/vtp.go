@@ -1,16 +1,10 @@
-// vtp.go implements the VTP (VLAN Trunking Protocol) attack behavior.
-//
-// Durability (from the catalog):
-//   - Default (SAFE mode): transient-decay. The behavior sends a summary
-//     advertisement with a revision bump and records the side effect. It
-//     does NOT answer advertisement requests or push a VLAN database wipe.
-//   - --wipe: permanent-destructive (requires the per-run opt-in). Wipes
-//     the VLAN database by pushing a summary with revision 0 and empty VLANs.
-//   - --set: permanent-destructive (requires the per-run opt-in). Overwrites
-//     the VLAN database with the attacker's VLAN set.
-//
-// Edge case: VTP on a segment with no VTP domain reports the finding and
-// declines rather than proceeding.
+// vtp.go implements the VTP (VLAN Trunking Protocol) check. The base entry
+// is impact temporary, restore decay with no stated bound, affects fabric:
+// the summary advertisement with a revision bump is superseded by the
+// domain's next real advertisement. The wipe mode (a summary with
+// revision 0 and no VLANs) and the set mode (a subset with the attacker's
+// VLAN set) are impact permanent with no restore and run only with the
+// per-run acknowledgment.
 
 package l2
 
@@ -19,8 +13,8 @@ import (
 	"encoding/json"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/edge/netpen/check"
 	"go.aledante.io/FlowSeer/src/edge/netpen/layers"
-	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
 )
 
 type vtpFinding struct {
@@ -30,28 +24,21 @@ type vtpFinding struct {
 	Mode     string `json:"mode"`
 }
 
-// RunVTP sends VTP advertisements. In SAFE mode (default), it sends a
-// summary advertisement with a revision bump. In --wipe/--set modes, it
-// sends the destructive advertisement (the gate has already verified the
-// opt-in).
-func RunVTP(ctx context.Context, deps runner.Deps) error {
-	src := srcMAC(deps)
+// RunVTP sends one advertisement into the target's VTP domain from the
+// attack leg's MAC. The base mode sends a summary with a revision bump;
+// the wipe and set modes send the destructive advertisement the gate has
+// already admitted. The revision, timestamp, and VLAN set are probe
+// content. The verdict is pending: whether a switch took the revision
+// needs a read of the device it does not have.
+func RunVTP(ctx context.Context, deps check.Deps) (check.Verdict, error) {
+	if err := deps.Target.Need(check.FieldVTPDomain); err != nil {
+		return check.Verdict{}, err
+	}
+	src := deps.AttackLeg.Addr().MAC
 	mode := deps.Entry.Mode
 
-	domain := "LABDOMAIN"
+	domain := deps.Target.VTPDomain
 	revision := uint32(42)
-
-	// Edge case: no VTP domain on the segment. The behavior reports the
-	// finding and declines.
-	if domain == "" {
-		detail, _ := json.Marshal(vtpFinding{
-			Action: "no-domain-decline",
-			Domain: "",
-			Mode:   modeName(mode),
-		})
-		deps.Emitter.Finding("vtp", detail)
-		return nil
-	}
 
 	var vtp *layers.VTP
 	switch mode {
@@ -77,10 +64,9 @@ func RunVTP(ctx context.Context, deps runner.Deps) error {
 			},
 		}
 	default:
-		// SAFE mode: send a summary advertisement with a revision bump.
-		// This is the non-destructive default. The timestamp is set to
-		// a deterministic value matching the fixture (the baseline uses
-		// time.strftime for per-run randomness; the pin is field-set).
+		// The base mode sends a summary advertisement with a revision
+		// bump. The timestamp is a fixed value, so the fixture compares
+		// bytes.
 		vtp = &layers.VTP{
 			Version:   layers.VTPVersion1,
 			Code:      layers.VTPCodeSummary,
@@ -93,19 +79,23 @@ func RunVTP(ctx context.Context, deps runner.Deps) error {
 
 	pkt, err := craftDot3SNAP(vtpDstMAC, src, snapPIDVTP, vtp)
 	if err != nil {
-		return errs.Wrap(err, "vtp: craft frame")
+		return check.Verdict{}, errs.Wrap(err, "vtp: craft frame")
 	}
 	if err := deps.AttackLeg.Send(ctx, pkt); err != nil {
-		return errs.Wrap(err, "vtp: send")
+		return check.Verdict{}, errs.Wrap(err, "vtp: send")
 	}
 
+	findingMode := mode
+	if findingMode == "" {
+		findingMode = "default"
+	}
 	detail, _ := json.Marshal(vtpFinding{
 		Action:   "vtp-advertisement",
 		Domain:   domain,
 		Revision: vtp.Revision,
-		Mode:     modeName(mode),
+		Mode:     findingMode,
 	})
 	deps.Emitter.Finding("vtp", detail)
 
-	return nil
+	return check.Pending("no observable: revision acceptance needs a read of the device's VTP status"), nil
 }

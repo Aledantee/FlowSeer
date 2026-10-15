@@ -67,7 +67,7 @@ func TestT2OSPFLiveLab(t *testing.T) {
 
 func runOSPFInjection(ctx context.Context, t *testing.T) string {
 	t.Helper()
-	argv := t2Config.InjectCommand("ospf", 2*time.Second, 20*time.Second)
+	argv := t2Config.InjectCommand("ospf", 2*time.Second, 20*time.Second, "--router-id", ospfAttackerRouterID)
 	injectionCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	result, err := lab.RunInjector(injectionCtx, t2Config, argv)

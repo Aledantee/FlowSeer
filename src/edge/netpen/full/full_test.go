@@ -1,14 +1,15 @@
 package full
 
 // full_test.go tests the four-phase orchestration over HOOKED behaviors.
-// Tests substitute recording stubs for the behavior map and the recon
-// function, so the orchestration runs without a real interface. The
-// scenarios cover the contract's test matrix:
+// Tests substitute a recording catalog for the shipped one and a stub for
+// the recon function, so the orchestration runs without a real interface.
+// The scenarios cover the contract's test matrix:
 //   - recon → burst → follow-up → report sequencing
 //   - burst composition (core always; ra6/MAC/vrid-armed)
 //   - daddos as concurrent burst worker (not follow-up)
 //   - empty recon still fires core + fallback chain
-//   - traversal upgrade pending→confirmed on watch-leg recording
+//   - the summary counts the verdicts the phases' runners emit
+//   - the ceiling refuses an entry while the rest of the burst runs
 //   - named-absent watch leg fails fast before recon
 //   - SIGINT in phase 1 emits partial findings
 //   - gate-map table test (both surfaces)
@@ -22,10 +23,11 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/edge/netpen/attacks"
 	"go.aledante.io/FlowSeer/src/edge/netpen/catalog"
+	"go.aledante.io/FlowSeer/src/edge/netpen/check"
 	"go.aledante.io/FlowSeer/src/edge/netpen/findings"
 	"go.aledante.io/FlowSeer/src/edge/netpen/link"
-	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
 )
 
 // mockLeg is an in-memory link.Leg for the orchestration tests.
@@ -68,52 +70,78 @@ func (m *mockLeg) Receive(ctx context.Context) <-chan link.Frame {
 	return out
 }
 
+func (m *mockLeg) Addr() link.Addr { return link.Addr{} }
+
 func (m *mockLeg) Close() error {
 	m.closed.Store(true)
 	close(m.frames)
 	return nil
 }
 
-// recordingBehaviors returns a behavior map where every name maps to a
-// recording stub that appends its name to the fired list and emits a
-// progress finding. This lets tests assert which behaviors fired and in
-// what phase.
-func recordingBehaviors(fired *[]string, mu *sync.Mutex) map[string]runner.Behavior {
-	names := []string{
-		"stproot", "camflood", "dhcpstarve", "gratarp", "dtp", "roguera", "llmnr",
-		"daddos", "arpspoof", "vrrp",
-		"roguedhcp6", "raguard", "vlanhop", "voicevlan", "vtp", "mvrp", "ghost", "portsteal",
+// stubCatalog returns the shipped catalog with every Run replaced by
+// stub(name), so the orchestration dispatches real entries, with their
+// impact and restore, without sending a frame. A stub of an actively
+// restored entry arms one no-op step so the teardown gate admits it.
+func stubCatalog(stub func(name string) check.Run) catalog.Catalog {
+	bs := attacks.Behaviors()
+	for i := range bs {
+		if bs[i].Orchestration {
+			continue
+		}
+		name := bs[i].Name
+		inner := stub(name)
+		bs[i].Run = func(ctx context.Context, deps check.Deps) (check.Verdict, error) {
+			if deps.Teardown != nil {
+				deps.Teardown.Arm("test-restore", func(context.Context) error { return nil })
+			}
+			return inner(ctx, deps)
+		}
 	}
-	m := make(map[string]runner.Behavior, len(names))
-	for _, n := range names {
-		n := n
-		m[n] = func(_ context.Context, deps runner.Deps) error {
+	return catalog.MustNew(bs...)
+}
+
+// recordingCatalog stubs every behavior to append its name to the fired
+// list, emit a progress record, and return a pending verdict. This lets
+// tests assert which behaviors fired and in what phase.
+func recordingCatalog(fired *[]string, mu *sync.Mutex) catalog.Catalog {
+	return stubCatalog(func(name string) check.Run {
+		return func(_ context.Context, deps check.Deps) (check.Verdict, error) {
 			mu.Lock()
-			*fired = append(*fired, n)
+			*fired = append(*fired, name)
 			mu.Unlock()
-			deps.Emitter.Progress("test", n+" fired")
-			return nil
+			deps.Emitter.Progress("test", name+" fired")
+			return check.Pending("stub"), nil
 		}
-	}
-	return m
+	})
 }
 
-// allBehaviors registers a stub for every catalog name so the runner
-// does not fail with "no behavior function registered".
-func allBehaviors() map[string]runner.Behavior {
-	entries := catalog.Entries()
-	m := make(map[string]runner.Behavior, len(entries))
-	for _, e := range entries {
-		e := e
-		m[e.Name] = func(_ context.Context, deps runner.Deps) error {
-			deps.Emitter.Progress("test", e.Name+" fired")
-			return nil
+// allCatalog stubs every behavior to emit a progress record and return a
+// pending verdict.
+func allCatalog() catalog.Catalog {
+	return stubCatalog(func(name string) check.Run {
+		return func(_ context.Context, deps check.Deps) (check.Verdict, error) {
+			deps.Emitter.Progress("test", name+" fired")
+			return check.Pending("stub"), nil
 		}
-	}
-	return m
+	})
 }
 
-// collectRecords drains the Full orchestrator's records after Run.
+// runFull runs the orchestrator while draining its live channel, as the
+// command does, so a run whose records outnumber the channel's buffer
+// cannot block on an unread channel.
+func runFull(ctx context.Context, f *Full) error {
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for range f.RecordChan() {
+		}
+	}()
+	err := f.Run(ctx)
+	<-done
+	return err
+}
+
+// collectRecords returns the Full orchestrator's records after Run.
 func collectRecords(f *Full) []findings.Record {
 	return f.Records()
 }
@@ -132,11 +160,21 @@ func findProgress(recs []findings.Record, phase string) *findings.Record {
 // (its progress record appears in the collected records).
 func hasAttackFired(recs []findings.Record, name string) bool {
 	for _, r := range recs {
-		if r.Kind == findings.KindProgress && r.Attack == name {
+		if r.Kind == findings.KindProgress && r.Attack == name && r.Progress != nil && r.Progress.Phase == "test" {
 			return true
 		}
 	}
 	return false
+}
+
+// summaryOf returns the run's summary record payload, or nil.
+func summaryOf(recs []findings.Record) *findings.Summary {
+	for _, r := range recs {
+		if r.Kind == findings.KindSummary {
+			return r.Summary
+		}
+	}
+	return nil
 }
 
 func TestOrchestrationSequencing(t *testing.T) {
@@ -145,7 +183,6 @@ func TestOrchestrationSequencing(t *testing.T) {
 
 	var fired []string
 	var mu sync.Mutex
-	behaviors := recordingBehaviors(&fired, &mu)
 
 	ev := Evidence{
 		EvRA6:       true,
@@ -162,86 +199,67 @@ func TestOrchestrationSequencing(t *testing.T) {
 		AttackLeg: leg,
 		Duration:  100 * time.Millisecond,
 		ScanTime:  50 * time.Millisecond,
-		Behaviors: behaviors,
+		Catalog:   recordingCatalog(&fired, &mu),
+		MaxImpact: check.ImpactTemporary,
 		ReconFn: func(_ context.Context, _ Config) (Evidence, error) {
 			return ev, nil
 		},
 	})
 
-	err := f.Run(context.Background())
+	err := runFull(context.Background(), f)
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
 
 	recs := collectRecords(f)
 
-	// Phase ordering: recon → burst → follow-ups → report (summary).
 	phases := []string{"recon", "burst", "follow-ups"}
 	for i, ph := range phases {
 		if findProgress(recs, ph) == nil {
 			t.Errorf("phase %q (%d) not found in records", ph, i)
 		}
 	}
-	hasSummary := false
-	for _, r := range recs {
-		if r.Kind == findings.KindSummary {
-			hasSummary = true
-		}
-	}
-	if !hasSummary {
+	if summaryOf(recs) == nil {
 		t.Errorf("no summary (report) record in output")
 	}
 
-	// Burst phase fired the core + armed workers.
-	mu.Lock()
-	firedCopy := append([]string(nil), fired...)
-	mu.Unlock()
-
-	// Core always fires.
 	for _, name := range burstCore {
 		if !hasAttackFired(recs, name) {
 			t.Errorf("core worker %q did not fire in burst", name)
 		}
 	}
-	// ra6 arms daddos.
 	if !hasAttackFired(recs, "daddos") {
 		t.Errorf("daddos did not fire (ra6 evidence present)")
 	}
-	// MACs + no --no-spoof arms arpspoof.
 	if !hasAttackFired(recs, "arpspoof") {
 		t.Errorf("arpspoof did not fire (MACs present, no --no-spoof)")
 	}
-	// vrids arms vrrp.
 	if !hasAttackFired(recs, "vrrp") {
 		t.Errorf("vrrp did not fire (vrids present)")
 	}
 
-	// Follow-ups fired (ra6 arms roguedhcp6 + raguard; vlans arms vlanhop
-	// first three; voicevlan; vtp; mvrp; portsteal).
 	for _, name := range []string{"roguedhcp6", "raguard", "vlanhop", "voicevlan", "vtp", "mvrp", "portsteal"} {
 		if !hasAttackFired(recs, name) {
 			t.Errorf("follow-up %q did not fire", name)
 		}
 	}
-
-	_ = firedCopy
 }
 
 func TestBurstComposition_CoreAlways(t *testing.T) {
 	leg := newMockLeg()
 	defer func() { _ = leg.Close() }()
 
-	// Empty evidence: only the core fires.
 	f := NewFull(Config{
 		AttackLeg: leg,
 		Duration:  50 * time.Millisecond,
-		Behaviors: allBehaviors(),
+		Catalog:   allCatalog(),
+		MaxImpact: check.ImpactTemporary,
 		ReconFn: func(_ context.Context, _ Config) (Evidence, error) {
 			return Evidence{}, nil
 		},
 	})
 
-	if err := f.Run(context.Background()); err != nil {
+	if err := runFull(context.Background(), f); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
 
@@ -251,7 +269,6 @@ func TestBurstComposition_CoreAlways(t *testing.T) {
 			t.Errorf("core worker %q did not fire on empty recon", name)
 		}
 	}
-	// Armed workers do NOT fire on empty recon.
 	for _, name := range []string{"daddos", "arpspoof", "vrrp"} {
 		if hasAttackFired(recs, name) {
 			t.Errorf("armed worker %q fired on empty recon (should not)", name)
@@ -266,13 +283,14 @@ func TestBurstComposition_RA6ArmsDaddos(t *testing.T) {
 	f := NewFull(Config{
 		AttackLeg: leg,
 		Duration:  50 * time.Millisecond,
-		Behaviors: allBehaviors(),
+		Catalog:   allCatalog(),
+		MaxImpact: check.ImpactTemporary,
 		ReconFn: func(_ context.Context, _ Config) (Evidence, error) {
 			return Evidence{EvRA6: true}, nil
 		},
 	})
 
-	if err := f.Run(context.Background()); err != nil {
+	if err := runFull(context.Background(), f); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
 
@@ -280,8 +298,6 @@ func TestBurstComposition_RA6ArmsDaddos(t *testing.T) {
 	if !hasAttackFired(recs, "daddos") {
 		t.Errorf("daddos did not fire (ra6 evidence present)")
 	}
-	// daddos is a BURST worker, NOT a follow-up: the follow-up phase
-	// should not contain a separate daddos dispatch.
 	if !hasAttackFired(recs, "roguedhcp6") || !hasAttackFired(recs, "raguard") {
 		t.Errorf("ra6 follow-ups (roguedhcp6, raguard) should also fire")
 	}
@@ -295,13 +311,14 @@ func TestBurstComposition_NoSpoofDisarmsArpspoof(t *testing.T) {
 		AttackLeg: leg,
 		Duration:  50 * time.Millisecond,
 		NoSpoof:   true,
-		Behaviors: allBehaviors(),
+		Catalog:   allCatalog(),
+		MaxImpact: check.ImpactTemporary,
 		ReconFn: func(_ context.Context, _ Config) (Evidence, error) {
 			return Evidence{EvMACs: []string{"aa:bb:cc:dd:ee:ff"}}, nil
 		},
 	})
 
-	if err := f.Run(context.Background()); err != nil {
+	if err := runFull(context.Background(), f); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
 
@@ -309,7 +326,6 @@ func TestBurstComposition_NoSpoofDisarmsArpspoof(t *testing.T) {
 	if hasAttackFired(recs, "arpspoof") {
 		t.Errorf("arpspoof fired with --no-spoof (should be disarmed)")
 	}
-	// portsteal is also disarmed by --no-spoof (resolved MACs arm it).
 	if hasAttackFired(recs, "portsteal") {
 		t.Errorf("portsteal fired with --no-spoof (should be disarmed)")
 	}
@@ -322,13 +338,14 @@ func TestBurstComposition_VRRIDsArmVrrp(t *testing.T) {
 	f := NewFull(Config{
 		AttackLeg: leg,
 		Duration:  50 * time.Millisecond,
-		Behaviors: allBehaviors(),
+		Catalog:   allCatalog(),
+		MaxImpact: check.ImpactTemporary,
 		ReconFn: func(_ context.Context, _ Config) (Evidence, error) {
 			return Evidence{EvVRIDs: []int{10}}, nil
 		},
 	})
 
-	if err := f.Run(context.Background()); err != nil {
+	if err := runFull(context.Background(), f); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
 
@@ -344,26 +361,24 @@ func TestDaddosIsBurstWorkerNotFollowUp(t *testing.T) {
 
 	var fired []string
 	var mu sync.Mutex
-	behaviors := recordingBehaviors(&fired, &mu)
 
 	f := NewFull(Config{
 		AttackLeg: leg,
 		Duration:  50 * time.Millisecond,
-		Behaviors: behaviors,
+		Catalog:   recordingCatalog(&fired, &mu),
+		MaxImpact: check.ImpactTemporary,
 		ReconFn: func(_ context.Context, _ Config) (Evidence, error) {
 			return Evidence{EvRA6: true}, nil
 		},
 	})
 
-	if err := f.Run(context.Background()); err != nil {
+	if err := runFull(context.Background(), f); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
 
 	mu.Lock()
 	defer mu.Unlock()
 
-	// daddos should appear exactly once (in the burst), not again in
-	// follow-ups.
 	count := 0
 	for _, n := range fired {
 		if n == "daddos" {
@@ -382,137 +397,136 @@ func TestEmptyReconFiresCoreAndFallback(t *testing.T) {
 	f := NewFull(Config{
 		AttackLeg: leg,
 		Duration:  50 * time.Millisecond,
-		Behaviors: allBehaviors(),
+		Catalog:   allCatalog(),
+		MaxImpact: check.ImpactTemporary,
 		ReconFn: func(_ context.Context, _ Config) (Evidence, error) {
 			return Evidence{}, nil
 		},
 	})
 
-	if err := f.Run(context.Background()); err != nil {
+	if err := runFull(context.Background(), f); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
 
 	recs := collectRecords(f)
-	// Core always fires.
 	for _, name := range burstCore {
 		if !hasAttackFired(recs, name) {
 			t.Errorf("core worker %q did not fire on empty recon", name)
 		}
 	}
-	// No follow-ups fire on empty recon.
 	for _, name := range []string{"roguedhcp6", "raguard", "vlanhop", "voicevlan", "vtp", "mvrp", "ghost", "portsteal"} {
 		if hasAttackFired(recs, name) {
 			t.Errorf("follow-up %q fired on empty recon (should not)", name)
 		}
 	}
-	// Summary record exists.
-	hasSummary := false
-	for _, r := range recs {
-		if r.Kind == findings.KindSummary {
-			hasSummary = true
-		}
-	}
-	if !hasSummary {
+	if summaryOf(recs) == nil {
 		t.Errorf("no summary record in output")
 	}
 }
 
-func TestTraversalPendingWithoutWatchLeg(t *testing.T) {
+// TestSummaryCountsMixedVerdicts pins that the summary tallies the verdict
+// records the phases' runners emitted, one column per kind: the burst's
+// stubs return a mix of confirmed, resisted, pending, and skipped, and a
+// stub whose target check fails is counted as skipped while the run
+// continues.
+func TestSummaryCountsMixedVerdicts(t *testing.T) {
 	leg := newMockLeg()
 	defer func() { _ = leg.Close() }()
 
+	verdictFor := map[string]check.Verdict{
+		"stproot":    check.Confirmed("root claimed", time.Second),
+		"camflood":   check.Resisted("no fail-open", time.Second),
+		"dhcpstarve": check.Pending("no observable"),
+		"gratarp":    check.Pending("no observable"),
+		"dtp":        check.Resisted("stayed access", time.Second),
+		"roguera":    check.Confirmed("router accepted", time.Second),
+	}
 	f := NewFull(Config{
 		AttackLeg: leg,
 		Duration:  50 * time.Millisecond,
-		Behaviors: allBehaviors(),
+		Catalog: stubCatalog(func(name string) check.Run {
+			return func(_ context.Context, deps check.Deps) (check.Verdict, error) {
+				if name == "llmnr" {
+					return check.Verdict{}, deps.Target.Need(check.FieldVictim)
+				}
+				deps.Emitter.Finding("test", []byte(`{}`))
+				return verdictFor[name], nil
+			}
+		}),
+		MaxImpact: check.ImpactTemporary,
 		ReconFn: func(_ context.Context, _ Config) (Evidence, error) {
-			return Evidence{EvRA6: true}, nil
+			return Evidence{}, nil
 		},
 	})
 
-	if err := f.Run(context.Background()); err != nil {
+	if err := runFull(context.Background(), f); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
-
-	// No watch leg: verdicts should be pending.
-	f.mu.Lock()
-	verds := append([]verdict(nil), f.verds...)
-	f.mu.Unlock()
-
-	if len(verds) == 0 {
-		t.Fatal("no verdicts recorded")
+	recs := collectRecords(f)
+	got := summaryOf(recs)
+	if got == nil {
+		t.Fatal("no summary record")
 	}
-	for _, v := range verds {
-		if v.kind != findings.KindPending {
-			t.Errorf("verdict for %q: kind = %s, want pending (no watch leg)", v.attack, v.kind)
+	want := findings.Summary{Attacks: 7, Findings: 6, Confirmed: 2, Resisted: 2, Pending: 2, Skipped: 1}
+	if *got != want {
+		t.Errorf("summary = %+v, want %+v", *got, want)
+	}
+	verdicts := 0
+	for _, r := range recs {
+		if r.Kind == findings.KindVerdict {
+			verdicts++
 		}
+	}
+	if verdicts != 7 {
+		t.Errorf("verdict records = %d, want one per burst worker", verdicts)
 	}
 }
 
-func TestTraversalConfirmedWithWatchLegRecording(t *testing.T) {
+// TestCeilingRefusesWithinTheBurst pins that the orchestrator's ceiling
+// reaches each phase's runner: under a ceiling of none, stproot is refused
+// and counted as skipped while ghost, which changes nothing, runs on the
+// watch leg.
+func TestCeilingRefusesWithinTheBurst(t *testing.T) {
 	leg := newMockLeg()
 	defer func() { _ = leg.Close() }()
-	wleg := newMockLeg()
-	defer func() { _ = wleg.Close() }()
+	watch := newMockLeg()
+	defer func() { _ = watch.Close() }()
 
+	var fired []string
+	var mu sync.Mutex
 	f := NewFull(Config{
 		AttackLeg: leg,
-		WatchLeg:  wleg,
+		WatchLeg:  watch,
 		Duration:  50 * time.Millisecond,
-		Behaviors: allBehaviors(),
+		Catalog:   recordingCatalog(&fired, &mu),
+		MaxImpact: check.ImpactNone,
 		ReconFn: func(_ context.Context, _ Config) (Evidence, error) {
-			// Simulate watch-leg recording (frames crossed the fabric).
-			return Evidence{EvRA6: true, "watch-recording": true}, nil
+			return Evidence{}, nil
 		},
 	})
 
-	if err := f.Run(context.Background()); err != nil {
+	if err := runFull(context.Background(), f); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
-
-	f.mu.Lock()
-	verds := append([]verdict(nil), f.verds...)
-	f.mu.Unlock()
-
-	if len(verds) == 0 {
-		t.Fatal("no verdicts recorded")
+	recs := collectRecords(f)
+	if hasAttackFired(recs, "stproot") {
+		t.Error("stproot fired under a ceiling of none")
 	}
-	for _, v := range verds {
-		if v.kind != findings.KindFinding {
-			t.Errorf("verdict for %q: kind = %s, want finding (confirmed)", v.attack, v.kind)
+	if !hasAttackFired(recs, "ghost") {
+		t.Error("ghost did not fire under a ceiling of none")
+	}
+	refused := false
+	for _, r := range recs {
+		if r.Kind == findings.KindRefusal && r.Attack == "stproot" && r.Refusal != nil && r.Refusal.Reason == "impact temporary exceeds ceiling none" {
+			refused = true
 		}
 	}
-}
-
-func TestTraversalResistedWithWatchLegNoRecording(t *testing.T) {
-	leg := newMockLeg()
-	defer func() { _ = leg.Close() }()
-	wleg := newMockLeg()
-	defer func() { _ = wleg.Close() }()
-
-	f := NewFull(Config{
-		AttackLeg: leg,
-		WatchLeg:  wleg,
-		Duration:  50 * time.Millisecond,
-		Behaviors: allBehaviors(),
-		ReconFn: func(_ context.Context, _ Config) (Evidence, error) {
-			// Watch leg present but no recording (no frames crossed).
-			return Evidence{EvRA6: true}, nil
-		},
-	})
-
-	if err := f.Run(context.Background()); err != nil {
-		t.Fatalf("Run: %v", err)
+	if !refused {
+		t.Error("no refusal record for stproot naming the ceiling")
 	}
-
-	f.mu.Lock()
-	verds := append([]verdict(nil), f.verds...)
-	f.mu.Unlock()
-
-	for _, v := range verds {
-		if v.kind != findings.KindResisted {
-			t.Errorf("verdict for %q: kind = %s, want resisted (watch leg, no traversal)", v.attack, v.kind)
-		}
+	got := summaryOf(recs)
+	if got == nil || got.Skipped != len(burstCore) || got.Pending != 1 {
+		t.Errorf("summary = %+v, want the %d core workers skipped and ghost pending", got, len(burstCore))
 	}
 }
 
@@ -526,14 +540,15 @@ func TestNamedAbsentWatchLegFailsFast(t *testing.T) {
 		WatchLegNamed: "eth9",
 		WatchLeg:      nil,
 		Duration:      50 * time.Millisecond,
-		Behaviors:     allBehaviors(),
+		Catalog:       allCatalog(),
+		MaxImpact:     check.ImpactTemporary,
 		ReconFn: func(_ context.Context, _ Config) (Evidence, error) {
 			reconCalled = true
 			return Evidence{}, nil
 		},
 	})
 
-	err := f.Run(context.Background())
+	err := runFull(context.Background(), f)
 	if err == nil {
 		t.Fatal("expected error for named-but-absent watch leg")
 	}
@@ -542,7 +557,6 @@ func TestNamedAbsentWatchLegFailsFast(t *testing.T) {
 		t.Error("recon was called before the watch-leg check; should fail fast first")
 	}
 
-	// The error should carry the watch-leg-missing code.
 	if c, ok := errs.CodeOf(err); !ok || c != catalog.ErrCodeWatchLegMissing {
 		t.Errorf("error code: got %v, want %s", c, catalog.ErrCodeWatchLegMissing)
 	}
@@ -568,23 +582,21 @@ func TestSIGINTInPhase1EmitsPartialFindings(t *testing.T) {
 	f := NewFull(Config{
 		AttackLeg: leg,
 		Duration:  50 * time.Millisecond,
-		Behaviors: allBehaviors(),
+		Catalog:   allCatalog(),
+		MaxImpact: check.ImpactTemporary,
 		ReconFn: func(_ context.Context, _ Config) (Evidence, error) {
-			// Simulate SIGINT arriving during recon: cancel the context.
 			cancel()
 			<-ctx.Done()
 			return nil, ctx.Err()
 		},
 	})
 
-	err := f.Run(ctx)
-	// Recon returning ctx.Err() is a runtime failure.
+	err := runFull(ctx, f)
 	if err == nil {
 		t.Fatal("expected error from recon cancellation")
 	}
 
 	recs := collectRecords(f)
-	// Partial findings: at least the recon-start progress record.
 	hasPartial := false
 	for _, r := range recs {
 		if r.Kind == findings.KindProgress && r.Progress != nil && r.Progress.Phase == "recon" {
@@ -740,18 +752,18 @@ func TestVTPIsSafeModeOnly(t *testing.T) {
 	f := NewFull(Config{
 		AttackLeg: leg,
 		Duration:  50 * time.Millisecond,
-		Behaviors: allBehaviors(),
+		Catalog:   allCatalog(),
+		MaxImpact: check.ImpactTemporary,
 		ReconFn: func(_ context.Context, _ Config) (Evidence, error) {
 			return Evidence{EvVTPDomain: "test", EvVTPRev: 3}, nil
 		},
 	})
 
-	if err := f.Run(context.Background()); err != nil {
+	if err := runFull(context.Background(), f); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
 
 	recs := collectRecords(f)
-	// vtp fires as the mode-less (SAFE) base, not as --wipe or --set.
 	for _, r := range recs {
 		if r.Attack == "vtp" && r.Mode != "" {
 			t.Errorf("vtp fired with mode %q under orchestration; should be SAFE mode only", r.Mode)
@@ -812,13 +824,14 @@ func TestReconErrorSurfaces(t *testing.T) {
 	reconErr := errors.New("recon boom")
 	f := NewFull(Config{
 		AttackLeg: leg,
-		Behaviors: allBehaviors(),
+		Catalog:   allCatalog(),
+		MaxImpact: check.ImpactTemporary,
 		ReconFn: func(_ context.Context, _ Config) (Evidence, error) {
 			return nil, reconErr
 		},
 	})
 
-	err := f.Run(context.Background())
+	err := runFull(context.Background(), f)
 	if err == nil {
 		t.Fatal("expected error from recon failure")
 	}

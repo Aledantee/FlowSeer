@@ -1,13 +1,8 @@
-// mld.go implements the MLD abuse flood attack superset.
-//
-// Durability (from the catalog): transient-decay. The attack sends a
-// bounded burst of MLDv1 report frames. The behavior is bounded by
-// duration and exits on schedule, reporting frame counts.
-//
-// This is a flood-class behavior: it uses the sync.Pool craft path
-// for pre-serialized buffers.
-//
-// Spec-authored — the baseline has no craft for this attack.
+// mld.go implements the MLD abuse flood check. Impact temporary, restore
+// decay with no stated bound, affects device: the burst of five MLDv1
+// report frames registers a multicast group in the switch's snooping
+// table, and the entry ages out on the switch's own membership timer. The
+// fixture is spec-authored, since the baseline has no craft for it.
 
 package ip6
 
@@ -20,8 +15,8 @@ import (
 	"github.com/gopacket/gopacket/layers"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
-
-	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
+	"go.aledante.io/FlowSeer/src/edge/netpen/check"
+	"go.aledante.io/FlowSeer/src/edge/netpen/link"
 )
 
 type mldFinding struct {
@@ -30,24 +25,26 @@ type mldFinding struct {
 	Bounded    bool   `json:"bounded"`
 }
 
-// RunMLD sends a bounded burst of MLDv1 report frames. The burst is
-// bounded by a fixed frame count for the in-memory test shape; the
-// behavior exits on schedule and reports frame counts.
-func RunMLD(ctx context.Context, deps runner.Deps) error {
-	src := srcMAC()
+// RunMLD sends five MLDv1 reports for a fixed multicast group from the
+// attack leg's MAC and link-local address. The group is probe content;
+// the behavior reads no target. The verdict is pending: whether the
+// snooping table took the membership needs a read of the device it does not
+// have.
+func RunMLD(ctx context.Context, deps check.Deps) (check.Verdict, error) {
+	addr := deps.AttackLeg.Addr()
 	mcastGroup := net.ParseIP("ff0e::1234")
 
 	frameCount := 5
 	for i := 1; i <= frameCount; i++ {
-		pkt, err := craftMLDReport(src, mcastGroup)
+		pkt, err := craftMLDReport(addr, mcastGroup)
 		if err != nil {
-			return errs.Wrapf(err, "mld: craft frame %d", i)
+			return check.Verdict{}, errs.Wrapf(err, "mld: craft frame %d", i)
 		}
 		if err := deps.AttackLeg.Send(ctx, pkt); err != nil {
-			return errs.Wrapf(err, "mld: send frame %d", i)
+			return check.Verdict{}, errs.Wrapf(err, "mld: send frame %d", i)
 		}
 		if err := ctx.Err(); err != nil {
-			return err
+			return check.Verdict{}, err
 		}
 	}
 
@@ -58,24 +55,24 @@ func RunMLD(ctx context.Context, deps runner.Deps) error {
 	})
 	deps.Emitter.Finding("mld", detail)
 
-	return nil
+	return check.Pending("no observable: membership acceptance needs a read of the snooping table"), nil
 }
 
 // craftMLDReport builds an MLDv1 Multicast Listener Report for the
 // given multicast group. Uses the pool craft path.
-func craftMLDReport(src net.HardwareAddr, mcastGroup net.IP) ([]byte, error) {
+func craftMLDReport(addr link.Addr, mcastGroup net.IP) ([]byte, error) {
 	mcastMAC := multicastMACForIPv6(mcastGroup)
 
 	eth := &layers.Ethernet{
 		DstMAC:       mcastMAC,
-		SrcMAC:       src,
+		SrcMAC:       addr.MAC,
 		EthernetType: layers.EthernetTypeIPv6,
 	}
 	ip := &layers.IPv6{
 		Version:    6,
 		NextHeader: layers.IPProtocolICMPv6,
 		HopLimit:   1,
-		SrcIP:      net.ParseIP("fe80::1"),
+		SrcIP:      addr.IPv6,
 		DstIP:      mcastGroup,
 	}
 	icmp := &layers.ICMPv6{

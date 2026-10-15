@@ -4,29 +4,27 @@ package full
 // The orchestrator is a thin coordinator over the runner: it
 // runs recon, arms the burst from the evidence, selects follow-ups from
 // the evidence, and emits a summary. Each phase drives its own runner
-// instance (the runner is single-Run); the orchestrator merges the
+// instance, since a runner runs once. The orchestrator merges the
 // findings into one stream the CLI consumes.
 //
 // Phase contract:
 //
 //  1. recon: ARP sweep + passive listen → typed Evidence.
 //  2. burst: the baseline's bounded attack set, --duration bound, shared
-//     leg. Unconditional core (stproot, camflood, dhcpstarve, gratarp,
-//     dtp, roguera, llmnr) always fires; daddos/arpspoof/vrrp armed by
-//     recon evidence/flags. All run under Orchestrated=true so no
-//     permanent mode can dispatch.
+//     leg. The unconditional core (stproot, camflood, dhcpstarve, gratarp,
+//     dtp, roguera, llmnr) always fires. daddos, arpspoof, and vrrp are
+//     armed by recon evidence or flags. All run under Orchestrated=true so
+//     no permanent mode can dispatch.
 //  3. follow-ups: sequential, selected ONLY by recon evidence (no
 //     blind sequences). Each gated follow-up runs as its own runner
 //     invocation with Orchestrated=true.
 //  4. report: a summary record closes the run, including the sweep-net
-//     fallback chain and the traversal verdicts.
+//     fallback chain and one count per verdict kind, read from the
+//     verdict records each phase's runner emitted.
 //
-// Interrupted run in ANY phase emits partial findings: the runner's
-// SignalHandler engages teardown and the stream flushes before the
-// process exits. The watch-leg evidence window derives from the ACTUAL
-// burst end (not flag arithmetic): the orchestrator records burstEnd
-// when the burst phase completes (or is interrupted) and the follow-up
-// phase uses it.
+// Interrupted run in ANY phase emits partial findings: the command's
+// signal handler engages the runner's teardown and the stream flushes
+// before the process exits.
 //
 // A named-but-absent watch leg FAILS FAST before recon — a
 // deliberate deviation from the baseline's silent single-leg
@@ -35,11 +33,12 @@ package full
 import (
 	"context"
 	"fmt"
-	"sync"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/spawn"
+	"go.aledante.io/FlowSeer/src/edge/netpen/catalog"
+	"go.aledante.io/FlowSeer/src/edge/netpen/check"
 	"go.aledante.io/FlowSeer/src/edge/netpen/findings"
 	"go.aledante.io/FlowSeer/src/edge/netpen/link"
 	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
@@ -74,11 +73,18 @@ type Config struct {
 	NoSpoof bool
 	// Rate limits packet emission (pps, zero = unlimited).
 	Rate int
-	// Behaviors is the behavior map. The orchestrator accepts this for
-	// testability: tests substitute recording stubs. When nil, the
-	// orchestrator builds the merged map from the four behavior
-	// packages.
-	Behaviors map[string]runner.Behavior
+	// Catalog resolves every attack the phases dispatch. The command
+	// passes the shipped catalog. Tests substitute recording stubs.
+	Catalog catalog.Catalog
+	// Target is handed to every phase's runner as the hosts, addresses,
+	// and identities the behaviors act on. A burst behavior whose fields
+	// are empty is a skipped verdict the summary counts.
+	Target check.Target
+	// MaxImpact is the impact ceiling every phase's runner enforces.
+	MaxImpact check.Impact
+	// Observe is the observation window every phase's runner hands its
+	// behaviors. Non-positive values use the runner's default.
+	Observe time.Duration
 	// TeardownBudget scales the teardown budget for tests.
 	TeardownBudget time.Duration
 	// ReconFn is the recon function. Tests substitute a stub that
@@ -92,34 +98,18 @@ type Config struct {
 
 // Full coordinates recon, a bounded burst, sequential follow-ups, and a
 // summary. Construct it with [NewFull] and call Run once. The zero value is
-// unusable. Records may be read concurrently with Run; the record channel
-// must be drained during Run so a full buffer does not block progress.
+// unusable. Records may be read concurrently with Run. Drain the record
+// channel during Run, since a full buffer blocks progress.
 type Full struct {
 	cfg Config
 	recorder
-	verdsMu sync.Mutex // guards verds
-	verds   []verdict
-}
-
-type verdict struct {
-	attack string
-	mode   string
-	kind   findings.Kind // resisted, skipped, pending, or empty (confirmed via finding)
-	detail string
 }
 
 // NewFull constructs the orchestrator from the config. A live record
 // channel is created here so the CLI can consume records as they arrive
-// while Run executes. It retains the config's maps and callbacks.
+// while Run executes. It retains the config's catalog and callbacks.
 func NewFull(cfg Config) *Full {
 	return &Full{cfg: cfg, recorder: newRecorder()}
-}
-
-// appendVerdict adds a traversal verdict.
-func (f *Full) appendVerdict(v verdict) {
-	f.verdsMu.Lock()
-	f.verds = append(f.verds, v)
-	f.verdsMu.Unlock()
 }
 
 // Run executes the four-phase orchestration. It blocks until all phases
@@ -182,13 +172,6 @@ func (f *Full) Run(ctx context.Context) error {
 	}
 	f.appendRecord(progress("full", "", "burst", "done"))
 
-	// Watch-leg traversal evidence: capture on the watch leg for a
-	// bounded window from the ACTUAL burst end. Any frame seen
-	// in the window marks traversal; verdicts key off this evidence.
-	if f.cfg.WatchLeg != nil && observeTraversal(ctx, f.cfg.WatchLeg, traversalWindow) {
-		ev["watch-recording"] = true
-	}
-
 	// Phase 3: follow-ups (sequential).
 	followUps := selectFollowUps(ev, f.cfg.WatchLeg != nil, f.cfg.NoSpoof)
 	f.appendRecord(progress("full", "", "follow-ups", fmt.Sprintf("%d selected", len(followUps))))
@@ -212,9 +195,8 @@ func (f *Full) Run(ctx context.Context) error {
 	}
 	f.appendRecord(progress("full", "", "follow-ups", "done"))
 
-	// Phase 4: report.
-	// Compute traversal verdicts from the burst evidence window.
-	f.computeVerdicts(ev)
+	// Phase 4: report. The summary counts the verdict records each
+	// phase's runner emitted, one per attack.
 	f.appendRecord(f.summaryRecord(ev, dispatchedRefs, summaryRecs))
 	return nil
 }
@@ -229,20 +211,17 @@ func (f *Full) runPhase(ctx context.Context, refs []runner.AttackRef, timeout ti
 		return nil, nil
 	}
 
-	behaviors := f.cfg.Behaviors
-	if behaviors == nil {
-		behaviors = MergedBehaviors()
-	}
-
 	opts := runner.Options{
+		Catalog:        f.cfg.Catalog,
 		AttackLeg:      f.cfg.AttackLeg,
 		WatchLeg:       f.cfg.WatchLeg,
 		Attacks:        refs,
-		Behaviors:      behaviors,
+		Target:         f.cfg.Target,
+		MaxImpact:      f.cfg.MaxImpact,
+		Observe:        f.cfg.Observe,
 		Rate:           f.cfg.Rate,
 		Orchestrated:   true,
 		TeardownBudget: f.cfg.TeardownBudget,
-		SuppressOutput: true,
 	}
 	if timeout > 0 {
 		opts.Timeout = timeout
@@ -268,116 +247,37 @@ func (f *Full) runPhase(ctx context.Context, refs []runner.AttackRef, timeout ti
 	return recs, runErr
 }
 
-// traversalWindow is how long the watch leg is observed after the burst
-// ends. It derives the evidence window from the actual burst end, never
-// from flag arithmetic.
-const traversalWindow = 2 * time.Second
-
-// observeTraversal reports whether any frame appears on the watch leg
-// within the window. It returns true on the first observed frame; an
-// empty window or leg error is not traversal evidence.
-func observeTraversal(ctx context.Context, watch link.Leg, window time.Duration) bool {
-	wctx, cancel := context.WithTimeout(ctx, window)
-	defer cancel()
-
-	// First frame or the window's end: a clean first frame is traversal
-	// evidence; a drained channel or an error frame is not.
-	frame, ok := <-watch.Receive(wctx)
-	return ok && frame.Err == nil
-}
-
-// computeVerdicts derives traversal verdicts from the burst evidence and
-// the watch-leg recording. A behavior that ran in the burst gets:
-//   - pending: no watch leg (indistinguishable from resisted without one)
-//   - resisted: watch leg present but no traversal evidence
-//   - confirmed: watch leg recorded burst frames (upgrade pending->confirmed)
-//
-// The upgrade is the two-leg semantics: the watch-leg evidence window
-// derives from the ACTUAL burst end (recorded by Run), not flag
-// arithmetic.
-func (f *Full) computeVerdicts(ev Evidence) {
-	// In the test/hooked path, the watch-leg recording is simulated via
-	// the evidence map's "watch-recording" key (set by the recon stub or
-	// the test harness). Absent that, a single-leg run = pending.
-	hasWatch := f.cfg.WatchLeg != nil
-	watchRecorded, _ := ev["watch-recording"].(bool)
-
-	burstRefs := armBurst(ev, f.cfg.NoSpoof)
-	for _, ref := range burstRefs {
-		if !hasWatch {
-			f.appendVerdict(verdict{attack: ref.Name, mode: ref.Mode, kind: findings.KindPending, detail: "no -w watch leg to observe traversal"})
-			continue
-		}
-		if watchRecorded {
-			f.appendVerdict(verdict{attack: ref.Name, mode: ref.Mode, kind: findings.KindFinding, detail: "traversal confirmed on watch leg"})
-		} else {
-			f.appendVerdict(verdict{attack: ref.Name, mode: ref.Mode, kind: findings.KindResisted, detail: "watch leg saw no traversal"})
-		}
-	}
-}
-
-// summaryRecord builds the closing summary record, including the
-// sweep-net fallback chain recorded by recon and the traversal verdicts.
+// summaryRecord builds the closing summary record from the phases' records,
+// including the sweep-net fallback chain recorded by recon and one count
+// per verdict kind.
 func (f *Full) summaryRecord(ev Evidence, dispatchedRefs []runner.AttackRef, recs []findings.Record) findings.Record {
-	f.verdsMu.Lock()
-	verds := make([]verdict, len(f.verds))
-	copy(verds, f.verds)
-	f.verdsMu.Unlock()
-
-	counts := countByKind(recs)
-	for _, v := range verds {
-		switch v.kind {
-		case findings.KindResisted:
-			counts.resisted++
-		case findings.KindPending:
-			counts.pending++
-		case findings.KindSkipped:
-			counts.skipped++
-		case findings.KindError:
-			counts.errors++
-		}
-	}
-
 	sweep, _ := ev["sweep-net"].(string)
+	s := countByKind(recs)
+	s.Attacks = len(dispatchedRefs)
+	s.SweepNet = sweep
 
 	r := findings.NewRecord(findings.KindSummary)
-	r.Summary = &findings.Summary{
-		Attacks:  len(dispatchedRefs),
-		Findings: counts.findings,
-		Resisted: counts.resisted,
-		Skipped:  counts.skipped,
-		Pending:  counts.pending,
-		Errors:   counts.errors,
-		SweepNet: sweep,
-	}
+	r.Summary = &s
 	return r
 }
 
-type kindCounts struct {
-	findings int
-	resisted int
-	skipped  int
-	pending  int
-	errors   int
-}
-
-func countByKind(recs []findings.Record) kindCounts {
-	var c kindCounts
+// countByKind tallies the findings, verdicts, and errors of one phase's
+// records into a summary with no attack count or sweep net.
+func countByKind(recs []findings.Record) findings.Summary {
+	var s findings.Summary
 	for _, r := range recs {
 		switch r.Kind {
 		case findings.KindFinding:
-			c.findings++
-		case findings.KindResisted:
-			c.resisted++
-		case findings.KindSkipped:
-			c.skipped++
-		case findings.KindPending:
-			c.pending++
+			s.Findings++
+		case findings.KindVerdict:
+			if r.Verdict != nil {
+				s.Count(r.Verdict.Kind)
+			}
 		case findings.KindError:
-			c.errors++
+			s.Errors++
 		}
 	}
-	return c
+	return s
 }
 
 //nolint:unparam // mode is always "" for progress records
@@ -402,20 +302,4 @@ func countEvidence(ev Evidence) int {
 		}
 	}
 	return n
-}
-
-// MergedBehaviors builds the merged behavior map from the four behavior
-// packages. This is the production path; tests substitute a stub map via
-// Config.Behaviors. cmd/netpen calls this to avoid duplicating the
-// four-package merge.
-func MergedBehaviors() map[string]runner.Behavior {
-	out := make(map[string]runner.Behavior)
-	for _, m := range []map[string]runner.Behavior{
-		l2Behaviors(), fhBehaviors(), ip6Behaviors(), routingBehaviors(),
-	} {
-		for k, v := range m {
-			out[k] = v
-		}
-	}
-	return out
 }

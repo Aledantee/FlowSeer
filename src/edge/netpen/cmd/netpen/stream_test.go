@@ -81,6 +81,36 @@ func TestStreamAndRunPreservesRunAndMarshalFailures(t *testing.T) {
 	}
 }
 
+// TestStreamJSONCountsVerdictsIntoSummary pins that a single-attack run's
+// synthetic summary tallies each verdict by its kind, not by the record
+// kind, since every verdict record shares one kind.
+func TestStreamJSONCountsVerdictsIntoSummary(t *testing.T) {
+	ch := make(chan findings.Record, 5)
+	for _, k := range []findings.VerdictKind{findings.VerdictConfirmed, findings.VerdictResisted, findings.VerdictResisted, findings.VerdictPending, findings.VerdictSkipped} {
+		rec := findings.NewRecord(findings.KindVerdict)
+		rec.Attack = "ghost"
+		rec.Verdict = &findings.Verdict{Kind: k}
+		ch <- rec
+	}
+	close(ch)
+	var stdout, stderr bytes.Buffer
+	if err := streamJSON(&stdout, &stderr, ch, findings.Meta{}); err != nil {
+		t.Fatalf("streamJSON: %v", err)
+	}
+	lines := bytes.Split(bytes.TrimSpace(stdout.Bytes()), []byte("\n"))
+	var last findings.Record
+	if err := json.Unmarshal(lines[len(lines)-1], &last); err != nil {
+		t.Fatalf("decode last line %s: %v", lines[len(lines)-1], err)
+	}
+	if last.Kind != findings.KindSummary || last.Summary == nil {
+		t.Fatalf("last record = %+v, want a summary", last)
+	}
+	want := findings.Summary{Attacks: 5, Confirmed: 1, Resisted: 2, Pending: 1, Skipped: 1}
+	if *last.Summary != want {
+		t.Errorf("summary = %+v, want %+v", *last.Summary, want)
+	}
+}
+
 func TestVersionOutputFailureExitsOne(t *testing.T) {
 	var stderr bytes.Buffer
 	if code := run([]string{"version"}, &failingWriter{failAt: 1}, &stderr); code != 1 {

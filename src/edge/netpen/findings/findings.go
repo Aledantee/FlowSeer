@@ -1,13 +1,13 @@
 // Package findings holds netpen's typed findings model: the records the
 // JSONL machine contract emits and the in-memory stream the runner
-// delivers to output modes. Every record carries a schema version; the
-// record kinds enumerate meta, finding, progress, summary, error, refusal,
-// and the per-attack resisted/skipped/pending rollups.
+// delivers to output modes. Every record carries a schema version. The
+// record kinds are meta, finding, progress, summary, error, refusal, and
+// the per-attack verdict.
 //
 // Wrap captured credential material in [Secret] before marshaling a
 // finding's detail. Secret's JSON encoding emits only the protocol name
-// and byte length. [Finding.Detail] accepts raw JSON, so callers must
-// redact it before assigning it; records do not sanitize arbitrary JSON.
+// and byte length. [Finding.Detail] accepts raw JSON that records never
+// sanitize, so callers redact it before assigning it.
 package findings
 
 import (
@@ -19,13 +19,15 @@ import (
 
 // SchemaVersion is the machine contract's major version. Within a
 // major version evolution is additive-only: new optional fields and record
-// kinds may appear; nothing is renamed, removed, or retyped.
-const SchemaVersion = 1
+// kinds may appear, but nothing is renamed, removed, or retyped. Version 2
+// replaced the resisted, skipped, and pending rollup kinds with one verdict
+// kind and added the confirmed count to the summary.
+const SchemaVersion = 2
 
 // Kind is the record type carried on every JSONL line. The kinds enumerate
 // the machine-mode surface so the output mode loses nothing the TUI shows:
 // a run header, per-module findings, progress, summary, error and
-// refusal, and the per-attack resisted/skipped/pending rollups.
+// refusal, and the per-attack verdict.
 // The zero value names no record kind. Kind values are safe for concurrent use.
 type Kind string
 
@@ -44,22 +46,34 @@ const (
 	// KindRefusal is a dispatch-gate refusal (e.g. a permanent-destructive
 	// attack without its opt-in acknowledgment).
 	KindRefusal Kind = "refusal"
-	// KindResisted is the per-attack rollup for a target that resisted an
-	// attack — the run completed but the attack did not take effect.
-	KindResisted Kind = "resisted"
-	// KindSkipped is the per-attack rollup for an attack the gate or recon
-	// evidence declined to run.
-	KindSkipped Kind = "skipped"
-	// KindPending is the per-attack rollup for an attack left without a
-	// traversal verdict (indistinguishable from resisted without a watch
-	// leg).
-	KindPending Kind = "pending"
+	// KindVerdict is the per-attack outcome: confirmed, resisted, pending,
+	// or skipped, with the detail and observation window in [Verdict].
+	KindVerdict Kind = "verdict"
+)
+
+// VerdictKind is the outcome of one check. The zero value names no
+// outcome. VerdictKind values are safe for concurrent use.
+type VerdictKind string
+
+const (
+	// VerdictConfirmed means the observable showed the attack taking
+	// effect.
+	VerdictConfirmed VerdictKind = "confirmed"
+	// VerdictResisted means the observable showed the target holding
+	// within the observation window.
+	VerdictResisted VerdictKind = "resisted"
+	// VerdictPending means the check has no observable yet, or the
+	// behavior failed before it could decide. The detail says which.
+	VerdictPending VerdictKind = "pending"
+	// VerdictSkipped means the check did not run: the gate refused it or
+	// its target was incomplete.
+	VerdictSkipped VerdictKind = "skipped"
 )
 
 // Record is one JSONL record of the machine contract. Construct it with
 // [NewRecord] to set the schema version, then set Time and the payload for
 // Kind. Marshaling does not validate kind/payload agreement. Copies share
-// payload pointers and detail bytes; callers must synchronize concurrent
+// payload pointers and detail bytes, so callers must synchronize concurrent
 // access involving writes to a record or its payload.
 type Record struct {
 	SchemaVersion int          `json:"schema_version"`
@@ -73,7 +87,7 @@ type Record struct {
 	Summary       *Summary     `json:"summary,omitempty"`
 	Error         *ErrorRecord `json:"error,omitempty"`
 	Refusal       *Refusal     `json:"refusal,omitempty"`
-	Rollup        *Rollup      `json:"rollup,omitempty"`
+	Verdict       *Verdict     `json:"verdict,omitempty"`
 }
 
 // Meta is the run-header payload: the tool identity, its version,
@@ -89,9 +103,9 @@ type Meta struct {
 
 // Finding carries a protocol family's evidence as JSON. Module names the
 // family (for example, arp or dhcp). Build Detail by marshaling a payload
-// containing [Secret] values before assigning it; arbitrary raw JSON is
-// not redacted. Nil Detail encodes as null; empty or malformed JSON causes
-// record marshaling to fail. Callers must synchronize concurrent access
+// containing [Secret] values before assigning it, since arbitrary raw JSON
+// is not redacted. Nil Detail encodes as null. Empty or malformed JSON makes
+// record marshaling fail. Callers must synchronize concurrent access
 // involving writes, including writes to Detail's backing bytes.
 type Finding struct {
 	Module string          `json:"module"`
@@ -105,18 +119,36 @@ type Progress struct {
 	Detail string `json:"detail,omitempty"`
 }
 
-// Summary closes a run with aggregate counts. Additive-only within
-// schema major version 1: optional fields may appear over time
-// but no field is renamed, removed, or retyped.
+// Summary closes a run with aggregate counts: the attacks dispatched, the
+// findings emitted, one count per verdict kind, and the errors. Additive-only
+// within a schema major version: optional fields may appear over time but no
+// field is renamed, removed, or retyped.
 // Callers must synchronize concurrent access involving writes.
 type Summary struct {
-	Attacks  int    `json:"attacks"`
-	Findings int    `json:"findings"`
-	Resisted int    `json:"resisted"`
-	Skipped  int    `json:"skipped"`
-	Pending  int    `json:"pending"`
-	Errors   int    `json:"errors"`
-	SweepNet string `json:"sweep_net,omitempty"`
+	Attacks   int    `json:"attacks"`
+	Findings  int    `json:"findings"`
+	Confirmed int    `json:"confirmed"`
+	Resisted  int    `json:"resisted"`
+	Skipped   int    `json:"skipped"`
+	Pending   int    `json:"pending"`
+	Errors    int    `json:"errors"`
+	SweepNet  string `json:"sweep_net,omitempty"`
+}
+
+// Count adds one verdict of kind k to the summary. An unknown kind counts
+// nowhere, so a consumer tallying a stream it did not produce cannot
+// inflate a count it does not understand.
+func (s *Summary) Count(k VerdictKind) {
+	switch k {
+	case VerdictConfirmed:
+		s.Confirmed++
+	case VerdictResisted:
+		s.Resisted++
+	case VerdictPending:
+		s.Pending++
+	case VerdictSkipped:
+		s.Skipped++
+	}
 }
 
 // ErrorRecord is a runtime failure record: the code (stable identity), the
@@ -135,11 +167,14 @@ type Refusal struct {
 	Reason string `json:"reason"`
 }
 
-// Rollup is the per-attack resisted/skipped/pending verdict.
+// Verdict is the per-attack outcome: the kind, a detail a person can read,
+// and how many milliseconds the behavior observed before deciding. The
+// enclosing [Record] identifies the attack and mode.
 // Callers must synchronize concurrent access involving writes.
-type Rollup struct {
-	Verdict Kind   `json:"verdict"`
-	Detail  string `json:"detail,omitempty"`
+type Verdict struct {
+	Kind       VerdictKind `json:"kind"`
+	Detail     string      `json:"detail,omitempty"`
+	ObservedMS int64       `json:"observed_ms"`
 }
 
 // NewRecord sets the schema version and kind, leaving Time and the payload
@@ -172,15 +207,15 @@ func NewErrorRecord(err error, attack, mode string) Record {
 // MarshalJSON encodes the record as a JSON object without a trailing newline.
 // It returns encoding errors, including malformed [Finding.Detail] or a time
 // outside JSON's supported range. It does not validate record semantics or
-// redact raw detail; [Secret] redaction happens when callers build that detail.
+// redact raw detail. [Secret] redaction happens when callers build that detail.
 func (r Record) MarshalJSON() ([]byte, error) {
 	type plain Record
 	return json.Marshal(plain(r))
 }
 
 // Secret holds captured credential material for in-memory comparison. Its
-// JSON encoding exposes only the protocol name and byte length. This
-// redaction applies to JSON encoding; callers should log only [Secret.Protocol]
+// JSON encoding exposes only the protocol name and byte length. That
+// redaction covers JSON encoding alone, so log only [Secret.Protocol]
 // and [Secret.Length]. Construct one with [NewSecret]. The zero value has an
 // empty protocol and no material. Secret values are immutable and safe for
 // concurrent use.
@@ -190,8 +225,8 @@ type Secret struct {
 }
 
 // NewSecret copies captured credential material for the given protocol.
-// Later changes to value do not affect the secret. protocol is public metadata
-// and must not contain credentials; it is emitted unchanged in JSON.
+// Later changes to value do not affect the secret. protocol is emitted
+// unchanged in JSON, so it is public metadata and must not contain credentials.
 func NewSecret(protocol string, value []byte) Secret {
 	return Secret{protocol: protocol, value: append([]byte(nil), value...)}
 }
@@ -203,9 +238,8 @@ func (s Secret) Protocol() string { return s.protocol }
 // Length returns the byte length of the captured material.
 func (s Secret) Length() int { return len(s.value) }
 
-// Equal reports whether two secrets hold the same protocol and value.
-// It is the in-memory comparison path; it does not cross a marshal
-// boundary.
+// Equal reports whether two secrets hold the same protocol and value. It
+// compares in memory and never crosses a marshal boundary.
 func (s Secret) Equal(other Secret) bool {
 	if s.protocol != other.protocol || len(s.value) != len(other.value) {
 		return false
