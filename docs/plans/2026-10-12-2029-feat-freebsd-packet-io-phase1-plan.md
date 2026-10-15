@@ -300,12 +300,6 @@ plugin on the host that ran it, the box's guest is 14.3-RELEASE, and
 
 ## Review gaps
 
-Blocking, from the review after the re-plan (behavior):
-
-- tools/scripts/freebsd/vmtest.py:119: the `finally` runs the setup script's `down` and discards its status; fails: the test binary passes, `down` exits non-zero (a dropped ssh session, a failed `ifconfig ... destroy`), and `vmtest` exits 0 with the epair left behind; smallest fix: keep the run's status, check teardown's, and return teardown's status when nothing failed earlier, with a stderr line either way; class: behavior
-- test/freebsd/bpfdev-setup.sh:74: under `set -e`, `down` exits when `stop_capture` fails, before `destroy` runs, and `stop_capture` removed the PID file first; fails: with `FLOWSEER_BPFDEV_FIXTURE_DIR` set and tcpdump still alive after its wait, the epair stays and a second `down` cannot stop the capture; smallest fix: attempt `destroy` whatever `stop_capture` returns, return failure after both, and keep the PID file until tcpdump has exited; class: behavior
-- test/conformance/crossbuild/crossbuild_test.go:147: `watchInputs` reads only the package directories `go list` reports, never their ancestors; fails: after a cached pass, a new package `src/edge/agent/zzprobe` holding a broken `//go:build freebsd` file prints `ok (cached)` (reproduced), since `src/edge/agent` holds no Go file and is never read; smallest fix: walk each target tree with `filepath.WalkDir`, which reads every directory, as the cached-gate solution's last section says; `doc.go:11` ("any source change reruns the gate") is false until then; class: behavior
-
 Follow-ups, which do not hold the verdict:
 
 - src/common/net/bpfdev/buffer.go:72: the three error returns changed to `return recs, ...`; fails: a valid record followed by a truncated one returns the valid prefix with the error, and no test has a valid first record; class: false test, other
@@ -315,3 +309,6 @@ Follow-ups, which do not hold the verdict:
 - test/conformance/crossbuild/crossbuild_test.go:14: `vmTags` is a hand-kept list; fails: a suite tag added to `vmtest.py` without this list leaves its files unvetted; class: convention
 - tools/scripts/freebsd/vmtest.py:28: "A later phase adds its suite here" narrates planned work; fails: the comment rule in docs/code-style-python.md; class: convention
 - tools/scripts/tests/freebsd/test_vmtest.py: `run_main(...)[0]` kept as bare statements; fails: reads as an assertion that is not there; class: convention
+- test/freebsd/bpfdev-setup.sh:42: `up` overwrites a kept `tcpdump.pid` without stopping that capture; fails: after a failed fixture `down`, the next `up` orphans the old tcpdump and nothing can stop it; class: gap
+- test/freebsd/bpfdev-setup.sh:23: `stop_capture` reads any `kill -0` failure as exited; fails: run without root against a root-owned tcpdump, EPERM removes the PID file while the capture lives; class: hardening
+- test/conformance/crossbuild/doc.go:9: "any source change reruns the gate" does not cover a `//go:embed` subdirectory of a dependency outside the target trees, which is read without descending; fails: a reader trusts coverage for embedded files, though no vetted target imports such a package today; class: convention
