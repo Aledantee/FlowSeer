@@ -10,6 +10,28 @@
 //
 // Spec-authored (the baseline has no craft for these):
 //   - glbp (Wireshark packet-glbp.c), lldpspoof (IEEE 802.1AB)
+//   - vrrp carries the RFC 3768 section 5.3.8 checksum and the eight
+//     Authentication Data octets of section 5.3.10, which the baseline's
+//     vrrp_frame leaves out
+//
+// Response fixtures, the frames a peer sends back that the predicates
+// read, are spec-authored and decoded by gopacket or the owned layer as
+// the second reader. The Wireshark sample capture page
+// (https://wiki.wireshark.org/SampleCaptures, fetched 2026-10-15) carries
+// no licence statement for its capture files, so no frame is copied from
+// one:
+//   - arpspoof_response.pcap: an ARP request (RFC 826) and an ICMP echo
+//     reply (RFC 792) from the victim
+//   - gratarp_response.pcap: an ICMP echo reply and an ARP request from the
+//     gateway
+//   - hsrp_response.pcap: an Active hello, a Resign, and a Speak hello from
+//     the active router (RFC 2281 section 5.1 layout, section 5.7 events)
+//   - glbp_response.pcap: an Active hello and a Listen hello from the
+//     active gateway (packet-glbp.c layout)
+//   - vrrp_response.pcap: a priority-100 advertisement from the master
+//     (RFC 3768 section 5.1 layout)
+//   - llmnr_query.pcap: a query from the victim (RFC 4795 section 2.1.1
+//     header, RFC 1035 question)
 //
 // Run from the attacks/fh directory:
 //
@@ -25,6 +47,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/gopacket/gopacket"
 	"github.com/gopacket/gopacket/layers"
@@ -151,6 +174,33 @@ func run() error {
 		lldpSpoofFrame(120), // TTL=120
 	)
 
+	// Response fixtures: what a peer sends back, from a MAC other than the
+	// attack leg's. The router at routerMAC is the active HSRP router, the
+	// active GLBP gateway, and the VRRP master.
+	writePcap(filepath.Join(outDir, "arpspoof_response.pcap"),
+		arpRequestFrame(victimMAC, victimIP, gwIP),
+		echoReplyFrame(victimMAC, srcBytes(), victimIP, gwIP),
+	)
+	writePcap(filepath.Join(outDir, "gratarp_response.pcap"),
+		echoReplyFrame(gwMAC, srcBytes(), gwIP, net.IPv4(10, 0, 0, 1)),
+		arpRequestFrame(gwMAC, gwIP, net.IPv4(10, 0, 0, 1)),
+	)
+	writePcap(filepath.Join(outDir, "hsrp_response.pcap"),
+		hsrpFrameFrom(routerMAC, routerIP, 0, 16, 100, 1, 3, 10), // hello, state active
+		hsrpFrameFrom(routerMAC, routerIP, 2, 8, 100, 1, 3, 10),  // resign, state speak
+		hsrpFrameFrom(routerMAC, routerIP, 0, 8, 100, 1, 3, 10),  // hello, state speak
+	)
+	writePcap(filepath.Join(outDir, "glbp_response.pcap"),
+		glbpHelloFrameFrom(routerMAC, routerIP, 1, 100, 0x20), // hello, state active
+		glbpHelloFrameFrom(routerMAC, routerIP, 1, 100, 4),    // hello, state listen
+	)
+	writePcap(filepath.Join(outDir, "vrrp_response.pcap"),
+		vrrpFrameFrom(routerMAC, routerIP, 51, 100, []net.IP{net.IPv4(10, 0, 0, 1)}),
+	)
+	writePcap(filepath.Join(outDir, "llmnr_query.pcap"),
+		llmnrQueryFrameFrom(victimMAC, victimIP, 0x4a1c, "host.lab"),
+	)
+
 	if genErr != nil {
 		return genErr
 	}
@@ -165,7 +215,77 @@ var (
 	gwMAC     = fixtureaddr.MustMAC("00:aa:bb:cc:dd:fe")
 	victimIP  = net.IPv4(172, 16, 0, 10)
 	gwIP      = net.IPv4(172, 16, 0, 1)
+	routerMAC = fixtureaddr.MustMAC("00:aa:bb:cc:dd:fe")
+	routerIP  = net.IPv4(10, 0, 0, 254)
 )
+
+// arpRequestFrame crafts a broadcast ARP request from a peer asking who
+// has target (RFC 826).
+func arpRequestFrame(peerMAC net.HardwareAddr, peerIP, target net.IP) []byte {
+	eth := &layers.Ethernet{
+		DstMAC:       broadcastMAC,
+		SrcMAC:       peerMAC,
+		EthernetType: layers.EthernetTypeARP,
+	}
+	arp := &layers.ARP{
+		AddrType:          1,
+		Protocol:          layers.EthernetTypeIPv4,
+		HwAddressSize:     6,
+		ProtAddressSize:   4,
+		Operation:         1, // request
+		SourceHwAddress:   peerMAC,
+		SourceProtAddress: peerIP,
+		DstHwAddress:      net.HardwareAddr{0, 0, 0, 0, 0, 0},
+		DstProtAddress:    target,
+	}
+	return craft(eth, arp)
+}
+
+// echoReplyFrame crafts the ICMP echo reply (RFC 792) a peer sends to the
+// probe: from the peer's MAC and IPv4 to dstMAC and the spoofed address,
+// carrying the probe's identifier and payload.
+func echoReplyFrame(peerMAC, dstMAC net.HardwareAddr, peerIP, spoofed net.IP) []byte {
+	eth := &layers.Ethernet{
+		DstMAC:       dstMAC,
+		SrcMAC:       peerMAC,
+		EthernetType: layers.EthernetTypeIPv4,
+	}
+	ip := &layers.IPv4{
+		Version:  4,
+		IHL:      5,
+		TTL:      64,
+		Protocol: layers.IPProtocolICMPv4,
+		SrcIP:    peerIP,
+		DstIP:    spoofed,
+	}
+	icmp := &layers.ICMPv4{
+		TypeCode: 0x0000, // type=0 (echo reply), code=0
+		Id:       0x4e50,
+		Seq:      1,
+	}
+	return craft(eth, ip, icmp, gopacket.Payload([]byte("netpen")))
+}
+
+// llmnrQueryFrameFrom crafts an LLMNR query from a victim to the LLMNR
+// group: the RFC 4795 section 2.1.1 header with the id and the QR bit
+// clear, one RFC 1035 question for name, type A, class IN.
+func llmnrQueryFrameFrom(peerMAC net.HardwareAddr, peerIP net.IP, id uint16, qname string) []byte {
+	var body []byte
+	body = binary.BigEndian.AppendUint16(body, id)
+	body = binary.BigEndian.AppendUint16(body, 0x0000) // flags: QR clear
+	body = binary.BigEndian.AppendUint16(body, 1)      // QDCOUNT
+	body = binary.BigEndian.AppendUint16(body, 0)      // ANCOUNT
+	body = binary.BigEndian.AppendUint16(body, 0)      // NSCOUNT
+	body = binary.BigEndian.AppendUint16(body, 0)      // ARCOUNT
+	for _, label := range splitLabels(qname) {
+		body = append(body, byte(len(label)))
+		body = append(body, label...)
+	}
+	body = append(body, 0)                        // root label
+	body = binary.BigEndian.AppendUint16(body, 1) // QTYPE=A
+	body = binary.BigEndian.AppendUint16(body, 1) // QCLASS=IN
+	return craftUDPL3(llmnrDstMAC, peerMAC, peerIP, net.IPv4(224, 0, 0, 252), 5355, 5355, body)
+}
 
 func arpSweepFrame(target net.IP) []byte {
 	eth := &layers.Ethernet{
@@ -253,6 +373,11 @@ func gratARPFrame(ip net.IP) []byte {
 // SerializeTo): Ethernet → IP(224.0.0.2) → UDP(1985) → HSRP body.
 
 func hsrpFrame(opcode, state, priority, group, hellotime, holdtime uint8) []byte {
+	return hsrpFrameFrom(srcBytes(), net.IPv4(10, 0, 0, 2), opcode, state, priority, group, hellotime, holdtime)
+}
+
+// hsrpFrameFrom builds the HSRP frame from the given sender.
+func hsrpFrameFrom(srcMAC net.HardwareAddr, srcIP net.IP, opcode, state, priority, group, hellotime, holdtime uint8) []byte {
 	vip := net.IPv4(10, 0, 0, 1)
 	auth := [8]byte{'c', 'i', 's', 'c', 'o', 0, 0, 0}
 
@@ -270,8 +395,8 @@ func hsrpFrame(opcode, state, priority, group, hellotime, holdtime uint8) []byte
 	copy(body[8:16], auth[:])
 	copy(body[16:20], vip.To4())
 
-	return craftUDPL3(hsrpDstMAC, srcBytes(),
-		net.IPv4(10, 0, 0, 2), net.IPv4(224, 0, 0, 2),
+	return craftUDPL3(hsrpDstMAC, srcMAC,
+		srcIP, net.IPv4(224, 0, 0, 2),
 		1985, 1985, body)
 }
 
@@ -279,24 +404,31 @@ func hsrpFrame(opcode, state, priority, group, hellotime, holdtime uint8) []byte
 // Ethernet → IP(224.0.0.18, ttl=255, proto=112) → VRRP body.
 
 func vrrpFrame(vrid, priority uint8, vips []net.IP) []byte {
-	// Header: Version|Type(1) | VRID(1) | Priority(1) | CountIP(1)
-	//         | AuthType(1) | AdverInt(1) | Checksum(2) | IP(s)
-	body := make([]byte, 8+4*len(vips))
+	return vrrpFrameFrom(srcBytes(), net.IPv4(10, 0, 0, 2), vrid, priority, vips)
+}
+
+// vrrpFrameFrom builds an advertisement from the given sender. The body
+// is RFC 3768 section 5.1: Version|Type(1) | VRID(1) | Priority(1) |
+// CountIP(1) | AuthType(1) | AdverInt(1) | Checksum(2) | IP(s) |
+// Authentication Data(8), with the section 5.3.8 checksum computed here
+// since gopacket sees the body as an opaque payload.
+func vrrpFrameFrom(srcMAC net.HardwareAddr, srcIP net.IP, vrid, priority uint8, vips []net.IP) []byte {
+	body := make([]byte, 8+4*len(vips)+8)
 	body[0] = 0x21 // version=2, type=1 (advertisement)
 	body[1] = vrid
 	body[2] = priority
 	body[3] = byte(len(vips))
 	body[4] = 0 // auth type
 	body[5] = 1 // adver interval
-	// The checksum at [6:8] stays 0. The fixture compares the field set, not the bytes.
 	for i, vip := range vips {
 		copy(body[8+4*i:], vip.To4())
 	}
+	binary.BigEndian.PutUint16(body[6:8], onesComplementChecksum(body, 6))
 
 	// VRRP rides directly on IP (proto=112), no UDP.
 	eth := &layers.Ethernet{
 		DstMAC:       vrrpDstMAC,
-		SrcMAC:       srcBytes(),
+		SrcMAC:       srcMAC,
 		EthernetType: layers.EthernetTypeIPv4,
 	}
 	ip := &layers.IPv4{
@@ -304,11 +436,30 @@ func vrrpFrame(vrid, priority uint8, vips []net.IP) []byte {
 		IHL:      5,
 		TTL:      255,
 		Protocol: 112, // VRRP
-		SrcIP:    net.IPv4(10, 0, 0, 2),
+		SrcIP:    srcIP,
 		DstIP:    net.IPv4(224, 0, 0, 18),
 		Length:   20 + uint16(len(body)),
 	}
 	return craftL3Payload(eth, ip, body)
+}
+
+// onesComplementChecksum is the RFC 1071 checksum of data with the
+// two-byte field at skip read as zero, as RFC 3768 section 5.3.8 sums.
+func onesComplementChecksum(data []byte, skip int) uint16 {
+	var sum uint32
+	for i := 0; i+1 < len(data); i += 2 {
+		if i == skip {
+			continue
+		}
+		sum += uint32(data[i])<<8 | uint32(data[i+1])
+	}
+	if len(data)%2 == 1 {
+		sum += uint32(data[len(data)-1]) << 8
+	}
+	for sum>>16 != 0 {
+		sum = (sum & 0xffff) + (sum >> 16)
+	}
+	return ^uint16(sum)
 }
 
 // icmpRedirectFrame crafts an ICMP redirect: src=gw, dst=victim, gw=attacker.
@@ -505,11 +656,17 @@ func ambientFrame() []byte {
 
 // glbpHelloFrame crafts a GLBP hello with the given priority and state.
 func glbpHelloFrame(group uint16, priority uint8, state uint8) []byte {
+	return glbpHelloFrameFrom(srcBytes(), net.IPv4(10, 0, 0, 2), group, priority, state)
+}
+
+// glbpHelloFrameFrom crafts the GLBP hello from the given sender, which
+// is also the owner ID the header carries.
+func glbpHelloFrameFrom(srcMAC net.HardwareAddr, srcIP net.IP, group uint16, priority uint8, state uint8) []byte {
 	// Fixed header: version(1), unknown(1), group(2), unknown(2), owner ID(6).
 	header := make([]byte, 12)
 	header[0] = 1 // version
 	binary.BigEndian.PutUint16(header[2:4], group)
-	copy(header[6:12], srcBytes())
+	copy(header[6:12], srcMAC)
 
 	// Hello TLV length includes the one-byte type and one-byte length.
 	helloTLV := make([]byte, 28)
@@ -524,8 +681,8 @@ func glbpHelloFrame(group uint16, priority uint8, state uint8) []byte {
 	copy(helloTLV[24:28], net.IPv4(10, 0, 0, 1).To4())
 
 	body := append(header, helloTLV...)
-	return craftUDPL3(glbpDstMAC, srcBytes(),
-		net.IPv4(10, 0, 0, 2), net.IPv4(224, 0, 0, 102),
+	return craftUDPL3(glbpDstMAC, srcMAC,
+		srcIP, net.IPv4(224, 0, 0, 102),
 		3222, 3222, body)
 }
 
@@ -621,10 +778,12 @@ func craftL3Payload(eth *layers.Ethernet, ip *layers.IPv4, payload []byte) []byt
 	return append([]byte(nil), buf.Bytes()...)
 }
 
-// writePcap writes pkts to path, recording the first failure — its own IO or
-// an assembly error a builder already recorded — into [genErr] and returning
+// writePcap writes pkts to path, recording the first failure, its own IO or
+// an assembly error a builder already recorded, into [genErr] and returning
 // without writing, so a bad packet never lands in a fixture and [run] reports
-// the fault.
+// the fault. Each packet is stamped with the epoch, since pcapgo writes the
+// wall clock for a zero stamp and every fixture would then change on each
+// run.
 func writePcap(path string, pkts ...[]byte) {
 	if genErr != nil {
 		return
@@ -644,6 +803,7 @@ func writePcap(path string, pkts ...[]byte) {
 	}
 	for _, pkt := range pkts {
 		if err := w.WritePacket(gopacket.CaptureInfo{
+			Timestamp:     time.Unix(0, 0),
 			CaptureLength: len(pkt),
 			Length:        len(pkt),
 		}, pkt); err != nil {

@@ -79,23 +79,33 @@ The parent plan's Decisions apply. Local to this phase:
   parent's open question asked whether a per-check default is needed, and
   a detail that names the window gives the operator the same outcome with
   one knob and no hidden timer.
-- Response fixtures come from a second source. Where the Wireshark sample
-  capture page lists a capture for the protocol
-  (https://wiki.wireshark.org/SampleCaptures, fetched 2026-10-15), the
-  fixture generator carries the one response frame the predicate needs as
-  a byte literal with the capture's file name and frame number. Where the
-  page lists none, the frame is authored from the RFC's field layout and
-  decoded by the gopacket or owned-layer decoder as the second reader,
-  with the harvest header saying so. Why:
+- Response fixtures come from a second source: each response frame is
+  authored from the RFC's field layout (or the owned layer's documented
+  layout where no RFC exists) and decoded by the gopacket or owned-layer
+  decoder as the second reader, with the harvest header saying so. The
+  Wireshark sample capture page (https://wiki.wireshark.org/SampleCaptures,
+  fetched 2026-10-15) carries no licence statement for its capture files
+  (its one licence note covers the ST2110-40 samples alone), so no frame
+  is copied from a capture, which is the outcome the Open question on the
+  licence named. Why:
   `docs/solutions/conventions/a-permissive-synthetic-tier-passes-attacks-a-real-vendor-rejects.md`,
   and `AGENTS.md`, Investigation discipline. A fixture authored from the
-  same generator as the probe proves nothing about the response. The
-  captures the page lists for this phase's protocols: `hsrp.pcap`,
-  `stp.pcap`, `DTP.pcapng`, `lacp1.pcap.gz`, `lldpmed_civicloc.pcap`,
-  `cdp.pcap`, `dhcp.pcap`, `DHCPv6.pcap`, `ospf.cap`, `EIGRP_Neighbors.cap`,
-  `vlan.cap.gz`. It lists none for VRRP, GLBP, VTP, PAgP, MVRP, LLMNR,
-  NBNS, ICMP redirect, neighbor discovery, or MLD. The licence under which
-  the page offers those files is unverified and is an Open question.
+  same generator as the probe proves nothing about the response; a
+  decoder that reads it back is the second reader.
+- The first-hop HSRP predicate is `isHSRPFor`, which reads any opcode for
+  the group from another sender, since a Resign is the evidence a coup
+  wants and a hello-only predicate would miss it. The caller reads the
+  opcode and state. Why: the unit text named `isHSRPHelloFor`, and the
+  name follows what the function reads.
+- An actively restored behavior arms its step before its pre-read, so a
+  pre-read that ends in `pending` with nothing sent still leaves a step
+  for the runner, whose teardown refuses an active entry that armed none
+  (`runner/runner.go`, `armed zero teardown steps`). The step then sends a
+  frame the protocol ignores: an HSRP Resign from a router that was never
+  active (RFC 2281 section 5.7 acts on a Resign from the active router), a
+  GLBP listen-state hello at priority 100, a DTP frame naming the access
+  state the port already has. Why: the runner rule is phase 1's and holds;
+  a step that does what its name says is what requirement 31 asks.
 - `check.Deps` gains `Sysctl`, an interface with `Get(key string) (string,
   error)` and `Set(key, value string) error`, that the runner implements
   over `/proc/sys/<key with dots as slashes>` and a test replaces with a
@@ -768,11 +778,6 @@ harness is outside this phase.
   deleting the entry, which also touches `full/gates.go:116`, the `full`
   tests, and the phase 3 plan's recon table. The implementer keeps the
   entry unless told otherwise.
-- The licence of the Wireshark sample captures (Decision, unverified). The
-  implementer reads the page's licence statement before copying a frame
-  and records it in the harvest header. If the page grants no reuse, the
-  frames named from a capture are authored from the RFC instead and the
-  Decision's table shrinks to the spec-authored column.
 - The `camflood` count of 10,000 frames (Decision, unconfirmed). No
   vendored source states a CAM size, and at the default rate the burst is
   what bounds the check's run time.

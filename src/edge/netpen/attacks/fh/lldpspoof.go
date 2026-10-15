@@ -30,9 +30,9 @@ type lldpSpoofFinding struct {
 
 // RunLLDPSpoof sends two LLDP frames from the attack leg's MAC with a
 // false port ID, system name, and capabilities. All three are probe
-// content, so the behavior reads no target. The verdict is pending: whether
-// the neighbor table took the entry needs a read of the device it does not
-// have.
+// content, so the behavior reads no target. The verdict is pending and the
+// behavior reads no frame: the neighbor table the frames enter is readable
+// only over management, and nothing on the wire shows the entry.
 func RunLLDPSpoof(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	src := deps.AttackLeg.Addr().MAC
 	ttl := uint16(120)
@@ -56,7 +56,7 @@ func RunLLDPSpoof(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	})
 	deps.Emitter.Finding("lldp", detail)
 
-	return check.Pending("no observable: neighbor table acceptance needs a read of the device"), nil
+	return check.Pending("the neighbor table is readable only over management"), nil
 }
 
 // craftLLDPSpoof builds an LLDP frame with spoofed chassis/port/TTL.

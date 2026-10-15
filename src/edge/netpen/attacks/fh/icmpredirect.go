@@ -7,9 +7,12 @@
 package fh
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net"
+	"time"
 
 	"github.com/gopacket/gopacket"
 	"github.com/gopacket/gopacket/layers"
@@ -27,9 +30,11 @@ type icmpRedirectFinding struct {
 
 // RunICMPRedirect sends one redirect to the target's victim, spoofed from
 // the target's gateway, naming the attack leg's own IPv4 as the better
-// hop. The quoted datagram's destination is probe content. The verdict is
-// pending: whether the victim's route cache took the redirect needs a
-// probe it does not have.
+// hop for the quoted datagram's destination, which is probe content. The
+// predicate is a frame from the victim's MAC to the attack leg's MAC whose
+// IPv4 destination is that address: one within the window confirms that
+// the victim routes it through the attacker, and silence is pending,
+// since the victim sends to that destination on its own schedule.
 func RunICMPRedirect(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	if err := deps.Target.Need(check.FieldVictim, check.FieldVictimMAC, check.FieldGateway); err != nil {
 		return check.Verdict{}, err
@@ -56,7 +61,31 @@ func RunICMPRedirect(ctx context.Context, deps check.Deps) (check.Verdict, error
 	})
 	deps.Emitter.Finding("icmp", detail)
 
-	return check.Pending("no observable: route cache acceptance needs a probe of the victim"), nil
+	found, obs, err := check.First(ctx, deps.AttackLeg, deps.Observe, func(data []byte) bool {
+		return isRoutedThrough(data, victim.MAC, addr.MAC, origDst)
+	})
+	if err != nil {
+		if ctx.Err() != nil {
+			return check.Verdict{}, ctx.Err()
+		}
+		return check.Verdict{}, errs.Wrap(err, "icmpredirect: receive victim traffic")
+	}
+	if found != nil {
+		return check.Confirmed(fmt.Sprintf("the victim routes %s through the attack leg", origDst), obs.Elapsed), nil
+	}
+	return check.Pending(fmt.Sprintf("the victim sends to %s on its own schedule: nothing in %s", origDst, obs.Elapsed.Round(time.Millisecond))), nil
+}
+
+// isRoutedThrough reports whether data is an IPv4 datagram from the
+// victim's MAC to the attack leg's MAC whose destination is dst, the
+// traffic a redirect taken sends through the attacker.
+func isRoutedThrough(data []byte, victim, leg net.HardwareAddr, dst net.IP) bool {
+	pkt := decodeFrame(data)
+	eth, ip := ethernetOf(pkt), ipv4Of(pkt)
+	if eth == nil || ip == nil {
+		return false
+	}
+	return bytes.Equal(eth.SrcMAC, victim) && bytes.Equal(eth.DstMAC, leg) && ip.DstIP.Equal(dst)
 }
 
 // craftICMPRedirect builds an ICMP redirect: Ethernet → IPv4 → ICMP(type=5,

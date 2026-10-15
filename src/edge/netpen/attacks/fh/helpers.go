@@ -31,6 +31,9 @@ var (
 	stpDstMAC    = net.HardwareAddr{0x01, 0x80, 0xc2, 0x00, 0x00, 0x00}
 )
 
+// llmnrGroupIP is the IPv4 group LLMNR queries go to (RFC 4795 section 2).
+var llmnrGroupIP = net.IPv4(224, 0, 0, 252)
+
 // GhostSA is the reserved group MAC used as the source address in ghost
 // frames, an 802.3 section 3.2.6 violation (reserved group MAC as source)
 // that conformant silicon should filter but non-conformant silicon forwards.
