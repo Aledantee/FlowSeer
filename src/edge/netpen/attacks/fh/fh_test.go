@@ -171,10 +171,53 @@ func TestEmptyTargetIsSkipped(t *testing.T) {
 	if v == nil || v.Kind != findings.VerdictSkipped {
 		t.Fatalf("verdict = %+v, want skipped", v)
 	}
-	for _, field := range []string{"victim", "gateway"} {
-		if !strings.Contains(v.Detail, field) {
-			t.Errorf("verdict detail %q does not name %s", v.Detail, field)
-		}
+	if want := "the check needs: --victim <ip>,<mac>, --gateway <ip>,<mac>"; v.Detail != want {
+		t.Errorf("verdict detail = %q, want %q", v.Detail, want)
+	}
+}
+
+// TestNeedFieldsPerBehavior pins, per behavior that reads a target, the
+// exact flags an empty target reports, and that hsrp refuses a group its
+// one-octet frame field cannot carry with the invalid code and no frame.
+func TestNeedFieldsPerBehavior(t *testing.T) {
+	cases := []struct {
+		name   string
+		target check.Target
+		code   errs.Code
+		detail string
+	}{
+		{"arpsweep", check.Target{}, check.ErrCodeTargetMissing, "the check needs: --sweep-net <cidr>"},
+		{"arpspoof", check.Target{}, check.ErrCodeTargetMissing, "the check needs: --victim <ip>,<mac>, --gateway <ip>,<mac>"},
+		{"gratarp", check.Target{}, check.ErrCodeTargetMissing, "the check needs: --vip <ip>"},
+		{"hsrp", check.Target{}, check.ErrCodeTargetMissing, "the check needs: --group <n>, --vip <ip>"},
+		{"vrrp", check.Target{}, check.ErrCodeTargetMissing, "the check needs: --vrid <n>, --vip <ip>"},
+		{"icmpredirect", check.Target{}, check.ErrCodeTargetMissing, "the check needs: --victim <ip>,<mac>, --gateway <ip>,<mac>"},
+		{"llmnr", check.Target{}, check.ErrCodeTargetMissing, "the check needs: --victim <ip>,<mac>"},
+		{"glbp", check.Target{}, check.ErrCodeTargetMissing, "the check needs: --group <n>, --vip <ip>"},
+		{"hsrp group 300", check.Target{Group: new(uint16(300)), VirtualIP: net.IPv4(10, 0, 0, 1)}, check.ErrCodeTargetInvalid, "the check needs: --group at most 255"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			leg := fixtureLeg(t, net.IPv4(10, 0, 0, 2))
+			name, _, _ := strings.Cut(tc.name, " ")
+			recs, err := runSingle(t, leg, name, tc.target)
+			if code, ok := errs.CodeOf(err); !ok || code != tc.code {
+				t.Fatalf("run %s = %v (code %q), want %q", name, err, code, tc.code)
+			}
+			if errs.ExitCode(err) != 2 {
+				t.Errorf("exit code = %d, want 2", errs.ExitCode(err))
+			}
+			if leg.SendCount() != 0 {
+				t.Errorf("sends = %d, want 0", leg.SendCount())
+			}
+			v := verdictOf(recs)
+			if v == nil || v.Kind != findings.VerdictSkipped {
+				t.Fatalf("verdict = %+v, want skipped", v)
+			}
+			if v.Detail != tc.detail {
+				t.Errorf("verdict detail = %q, want %q", v.Detail, tc.detail)
+			}
+		})
 	}
 }
 
@@ -232,14 +275,19 @@ func TestARPSpoof_UnreachableTargetAfterPoison(t *testing.T) {
 	if v == nil || v.Kind != findings.VerdictPending || !strings.Contains(v.Detail, "send victim poison") {
 		t.Errorf("verdict = %+v, want pending with the send error", v)
 	}
-	foundPartial := false
+	var partial *findings.ErrorRecord
 	for _, rec := range recs {
 		if rec.Kind == findings.KindError && rec.Error != nil && rec.Error.Code == catalog.ErrCodeTeardownPartial.String() {
-			foundPartial = true
+			partial = rec.Error
 		}
 	}
-	if !foundPartial {
-		t.Error("no teardown partial record naming the failed repairs")
+	if partial == nil {
+		t.Fatal("no teardown partial record naming the failed repairs")
+	}
+	for _, step := range []string{"neighbor-unicast-repair-victim", "neighbor-unicast-repair-gateway"} {
+		if !strings.Contains(partial.Message, step) {
+			t.Errorf("partial record %q does not name the failed step %s", partial.Message, step)
+		}
 	}
 }
 

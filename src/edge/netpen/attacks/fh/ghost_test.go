@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"net"
+	"sync"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/fh"
@@ -17,17 +19,27 @@ import (
 	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
 )
 
+// ghostWatchLeg hands the behavior a channel the test controls. Under the
+// [link.Leg] contract the channel closes once the context ends, which
+// closeOnDone does for a channel the test did not close itself.
 type ghostWatchLeg struct {
 	*testtest.Leg
 	frames    chan link.Frame
 	onReceive func()
+	closeOnce sync.Once
 }
 
-func (l *ghostWatchLeg) Receive(context.Context) <-chan link.Frame {
+func (l *ghostWatchLeg) Receive(ctx context.Context) <-chan link.Frame {
 	if l.onReceive != nil {
 		l.onReceive()
 	}
+	context.AfterFunc(ctx, func() { l.closeOnce.Do(func() { close(l.frames) }) })
 	return l.frames
+}
+
+// closeFrames closes the channel the test owns, once.
+func (l *ghostWatchLeg) closeFrames() {
+	l.closeOnce.Do(func() { close(l.frames) })
 }
 
 // ghostCatalog is the family catalog with ghost wrapped so a test can
@@ -72,7 +84,7 @@ func TestGhostObservationCanceled(t *testing.T) {
 			leg := fixtureLeg(t, net.IPv4(10, 0, 0, 2))
 			watch := &ghostWatchLeg{Leg: leg, frames: make(chan link.Frame)}
 			if closed {
-				close(watch.frames)
+				watch.closeFrames()
 			}
 
 			var behaviorErr error
@@ -107,7 +119,7 @@ func TestGhostReceiveError(t *testing.T) {
 	wantErr := errors.New("capture stopped")
 	watch := &ghostWatchLeg{Leg: leg, frames: make(chan link.Frame, 1)}
 	watch.frames <- link.Frame{Err: wantErr}
-	close(watch.frames)
+	watch.closeFrames()
 
 	var behaviorErr error
 	recs, err := runGhost(t, runner.Options{
@@ -141,7 +153,7 @@ func TestGhostTruncatedFrames(t *testing.T) {
 	for _, length := range []int{0, 12, 13} {
 		watch.frames <- link.Frame{Data: fixture[:length]}
 	}
-	close(watch.frames)
+	watch.closeFrames()
 
 	recs, err := runOne(t, runner.Options{
 		AttackLeg: leg,
@@ -196,4 +208,93 @@ func TestGhostEmptyWindowIsResisted(t *testing.T) {
 	if elapsed > 20*window {
 		t.Errorf("run took %v, want it bounded by the %v window", elapsed, window)
 	}
+}
+
+// ghostEmitter keeps the findings a direct call to the behavior emits.
+type ghostEmitter struct {
+	findings []json.RawMessage
+}
+
+func (e *ghostEmitter) Emit(findings.Record) bool { return true }
+
+func (e *ghostEmitter) Finding(_ string, detail json.RawMessage) bool {
+	e.findings = append(e.findings, detail)
+	return true
+}
+
+func (e *ghostEmitter) Progress(_, _ string) bool { return true }
+
+// ghostTraversal returns the traversal field of the one finding em holds.
+func ghostTraversal(t *testing.T, em *ghostEmitter) string {
+	t.Helper()
+	if len(em.findings) != 1 {
+		t.Fatalf("findings = %d, want 1", len(em.findings))
+	}
+	var detail struct {
+		Traversal string `json:"traversal"`
+	}
+	if err := json.Unmarshal(em.findings[0], &detail); err != nil {
+		t.Fatalf("unmarshal finding: %v", err)
+	}
+	return detail.Traversal
+}
+
+// TestGhostAmbientOnlyIsResisted pins that the ambient frames alone, with
+// no ghost frame among them, leave the verdict resisted at the window
+// rather than confirmed on a count, with the finding reading not-forwarded.
+func TestGhostAmbientOnlyIsResisted(t *testing.T) {
+	ambient := fixturePackets(t, "ghost_ambient.pcap")
+	synctest.Test(t, func(t *testing.T) {
+		attack := fixtureLeg(t, net.IPv4(10, 0, 0, 2))
+		watch := fixtureLeg(t, net.IPv4(10, 0, 0, 2))
+		for range 3 {
+			for _, f := range ambient {
+				watch.PushRX(f)
+			}
+		}
+		em := &ghostEmitter{}
+		start := time.Now()
+		v, err := fh.RunGhost(context.Background(), check.Deps{AttackLeg: attack, WatchLeg: watch, Observe: 2 * time.Second, Emitter: em})
+		if err != nil {
+			t.Fatalf("RunGhost() error = %v, want nil", err)
+		}
+		if v.Kind != findings.VerdictResisted {
+			t.Errorf("verdict = %+v, want resisted with only ambient frames", v)
+		}
+		if elapsed := time.Since(start); elapsed != 2*time.Second {
+			t.Errorf("returned after %v, want the 2s window", elapsed)
+		}
+		if got := ghostTraversal(t, em); got != "not-forwarded" {
+			t.Errorf("traversal = %q, want not-forwarded", got)
+		}
+	})
+}
+
+// TestGhostAmbientThenGhostIsConfirmed pins that three unrelated frames
+// ahead of the ghost frames do not end the observation: the ghost frame
+// behind them is read and the verdict is confirmed within the window.
+func TestGhostAmbientThenGhostIsConfirmed(t *testing.T) {
+	ambient := fixturePackets(t, "ghost_ambient.pcap")
+	ghost := fixturePackets(t, "ghost.pcap")
+	synctest.Test(t, func(t *testing.T) {
+		attack := fixtureLeg(t, net.IPv4(10, 0, 0, 2))
+		watch := fixtureLeg(t, net.IPv4(10, 0, 0, 2))
+		for range 3 {
+			watch.PushRX(ambient[0])
+		}
+		for _, f := range ghost {
+			watch.PushRX(f)
+		}
+		em := &ghostEmitter{}
+		v, err := fh.RunGhost(context.Background(), check.Deps{AttackLeg: attack, WatchLeg: watch, Observe: 2 * time.Second, Emitter: em})
+		if err != nil {
+			t.Fatalf("RunGhost() error = %v, want nil", err)
+		}
+		if v.Kind != findings.VerdictConfirmed || v.Observed >= 2*time.Second {
+			t.Errorf("verdict = %+v, want confirmed within the window", v)
+		}
+		if got := ghostTraversal(t, em); got != "forwarded" {
+			t.Errorf("traversal = %q, want forwarded", got)
+		}
+	})
 }

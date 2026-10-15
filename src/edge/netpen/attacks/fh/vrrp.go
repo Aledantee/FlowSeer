@@ -1,14 +1,13 @@
-// vrrp.go implements the VRRP virtual-router hijack attack behavior.
-//
-// Durability (from the catalog): transient-decay. The attack sends VRRP
-// advertisements with a high priority to claim the virtual router master
-// role. The real master resumes via NUD when the attack stops — no
-// explicit teardown is needed.
+// vrrp.go implements the VRRP virtual-router hijack check. Impact
+// temporary, restore decay with no stated bound, affects clients: the
+// advertisements with a high priority claim the master role for the
+// virtual router, and the real master takes it back on its own
+// advertisement timer once the run stops sending.
 //
 // VRRPv2 rides directly on IP (protocol 112), not UDP. gopacket's VRRPv2
 // decoder has no SerializeTo, so the body is built as raw bytes matching
-// the baseline's vrrp_frame. The fixtures therefore verify the field set
-// rather than the byte-for-byte checksum.
+// the baseline's vrrp_frame, with the checksum field zero in the frame and
+// in the fixture alike. The fixture compares bytes.
 
 package fh
 
@@ -85,7 +84,7 @@ func craftVRRP(addr link.Addr, vrid, priority uint8, vips []net.IP) ([]byte, err
 	body[3] = byte(len(vips))
 	body[4] = 0 // auth type
 	body[5] = 1 // adver interval
-	// The checksum at [6:8] stays 0. The fixture compares the field set, not the bytes.
+	// The checksum at [6:8] stays 0, as in the fixture the bytes are compared with.
 	for i, vip := range vips {
 		copy(body[8+4*i:], vip.To4())
 	}

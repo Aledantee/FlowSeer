@@ -24,7 +24,9 @@ type arpSweepFinding struct {
 // RunARPSweep requests the first three hosts of the target's sweep network
 // from the attack leg's own IPv4 address. Its verdict confirms the requested
 // targets as the inventory without reading any reply. The sweep network comes
-// from the target. The three-host bound is probe content.
+// from the target, whose form rule refuses a network with no host address,
+// so the sweep always has at least one. The three-host bound is probe
+// content.
 func RunARPSweep(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	if err := deps.Target.Need(check.FieldSweepNet); err != nil {
 		return check.Verdict{}, err
