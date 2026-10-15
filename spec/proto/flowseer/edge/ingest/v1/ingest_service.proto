@@ -14,7 +14,7 @@ service IngestService {
   // records central holds or refused for a reason about the record. A
   // failure that is not about a record, such as a full stream or a publish
   // error, ends the count at the last settled record and the call still
-  // answers. The caller resends from the first unsettled record; a record
+  // answers. The caller resends from the first unsettled record. A record
   // delivered twice is stored once under its record id.
   rpc Deliver(DeliverRequest) returns (DeliverResponse);
 }
@@ -34,6 +34,6 @@ message DeliverRequest {
 message DeliverResponse {
   // The count of leading records settled: stored, already stored, or refused
   // for a reason about the record. Records from this index on are the
-  // caller's to resend.
+  // caller's to resend. Unset means zero records settled.
   uint32 settled = 1;
 }

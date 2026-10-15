@@ -153,7 +153,7 @@ type DeliverResponse_builder struct {
 
 	// The count of leading records settled: stored, already stored, or refused
 	// for a reason about the record. Records from this index on are the
-	// caller's to resend.
+	// caller's to resend. Unset means zero records settled.
 	Settled *uint32
 }
 

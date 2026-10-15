@@ -199,7 +199,7 @@ type DeliverResponse_builder struct {
 
 	// The count of leading exports settled: accepted by the collector or
 	// refused for a reason about the export. Exports from this index on are
-	// the caller's to resend.
+	// the caller's to resend. Unset means zero exports settled.
 	Settled *uint32
 }
 

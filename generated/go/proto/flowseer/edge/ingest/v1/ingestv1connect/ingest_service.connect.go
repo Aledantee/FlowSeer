@@ -47,7 +47,7 @@ type IngestServiceClient interface {
 	// records central holds or refused for a reason about the record. A
 	// failure that is not about a record, such as a full stream or a publish
 	// error, ends the count at the last settled record and the call still
-	// answers. The caller resends from the first unsettled record; a record
+	// answers. The caller resends from the first unsettled record. A record
 	// delivered twice is stored once under its record id.
 	Deliver(context.Context, *connect.Request[v1.DeliverRequest]) (*connect.Response[v1.DeliverResponse], error)
 }
@@ -88,7 +88,7 @@ type IngestServiceHandler interface {
 	// records central holds or refused for a reason about the record. A
 	// failure that is not about a record, such as a full stream or a publish
 	// error, ends the count at the last settled record and the call still
-	// answers. The caller resends from the first unsettled record; a record
+	// answers. The caller resends from the first unsettled record. A record
 	// delivered twice is stored once under its record id.
 	Deliver(context.Context, *connect.Request[v1.DeliverRequest]) (*connect.Response[v1.DeliverResponse], error)
 }
