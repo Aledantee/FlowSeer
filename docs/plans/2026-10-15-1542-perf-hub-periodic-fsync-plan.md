@@ -41,11 +41,18 @@ versions `go.mod` pins.
 - `BenchmarkDeliver` (`I/handler_bench_test.go`) gains a pass floor of
   30,000 records/s. (decided by the user, 2026-10-15)
 - Amend the device service record's power-loss rule, scoped to ingest and
-  evidence records only. Central's single-node hub accepts losing up to
-  about one 100 ms sync interval of acknowledged records on power loss,
-  records the edge has already deleted. Process crash loses nothing
-  acknowledged. (decided by the user, 2026-10-15) See the blocker under Open
-  questions: async persistence breaks the process-crash sentence.
+  evidence records only. Ingest and evidence records are non-critical data.
+  Central's single-node hub accepts losing about one 100 ms sync interval
+  of acknowledged ones on power loss, records the edge has already deleted.
+  On a central process crash, losing the acknowledged ingest and evidence
+  records still in the unflushed buffer (about 15 ms per stream, not a hard
+  bound) is accepted. The journal, lane, audit, operator streams, and KV
+  keep per-message sync and lose nothing acknowledged. (decided by the
+  user, 2026-10-15)
+- Durability assumes HA ("we assume HA"). Production central is assumed to
+  run clustered (decision 5: R3, default persist mode, `sync_interval:
+  100ms`). The single-node hub's ingest loss windows are accepted on that
+  basis. (decided by the user, 2026-10-15)
 - Clustered central (the HA plans) uses R3 streams with periodic fsync (the
   same 100 ms interval) and relies on replication for durability. The
   residual risk: a power cut that hits every replica at once can lose
@@ -159,11 +166,11 @@ Change: the typed ingest and evidence stream configurations set
 `opts.SyncInterval` to a 100 ms package constant when the policy is
 per-message, and the `FsyncPolicy` comment says so, as does `applyFsync`'s
 comment (`E/fsync.go:16-18`). `E/README.md` Durability states which
-streams persist asynchronously, the 100 ms sync, the loss on power loss and
-on a crash as the blocker settles it, the consumer redelivery after a power
-cut, and that an older store refuses to start. The device service record's hub bullet
-(`:436-443`), `:341-342`, and `:551` say the same and keep the Jepsen
-finding as history, with an Amendments entry and `updated: 2026-10-15`. Its
+streams persist asynchronously, the 100 ms sync, the accepted loss on
+power loss and on a crash, the consumer redelivery after a power cut, and
+that an older store refuses to start. The device service record's hub bullet
+(`:436-443`), `:341-342`, and `:551` say the same, state that durability
+assumes HA, and keep the Jepsen finding as history, with an Amendments entry and `updated: 2026-10-15`. Its
 local bus section (`:449-479`) stays. The edge delivery record's first Open
 question (`:148-157`) becomes a Consequences line with the
 `BenchmarkDeliver` rate and its command.
@@ -219,7 +226,8 @@ replicated streams, and durability relies on replication. Its Alternatives
 gain R3 with `sync_interval: always`. Its Consequences quote both loss
 modes the NATS concepts page names (several servers failing at once, and
 one OS-failed server rejoining a partitioned one as a majority) and say
-what they leave of the criterion at `:48`. Its Sources add both NATS pages.
+what they leave of the criterion at `:48`. It and the deployment record
+state that durability assumes production central runs clustered. Its Sources add both NATS pages.
 The deployment record's `:106-107` and the deployment phase 2 plan's NATS
 decision (`:29-34`) and requirement 6 (`:67-70`, its sentence included) say
 `sync_interval: 100ms`.
@@ -260,27 +268,9 @@ uv run tools/scripts/run.py verify change -- <every changed path>
 
 ## Open questions
 
-- Blocker: decision 4's "Process crash loses nothing acknowledged" does not
-  hold for async-persist streams. The server's own comment says writes
-  "could be lost if they weren't flushed prior to a hard kill of the server"
-  (`NS/stream.go:193-195`). The ack goes out before the write reaches the
-  operating system (`NS/filestore.go:7800`, flush in place is off). The
-  flush loop sleeps 1, 2, 4, then 8 ms while fewer than 16 KiB wait, so up
-  to about 15 ms, with no byte cap under load (`NS/filestore.go:344-347`,
-  `:6751-6764`). Recovery expects lost unflushed blocks
-  (`NS/filestore.go:538-540`). The hub runs in central's process, so a
-  central crash is a hard kill. Options:
-  1. Accept it and amend the sentence: a crash can lose the ingest and
-     evidence records acknowledged in roughly the last 15 ms per stream, a
-     bound the flush cadence does not guarantee. Recommended: no code beyond
-     this plan, and the window is a fraction of the accepted power-loss one.
-  2. Replace decision 1: run ingest and evidence in default persist mode on
-     a second embedded JetStream server with periodic sync at 100 ms, where
-     writes reach the operating system before the ack. The crash sentence
-     holds, and the edge delivery record measured about 42,000 records/s
-     under periodic sync (`:153`). It voids the `SyncInterval` and older-store
-     decisions, requirement 1, and U1, and costs a second server, account,
-     budget, and the intake and history sink wiring.
+- What the 100 ms sync timer costs the per-message journal and KV streams,
+  whose compaction and idle-file checks now run every 100 ms instead of
+  every 2 minutes (`NS/filestore.go:8253-8271`). Unmeasured.
 - Target-hardware rates are unverified. The measurements below were taken
   on an Apple M3 Pro under darwin, where Go syncs with `F_FULLFSYNC`.
 - Whether a stalled publish deserves its own retry reason.
