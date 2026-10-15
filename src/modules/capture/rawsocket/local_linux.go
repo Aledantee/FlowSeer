@@ -3,31 +3,15 @@
 package rawsocket
 
 import (
-	"context"
 	"encoding/binary"
-	"errors"
 	"net"
-	"sync"
 	"time"
 
 	"golang.org/x/net/bpf"
 	"golang.org/x/sys/unix"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
-	"go.aledante.io/FlowSeer/src/common/spawn"
 )
-
-// pollTimeout is the per-poll wait. It bounds how long a blocked Receive
-// stays unaware of ctx cancellation: the loop checks ctx.Done() after each
-// poll returns, so cancellation lands within this window. It also matches
-// SO_RCVTIMEO, so a blocking Recvmsg returns EAGAIN on its own rather than
-// blocking indefinitely.
-const pollTimeout = 100 * time.Millisecond
-
-// maxFrameLen bounds the receive buffer. It exceeds any Ethernet frame,
-// jumbo frames included; MSG_TRUNC still reports a longer wire length if one
-// somehow arrives, so truncation is never silent.
-const maxFrameLen = 65536
 
 // packetSocket is the syscall surface local_linux.go needs, seamed out so
 // the Receive-loop logic is tested without a real socket or CAP_NET_RAW.
@@ -70,20 +54,6 @@ func (s *fdSocket) stats() (uint64, uint64, error) {
 
 func (s *fdSocket) close() error {
 	return unix.Close(s.fd)
-}
-
-// linuxLocalSource wraps a packetSocket behind the LocalSource contract.
-//
-// mu guards sock access and the closed flag; a poll and a Close cannot race
-// each other into a use-after-close. done wakes a Receive blocked trying to
-// send to an abandoned consumer.
-type linuxLocalSource struct {
-	sock packetSocket
-	vm   *bpf.VM
-
-	mu     sync.Mutex // guards sock and closed
-	closed bool
-	done   chan struct{}
 }
 
 func openLocalInterface(iface string, promiscuous bool, prog []bpf.RawInstruction) (Source, error) {
@@ -166,119 +136,50 @@ func openLocalInterface(iface string, promiscuous bool, prog []bpf.RawInstructio
 	return src, nil
 }
 
-func newLinuxLocalSource(sock packetSocket) *linuxLocalSource {
-	return &linuxLocalSource{sock: sock, done: make(chan struct{})}
+func newLinuxLocalSource(sock packetSocket) *localSource {
+	return newLocalSource(&linuxFrameReader{sock: sock, oob: make([]byte, unix.CmsgSpace(20))})
 }
 
-// Receive closes its channel after cancellation or Close, even if the
-// consumer stops reading. Terminal error delivery is best effort.
-func (s *linuxLocalSource) Receive(ctx context.Context) <-chan Frame {
-	frames := make(chan Frame, 1)
-
-	// frames is closed exactly once, from whichever of these two paths
-	// reaches it first: recvLoop's own return (fn's literal statement,
-	// after recvLoop is done sending), or the panic sink. Neither is a
-	// deferred close inside recvLoop itself — a deferred close there would
-	// already have run, during the panic's own unwind, by the time the sink
-	// fires, and closing frames twice panics.
-	spawn.Go(ctx, "rawsocket.linuxLocalSource.Receive", func() {
-		s.recvLoop(ctx, frames)
-		close(frames)
-	}, spawn.ReportTo(func(err error) {
-		// A terminal Frame here is best effort, same as every other exit
-		// from recvLoop; the caller does not depend on it, since an
-		// unattributed close it did not itself request already reads as an
-		// error (Engine.run: "source closed its frame channel
-		// unexpectedly").
-		sendTerminal(frames, Frame{Err: err})
-		close(frames)
-	}))
-
-	return frames
+type linuxFrameReader struct {
+	sock packetSocket
+	oob  []byte
 }
 
-// recvLoop is Receive's goroutine body, factored out so Receive can close
-// frames itself after recvLoop returns rather than deferring the close
-// inside it. See the ordering comment at the call site.
-func (s *linuxLocalSource) recvLoop(ctx context.Context, frames chan<- Frame) {
-	buf := make([]byte, maxFrameLen)
-	oob := make([]byte, unix.CmsgSpace(20))
-	for {
-		select {
-		case <-ctx.Done():
-			sendTerminal(frames, Frame{Err: ctx.Err()})
-			return
-		case <-s.done:
-			return
-		default:
+func (r *linuxFrameReader) readFrame(buf []byte) ([]byte, int, time.Time, bool, error) {
+	n, oobn, flags, err := r.sock.recvmsg(buf, r.oob)
+	if err != nil {
+		if isRetryable(err) {
+			return nil, 0, time.Time{}, true, err
 		}
-
-		n, oobn, flags, open, err := s.receiveOnce(buf, oob)
-		if !open {
-			// Close always closes done before releasing the lock, so
-			// reaching here means the <-s.done case above lost this
-			// iteration's select race, not that anything failed: a
-			// clean shutdown, no terminal error frame.
-			return
-		}
-
-		if err != nil {
-			if isRetryable(err) {
-				select {
-				case <-ctx.Done():
-					sendTerminal(frames, Frame{Err: ctx.Err()})
-					return
-				default:
-					continue
-				}
-			}
-			sendTerminal(frames, Frame{Err: errs.From(err).
-				Code(ErrCodeSourceOpen).
-				Msg("recvmsg")})
-			return
-		}
-		if flags&unix.MSG_CTRUNC != 0 {
-			sendTerminal(frames, Frame{Err: errs.New().
-				Code(ErrCodeSourceOpen).
-				Msg("packet auxiliary data truncated")})
-			return
-		}
-
-		captured := n
-		if captured > len(buf) {
-			// MSG_TRUNC: the wire frame was longer than the buffer.
-			captured = len(buf)
-		}
-		data, originalLength, err := restoreVLAN(buf[:captured], n, oob[:oobn])
-		if err != nil {
-			sendTerminal(frames, Frame{Err: errs.From(err).
-				Code(ErrCodeSourceOpen).
-				Msg("restore VLAN header")})
-			return
-		}
-		if s.vm != nil {
-			accepted, err := s.vm.Run(data)
-			if err != nil {
-				sendTerminal(frames, Frame{Err: errs.From(err).
-					Code(ErrCodeSourceOpen).
-					Msg("run local interface filter")})
-				return
-			}
-			if accepted == 0 {
-				continue
-			}
-		}
-
-		f := Frame{Data: data, OriginalLength: uint32(originalLength), CapturedAt: time.Now()}
-		select {
-		case frames <- f:
-		case <-ctx.Done():
-			sendTerminal(frames, Frame{Err: ctx.Err()})
-			return
-		case <-s.done:
-			return
-		}
+		return nil, 0, time.Time{}, false, errs.From(err).
+			Code(ErrCodeSourceOpen).
+			Msg("recvmsg")
 	}
+	if flags&unix.MSG_CTRUNC != 0 {
+		return nil, 0, time.Time{}, false, errs.New().
+			Code(ErrCodeSourceOpen).
+			Msg("packet auxiliary data truncated")
+	}
+	captured := n
+	if captured > len(buf) {
+		// MSG_TRUNC reports a wire length beyond the captured bytes.
+		captured = len(buf)
+	}
+	data, wireLength, err := restoreVLAN(buf[:captured], n, r.oob[:oobn])
+	if err != nil {
+		return nil, 0, time.Time{}, false, errs.From(err).
+			Code(ErrCodeSourceOpen).
+			Msg("restore VLAN header")
+	}
+	return data, wireLength, time.Now(), false, nil
+}
+
+func (r *linuxFrameReader) stats() (uint64, uint64, error) {
+	return r.sock.stats()
+}
+
+func (r *linuxFrameReader) close() error {
+	return r.sock.close()
 }
 
 func restoreVLAN(frame []byte, originalLength int, oob []byte) ([]byte, int, error) {
@@ -318,84 +219,3 @@ func restoreVLAN(frame []byte, originalLength int, oob []byte) ([]byte, int, err
 	copy(data, frame)
 	return data, originalLength, nil
 }
-
-// Stats reports counts since the last call. PACKET_STATISTICS resets the
-// kernel's own counters to zero on each read, so this method's return
-// values are a delta, not a running total; a caller that wants a running
-// total accumulates the deltas itself. Stats shares a lock with an
-// in-flight Receive poll, so a call can block for up to one poll interval
-// (100ms).
-func (s *linuxLocalSource) Stats() (received, droppedByInterface uint64, err error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if s.closed {
-		return 0, 0, errs.New().
-			Code(ErrCodeSourceOpen).
-			Msg("stats on closed source")
-	}
-	packets, drops, err := s.sock.stats()
-	if err != nil {
-		return 0, 0, errs.From(err).
-			Code(ErrCodeSourceOpen).
-			Msg("packet statistics")
-	}
-	return packets, drops, nil
-}
-
-// Close waits for an active poll before releasing the socket (up to one
-// poll interval, 100ms), then wakes any receiver waiting for its consumer.
-// Repeated calls do nothing.
-func (s *linuxLocalSource) Close() error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if s.closed {
-		return nil
-	}
-
-	err := s.sock.close()
-	s.closed = true
-	close(s.done)
-	return err
-}
-
-// An abandoned consumer must not strand Receive on the final error frame.
-// receiveOnce performs one guarded read. open is false when the source has
-// been closed under the lock, which is a clean shutdown rather than an error.
-//
-// The lock is released by a defer because this runs on a supervised
-// goroutine: a panic in recvmsg is recovered, so a release written after the
-// call would be skipped and s.mu would stay held for the life of the process.
-// Stats and Close both take it, so the capture engine would block there
-// forever — a hang in place of the crash the recovery replaced.
-func (s *linuxLocalSource) receiveOnce(buf, oob []byte) (n, oobn, flags int, open bool, err error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if s.closed {
-		return 0, 0, 0, false, nil
-	}
-	n, oobn, flags, err = s.sock.recvmsg(buf, oob)
-	return n, oobn, flags, true, err
-}
-
-func sendTerminal(frames chan<- Frame, f Frame) {
-	select {
-	case frames <- f:
-	default:
-	}
-}
-
-// isRetryable reports whether err means "no data this poll, try again"
-// rather than a real failure: SO_RCVTIMEO's own timeout (EAGAIN/EWOULDBLOCK)
-// or a signal interrupting the blocked receive (EINTR). signal(7) states
-// that a socket with SO_RCVTIMEO set always returns EINTR on a signal,
-// never restarting the call regardless of SA_RESTART, and the Go runtime's
-// own asynchronous goroutine preemption (SIGURG) and profiling signals make
-// that a routine event during a long poll, not an edge case.
-func isRetryable(err error) bool {
-	return errors.Is(err, unix.EAGAIN) || errors.Is(err, unix.EWOULDBLOCK) || errors.Is(err, unix.EINTR)
-}
-
-var _ Source = (*linuxLocalSource)(nil)
