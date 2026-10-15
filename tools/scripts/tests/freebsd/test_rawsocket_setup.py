@@ -1,6 +1,7 @@
 import os
 import subprocess
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -83,6 +84,19 @@ class RawsocketSetupTests(unittest.TestCase):
     def up(self, **kwargs):
         return self.run_setup("up", **kwargs)
 
+    def wait_for_calls(self, *wanted):
+        """Returns the call log once it holds every wanted call.
+
+        The script backgrounds its pings, so their shim lines can land after
+        the script exits.
+        """
+        deadline = time.monotonic() + 4
+        while True:
+            calls = self.log.read_text().splitlines()
+            if all(call in calls for call in wanted) or time.monotonic() > deadline:
+                return calls
+            time.sleep(0.02)
+
     def test_down_stops_pings_removes_jail_and_destroys_interfaces(self):
         done = self.down(ping_exited=True)
         self.assertEqual(done.returncode, 0, done.stderr)
@@ -95,6 +109,20 @@ class RawsocketSetupTests(unittest.TestCase):
         self.assertIn("ifconfig epair0a destroy", calls)
         self.assertIn("ifconfig epair1a destroy", calls)
         self.assertFalse(self.pidfile.exists())
+
+    def test_down_removes_jail_before_destroying_interfaces(self):
+        # The guest sees epair1a only after jail -r returns it, and
+        # destroy_iface treats an invisible interface as gone, so a destroy
+        # that runs first leaks epair1 while down still exits 0.
+        done = self.down(ping_exited=True)
+        self.assertEqual(done.returncode, 0, done.stderr)
+        calls = self.log.read_text().splitlines()
+        jail_removed = calls.index("jail -r rawsocket")
+        destroys = [i for i, call in enumerate(calls)
+                    if call.startswith("ifconfig ") and call.endswith(" destroy")]
+        self.assertEqual(len(destroys), 4, calls)
+        for index in destroys:
+            self.assertLess(jail_removed, index, calls)
 
     def test_down_after_failed_stop_pings_still_removes_jail_and_interfaces_and_fails(self):
         done = self.down(ping_exited=False)
@@ -153,6 +181,22 @@ class RawsocketSetupTests(unittest.TestCase):
         self.assertIn("ifconfig vxlan0 create vxlanid 42 vxlanlocal 10.99.0.1 vxlanremote 10.99.0.2", calls)
         self.assertIn("ifconfig gre0 create tunnel 10.99.0.1 10.99.0.2", calls)
         self.assertTrue(self.pidfile.exists())
+
+    def test_up_cleans_up_before_creating_interfaces(self):
+        done = self.up(ping_exited=True)
+        self.assertEqual(done.returncode, 0, done.stderr)
+        calls = self.log.read_text().splitlines()
+        first_create = calls.index("ifconfig epair0 create")
+        self.assertLess(calls.index("kill -TERM 424242"), first_create, calls)
+        self.assertLess(calls.index("jail -r rawsocket"), first_create, calls)
+
+    def test_up_starts_both_pings(self):
+        done = self.up(ping_exited=True)
+        self.assertEqual(done.returncode, 0, done.stderr)
+        calls = self.wait_for_calls(
+            "nohup ping -i 0.5 10.99.42.2", "nohup ping -i 0.5 10.99.100.2")
+        self.assertIn("nohup ping -i 0.5 10.99.42.2", calls)
+        self.assertIn("nohup ping -i 0.5 10.99.100.2", calls)
 
     def test_up_keeps_ping_pids_and_stops_when_pings_cannot_exit(self):
         done = self.up(ping_exited=False)
