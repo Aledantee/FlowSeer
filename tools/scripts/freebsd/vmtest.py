@@ -107,16 +107,22 @@ def run_suite(name: str, goarch: str, scratch: Path) -> int:
     try:
         if suite.setup:
             status = guest(f"sudo sh {shlex.quote(remote_setup)} up").returncode
-            if status != 0:
-                return status
-        env = [f"{key}={value}" for key, value in suite.env.items()]
-        test = ["sudo", "env", *env, remote_binary, "-test.v", *suite.test_args]
-        return guest(shlex.join(test)).returncode
+        if status == 0:
+            env = [f"{key}={value}" for key, value in suite.env.items()]
+            test = ["sudo", "env", *env, remote_binary, "-test.v", *suite.test_args]
+            status = guest(shlex.join(test)).returncode
     finally:
         # The pair must not outlive a failed run, since the next run
         # creates it again.
         if suite.setup:
-            guest(f"sudo sh {shlex.quote(remote_setup)} down")
+            teardown_status = guest(f"sudo sh {shlex.quote(remote_setup)} down").returncode
+            if teardown_status != 0:
+                print(
+                    f"vmtest: suite {name} teardown failed with status {teardown_status}",
+                    file=sys.stderr,
+                )
+                status = status or teardown_status
+    return status
 
 
 def main(argv: list[str]) -> int:

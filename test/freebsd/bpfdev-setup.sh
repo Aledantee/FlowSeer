@@ -17,12 +17,14 @@ stop_capture() {
 	if [ -z "${FLOWSEER_BPFDEV_FIXTURE_DIR:-}" ] || [ ! -f "$pidfile" ]; then
 		return 0
 	fi
-	pid=$(cat "$pidfile")
-	rm -f "$pidfile"
-	kill -TERM "$pid" 2>/dev/null || return 0
+	pid=$(cat "$pidfile") || return $?
+	kill -TERM "$pid" 2>/dev/null || :
 	for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
-		kill -0 "$pid" 2>/dev/null || return 0
-		sleep 0.25
+		if ! kill -0 "$pid" 2>/dev/null; then
+			rm -f "$pidfile"
+			return $?
+		fi
+		sleep 0.25 || return $?
 	done
 	echo "tcpdump $pid did not exit" >&2
 	return 1
@@ -71,8 +73,10 @@ up)
 	fi
 	;;
 down)
-	stop_capture
-	destroy
+	status=0
+	stop_capture || status=1
+	destroy || status=1
+	exit "$status"
 	;;
 *)
 	echo "usage: sh bpfdev-setup.sh up|down" >&2
