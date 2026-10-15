@@ -66,27 +66,6 @@ func Open(iface string, cfg Config) (*Device, error) {
 	return d, nil
 }
 
-// resolve applies the defaults and refuses negative values.
-func (c Config) resolve() (bufLen int, timeout time.Duration, err error) {
-	if c.BufferLen < 0 || c.BufferLen > int(^uint32(0)) {
-		return 0, 0, errs.New().Attr("buffer_len", c.BufferLen).Msg("buffer length out of range")
-	}
-	if c.ReadTimeout < 0 {
-		return 0, 0, errs.New().Attr("read_timeout", c.ReadTimeout.String()).Msg("read timeout is negative")
-	}
-	if c.Direction > DirectionOut {
-		return 0, 0, errs.New().Attr("direction", uint32(c.Direction)).Msg("unknown direction")
-	}
-	bufLen, timeout = c.BufferLen, c.ReadTimeout
-	if bufLen == 0 {
-		bufLen = DefaultBufferLen
-	}
-	if timeout == 0 {
-		timeout = DefaultReadTimeout
-	}
-	return bufLen, timeout, nil
-}
-
 func configure(fd int, iface string, cfg Config, bufLen int, timeout time.Duration) (*Device, error) {
 	// BIOCSBLEN is _IOWR: the kernel clamps the request and writes the size
 	// back, and a read of any other size fails with EINVAL (bpf(4)).
@@ -109,10 +88,11 @@ func configure(fd int, iface string, cfg Config, bufLen int, timeout time.Durati
 		return nil, openError(iface, err).Msg("BIOCIMMEDIATE")
 	}
 
-	// BIOCSRTIMEOUT stores tvtohz(tv) - 1 as bd_rtout, and tvtohz truncates
-	// to whole ticks plus one (sys/kern/kern_clock.c), so a timeout under one
-	// tick stores zero, which bpf.c reads as no timeout and Close would then
-	// wait forever on the read. Raise it to one tick.
+	// BIOCSRTIMEOUT stores tvtohz(tv) - 1 as bd_rtout (sys/net/bpf.c), and
+	// tvtohz truncates to whole ticks plus one (sys/kern/kern_clock.c), so a
+	// timeout under one tick stores zero, which bpfread hands to msleep as no
+	// timeout and Close would then wait forever on the read. Raise it to one
+	// tick.
 	hz, err := unix.SysctlUint32("kern.hz")
 	if err != nil {
 		return nil, openError(iface, err).Msg("sysctl kern.hz")
@@ -120,7 +100,7 @@ func configure(fd int, iface string, cfg Config, bufLen int, timeout time.Durati
 	if hz == 0 {
 		return nil, errs.New().Code(ErrCodeOpen).Attr("iface", iface).Msg("kern.hz is zero")
 	}
-	timeout = max(timeout, time.Second/time.Duration(hz))
+	timeout = max(timeout, minReadTimeout(hz))
 	tv := unix.NsecToTimeval(timeout.Nanoseconds())
 	if err := ioctlPtr(fd, unix.BIOCSRTIMEOUT, unsafe.Pointer(&tv)); err != nil {
 		return nil, openError(iface, err).Msg("BIOCSRTIMEOUT")

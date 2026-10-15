@@ -286,6 +286,13 @@ func TestDeviceOpenRefusesNegativeReadTimeout(t *testing.T) {
 	}
 }
 
+func TestDeviceOpenRefusesReadTimeoutOverOneHour(t *testing.T) {
+	_, err := Open(ifaceFromEnv(t, envA), Config{ReadTimeout: time.Hour + 1})
+	if !errors.Is(err, errs.New().Code(ErrCodeOpen).Msg("")) {
+		t.Errorf("Open error = %v, want code %q", err, ErrCodeOpen)
+	}
+}
+
 func TestDeviceCloseDuringReadDefaultTimeout(t *testing.T) {
 	d := openDevice(t, ifaceFromEnv(t, envB), Config{ReadFilter: nothingFilter()})
 
