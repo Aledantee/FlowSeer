@@ -193,6 +193,8 @@ func TestNeedFieldsPerBehavior(t *testing.T) {
 		{"vrrp", check.Target{}, check.ErrCodeTargetMissing, "the check needs: --vrid <n>, --vip <ip>"},
 		{"icmpredirect", check.Target{}, check.ErrCodeTargetMissing, "the check needs: --victim <ip>,<mac>, --gateway <ip>,<mac>"},
 		{"llmnr", check.Target{}, check.ErrCodeTargetMissing, "the check needs: --victim <ip>,<mac>"},
+		{"llmnr victim without MAC", check.Target{Victim: check.Host{IP: net.IPv4(172, 16, 0, 10)}}, check.ErrCodeTargetMissing, "the check needs: --victim <ip>,<mac>"},
+		{"icmpredirect victim without MAC", check.Target{Victim: check.Host{IP: net.IPv4(172, 16, 0, 10)}, Gateway: check.Host{IP: net.IPv4(172, 16, 0, 1)}}, check.ErrCodeTargetMissing, "the check needs: --victim <ip>,<mac>"},
 		{"glbp", check.Target{}, check.ErrCodeTargetMissing, "the check needs: --group <n>, --vip <ip>"},
 		{"hsrp group 300", check.Target{Group: new(uint16(300)), VirtualIP: net.IPv4(10, 0, 0, 1)}, check.ErrCodeTargetInvalid, "the check needs: --group at most 255"},
 	}

@@ -116,7 +116,7 @@ func RunOSPF(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	}
 
 	// Phase 4: LSA Update (inject route).
-	injectSeq := uint32(0x80000001) // Fixture sequence
+	injectSeq := uint32(0x80000001) // The probe's LSA sequence, which the flush repeats.
 	lsaUpdatePkt, err := craftLSAUpdate(addr, routerID, areaID, injectSeq)
 	if err != nil {
 		return check.Verdict{}, errs.Wrap(err, "ospf: craft lsa update")
@@ -373,7 +373,7 @@ func craftLSAFlush(addr link.Addr, routerID, areaID uint32) ([]byte, error) {
 	lsaHeader[3] = byte(layers.RouterLSAtypeV2)
 	binary.BigEndian.PutUint32(lsaHeader[4:8], routerID)
 	binary.BigEndian.PutUint32(lsaHeader[8:12], routerID)
-	binary.BigEndian.PutUint32(lsaHeader[12:16], 0x80000001)       // Fixture sequence
+	binary.BigEndian.PutUint32(lsaHeader[12:16], 0x80000001)       // The injected LSA's sequence
 	binary.BigEndian.PutUint16(lsaHeader[18:20], ospfLSAHeaderLen) // length = header only
 	binary.BigEndian.PutUint16(lsaHeader[16:18], ospfLSAChecksum(lsaHeader))
 

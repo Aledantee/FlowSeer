@@ -1,8 +1,8 @@
 // voicevlan.go implements the voice-VLAN hijack check. The base entry is
 // impact temporary, restore active, affects clients: the LLDP-MED frame
 // advertises a voice-VLAN network policy that compliant phones follow, and
-// the armed restore step is a no-op that names the host work a later
-// version does. The persist mode is impact permanent with no restore.
+// the armed restore step is a no-op. The persist mode is impact permanent
+// with no restore.
 
 package l2
 

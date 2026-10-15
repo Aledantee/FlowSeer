@@ -63,8 +63,8 @@ var (
 	dhcpClientIP  = net.IPv4(172, 16, 0, 10)
 	dhcpOfferIP   = net.IPv4(172, 16, 0, 100)
 
-	// Fixed xids keep the fixture bytes stable. Field-set comparisons
-	// mask them anyway, since a live run picks them at random.
+	// Fixed xids keep the fixture bytes stable and match the behaviors'
+	// own constants, which a live run sends unchanged.
 	dhcpXid   uint32 = 0x12345678
 	dhcpv6Xid        = []byte{0x00, 0x11, 0x22}
 )

@@ -1,7 +1,7 @@
 // etherchannel.go implements the EtherChannel (LACP/PAgP) check. Impact
 // temporary, restore active, affects device: the LACP and PAgP frames
 // offer the switch a link aggregation partner, and the armed port-channel
-// release step is a no-op that names the host work a later version does.
+// release step is a no-op.
 //
 // The baseline (l2l3-audit) does not carry an EtherChannel attack. The
 // LACP/PAgP craft is authored from IEEE 802.1AX and Cisco/Wireshark specs.

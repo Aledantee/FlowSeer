@@ -337,22 +337,26 @@ func arpFrame() []byte {
 }
 
 // TestOSPF_HelloBehindAnARPFrameIsRead pins that an unrelated frame ahead of
-// the target's hello does not end the observation: the hello behind it is
-// read and the sequence proceeds at once rather than at the window.
+// the target's hello does not end the observation: the ARP frame is
+// skipped, the hello that arrives one second later is read, and the
+// sequence proceeds then rather than at the window.
 func TestOSPF_HelloBehindAnARPFrameIsRead(t *testing.T) {
 	hello := fixturePackets(t, "ospf_target.pcap")[0]
 	synctest.Test(t, func(t *testing.T) {
 		leg := fixtureLeg(t)
 		leg.PushRX(arpFrame())
-		leg.PushRX(hello)
+		go func() {
+			time.Sleep(time.Second)
+			leg.PushRX(hello)
+		}()
 		deps, td := directDeps(leg, 3*time.Second)
 		start := time.Now()
 		v, err := routing.RunOSPF(context.Background(), deps)
 		if err != nil {
 			t.Fatalf("RunOSPF() error = %v, want nil", err)
 		}
-		if elapsed := time.Since(start); elapsed != 0 {
-			t.Errorf("returned after %v, want 0 with the hello already queued", elapsed)
+		if elapsed := time.Since(start); elapsed != time.Second {
+			t.Errorf("returned after %v, want 1s, when the hello arrived", elapsed)
 		}
 		if v.Kind != findings.VerdictPending {
 			t.Errorf("verdict = %+v, want pending", v)
@@ -386,22 +390,26 @@ func TestOSPF_NoHelloProceedsAtTheWindow(t *testing.T) {
 }
 
 // TestEIGRP_GoodbyeBehindAnotherFrameIsRead pins that a non-matching first
-// frame does not end the observation: the goodbye behind it is read and
-// the verdict is resisted with no inject sent, and the goodbye teardown
-// was armed under its name.
+// frame does not end the observation: the ARP frame is skipped, the
+// goodbye that arrives one second later is read, the verdict is resisted
+// at that moment with no inject sent, and the goodbye teardown was armed
+// under its name.
 func TestEIGRP_GoodbyeBehindAnotherFrameIsRead(t *testing.T) {
 	goodbye := fixturePackets(t, "eigrp_reject.pcap")[0]
 	synctest.Test(t, func(t *testing.T) {
 		leg := fixtureLeg(t)
 		leg.PushRX(arpFrame())
-		leg.PushRX(goodbye)
+		go func() {
+			time.Sleep(time.Second)
+			leg.PushRX(goodbye)
+		}()
 		deps, td := directDeps(leg, 3*time.Second)
 		v, err := routing.RunEIGRP(context.Background(), deps)
 		if err != nil {
 			t.Fatalf("RunEIGRP() error = %v, want nil", err)
 		}
-		if v.Kind != findings.VerdictResisted || v.Observed != 0 {
-			t.Errorf("verdict = %+v, want resisted at once on the goodbye", v)
+		if v.Kind != findings.VerdictResisted || v.Observed != time.Second {
+			t.Errorf("verdict = %+v, want resisted at 1s, when the goodbye arrived", v)
 		}
 		if n := leg.SendCount(); n != 1 {
 			t.Errorf("sends = %d, want 1 (the hello only)", n)

@@ -594,6 +594,38 @@ func TestInterruptAfterReturnKeepsTheVerdict(t *testing.T) {
 	}
 }
 
+// TestInterruptBeforeAnAttackEmitsNoRecordForIt pins that an interrupt
+// that engaged before the dispatch loop reaches an attack stops the loop
+// ahead of that attack's gate, so no announcement and no verdict names an
+// attack that never ran. The interrupt lands before Run, where the stop
+// context's cancellation reaches the run context on another goroutine,
+// so only the loop's own check keeps the gate from running.
+func TestInterruptBeforeAnAttackEmitsNoRecordForIt(t *testing.T) {
+	for i := range 50 {
+		leg := newMockLeg()
+		r := newRunner(runner.Options{
+			AttackLeg: leg,
+			Attacks:   []runner.AttackRef{{Name: "gratarp"}},
+		}, map[string]check.Run{
+			"gratarp": func(_ context.Context, _ check.Deps) (check.Verdict, error) {
+				return pending, nil
+			},
+		})
+		r.Interrupt()
+		recs, err := drainStreamAsync(context.Background(), r)
+		r.Wait()
+		_ = leg.Close()
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("iteration %d: Run error = %v, want %v", i, err, context.Canceled)
+		}
+		for _, rec := range recs {
+			if rec.Attack == "gratarp" {
+				t.Fatalf("iteration %d: a %s record for gratarp after the interrupt", i, rec.Kind)
+			}
+		}
+	}
+}
+
 // TestInterruptYieldsVerdictAndCanceled pins that an interrupted attack
 // gets one verdict, pending with the detail "interrupted", and that Run
 // returns context.Canceled on every iteration rather than by the

@@ -178,19 +178,40 @@ func TestFirstEndsEarlyOnAClosedChannel(t *testing.T) {
 	})
 }
 
+// closedLeg is a leg whose Receive hands back a channel that is already
+// closed, so a select between the context and the channel has both ready.
+type closedLeg struct {
+	*testtest.Leg
+}
+
+func (l closedLeg) Receive(context.Context) <-chan link.Frame {
+	ch := make(chan link.Frame)
+	close(ch)
+	return ch
+}
+
 // TestFirstCancellationWinsOverAClosedChannel pins that a canceled context
-// is reported as ctx.Err() even though cancellation also closes the leg's
-// channel, so a caller never mistakes its own stop for a quiet leg.
+// is reported as ctx.Err() even when the leg's channel is already closed,
+// so a caller never mistakes its own stop for a quiet leg. The select
+// picks among ready cases at random, so the call is repeated until both
+// branches have been taken.
 func TestFirstCancellationWinsOverAClosedChannel(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
-		leg := newExitLeg(t)
+		leg := closedLeg{Leg: testtest.New()}
+		t.Cleanup(func() { _ = leg.Close() })
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
-		_, _, err := check.First(ctx, leg, 5*time.Second, isWanted)
-		if !errors.Is(err, context.Canceled) {
+		for range 50 {
+			_, _, err := check.First(ctx, leg, 5*time.Second, isWanted)
+			if !errors.Is(err, context.Canceled) {
+				t.Fatalf("First() error = %v, want %v", err, context.Canceled)
+			}
+		}
+		exit := newExitLeg(t)
+		if _, _, err := check.First(ctx, exit, 5*time.Second, isWanted); !errors.Is(err, context.Canceled) {
 			t.Errorf("First() error = %v, want %v", err, context.Canceled)
 		}
-		if !leg.exited.Load() {
+		if !exit.exited.Load() {
 			t.Error("the receiver was still running when First returned")
 		}
 	})

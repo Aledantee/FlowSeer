@@ -1,10 +1,10 @@
 // portsteal.go implements the port-steal ARP spoofing check. The base
 // entry is impact temporary, restore decay with no stated bound, affects
-// device: the gratuitous ARP replies move the victim's address to the
-// attack leg's port in the switch's CAM table, and the entry ages out on
-// the switch's own timer. The relay mode is impact temporary, restore
-// active, affects device: it arms an ip_forward restore step that does no
-// host work.
+// device: the gratuitous ARP replies, sent from the attack leg's MAC,
+// claim the victim's address at that MAC in the caches of the hosts that
+// take them, and those entries age out on the hosts' own timers. The
+// relay mode is impact temporary, restore active, affects device: it arms
+// an ip_forward restore step that does no host work.
 
 package l2
 

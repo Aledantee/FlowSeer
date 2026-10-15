@@ -1,7 +1,8 @@
 // helpers.go holds shared constants and frame-craft helpers used across
 // L2 behaviors: well-known multicast MACs, and the LLC/SNAP envelope builder
 // for Cisco-proprietary protocols (DTP, VTP, PAgP). The source MAC of every
-// frame comes from the attack leg's address.
+// frame comes from the attack leg's address, except the stamped source
+// MACs of camflood's flood frames.
 
 package l2
 

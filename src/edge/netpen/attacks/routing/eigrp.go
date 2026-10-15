@@ -55,7 +55,7 @@ type eigrpFinding struct {
 // from the attack leg's own addresses, with a goodbye teardown armed before
 // the first frame. The autonomous system number and the metric are probe
 // content. A response carrying the Goodbye flag within the window is a
-// refused adjacency, which the verdict reports as resisted; frames that do
+// refused adjacency, which the verdict reports as resisted. Frames that do
 // not decode as a goodbye are skipped. Without one at the window's end the
 // verdict is pending, since route acceptance needs an update listener it
 // does not have. A receive failure stops the sequence. Cancellation
@@ -269,13 +269,12 @@ func craftEIGRPRouteInject(addr link.Addr, asNum uint16, route *net.IPNet) ([]by
 }
 
 // buildIPv4InternalRouteTLV builds the value for an EIGRP IPv4 Internal
-// route TLV. The format (RFC 7868 §3.3): prefix length (1) + destination
-// (variable, rounded up) + metric (variable). This is a minimal valid
-// encoding for the in-memory harness.
+// route TLV. The format (RFC 7868 section 3.3): prefix length (1) +
+// destination (variable, rounded up) + metric (variable).
 func buildIPv4InternalRouteTLV(prefixLen int, dest net.IP, metric uint32) []byte {
 	var v []byte
-	v = append(v, byte(prefixLen)) // prefix length /24
-	// Destination: only the network portion (3 bytes for /24)
+	v = append(v, byte(prefixLen))
+	// Destination: only the network portion, rounded up to whole bytes.
 	networkBytes := (prefixLen + 7) / 8
 	v = append(v, dest.To4()[:networkBytes]...)
 	// Metric fields (RFC 7868): delay(4) + bandwidth(4) + mtu(3) + hop(1)

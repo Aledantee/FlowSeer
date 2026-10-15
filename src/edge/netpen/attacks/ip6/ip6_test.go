@@ -10,6 +10,7 @@ package ip6_test
 
 import (
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"net"
 	"strings"
@@ -235,6 +236,9 @@ func TestNeedFieldsPerBehavior(t *testing.T) {
 		{"roguera", check.Target{}, check.ErrCodeTargetMissing, "the check needs: --prefix6 <cidr>"},
 		{"daddos v4-mapped victim6", check.Target{Victim6: check.Host{IP: net.ParseIP("::ffff:10.0.0.5"), MAC: fixtureMAC}}, check.ErrCodeTargetInvalid, "the check needs: --victim6 <ip>,<mac> wants an IPv6 address"},
 		{"roguedhcp IPv6 offer", check.Target{Victim: check.Host{IP: net.IPv4(172, 16, 0, 10), MAC: fixtureMAC}, OfferIP: net.ParseIP("2001:db8::1")}, check.ErrCodeTargetInvalid, "the check needs: --offer-ip <ip> wants an IPv4 address"},
+		{"roguedhcp victim without MAC", check.Target{Victim: check.Host{IP: net.IPv4(172, 16, 0, 10)}, OfferIP: net.IPv4(172, 16, 0, 100)}, check.ErrCodeTargetMissing, "the check needs: --victim <ip>,<mac>"},
+		{"roguedhcp6 victim6 without MAC", check.Target{Victim6: check.Host{IP: net.ParseIP("fd00::10")}, Server6: check.Host{IP: net.ParseIP("fd00::1")}}, check.ErrCodeTargetMissing, "the check needs: --victim6 <ip>,<mac>"},
+		{"ndpspoof victim6 without MAC", check.Target{Victim6: check.Host{IP: net.ParseIP("fd00::10")}}, check.ErrCodeTargetMissing, "the check needs: --victim6 <ip>,<mac>"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -370,9 +374,9 @@ func TestRogueDHCPv6_IgnoresOtherClients(t *testing.T) {
 		leg := fixtureLeg(t, nil)
 		leg.PushRX(other)
 		leg.PushRX(fixtures[0])
-		target := fixtureTarget()
-		target.Victim6.IP = net.ParseIP("fd00::100")
-		deps, em := directDeps(leg, nil, target, 3*time.Second)
+		// The target names fd00::10 while the fixture SOLICIT comes from
+		// fd00::100, which the pinned advertise answers.
+		deps, em := directDeps(leg, nil, fixtureTarget(), 3*time.Second)
 		v, err := ip6.RunRogueDHCPv6(context.Background(), deps)
 		if err != nil {
 			t.Fatalf("RunRogueDHCPv6() error = %v, want nil", err)
@@ -736,7 +740,9 @@ func raGuardTraversal(t *testing.T, em *recordingEmitter) string {
 
 // TestRAGuard_AmbientOnlyIsResisted pins attribution by content: a
 // broadcast ARP from the attack leg's MAC, an RA from that MAC with another
-// prefix, an RA from another MAC, and a truncated RA each leave the verdict
+// prefix, an RA from another MAC, a truncated RA, an RA whose prefix option
+// carries the target prefix bytes under another prefix length, and an RA
+// whose prefix option is too short to hold a prefix each leave the verdict
 // resisted at the window, and the probe itself makes it confirmed.
 func TestRAGuard_AmbientOnlyIsResisted(t *testing.T) {
 	probe := fixturePackets(t, "raguard.pcap")[0]
@@ -749,7 +755,17 @@ func TestRAGuard_AmbientOnlyIsResisted(t *testing.T) {
 	otherMAC := append([]byte(nil), probe...)
 	copy(otherMAC[6:12], net.HardwareAddr{0x00, 0xde, 0xad, 0xbe, 0xef, 0x02})
 	truncated := probe[:len(probe)-20]
-	ambient := [][]byte{arpFromLeg, otherPrefix, otherMAC, truncated}
+	// The prefix option is the last 32 bytes of the probe: type, length
+	// 4, and 30 data bytes whose first is the prefix length.
+	otherLen := append([]byte(nil), probe...)
+	otherLen[len(otherLen)-30] = 48
+	// An option of length 3 holds 22 data bytes, short of the 16-byte
+	// prefix at data offset 14. The IPv6 payload length shrinks with it.
+	shortOption := append([]byte(nil), probe[:len(probe)-32]...)
+	shortOption = append(shortOption, byte(layers.ICMPv6OptPrefixInfo), 3, 64)
+	shortOption = append(shortOption, make([]byte, 21)...)
+	binary.BigEndian.PutUint16(shortOption[18:20], uint16(len(shortOption)-54))
+	ambient := [][]byte{arpFromLeg, otherPrefix, otherMAC, truncated, otherLen, shortOption}
 
 	synctest.Test(t, func(t *testing.T) {
 		attackLeg := fixtureLeg(t, nil)

@@ -402,6 +402,55 @@ func TestObserveFlagReachesRunner(t *testing.T) {
 	}
 }
 
+// TestTargetFlagsAcceptEachFamily pins the accepting side of every typed
+// flag at its range bound, and that the behavior reads the IPv4 values in
+// their 4-byte form and the networks with the mask length of their family.
+func TestTargetFlagsAcceptEachFamily(t *testing.T) {
+	origLegOpen := legOpen
+	defer func() { legOpen = origLegOpen }()
+	legOpen = func(_ string) (link.Leg, error) { return &noopLeg{}, nil }
+	var got check.Target
+	stubShipped(t, "arpspoof", func(_ context.Context, deps check.Deps) (check.Verdict, error) {
+		deps.Teardown.Arm("stub", func(context.Context) error { return nil })
+		got = deps.Target
+		return check.Pending("stub"), nil
+	})
+
+	var stdout, stderr bytes.Buffer
+	args := []string{
+		"arpspoof", "--json=true",
+		"--victim", "10.0.0.10,00:aa:bb:cc:dd:01", "--gateway", "10.0.0.1",
+		"--victim6", "fd00::10,00:aa:bb:cc:dd:02", "--server6", "fd00::1",
+		"--vip", "10.0.0.1", "--router-id", "10.0.0.2", "--offer-ip", "10.0.0.3",
+		"--group", "65535", "--vrid", "255",
+		"--outer-vlan", "4094", "--inner-vlan", "1", "--voice-vlan", "4094",
+		"--vtp-domain", strings.Repeat("d", 32),
+		"--prefix6", "fd00::/64", "--route4", "10.9.0.0/24", "--sweep-net", "10.9.0.0/30",
+	}
+	if code := run(args, &stdout, &stderr); code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr: %s", code, stderr.String())
+	}
+	for name, ip := range map[string]net.IP{"victim": got.Victim.IP, "gateway": got.Gateway.IP, "vip": got.VirtualIP, "router-id": got.RouterID, "offer-ip": got.OfferIP} {
+		if len(ip) != net.IPv4len {
+			t.Errorf("%s = %v (%d bytes), want the 4-byte form", name, ip, len(ip))
+		}
+	}
+	if !got.Victim6.IP.Equal(net.ParseIP("fd00::10")) || got.Victim6.MAC.String() != "00:aa:bb:cc:dd:02" || !got.Server6.IP.Equal(net.ParseIP("fd00::1")) {
+		t.Errorf("IPv6 hosts = %+v and %+v, want fd00::10 with its MAC and fd00::1", got.Victim6, got.Server6)
+	}
+	if got.Group == nil || *got.Group != 65535 || got.VRID != 255 || got.OuterVLAN != 4094 || got.InnerVLAN != 1 || got.VoiceVLAN != 4094 || len(got.VTPDomain) != 32 {
+		t.Errorf("numbers and domain = group %v vrid %d vlans %d %d %d domain %d bytes, want the bounds", got.Group, got.VRID, got.OuterVLAN, got.InnerVLAN, got.VoiceVLAN, len(got.VTPDomain))
+	}
+	if got.Prefix6 == nil || got.Prefix6.String() != "fd00::/64" || len(got.Prefix6.Mask) != net.IPv6len {
+		t.Errorf("prefix6 = %v, want fd00::/64 with a 16-byte mask", got.Prefix6)
+	}
+	for name, n := range map[string]*net.IPNet{"route4": got.Route4, "sweep-net": got.SweepNet} {
+		if n == nil || len(n.IP) != net.IPv4len || len(n.Mask) != net.IPv4len {
+			t.Errorf("%s = %v, want a 4-byte address and mask", name, n)
+		}
+	}
+}
+
 // TestAckListRejectsBareMode pins that the acknowledgment flag takes only
 // name=mode, since a bare mode can never match a gate key.
 func TestAckListRejectsBareMode(t *testing.T) {

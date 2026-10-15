@@ -117,6 +117,23 @@ func TestTargetNeedFormPerField(t *testing.T) {
 	}
 }
 
+// TestTargetNeedAcceptsTheRangeBounds pins the accepting side of each
+// range rule: VLAN 4094, a 32-byte domain, and a /30 sweep network pass,
+// while a /31 sweep network, which leaves no host address between its
+// network and broadcast addresses, is refused.
+func TestTargetNeedAcceptsTheRangeBounds(t *testing.T) {
+	target := fullTarget()
+	target.OuterVLAN, target.InnerVLAN, target.VoiceVLAN = 4094, 4094, 4094
+	target.VTPDomain = strings.Repeat("d", 32)
+	target.SweepNet = mustCIDR(t, "10.0.0.4/30")
+	if err := target.Need(everyField...); err != nil {
+		t.Errorf("Need at the range bounds = %v, want nil", err)
+	}
+	target.SweepNet = mustCIDR(t, "10.0.0.4/31")
+	err := target.Need(check.FieldSweepNet)
+	assertTargetError(t, err, check.ErrCodeTargetInvalid, "the check needs: --sweep-net <cidr> wants an IPv4 network with at least one host address")
+}
+
 func assertTargetError(t *testing.T, err error, wantCode errs.Code, wantText string) {
 	t.Helper()
 	if err == nil {

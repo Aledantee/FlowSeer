@@ -31,9 +31,10 @@ package defines (`check/check.go`):
   spaces every send to `--rate`, and hands each behavior the
   observation window.
 - A behavior names the target fields it needs through `Target.Need`.
-  When one is missing the runner records a skipped verdict naming every
-  missing field, and a single command exits 2; under `full` the run
-  continues with the next attack.
+  When one is missing or of the wrong form the runner records a skipped
+  verdict naming every flag to pass, with the form a wrong value wants,
+  and a single command exits 2. Under `full` the run continues with the
+  next attack.
 
 Why a verdict and three cost fields instead of one durability class: one
 enum answered consent and mechanism at once, which forced no-op teardown

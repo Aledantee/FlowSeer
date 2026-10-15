@@ -1,3 +1,8 @@
+// arpsweep.go implements the ARP sweep check. Impact none, restore none,
+// affects none: the three ARP requests ask for hosts of the sweep network
+// from the attack leg's own addresses, and nothing on the segment changes
+// with them.
+
 package fh
 
 import (
@@ -32,9 +37,8 @@ func RunARPSweep(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 		return check.Verdict{}, err
 	}
 	src := deps.AttackLeg.Addr().MAC
-	// The fixture carries the protocol addresses in their 16-byte form,
-	// which gopacket serializes as is. The request keeps that shape until
-	// the sweep's source changes with recon.
+	// The request carries the protocol addresses in their 16-byte form,
+	// which gopacket serializes as is and the fixture pins.
 	srcIP := deps.AttackLeg.Addr().IPv4.To16()
 	targets := firstHosts(deps.Target.SweepNet, 3)
 
