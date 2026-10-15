@@ -4,7 +4,7 @@
   "readiness": "implementation-ready",
   "review": "accept after fixes",
   "review_rounds": 1,
-  "compound": null,
+  "compound": "docs/solutions/conventions/a-synctest-body-joins-its-timed-goroutine-before-it-returns.md, docs/solutions/conventions/a-pcapgo-fixture-writer-stamps-the-wall-clock-unless-the-generator-sets-a-timestamp.md, docs/solutions/conventions/a-family-check-on-a-rendered-address-accepts-a-v4-mapped-ipv6-network.md",
   "outcome": {
     "units": 6,
     "from": "2026-10-15T09:49:25Z",
