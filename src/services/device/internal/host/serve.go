@@ -24,9 +24,11 @@ import (
 	captureedgev1connect "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/capture/v1/capturev1connect"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1/dispatchv1connect"
 	ingestedgev1connect "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/ingest/v1/ingestv1connect"
+	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/telemetry/v1/telemetryv1connect"
 	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/fsconv"
+	"go.aledante.io/FlowSeer/src/common/service"
 	"go.aledante.io/FlowSeer/src/common/tenant"
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
 	"go.aledante.io/FlowSeer/src/services/device/internal/actiontrail"
@@ -41,7 +43,9 @@ import (
 	"go.aledante.io/FlowSeer/src/services/device/internal/historyapi"
 	"go.aledante.io/FlowSeer/src/services/device/internal/historyquery"
 	"go.aledante.io/FlowSeer/src/services/device/internal/identityapi"
+	"go.aledante.io/FlowSeer/src/services/device/internal/intake"
 	"go.aledante.io/FlowSeer/src/services/device/internal/journal"
+	"go.aledante.io/FlowSeer/src/services/device/internal/otlpapi"
 	"go.aledante.io/FlowSeer/src/services/device/internal/projector"
 	"go.aledante.io/FlowSeer/src/services/device/internal/rawwindowapi"
 	"go.aledante.io/FlowSeer/src/services/device/internal/registry"
@@ -125,8 +129,8 @@ type servedMuxes struct {
 //
 // Which side a service sits on is decided by who calls it. An edge signs every
 // call with the key central registered at enrollment, so EdgeService,
-// DispatchService, AuditService and CaptureEdgeService are verified before
-// Connect decodes anything. An operator holds no edge key, so EdgeAdminService,
+// DispatchService, AuditService, IngestService, TelemetryService and
+// CaptureEdgeService are verified before Connect decodes anything. An operator holds no edge key, so EdgeAdminService,
 // DeviceService, CaptureService, TenantService, and TenantAdminService use
 // the operator chain. It enforces
 // operator authentication, schema validation, relationship-based authorization,
@@ -317,6 +321,42 @@ func (h *assembly) mux(ctx context.Context, resources *busResources, log *slog.L
 
 	auditPath, auditHandler := auditv1connect.NewAuditServiceHandler(auditService, edgeInterceptors, recoverPanic)
 	edgeMux.Handle(auditPath, middleware.Wrap(auditHandler))
+
+	ingestDelivery, err := intake.NewHandler(intake.HandlerConfig{
+		Central:       resources.hub.JetStream(),
+		EdgeID:        edgeIDFromContext,
+		EdgeTenant:    resources.edgeTenant,
+		Logger:        log,
+		MeterProvider: service.MeterProvider(ctx),
+	})
+	if err != nil {
+		return nil, err
+	}
+	ingestDeliveryPath, ingestDeliveryHandler := ingestedgev1connect.NewIngestServiceHandler(ingestDelivery, edgeInterceptors, recoverPanic)
+	edgeMux.Handle(ingestDeliveryPath, middleware.Wrap(ingestDeliveryHandler))
+
+	// The telemetry call mounts with or without a collector. An unmounted call
+	// would answer unimplemented, which an edge cannot tell from a central
+	// that predates it. With no collector the call settles nothing and the
+	// edge keeps its telemetry.
+	var collector *edgebus.Collector
+	if endpoint := h.cfg.TelemetryEndpoint(); endpoint != "" {
+		collector, err = edgebus.NewCollector(edgebus.CollectorConfig{Endpoint: endpoint, Headers: h.cfg.TelemetryHeaders()})
+		if err != nil {
+			return nil, err
+		}
+	}
+	telemetryDelivery, err := otlpapi.NewHandler(otlpapi.Config{
+		Collector:     collector,
+		EdgeID:        edgeIDFromContext,
+		Logger:        log,
+		MeterProvider: service.MeterProvider(ctx),
+	})
+	if err != nil {
+		return nil, err
+	}
+	telemetryPath, telemetryHandler := telemetryv1connect.NewTelemetryServiceHandler(telemetryDelivery, edgeInterceptors, recoverPanic)
+	edgeMux.Handle(telemetryPath, middleware.Wrap(telemetryHandler))
 
 	adminPath, adminHandler := edgev1connect.NewEdgeAdminServiceHandler(adminService, operatorInterceptors, recoverPanic)
 	apiMux.Handle(adminPath, adminHandler)

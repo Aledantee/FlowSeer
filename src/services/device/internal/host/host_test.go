@@ -15,11 +15,13 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -50,7 +52,10 @@ import (
 	captureedgev1connect "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/capture/v1/capturev1connect"
 	dispatchv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1/dispatchv1connect"
+	ingestedgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/ingest/v1"
 	ingestedgev1connect "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/ingest/v1/ingestv1connect"
+	telemetryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/telemetry/v1"
+	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/telemetry/v1/telemetryv1connect"
 	errsv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/errs/v1"
 	eventlogv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/log/v1"
 	ingestv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/ingest/v1"
@@ -475,6 +480,10 @@ type edgeSigningRoundTripper struct {
 	base    http.RoundTripper
 	private ed25519.PrivateKey
 	t       *testing.T
+	// nonce seeds the assertion's nonce. Zero means 0x40. A test that signs
+	// more than one call gives each call's client its own, since the verifier
+	// refuses a repeated nonce.
+	nonce byte
 }
 
 func (s *edgeSigningRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
@@ -488,7 +497,11 @@ func (s *edgeSigningRoundTripper) RoundTrip(req *http.Request) (*http.Response, 
 	clone := req.Clone(req.Context())
 	clone.Body = io.NopCloser(bytes.NewReader(body))
 	clone.ContentLength = int64(len(body))
-	clone.Header.Set("Authorization", signedEdgeHeader(s.t, s.private, req.URL.Path, body, 0x40))
+	nonce := s.nonce
+	if nonce == 0 {
+		nonce = 0x40
+	}
+	clone.Header.Set("Authorization", signedEdgeHeader(s.t, s.private, req.URL.Path, body, nonce))
 	return s.base.RoundTrip(clone)
 }
 
@@ -747,6 +760,8 @@ func TestTheAPIListenerDoesNotRouteEdgeProcedures(t *testing.T) {
 		auditv1connect.AuditServiceDeliverProcedure,
 		captureedgev1connect.CaptureEdgeServiceUploadCaptureProcedure,
 		ingestedgev1connect.RawWindowEdgeServiceReportProcedure,
+		ingestedgev1connect.IngestServiceDeliverProcedure,
+		telemetryv1connect.TelemetryServiceDeliverProcedure,
 	} {
 		t.Run(procedure[strings.LastIndexByte(procedure, '/')+1:], func(t *testing.T) {
 			if got := postProcedure(t, client, svc.Base, procedure, nil); got != http.StatusNotFound {
@@ -1207,6 +1222,8 @@ func TestHostMountsServicesOnTheCorrectInterceptorChains(t *testing.T) {
 		attachv1connect.EdgeServiceHeartbeatProcedure,
 		dispatchv1connect.DispatchServiceReportProcedure,
 		auditv1connect.AuditServiceDeliverProcedure,
+		ingestedgev1connect.IngestServiceDeliverProcedure,
+		telemetryv1connect.TelemetryServiceDeliverProcedure,
 	} {
 		t.Run("edge/refusal-code/"+procedure[strings.LastIndexByte(procedure, '/')+1:], func(t *testing.T) {
 			req, err := http.NewRequest(http.MethodPost, svc.EdgeBase+procedure, strings.NewReader("{}"))
@@ -2061,6 +2078,154 @@ func TestIntakeRepublishesAnEdgeRecord(t *testing.T) {
 	}
 	if !proto.Equal(envelope, &got) {
 		t.Fatalf("central ingest record = %v, want %v", &got, envelope)
+	}
+}
+
+// enrolledEdgeClient installs the test edge as enrolled and returns an HTTP
+// client that signs each call as it, with a nonce no other client of the test
+// uses.
+func enrolledEdgeClient(t *testing.T, private ed25519.PrivateKey, nonce byte) *http.Client {
+	t.Helper()
+	return &http.Client{
+		Transport: &edgeSigningRoundTripper{base: serviceTransport, private: private, t: t, nonce: nonce},
+		Timeout:   10 * time.Second,
+	}
+}
+
+func enrollTestEdge(t *testing.T, svc *testService) ed25519.PrivateKey {
+	t.Helper()
+	public, private, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatalf("GenerateKey: %v", err)
+	}
+	installEnrolledTestEdge(t, svc, public)
+	return private
+}
+
+// A delivered batch settles every record, an invalid one included, and the
+// valid ones reach the typed stream under the tenant the edge store names.
+// The validating interceptor sees the whole request, so this also shows the
+// request schema leaves the records for the handler to judge.
+func TestAnEnrolledEdgeDeliversIngestRecords(t *testing.T) {
+	svc := startTestService(t, nil)
+	private := enrollTestEdge(t, svc)
+	client := ingestedgev1connect.NewIngestServiceClient(enrolledEdgeClient(t, private, 0x40), svc.EdgeBase)
+	first := validIngestRecord(t)
+	invalid := validIngestRecord(t)
+	invalid.SetRecordId("0192e6a0-0000-7000-8000-000000000102")
+	invalid.ClearProvenance()
+	last := validIngestRecord(t)
+	last.SetRecordId("0192e6a0-0000-7000-8000-000000000103")
+
+	resp, err := client.Deliver(context.Background(), connect.NewRequest(ingestedgev1.DeliverRequest_builder{
+		Records: []*ingestv1.IngestRecord{first, invalid, last},
+	}.Build()))
+	if err != nil {
+		t.Fatalf("deliver: %v", err)
+	}
+
+	if got := resp.Msg.GetSettled(); got != 3 {
+		t.Fatalf("settled = %d, want 3", got)
+	}
+	stream, err := svc.Hub.JetStream().Stream(context.Background(), edgebus.IngestStream(edgebus.IngestRecordTypeSyslog))
+	if err != nil {
+		t.Fatalf("load central ingest stream: %v", err)
+	}
+	info, err := stream.Info(context.Background())
+	if err != nil {
+		t.Fatalf("stream info: %v", err)
+	}
+	if info.State.Msgs != 2 {
+		t.Fatalf("typed stream holds %d messages, want 2", info.State.Msgs)
+	}
+	if _, err := stream.GetLastMsgForSubject(context.Background(), edgebus.CentralIngestSubject(edgebus.DefaultTenant, edgebus.IngestRecordTypeSyslog, testDeviceID)); err != nil {
+		t.Fatalf("read the record under the enrolled tenant: %v", err)
+	}
+}
+
+func TestAnEmptyIngestBatchIsInvalidArgument(t *testing.T) {
+	svc := startTestService(t, nil)
+	private := enrollTestEdge(t, svc)
+	client := ingestedgev1connect.NewIngestServiceClient(enrolledEdgeClient(t, private, 0x40), svc.EdgeBase)
+
+	_, err := client.Deliver(context.Background(), connect.NewRequest(&ingestedgev1.DeliverRequest{}))
+
+	if got := connect.CodeOf(err); got != connect.CodeInvalidArgument {
+		t.Fatalf("code = %v, want invalid argument (%v)", got, err)
+	}
+}
+
+func telemetryExport(body string) *telemetryv1.TelemetryExport {
+	return telemetryv1.TelemetryExport_builder{
+		Signal: telemetryv1.TelemetrySignal_TELEMETRY_SIGNAL_LOGS.Enum(),
+		Body:   []byte(body),
+	}.Build()
+}
+
+func TestTelemetryWithoutACollectorSettlesNothing(t *testing.T) {
+	svc := startTestService(t, nil)
+	private := enrollTestEdge(t, svc)
+	client := telemetryv1connect.NewTelemetryServiceClient(enrolledEdgeClient(t, private, 0x40), svc.EdgeBase)
+
+	resp, err := client.Deliver(context.Background(), connect.NewRequest(telemetryv1.DeliverRequest_builder{
+		Exports: []*telemetryv1.TelemetryExport{telemetryExport("body")},
+	}.Build()))
+	if err != nil {
+		t.Fatalf("deliver: %v", err)
+	}
+
+	if got := resp.Msg.GetSettled(); got != 0 {
+		t.Fatalf("settled = %d, want 0", got)
+	}
+}
+
+// The collector and the ingest streams share nothing but the host, so a
+// collector that answers 503 holds telemetry back without holding ingest back.
+func TestACollectorOutageLeavesIngestFlowing(t *testing.T) {
+	// The service exports its own telemetry to the same collector, so the
+	// outage starts after the service is up and ends before it shuts down,
+	// where a failing flush would fail the shutdown.
+	var outage atomic.Bool
+	var posts atomic.Int32
+	collector := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !outage.Load() {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		if r.URL.Path == "/v1/logs" && r.Header.Get("Content-Type") == "application/x-protobuf" {
+			posts.Add(1)
+		}
+		w.WriteHeader(http.StatusServiceUnavailable)
+	}))
+	t.Cleanup(collector.Close)
+	svc := startTestServiceWithConfig(t, fmt.Sprintf("telemetry {\n  endpoint: %q\n}\n", collector.URL), nil)
+	outage.Store(true)
+	t.Cleanup(func() { outage.Store(false) })
+	private := enrollTestEdge(t, svc)
+	telemetryClient := telemetryv1connect.NewTelemetryServiceClient(enrolledEdgeClient(t, private, 0x40), svc.EdgeBase)
+	ingestClient := ingestedgev1connect.NewIngestServiceClient(enrolledEdgeClient(t, private, 0x50), svc.EdgeBase)
+
+	telemetryResp, err := telemetryClient.Deliver(context.Background(), connect.NewRequest(telemetryv1.DeliverRequest_builder{
+		Exports: []*telemetryv1.TelemetryExport{telemetryExport("body")},
+	}.Build()))
+	if err != nil {
+		t.Fatalf("deliver telemetry: %v", err)
+	}
+	ingestResp, err := ingestClient.Deliver(context.Background(), connect.NewRequest(ingestedgev1.DeliverRequest_builder{
+		Records: []*ingestv1.IngestRecord{validIngestRecord(t)},
+	}.Build()))
+	if err != nil {
+		t.Fatalf("deliver ingest: %v", err)
+	}
+
+	if got := telemetryResp.Msg.GetSettled(); got != 0 {
+		t.Errorf("telemetry settled = %d, want 0", got)
+	}
+	if got := ingestResp.Msg.GetSettled(); got != 1 {
+		t.Errorf("ingest settled = %d, want 1", got)
+	}
+	if posts.Load() == 0 {
+		t.Error("the collector never saw the telemetry body")
 	}
 }
 
