@@ -14,8 +14,11 @@ import (
 // kernelTicks reports whether the kernel stores a nonzero bd_rtout for d at
 // hz: usec*hz >= 1000000 after BIOCSRTIMEOUT's timeval conversion.
 func kernelTicks(d time.Duration, hz uint32) bool {
+	// Nano reads Sec and Usec back as whole microseconds in nanoseconds, so
+	// it carries the conversion's rounding and spares per-platform field
+	// types (Usec is int32 on darwin and int64 on FreeBSD).
 	tv := unix.NsecToTimeval(d.Nanoseconds())
-	return (int64(tv.Sec)*1_000_000+int64(tv.Usec))*int64(hz) >= 1_000_000
+	return tv.Nano()/1000*int64(hz) >= 1_000_000
 }
 
 func TestMinReadTimeoutReachesOneTick(t *testing.T) {
@@ -42,6 +45,16 @@ func TestResolveRefusesReadTimeoutOverOneHour(t *testing.T) {
 	}
 	if _, _, err := (Config{ReadTimeout: time.Hour}).resolve(); err != nil {
 		t.Errorf("resolve(1h) error = %v, want nil", err)
+	}
+}
+
+func TestResolveAppliesDefaults(t *testing.T) {
+	bufLen, timeout, err := Config{}.resolve()
+	if err != nil {
+		t.Fatalf("resolve error = %v", err)
+	}
+	if bufLen != DefaultBufferLen || timeout != DefaultReadTimeout {
+		t.Errorf("resolve = %d, %v, want %d, %v", bufLen, timeout, DefaultBufferLen, DefaultReadTimeout)
 	}
 }
 
