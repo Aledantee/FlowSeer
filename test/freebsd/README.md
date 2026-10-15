@@ -73,13 +73,25 @@ through each interface keeps traffic flowing until teardown. On `down`, it stops
 the pings, removes the jail, and destroys `vxlan0`, `gre0`, and both epair
 pairs on the host.
 
-Probes in the 14.3 guest showed:
+FreeBSD's `ifconfig` takes one address family per call, so the script disables
+IPv6 before it sets an IPv4 address. It creates a VXLAN interface with
+`vxlanid`, `vxlanlocal`, and `vxlanremote` (`man 4 vxlan`, EXAMPLES, in the
+guest).
 
-- `ifconfig vxlan create` fails with `EINVAL` inside a VNET jail and works on the
-  host (`jexec rawsocket ifconfig vxlan0 create`).
-- A receiver inside the jail sees the encapsulated traffic because no tunnel
-  interface in the jail claims it.
-- `path=/` keeps the host's `/dev/bpf` visible inside the jail.
-- `allow.raw_sockets` lets the jail open raw sockets.
-- The host's VXLAN traffic reached the jail in each of 40 consecutive seconds
-  during `ping -i 0.5`, so ARP hold-down does not starve the test.
+Observed on 2026-10-15 in the `bento/freebsd-14` `202510.26.0` guest
+(14.3-RELEASE) under UTM, after `sudo sh /tmp/flowseer-rawsocket-setup.sh up`:
+
+- `sudo jexec rawsocket ifconfig vxlan create vxlanid 7 vxlanlocal 10.99.0.2
+  vxlanremote 10.99.0.1` printed `ifconfig: SIOCIFCREATE2 (vxlan): Invalid
+  argument` and exited 1. The script therefore creates `vxlan0` on the host,
+  where `ifconfig vxlan0` shows `vxlan0:
+  flags=1008843<UP,BROADCAST,RUNNING,SIMPLEX,MULTICAST,LOWER_UP> ... mtu 1450`.
+- `sudo jexec rawsocket ls /dev/bpf` printed `/dev/bpf`, so `path=/` keeps the
+  host's `/dev/bpf` visible inside the jail.
+
+`TestMirrorReceiverDecodesHostVXLAN`, `TestMirrorReceiverCountsHostGRE`, and
+`TestMirrorReceiverDecodesTEBGRE` in
+`src/modules/capture/rawsocket/mirror_vm_test.go` depend on the rest. They
+show that a receiver inside the jail sees the encapsulated traffic of the host's
+tunnels, that `allow.raw_sockets` lets the jail open raw sockets, and that the
+VXLAN traffic keeps arriving while the pings run.

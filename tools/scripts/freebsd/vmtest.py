@@ -124,8 +124,9 @@ def run_suite(name: str, goarch: str, scratch: Path) -> int:
             test = [*prefix, *env, remote_binary, "-test.v", *suite.test_args]
             status = guest(shlex.join(test)).returncode
     finally:
-        # The pair must not outlive a failed run, since the next run
-        # creates it again.
+        # Nothing the setup script created may outlive a failed run (the
+        # interfaces, jail, tunnels, and background pings), since the next
+        # run creates them again.
         if suite.setup:
             teardown_status = guest(f"sudo sh {shlex.quote(remote_setup)} down").returncode
             if teardown_status != 0:
