@@ -349,4 +349,4 @@ Waves: U1 U3 U6 | U2 U4 | U5
   `ifconfig` takes one address family per call (`ifconfig: inet6: bad
   value` for `inet A inet6 ifdisabled up`), and vxlan(4) creates with
   `vxlanid`, `vxlanlocal`, and `vxlanremote` (`ifconfig: local: bad value`
-  for `vni`, `local`, `remote`; the guest's `man 4 vxlan`, EXAMPLES).
+  for `vni`, `local`, `remote`, per the guest's `man 4 vxlan`, EXAMPLES).
