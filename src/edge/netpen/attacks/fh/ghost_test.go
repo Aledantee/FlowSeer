@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net"
+	"strings"
 	"sync"
 	"testing"
 	"testing/synctest"
@@ -146,6 +147,10 @@ func TestGhostReceiveError(t *testing.T) {
 	}
 }
 
+// TestGhostTruncatedFrames pins that a frame too short to carry a source
+// MAC is skipped rather than read, so three of them leave the window quiet
+// and the finding reads not-forwarded. The window is short because the
+// quiet window is the timing under test.
 func TestGhostTruncatedFrames(t *testing.T) {
 	leg := fixtureLeg(t, net.IPv4(10, 0, 0, 2))
 	watch := &ghostWatchLeg{Leg: leg, frames: make(chan link.Frame, 3)}
@@ -153,12 +158,12 @@ func TestGhostTruncatedFrames(t *testing.T) {
 	for _, length := range []int{0, 12, 13} {
 		watch.frames <- link.Frame{Data: fixture[:length]}
 	}
-	watch.closeFrames()
 
 	recs, err := runOne(t, runner.Options{
 		AttackLeg: leg,
 		WatchLeg:  watch,
 		Attacks:   []runner.AttackRef{{Name: "ghost"}},
+		Observe:   50 * time.Millisecond,
 	})
 	if err != nil {
 		t.Fatalf("run ghost: %v", err)
@@ -175,6 +180,39 @@ func TestGhostTruncatedFrames(t *testing.T) {
 	}
 	if detail.Traversal != "not-forwarded" {
 		t.Errorf("traversal for truncated frames: got %q, want %q", detail.Traversal, "not-forwarded")
+	}
+}
+
+// TestGhostClosedWatchLegIsPending pins that a watch leg that closes under
+// the window is the behavior's error and a pending verdict, not a quiet
+// window read as resisted: the leg stopped before it observed anything.
+func TestGhostClosedWatchLegIsPending(t *testing.T) {
+	leg := fixtureLeg(t, net.IPv4(10, 0, 0, 2))
+	watch := &ghostWatchLeg{Leg: leg, frames: make(chan link.Frame, 1)}
+	watch.closeFrames()
+
+	var behaviorErr error
+	recs, err := runGhost(t, runner.Options{
+		Catalog: ghostCatalog(func(ctx context.Context, deps check.Deps) (check.Verdict, error) {
+			var v check.Verdict
+			v, behaviorErr = fh.RunGhost(ctx, deps)
+			return v, behaviorErr
+		}),
+		AttackLeg: leg,
+		WatchLeg:  watch,
+		Attacks:   []runner.AttackRef{{Name: "ghost"}},
+	})
+	if err != nil {
+		t.Fatalf("run ghost: %v", err)
+	}
+	if behaviorErr == nil || !strings.Contains(behaviorErr.Error(), "leg closed before the window") {
+		t.Errorf("behavior error: got %v, want the closed-leg error", behaviorErr)
+	}
+	if finding := findFinding(t, recs); finding != nil {
+		t.Errorf("finding after the leg closed: got %s, want none", finding.Detail)
+	}
+	if v := verdictOf(recs); v == nil || v.Kind != findings.VerdictPending {
+		t.Errorf("verdict = %+v, want pending with the closed-leg error", v)
 	}
 }
 
