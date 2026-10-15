@@ -8,13 +8,10 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// isRetryable reports whether err means "no data this poll, try again"
-// rather than a real failure: SO_RCVTIMEO's own timeout (EAGAIN/EWOULDBLOCK)
-// or a signal interrupting the blocked receive (EINTR). signal(7) states
-// that a socket with SO_RCVTIMEO set always returns EINTR on a signal,
-// never restarting the call regardless of SA_RESTART, and the Go runtime's
-// own asynchronous goroutine preemption (SIGURG) and profiling signals make
-// that a routine event during a long poll, not an edge case.
+// isRetryable lets Linux local sockets and Linux/FreeBSD mirror sockets
+// retry a receive timeout (EAGAIN/EWOULDBLOCK) or interruption (EINTR).
+// The FreeBSD local reader uses bpfdev.ReadBatch, which handles its own
+// timeout and interruption in src/common/net/bpfdev/device_freebsd.go.
 func isRetryable(err error) bool {
 	return errors.Is(err, unix.EAGAIN) || errors.Is(err, unix.EWOULDBLOCK) || errors.Is(err, unix.EINTR)
 }

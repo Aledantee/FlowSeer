@@ -96,17 +96,18 @@ func TestMirrorReceiverDecodesTEBGRE(t *testing.T) {
 		t.Fatalf("OpenMirrorReceiver: %v", err)
 	}
 	t.Cleanup(func() { _ = src.Close() })
-	s := src.(*mirrorSource)
-	indices := make(chan uint32, 16)
-	s.rawV4.parseControl = func(oob []byte) (net.IP, uint32, bool) {
-		dst, index, ok := freeBSDControlV4(oob)
-		if dst.Equal(net.IPv4(10, 99, 0, 2)) {
-			select {
-			case indices <- index:
-			default:
-			}
+	observer, err := unix.Socket(unix.AF_INET, unix.SOCK_RAW, unix.IPPROTO_GRE)
+	if err != nil {
+		t.Fatalf("observer socket: %v", err)
+	}
+	t.Cleanup(func() { _ = unix.Close(observer) })
+	for _, option := range []int{unix.IP_RECVDSTADDR, unix.IP_RECVIF} {
+		if err := unix.SetsockoptInt(observer, unix.IPPROTO_IP, option, 1); err != nil {
+			t.Fatalf("observer option %d: %v", option, err)
 		}
-		return dst, index, ok
+	}
+	if err := setRecvTimeout(observer); err != nil {
+		t.Fatalf("observer receive timeout: %v", err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
@@ -129,14 +130,31 @@ func TestMirrorReceiverDecodesTEBGRE(t *testing.T) {
 		t.Fatalf("frame = %+v, want GRE with inner frame % x", f, inner)
 	}
 	checkMirrorDestination(t, f)
-	// lo0's receive index is unverified on 14.3. Read and report it without
-	// requiring the packet to arrive on epair0b.
-	select {
-	case index := <-indices:
-		t.Logf("raw IPv4 receive interface index = %d", index)
-	default:
-		t.Error("no control message destination 10.99.0.2 observed")
+	buf := make([]byte, maxFrameLen)
+	// FreeBSD releng/14.3 sys/netinet/ip_input.c's ip_savecontrol allows
+	// sizeof(sockaddr_dl) + 32 bytes for IP_RECVIF and a dummy zero index.
+	oob := make([]byte, unix.CmsgSpace(4)+unix.CmsgSpace(unix.SizeofSockaddrDatalink+32))
+	deadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) {
+		_, oobn, flags, from, err := unix.Recvmsg(observer, buf, oob, 0)
+		if err != nil {
+			if isRetryable(err) {
+				continue
+			}
+			t.Fatalf("observe TEB GRE: %v", err)
+		}
+		peer, ok := from.(*unix.SockaddrInet4)
+		if !ok || peer.Addr != [4]byte{10, 99, 0, 3} {
+			continue
+		}
+		if flags&unix.MSG_CTRUNC != 0 {
+			t.Fatal("self-sent TEB GRE control messages truncated")
+		}
+		_, index, ok := freeBSDControlV4(oob[:oobn])
+		t.Logf("self-sent TEB GRE raw IPv4 receive interface index = %d, IP_RECVIF present = %t", index, ok)
+		return
 	}
+	t.Fatal("no self-sent TEB GRE datagram from 10.99.0.3 within 3s")
 }
 
 func TestMirrorReceiverBindInterfaceDropsOtherInterface(t *testing.T) {
@@ -165,4 +183,9 @@ func TestMirrorReceiverBindInterfaceDropsOtherInterface(t *testing.T) {
 func TestMirrorReceiverBindInterfaceKeepsBoundInterface(t *testing.T) {
 	src, frames := openMirrorVM(t, capturev1.MirrorEncapsulation_MIRROR_ENCAPSULATION_GRE, ifaceFromEnv(t, envMirror))
 	waitMirrorCount(t, src, frames)
+}
+
+func TestMirrorReceiverBindInterfaceKeepsBoundVXLAN(t *testing.T) {
+	_, frames := openMirrorVM(t, capturev1.MirrorEncapsulation_MIRROR_ENCAPSULATION_VXLAN, ifaceFromEnv(t, envMirror))
+	checkHostVXLAN(t, nextFrame(t, frames))
 }
