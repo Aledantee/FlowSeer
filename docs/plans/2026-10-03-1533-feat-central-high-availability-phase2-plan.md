@@ -49,6 +49,19 @@ The parent's decisions apply
   creates the streams, and the `dev` overlay runs one server.
 - The NATS WebSocket listener serves the certificate central's edge listener
   serves. Why: `EdgeProvisioning.trust_anchors` then needs no second pin.
+- Every server runs JetStream with `sync_interval: 100ms`, and the
+  configured replica count is 3 outside `dev`. Every stream, ingest and
+  evidence included, keeps the default persist mode, since nats-server
+  v2.15.0 refuses async persistence on a replicated stream
+  (`server/stream.go:2084-2086`). Why: clustered central relies on
+  replication for durability at the interval the single-node hub's ingest
+  streams sync at (the [central high availability record](../architecture/2026-10-03-central-high-availability-direction.md),
+  "NATS leaves the device service", as U4 of
+  `docs/plans/2026-10-15-1542-perf-hub-periodic-fsync-plan.md` amends it). A power cut on every replica at
+  once, or one OS failure combined with a partition, can lose acknowledged
+  writes (NATS concepts,
+  "Syncing data to disk",
+  https://github.com/nats-io/nats.docs/blob/master/nats-concepts/jetstream/README.md).
 - The integration fixtures start an embedded server configured as the
   upstream one is. Why: the tests need no external binary, and a fixture
   with a different resolver would not prove the push.

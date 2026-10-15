@@ -1,9 +1,7 @@
 package edgebus
 
 import (
-	"bytes"
 	"context"
-	"io"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -94,23 +92,10 @@ func StartForwarder(ctx context.Context, hub *Hub, cfg ForwarderConfig) (*Forwar
 	if cfg.Endpoint == "" {
 		return nil, errs.New().Code(ErrCodeConfig).Msg("forwarder needs the collector endpoint")
 	}
-	switch {
-	case cfg.Client == nil:
-		cfg.Client = &http.Client{Timeout: 30 * time.Second}
-	case cfg.Client.Timeout == 0:
-		// The per-request deadline and the AckWait base are both derived
-		// from this, so zero makes every context expire before the request
-		// starts: each record fails instantly, is redelivered to its limit,
-		// and is terminated. A caller passing http.DefaultClient would lose
-		// every edge's telemetry within a minute of it arriving.
-		//
-		// Defaulted on a copy: the caller's client may be shared — the
-		// motivating case is exactly http.DefaultClient — and Timeout is
-		// read without synchronization by every request already in flight.
-		client := *cfg.Client
-		client.Timeout = 30 * time.Second
-		cfg.Client = &client
+	if err := validateCollectorEndpoint(cfg.Endpoint); err != nil {
+		return nil, err
 	}
+	cfg.Client = collectorClient(cfg.Client)
 	if cfg.RetryDelay == 0 {
 		cfg.RetryDelay = 5 * time.Second
 	}
@@ -182,28 +167,11 @@ func (f *Forwarder) forward(edgeID string, msg jetstream.Msg) {
 		f.refuse(ctx, edgeID, msg, reasonForeignSubject, string(signal))
 		return
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, strings.TrimSuffix(f.cfg.Endpoint, "/")+"/v1/"+string(signal), bytes.NewReader(msg.Data()))
-	if err != nil {
-		f.refuse(ctx, edgeID, msg, reasonCollectorReject, string(signal))
-		return
-	}
-	req.Header.Set("Content-Type", otlpContentType)
-	for k, v := range f.cfg.Headers {
-		req.Header.Set(k, v)
-	}
-	resp, err := f.cfg.Client.Do(req)
-	if err != nil {
-		f.retry(msg, edgeID, string(signal), reasonDeliveryExceeded)
-		return
-	}
-	_, _ = io.Copy(io.Discard, resp.Body)
-	_ = resp.Body.Close()
-	switch {
-	case resp.StatusCode >= 200 && resp.StatusCode < 300:
+	collector := Collector{endpoint: f.cfg.Endpoint, headers: f.cfg.Headers, client: f.cfg.Client}
+	switch collector.Post(ctx, signal, msg.Data()) {
+	case PostAccepted:
 		_ = msg.Ack()
-	case resp.StatusCode == http.StatusRequestTimeout || resp.StatusCode == http.StatusTooManyRequests,
-		resp.StatusCode == http.StatusUnauthorized, resp.StatusCode == http.StatusForbidden,
-		resp.StatusCode == http.StatusNotFound:
+	case PostRetryRejected:
 		// Retried rather than refused on sight, because these are the
 		// collector's configuration rather than this record's content: a
 		// stale token, a revoked one, an endpoint whose path moved. The
@@ -214,7 +182,7 @@ func (f *Forwarder) forward(edgeID string, msg jetstream.Msg) {
 		// collector_rejected, the reason that names what happened, rather
 		// than as the backstop that timed the loss.
 		f.retry(msg, edgeID, string(signal), reasonCollectorReject)
-	case resp.StatusCode >= 400 && resp.StatusCode < 500:
+	case PostRefused:
 		// A permanent rejection of this body — malformed, oversized, or in a
 		// content type the collector will not take. Retrying cannot change
 		// the answer, so it is dropped rather than redelivered forever.
@@ -250,7 +218,7 @@ func (f *Forwarder) refuse(ctx context.Context, edgeID string, msg jetstream.Msg
 	_ = msg.Term()
 	f.refused.Add(ctx, 1, metric.WithAttributes(
 		attribute.String("flowseer.edgebus.reason", reason),
-		attribute.String("flowseer.device.signal", signal),
+		attribute.String(fsconv.DeviceSignalKey, signal),
 	))
 	f.logRefusal(edgeID, msg.Subject(), reason)
 }
@@ -260,7 +228,7 @@ func (f *Forwarder) refuse(ctx context.Context, edgeID string, msg jetstream.Msg
 func (f *Forwarder) record(edgeID, subject, signal, reason string) {
 	f.refused.Add(context.Background(), 1, metric.WithAttributes(
 		attribute.String("flowseer.edgebus.reason", reason),
-		attribute.String("flowseer.device.signal", signal),
+		attribute.String(fsconv.DeviceSignalKey, signal),
 	))
 	f.logRefusal(edgeID, subject, reason)
 }

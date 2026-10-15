@@ -34,6 +34,13 @@ The parent's decisions apply
 - A replica learns of a lane change it did not write through a key-value
   watch. Why: what is owed is a pure function of the lane record
   (`journal.OwedRows`), so a replica that sees the record can send the row.
+- The election bucket and the lane records live on the cluster phase 2
+  configures, R3 with `sync_interval: 100ms`. Why: clustered central relies on
+  replication (the [central high availability record](../architecture/2026-10-03-central-high-availability-direction.md),
+  "NATS leaves the device service", as U4 of
+  `docs/plans/2026-10-15-1542-perf-hub-periodic-fsync-plan.md` amends it). A power cut on
+  every server at once, or one OS failure combined with a partition, can
+  lose an acknowledged lane write.
 - Central serves a readiness endpoint on a port no Service exposes outside
   the cluster. It reports ready once the NATS connection is up and the
   listeners are bound. Why: the central high availability record makes readiness part of

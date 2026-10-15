@@ -143,10 +143,15 @@ var importOrder = map[string][]string{
 	// model/rawwindow.
 	"api/ingest": {"model/rawwindow", "model/edge", "authz"},
 
-	// The Connect service an edge calls to receive raw window controls and
-	// report its controller's state. Imports nothing model/rawwindow does
-	// not already carry.
-	"edge/ingest": {"model/rawwindow"},
+	// The Connect services an edge calls to receive raw window controls and
+	// report its controller's state, and to deliver ingest records. The
+	// delivery call carries IngestRecord typed, as edge/audit carries its
+	// event.
+	"edge/ingest": {"model/rawwindow", "integration/ingest"},
+
+	// The Connect call an edge delivers OTLP bodies through. Bodies are
+	// opaque bytes, so it imports nothing.
+	"edge/telemetry": nil,
 
 	// The execution envelope between central and the edge hosting a
 	// device's lane: what central dispatches and what the edge reports
@@ -438,6 +443,8 @@ func TestLayeringViolationRules(t *testing.T) {
 		{name: "ingest envelope imports the window model", importer: "integration/ingest", imported: "model/rawwindow", want: true},
 		{name: "operator action event imports the window model", importer: "event/operator", imported: "model/rawwindow", want: true},
 		{name: "device storage imports the window model", importer: "store/device", imported: "model/rawwindow", want: true},
+		{name: "ingest delivery imports the record it delivers", importer: "edge/ingest", imported: "integration/ingest", want: true},
+		{name: "telemetry delivery imports the window model", importer: "edge/telemetry", imported: "model/rawwindow"},
 		{name: "raw window edge api imports edge entity directly", importer: "edge/ingest", imported: "model/edge"},
 		{name: "agent storage imports the window model", importer: "store/agent", imported: "model/rawwindow"},
 		{
