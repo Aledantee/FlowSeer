@@ -4,7 +4,7 @@
   "readiness": "implementation-ready",
   "review": "accept after fixes",
   "review_rounds": 1,
-  "compound": null,
+  "compound": "docs/solutions/conventions/two-kernel-counters-read-apart-are-not-a-snapshot.md",
   "outcome": {
     "units": 6,
     "from": "2026-10-15T19:34:00Z",
