@@ -15,6 +15,7 @@ import (
 // vmTags lists the opt-in build tags used by FreeBSD VM test suites.
 var vmTags = []string{
 	"bpfdev_vm",
+	"rawsocket_vm",
 }
 
 var architectures = []string{
