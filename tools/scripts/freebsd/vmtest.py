@@ -21,6 +21,7 @@ class Suite:
     package: str
     tag: str = ""
     setup: str = ""
+    jail: str = ""
     env: dict[str, str] = field(default_factory=dict)
     test_args: tuple[str, ...] = ()
 
@@ -35,6 +36,17 @@ SUITES = {
     "service": Suite(
         package="./src/common/service",
         test_args=("-test.run", "^TestStartLocalBusIsListenerFreeDurableAndExclusive$"),
+    ),
+    "rawsocket": Suite(
+        package="./src/modules/capture/rawsocket",
+        tag="rawsocket_vm",
+        setup="rawsocket-setup.sh",
+        jail="rawsocket",
+        env={
+            "FLOWSEER_RAWSOCKET_MIRROR": "epair0b",
+            "FLOWSEER_RAWSOCKET_LOCAL_A": "epair1a",
+            "FLOWSEER_RAWSOCKET_LOCAL_B": "epair1b",
+        },
     ),
 }
 
@@ -108,7 +120,8 @@ def run_suite(name: str, goarch: str, scratch: Path) -> int:
             status = guest(f"sudo sh {shlex.quote(remote_setup)} up").returncode
         if status == 0:
             env = [f"{key}={value}" for key, value in suite.env.items()]
-            test = ["sudo", "env", *env, remote_binary, "-test.v", *suite.test_args]
+            prefix = ["sudo", "jexec", suite.jail, "env"] if suite.jail else ["sudo", "env"]
+            test = [*prefix, *env, remote_binary, "-test.v", *suite.test_args]
             status = guest(shlex.join(test)).returncode
     finally:
         # The pair must not outlive a failed run, since the next run

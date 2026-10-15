@@ -118,13 +118,22 @@ class VmtestTests(unittest.TestCase):
         recorder = Recorder(fail=lambda args: 3 if "-test.v" in args[-1] else 0)
         self.assertEqual(run_main(recorder, "--suite", "bpfdev")[0], 3)
 
+    def test_jailed_suite_remote_command_starts_with_jexec(self):
+        recorder = Recorder()
+        self.assertEqual(run_main(recorder, "--suite", "rawsocket")[0], 0)
+        command = next(c for c in recorder.remote() if "-test.v" in c)
+        self.assertTrue(command.startswith("sudo jexec rawsocket env "), command)
+        self.assertIn("FLOWSEER_RAWSOCKET_MIRROR=epair0b", command)
+        self.assertIn("FLOWSEER_RAWSOCKET_LOCAL_A=epair1a", command)
+        self.assertIn("FLOWSEER_RAWSOCKET_LOCAL_B=epair1b", command)
+
     def test_first_failure_wins_and_later_suites_still_run(self):
-        statuses = iter([3, 5])
+        statuses = iter([3, 5, 0])
         recorder = Recorder(
             fail=lambda args: next(statuses) if "-test.v" in args[-1] else 0
         )
         self.assertEqual(run_main(recorder, "--suite", "all")[0], 3)
-        self.assertEqual(len(recorder.builds()), 2)
+        self.assertEqual(len(recorder.builds()), 3)
 
     def test_teardown_runs_after_a_failure(self):
         recorder = Recorder(fail=lambda args: 1 if "-test.v" in args[-1] else 0)
