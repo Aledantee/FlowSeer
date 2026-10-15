@@ -4,7 +4,6 @@ package rawsocket
 
 import (
 	"bytes"
-	"errors"
 	"time"
 
 	"golang.org/x/net/bpf"
@@ -16,7 +15,7 @@ import (
 
 // errNoRecords marks a poll whose read timed out with nothing buffered. The
 // receive loop treats it as retryable and delivers no frame.
-var errNoRecords = errors.New("no records this poll")
+var errNoRecords = errs.New().Msg("no records this poll")
 
 // openLocalInterface opens iface through a BPF device and runs prog in
 // userspace, as the Linux source does, so the device's counters keep one
