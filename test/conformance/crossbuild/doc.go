@@ -9,5 +9,6 @@
 // linker resolves, such as a go:linkname target that does not exist. Reading
 // every directory under the vetted target trees, first-party dependency
 // directories, go.mod, and go.sum makes those files cache inputs of the test,
-// so any source change reruns the gate.
+// so source changes rerun the gate, except changes in go:embed subdirectories
+// of dependencies outside the target trees.
 package crossbuild
