@@ -43,13 +43,20 @@ importers, which is the test `src/common/README.md` sets for a common
 package.
 
 The buffer parser has no build constraint, so its tests run on every host.
-The device itself builds for FreeBSD only.
+The device builds for FreeBSD on amd64 and arm64 only: the parser reads the
+64-bit `bpf_hdr` little-endian, a compile-time check pins its offsets to
+`unix.BpfHdr`, and powerpc64 is big-endian. A zero `Config` applies
+`BPF_D_IN`, the value 0 of `enum bpf_direction`, not the kernel's
+`BPF_D_INOUT` default, so a path that needs both directions sets
+`DirectionInOut`.
 
 ### What the kernel guarantees, and what each path relies on
 
 | Fact | Source | Used by |
 | --- | --- | --- |
 | `BIOCSBLEN` must come before `BIOCSETIF`, and a read buffer must be exactly the returned size | bpf(4), FreeBSD 15.1 | bpfdev |
+| `BIOCSBLEN` clamps the request to `BPF_MINBUFSIZE` and `net.bpf.maxbufsize` and writes the result back, without rounding | `sys/net/bpf_buffer.c` `bpf_buffer_ioctl_sblen`, `sys/net/bpf.c` `bpfread` | bpfdev |
+| `BIOCSRTIMEOUT` stores `floor(t * hz)` ticks, and 0 means no timeout, so bpfdev raises a read timeout under one tick to one tick, rounded up | `sys/net/bpf.c` `BIOCSRTIMEOUT`, `sys/kern/kern_clock.c` `tvtohz` | bpfdev, every reader's poll loop |
 | A read timeout with nothing buffered returns 0 bytes, no error | `sys/net/bpf.c`, `bpfread` | every reader's poll loop |
 | `bs_recv` counts every packet that reached the filter. Both counters are cumulative since open, `BIOCFLUSH`, `BIOCSETIF`, or `BIOCSETF`, and are `u_int` | bpf(4), `sys/net/bpf.c` `BIOCGSTATS` | local source `Stats` |
 | A hardware-stripped VLAN tag is put back before BPF sees the frame | `sys/net/if_ethersubr.c` `ether_bpf_mtap_if` calls `ether_vlan_mtap` when `M_VLANTAG` is set | local source, netpen filters |
@@ -62,9 +69,12 @@ The device itself builds for FreeBSD only.
 | A dual-stack UDP socket gets `IPV6_PKTINFO` for IPv4 datagrams too, with a v4-mapped destination and the interface index | `sys/netinet/udp_usrreq.c` `udp_append`, `sys/netinet6/ip6_input.c` `ip6_savecontrol_v4` | mirror receiver |
 
 The source files are read from `freebsd-src` `main` and the man page from
-FreeBSD 15.1. The minimum release FlowSeer supports is the one the test VM
-runs, FreeBSD 14 (see below). Whether 14 differs from `main` in any row is
-unverified until the VM suite passes there.
+FreeBSD 15.1, and the two `BIOCSBLEN` and `BIOCSRTIMEOUT` rows from
+`releng/14.3`. The minimum release FlowSeer supports is the one the test VM
+runs, FreeBSD 14 (see below). The bpfdev VM suite passes on 14.3, which
+covers the `BIOCSBLEN`, read-timeout, `BIOCGSTATS`, `BIOCSHDRCMPLT`, and
+`BIOCSDIRECTION` rows. The rows the later paths use stay unverified on 14
+until their suites pass there.
 
 ### Per-path choices
 
@@ -111,6 +121,14 @@ on the host and uploaded, so the guest needs no Go toolchain. `epair(4)`
 supplies the interface pairs that `veth` supplies on Linux. A conformance
 gate cross-compiles the FreeBSD packages and their tests for amd64 and
 arm64 on every run.
+
+A path's VM suite registers in the `SUITES` table of
+`tools/scripts/freebsd/vmtest.py`, with a build tag ending in `_vm` and a
+setup script under `test/freebsd/`. The tag also goes into the gate's
+`vmTags` (`test/conformance/crossbuild`), which fails when a `_vm` tag in a
+vetted directory is missing from it. Setup scripts stay POSIX `sh`, since
+the guest holds no uv, and the repository scripting record exempts
+`test/freebsd/`.
 
 ## Alternatives
 
