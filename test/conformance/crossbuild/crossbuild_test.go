@@ -139,15 +139,25 @@ func goCommand(dir, arch, tags, verb string, targets []string, flags ...string) 
 // a pass and rechecks only the files the test opened and the directories it
 // read inside the module root, and what a child process reads is not among
 // them.
-// Reading each first-party directory that go list reports, test packages
-// included, puts its entry names, sizes, and modification times into the cache
-// key, and reading go.mod and go.sum covers dependency changes, so an edit
-// reruns the gate. A go list that fails or lists nothing fails the gate, since
-// a skipped gate reads as a pass.
+// Walking each target tree covers new packages beneath directories with no Go
+// files. Reading first-party dependency directories reported by go list also
+// covers sources outside those trees. Directory entry names, sizes, and
+// modification times enter the cache key. Reading go.mod and go.sum covers
+// dependency changes. A go list that fails or lists nothing fails the gate,
+// since a skipped gate reads as a pass.
 func watchInputs(t *testing.T, dir, arch, tags string, targets []string) {
 	t.Helper()
 
 	root := repoRoot(t)
+
+	for _, target := range targets {
+		tree := filepath.Join(dir, strings.TrimSuffix(target, "/..."))
+		if err := filepath.WalkDir(tree, func(_ string, _ os.DirEntry, err error) error {
+			return err
+		}); err != nil {
+			t.Fatalf("walking target tree %q: %v", tree, err)
+		}
+	}
 
 	cmd := goCommand(dir, arch, tags, "list", targets, "-deps", "-test", "-f", "{{.Dir}}")
 	out, err := cmd.Output()
