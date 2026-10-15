@@ -135,11 +135,23 @@ func (f cidrFlag) String() string {
 
 func (f cidrFlag) Set(s string) error {
 	_, network, err := net.ParseCIDR(s)
-	if err != nil || parseIP(network.IP.String(), f.v6) == nil {
+	if err != nil || !networkOfFamily(network, f.v6) {
 		return errs.Msgf("want an %s network in CIDR form, got %q", family(f.v6), s)
 	}
 	*f.network = network
 	return nil
+}
+
+// networkOfFamily reports whether n is a network of one family as
+// net.ParseCIDR stores it: a 4-byte address and mask for IPv4, and a
+// 16-byte mask with an address that is not v4-mapped for IPv6. The form
+// is judged on the parsed network, since a v4-mapped IPv6 network renders
+// as an IPv4 address while it keeps a 16-byte mask.
+func networkOfFamily(n *net.IPNet, v6 bool) bool {
+	if v6 {
+		return n.IP.To4() == nil && len(n.Mask) == net.IPv6len
+	}
+	return n.IP.To4() != nil && len(n.Mask) == net.IPv4len
 }
 
 // vlanFlag parses a VLAN id from 1 to 4094, the range an 802.1Q tag

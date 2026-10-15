@@ -534,6 +534,66 @@ func TestInvalidTargetIsSkippedVerdict(t *testing.T) {
 	}
 }
 
+// TestInterruptAfterReturnKeepsTheVerdict pins that an interrupt landing
+// as the behavior returns, whichever of the interrupt path and the
+// dispatch loop takes the verdict, leaves exactly one verdict for that
+// attack, across many iterations so the window between the loop taking
+// the verdict and sending it is hit. The next attack, when the loop
+// reaches it first, is interrupted in turn and gets at most one verdict.
+func TestInterruptAfterReturnKeepsTheVerdict(t *testing.T) {
+	for i := range 2000 {
+		leg := newMockLeg()
+		returned := make(chan struct{})
+		r := newRunner(runner.Options{
+			AttackLeg: leg,
+			Attacks:   []runner.AttackRef{{Name: "arpsweep"}, {Name: "gratarp"}},
+		}, map[string]check.Run{
+			"arpsweep": func(_ context.Context, _ check.Deps) (check.Verdict, error) {
+				close(returned)
+				return pending, nil
+			},
+			"gratarp": func(ctx context.Context, _ check.Deps) (check.Verdict, error) {
+				<-ctx.Done()
+				return check.Verdict{}, ctx.Err()
+			},
+		})
+
+		var (
+			recs []findings.Record
+			wg   sync.WaitGroup
+		)
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			recs = drainStream(r.Stream())
+		}()
+		result := make(chan error, 1)
+		go func() { result <- r.Run(context.Background()) }()
+		<-returned
+		r.Interrupt()
+		err := <-result
+		r.Wait()
+		wg.Wait()
+		_ = leg.Close()
+
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("iteration %d: Run error = %v, want %v", i, err, context.Canceled)
+		}
+		count := map[string]int{}
+		for _, rec := range recs {
+			if rec.Kind == findings.KindVerdict {
+				count[rec.Attack]++
+			}
+		}
+		if count["arpsweep"] != 1 {
+			t.Fatalf("iteration %d: %d verdict records for arpsweep, want 1", i, count["arpsweep"])
+		}
+		if count["gratarp"] > 1 {
+			t.Fatalf("iteration %d: %d verdict records for gratarp, want at most 1", i, count["gratarp"])
+		}
+	}
+}
+
 // TestInterruptYieldsVerdictAndCanceled pins that an interrupted attack
 // gets one verdict, pending with the detail "interrupted", and that Run
 // returns context.Canceled on every iteration rather than by the

@@ -83,6 +83,11 @@ type Runner struct {
 	activeName string
 	activeMode string
 	inFlight   bool
+	// verdictDone closes once the dispatch loop has published the current
+	// attack's verdict or given the attack up, so an interrupt that finds
+	// the loop owning that verdict waits for it before it cancels the
+	// stop context. It is guarded by teardownMu and replaced per attack.
+	verdictDone chan struct{}
 	// interrupted is set by [Runner.Interrupt] under teardownMu. Whichever
 	// of the interrupt path and the dispatch loop takes the lock first
 	// owns the in-flight attack's verdict, the dispatch loop starts no
@@ -279,6 +284,12 @@ func (r *Runner) Run(ctx context.Context) (result error) {
 			r.stream.fail(err)
 			return err
 		}
+		// An interrupt that engaged between attacks stops the run before
+		// the next attack's gate emits a record for it.
+		if r.interruptEngaged() {
+			<-r.interruptDone
+			break
+		}
 
 		entry, run, ok := r.opts.Catalog.Lookup(ref.Name, ref.Mode)
 		if !ok {
@@ -357,7 +368,10 @@ func (r *Runner) Run(ctx context.Context) (result error) {
 		r.activeTeardown = dec.teardown
 		r.activeCancel = cancel
 		r.activeName, r.activeMode, r.inFlight = ref.Name, entry.Mode, true
+		verdictDone := make(chan struct{})
+		r.verdictDone = verdictDone
 		r.teardownMu.Unlock()
+		published := sync.OnceFunc(func() { close(verdictDone) })
 
 		deps := check.Deps{
 			AttackLeg: attackLeg,
@@ -411,11 +425,13 @@ func (r *Runner) Run(ctx context.Context) (result error) {
 		r.inFlight = false
 		r.teardownMu.Unlock()
 		if interrupted {
+			published()
 			<-r.interruptDone
 			break
 		}
 
 		if runCtx.Err() != nil {
+			published()
 			break
 		}
 
@@ -427,8 +443,11 @@ func (r *Runner) Run(ctx context.Context) (result error) {
 		}
 
 		// The runner emits the verdict itself so a behavior cannot
-		// forget to decide.
-		if !r.stream.send(verdictRecord(ref.Name, entry.Mode, verdict)) {
+		// forget to decide. An interrupt that arrived after the loop took
+		// this verdict waits for the send before it cancels the pump.
+		sent := r.stream.send(verdictRecord(ref.Name, entry.Mode, verdict))
+		published()
+		if !sent {
 			return r.terminated(runCtx)
 		}
 		if verdict.Kind == findings.VerdictSkipped && !r.opts.Orchestrated {
@@ -558,6 +577,7 @@ func (r *Runner) Interrupt() {
 		td := r.activeTeardown
 		ac := r.activeCancel
 		name, mode, inFlight := r.activeName, r.activeMode, r.inFlight
+		verdictDone := r.verdictDone
 		r.teardownMu.Unlock()
 
 		// Cancel the in-flight behavior so it returns promptly.
@@ -595,9 +615,13 @@ func (r *Runner) Interrupt() {
 
 		// The attack in flight gets its verdict here, before the stop
 		// context cancels the pump, since the dispatch loop leaves it to
-		// this path.
+		// this path. An attack whose behavior already returned has its
+		// verdict with the dispatch loop, which publishes it before the
+		// stop context may cancel the pump.
 		if inFlight {
 			_ = r.stream.send(verdictRecord(name, mode, check.Verdict{Kind: findings.VerdictPending, Detail: "interrupted"}))
+		} else if verdictDone != nil {
+			<-verdictDone
 		}
 
 		// Cancel the run context so the dispatch loop exits and does
