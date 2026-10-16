@@ -354,16 +354,16 @@ leaf sourcing path across a hub restart.
 
 ## TLS
 
-The hub's WebSocket listener serves Connect's certificate. An edge verifies it
-with [`tlspin.PinVerifier`](../../common/tlspin/tlspin.go), which accepts a
-leaf certificate whose SPKI SHA-256 digest is among the anchors
-`EdgeProvisioning` and `EnrollResponse` carry, and both
-of the edge's dialers, the Connect client and the leaf remote, install the
-same verifier so they cannot drift apart. A non-loopback listener must serve
-TLS; the hub refuses a plaintext listener on any other host. The WebSocket
-leaf path needs the leaf-node subsystem enabled, which the server keys on a
-leaf port, so the hub also binds a plain leaf listener on loopback; an edge
-never dials it.
+The hub's WebSocket listener serves Connect's certificate. Retained legacy
+leaf clients can pin that certificate through `LeafConfig.TLS` with
+[`tlspin.PinnedTLSConfig`](../../common/tlspin/tlspin.go). The agent's Connect
+client uses the same helper, while the agent itself has no leaf remote.
+The shared verifier accepts a peer leaf certificate whose SPKI SHA-256 digest
+is among the anchors `EdgeProvisioning` and `EnrollResponse` carry. A non-loopback
+listener must serve TLS. The hub refuses a plaintext listener on any other
+host. The WebSocket leaf path needs the leaf-node subsystem enabled, which
+the server keys on a leaf port, so the hub also binds a plain leaf listener
+on loopback. Legacy leaf clients dial the WebSocket listener.
 
 ## What is deliberately absent
 
