@@ -1,0 +1,36 @@
+{
+  "update_id": 104,
+  "message": {
+    "message_id": 84,
+    "date": 1792108800,
+    "chat": {
+      "id": 11,
+      "type": "private",
+      "first_name": "Owner"
+    },
+    "from": {
+      "id": 7,
+      "is_bot": false,
+      "first_name": "Owner"
+    },
+    "text": "Use files instead",
+    "message_thread_id": 3,
+    "is_topic_message": true,
+    "reply_to_message": {
+      "message_id": 12,
+      "date": 1792108800,
+      "chat": {
+        "id": 11,
+        "type": "private",
+        "first_name": "Owner"
+      },
+      "from": {
+        "id": 7,
+        "is_bot": false,
+        "first_name": "Owner"
+      },
+      "text": "Build storage",
+      "message_thread_id": 3
+    }
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "update_id": 106,
+  "stopped_message_generation": {
+    "chat": {
+      "id": 11,
+      "type": "private",
+      "first_name": "Owner"
+    },
+    "message_thread_id": 3,
+    "draft_id": 9
+  }
+}
