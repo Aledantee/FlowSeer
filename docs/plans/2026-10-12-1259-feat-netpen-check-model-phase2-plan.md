@@ -613,6 +613,7 @@ src/edge/netpen/attacks/l2/doubletag.go, src/edge/netpen/attacks/l2/vlanhop.go,
 src/edge/netpen/attacks/l2/etherchannel.go, src/edge/netpen/attacks/l2/mvrp.go,
 src/edge/netpen/attacks/l2/portsteal.go, src/edge/netpen/attacks/l2/voicevlan.go,
 src/edge/netpen/attacks/l2/vlanenum.go, src/edge/netpen/attacks/l2/craft.go,
+src/edge/netpen/attacks/l2/helpers.go,
 src/edge/netpen/attacks/l2/observe.go, src/edge/netpen/attacks/l2/register.go,
 src/edge/netpen/attacks/l2/harvest_l2.go, src/edge/netpen/attacks/l2/l2_test.go,
 src/edge/netpen/attacks/l2/vlanenum_test.go, src/edge/netpen/attacks/l2/observe_test.go,
@@ -645,6 +646,8 @@ stamps copies. `vlanenum` uses `check.Scan` and skips VID 0 and 4095. The
 matrix rows for the changed cost fields change in this unit, and only
 those, so `TestValidationMatrixCompleteness` stays green between U3 and
 U6. `stproot.go`'s header reads the hello time as the hello time.
+`helpers.go` gains the LLDP destination MAC and the TTL constant the
+voicevlan frames and the persist mode's decay bound share.
 Tests: `l2_test.go` keeps the pins, with `voicevlan.pcap` regenerated and
 decoded by gopacket's `LinkLayerDiscoveryInfo` to the target VLAN,
 priority 5, DSCP 46. `TestVoiceVLAN_FullRange` sends VLAN 4094.
@@ -702,9 +705,9 @@ Verify: `uv run tools/scripts/run.py verify change -- src/edge/netpen/attacks/ip
 
 Files: src/edge/netpen/attacks/routing/ospf.go, src/edge/netpen/attacks/routing/eigrp.go,
 src/edge/netpen/attacks/routing/wpad.go, src/edge/netpen/attacks/routing/observe.go,
-src/edge/netpen/attacks/routing/helpers.go (the broadcast MAC loses its last
-caller once the WPAD answer is unicast),
+src/edge/netpen/attacks/routing/helpers.go,
 src/edge/netpen/attacks/routing/harvest_routing.go,
+src/edge/netpen/attacks/testdata/routing/ospf.pcap,
 src/edge/netpen/attacks/routing/routing_test.go,
 src/edge/netpen/attacks/routing/observe_test.go,
 src/edge/netpen/attacks/routing/receive_test.go,
@@ -727,7 +730,9 @@ mutex, and the answers copy the query's id. `README.md` drops the
 "tolerate a missing response after 100 ms" sentence and says what the
 verdicts read. The em dashes in `harvest_routing.go` go. The route
 UPDATE's TLV layout (`eigrp.go:274-290`) stays as it is, under the
-parent's encoder audit exclusion.
+parent's encoder audit exclusion. `helpers.go` loses the broadcast MAC
+once the WPAD answer is unicast, and `ospf.pcap` is regenerated with the
+hello listing the target as its second frame.
 Tests: `routing_test.go` keeps the pins, with the EIGRP fixtures
 regenerated and `TestEIGRP_HelloCarriesParameters` decoding the TLV with
 the owned layer. `observe_test.go`: the 2-Way hello confirms, a hello
