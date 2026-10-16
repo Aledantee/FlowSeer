@@ -1,7 +1,7 @@
 ---
 title: A Multi-Key Uniqueness Claim Needs One Conditional Batch, Not Record Rollback
 date: 2026-09-30
-last_verified: 2026-09-30
+last_verified: 2026-10-16
 category: architecture-patterns
 module: src/services/device/internal/tenantstore
 problem_type: architecture_pattern
@@ -82,8 +82,8 @@ record and one index (`src/services/device/internal/tenantstore/claim_internal_t
 
 The hub restores `AllowAtomicPublish` after every tenant KV setup and the
 restart test checks that it survives a restart
-(`src/modules/edgebus/hub.go:326-346`,
-`src/modules/edgebus/edgebus_test.go:732-770`). `tenantstore.New` rejects a
+(`src/modules/edgebus/hub.go:262-272`,
+`src/modules/edgebus/edgebus_test.go:299-337`). `tenantstore.New` rejects a
 bucket without the flag (`src/services/device/internal/tenantstore/store_test.go:368-390`).
 
 ## What this does not cover
