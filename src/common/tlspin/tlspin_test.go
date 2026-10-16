@@ -30,6 +30,14 @@ func TestPinVerifierRejectsAnUnanchoredCertificate(t *testing.T) {
 	}
 }
 
+func TestPinVerifierRejectsAnUnparsableCertificate(t *testing.T) {
+	verify := tlspin.PinVerifier(nil)
+	err := verify([][]byte{[]byte("not DER")}, nil)
+	if code, ok := errs.CodeOf(err); !ok || code != tlspin.ErrCodePin {
+		t.Fatalf("unparsable certificate: err=%v code=%q, want ErrCodePin", err, code)
+	}
+}
+
 func selfSigned(t *testing.T) *x509.Certificate {
 	t.Helper()
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
