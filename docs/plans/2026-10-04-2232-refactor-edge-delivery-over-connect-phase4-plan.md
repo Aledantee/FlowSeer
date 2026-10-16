@@ -386,3 +386,7 @@ Waves: U1 | U2 | U3 | U4 U5
   (the WebSocket listener and leaf-node operator mode), the deployment
   parent's plural LoadBalancers, and the fsync plan's `NormalizeFsync`
   decision.
+
+## Review gaps
+
+- src/modules/edgebus/keys.go:185: `credentials.AccountJWT` is written and never read, the `accountJWT` parameters of `mintUser` (`keys.go:192`) and `connectAccount` (`hub.go:229`) only feed it, `mintUser`'s `permissions` is always empty, and `Hub.centralBudget` (`hub.go:77`) is read only by `cleanup_test.go:133`; fails: a reader takes the leftovers for live edge-credential plumbing the removal deleted; class: convention
