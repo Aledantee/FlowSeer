@@ -17,7 +17,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/spawn"
 )
 
-// ErrCodeReceiver identifies a failure starting the loopback receiver.
+// ErrCodeReceiver identifies a failure binding or shutting down the loopback receiver.
 var ErrCodeReceiver = errs.NewCode("otlpreceiver/receiver")
 
 const (

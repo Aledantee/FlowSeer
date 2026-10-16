@@ -19,12 +19,11 @@ const (
 // PinnedTransport dials central over TLS pinned to anchors, the SPKI digests
 // this edge was provisioned with or last told to trust.
 //
-// It is the same pin the leaf node dials the bus with, built from the same
-// anchors by the same verifier, so the two cannot drift into trusting
-// different certificates. Pinning is what makes central's clock and its
-// enrollment answer safe to believe: a boxed edge with a dead battery takes
-// its assertion timestamps from central, and corporate TLS interception on a
-// customer network would otherwise read every assertion this edge sends.
+// It uses [tlspin.PinnedTLSConfig] with the anchors it is given. Pinning is
+// what makes central's clock and its enrollment answer safe to believe: a
+// boxed edge with a dead battery takes its assertion timestamps from central,
+// and corporate TLS interception on a customer network would otherwise read
+// every assertion this edge sends.
 func PinnedTransport(anchors [][]byte) *http.Transport {
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	transport.TLSClientConfig = tlspin.PinnedTLSConfig(anchors)
