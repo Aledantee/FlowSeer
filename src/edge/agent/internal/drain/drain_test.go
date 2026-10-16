@@ -717,6 +717,60 @@ func TestTheDurationHistogramNamesAnErrorAndAZeroSettle(t *testing.T) {
 	})
 }
 
+func TestTheDurationHistogramSumsTheSecondsASendTook(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		l := openLog(t, t.TempDir(), seglog.Config{})
+		appendAll(t, l, "r001")
+		const took = 3 * time.Second
+		s := &scripted{fn: func(_ int, records []string) (int, error) {
+			time.Sleep(took)
+			return len(records), nil
+		}}
+		m := newMeters()
+		cfg := baseConfig(l, s)
+		cfg.Meter = m.meter
+
+		r := start(cfg)
+		defer r.stop()
+		idle()
+		r.mustStop(t)
+
+		var sum float64
+		for _, dp := range histogramPoints(t, m.collect(t), "flowseer.edge.delivery.duration") {
+			sum += dp.Sum
+		}
+		if sum != took.Seconds() {
+			t.Errorf("duration histogram sum = %v s, want %v s", sum, took.Seconds())
+		}
+	})
+}
+
+func TestCancellingDuringABackoffWaitReturnsWithoutWaitingItOut(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		l := openLog(t, t.TempDir(), seglog.Config{})
+		appendAll(t, l, "r001")
+		s := &scripted{fn: func(int, []string) (int, error) {
+			return 0, errors.New("central refuses")
+		}}
+
+		r := start(baseConfig(l, s))
+		defer r.stop()
+		// The first send lands at the 0.2s linger and its 1s backoff wait is
+		// still running at 0.5s.
+		time.Sleep(500 * time.Millisecond)
+		synctest.Wait()
+		if got := len(s.snapshot()); got != 1 {
+			t.Fatalf("send ran %d times before the backoff wait, want 1", got)
+		}
+
+		cancelledAt := time.Now()
+		r.mustStop(t)
+		if waited := time.Since(cancelledAt); waited != 0 {
+			t.Errorf("Run returned %v of fake time after cancel, want 0 (the 1s backoff must not be waited out)", waited)
+		}
+	})
+}
+
 func TestASettledCountAboveTheNumberSentIsAllSent(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		l := &countingLog{Log: openLog(t, t.TempDir(), seglog.Config{})}
