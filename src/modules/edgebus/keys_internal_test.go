@@ -9,7 +9,7 @@ import (
 
 func TestWriteSecretFileRestrictsAFileAnEarlierRunLeftReadable(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, "hub.creds")
+	path := filepath.Join(dir, "central.nk")
 	if err := os.WriteFile(path, []byte("previous"), 0o644); err != nil {
 		t.Fatalf("plant the readable file: %v", err)
 	}
@@ -37,11 +37,11 @@ func TestWriteSecretFileRestrictsAFileAnEarlierRunLeftReadable(t *testing.T) {
 func TestWriteSecretFileSweepsWhatAnInterruptedWriteLeft(t *testing.T) {
 	dir := t.TempDir()
 	leftover := filepath.Join(dir, secretTempPrefix+"271828")
-	if err := os.WriteFile(leftover, []byte("a usable credential"), 0o600); err != nil {
+	if err := os.WriteFile(leftover, []byte("a usable seed"), 0o600); err != nil {
 		t.Fatalf("plant the leftover: %v", err)
 	}
 
-	if err := writeSecretFile(filepath.Join(dir, "hub.creds"), []byte("current")); err != nil {
+	if err := writeSecretFile(filepath.Join(dir, "central.nk"), []byte("current")); err != nil {
 		t.Fatalf("writeSecretFile: %v", err)
 	}
 
