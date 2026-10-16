@@ -35,6 +35,27 @@ package defines (`check/check.go`):
   verdict naming every flag to pass, with the form a wrong value wants,
   and a single command exits 2. Under `full` the run continues with the
   next attack.
+- Each observable is one predicate over the frames the attack leg (or the
+  watch leg) carries within the window, read through `check.First`,
+  `check.Scan`, or `check.Sustain` (`check/observe.go`). A predicate
+  attributes a frame to its sender: an Ethernet source other than the
+  attack leg's MAC, and the probe's group, VRID, autonomous system,
+  transaction id, or query id where the protocol scopes a conversation.
+  Where the protocol speaks without a probe (a BPDU, an HSRP or GLBP
+  hello, a VRRP advertisement, a VTP summary, a DTP frame, an LLDP-MED
+  advertisement), the check first reads the leg for what the segment
+  already says and confirms only on a change from that. A pre-read that
+  carries nothing of the protocol ends in `pending`.
+- A probe that needs sustaining alternates one send with one bounded read
+  of the protocol's interval through `check.Sustain` until the window is
+  spent or the predicate matches: the HSRP and GLBP hellos every 3 s, the
+  VRRP advertisement every second, the STP BPDU every hello time, the
+  OSPF hello every 10 s. The run's `--observe` window is the only window,
+  and a check whose protocol timer is longer than the window returns
+  `pending` with a detail naming the window to pass (`--observe 15s` for
+  HSRP and GLBP, `--observe 6s` for VRRP, `--observe 20s` for OSPF).
+  The matrix (`test/integration/VALIDATION_MATRIX.md`) quotes each
+  predicate and its details.
 
 Why a verdict and three cost fields instead of one durability class: one
 enum answered consent and mechanism at once, which forced no-op teardown
