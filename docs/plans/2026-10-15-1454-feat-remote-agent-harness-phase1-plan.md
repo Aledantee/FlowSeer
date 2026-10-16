@@ -153,3 +153,19 @@ acceptance on the intended client is the second source.
 - Whether `sendRichMessageDraft` and private-chat topics behave as
   documented on the maintainer's client is unverified until phase 2's live
   check.
+
+## Review gaps
+
+Follow-ups left open by the review. None holds the verdict.
+
+- `tools/scripts/harness/render.py:81`: `_plain` truncates by code points, and `json.dumps` writes each C0 control character as 6 bytes; fails: eight activity entries of 512 escape characters make `_card` raise instead of truncating; class: hardening
+- `tools/scripts/harness/telegram.py:30`: `normalize` indexes nested fields without type checks and runs for the whole batch at line 113; fails: one update with `"from": null`, or a `result` that is not a list, raises before any ingest and the offset never advances; class: hardening
+- `tools/scripts/harness/telegram.py:87`: `error.close()` runs inside the `HTTPError` handler; fails: a raising `close()` chains the `HTTPError`, whose URL holds the token, as `__context__`; class: hardening
+- `tools/scripts/harness/state.py:19`: `mkdir(mode=0o700, exist_ok=True)` leaves an existing state directory's mode alone, and line 28 chmods the database only after the first transaction; fails: a state directory created 0755 stays 0755; class: hardening
+- `tools/scripts/harness/state.py:253`: inbound rows are keyed by `update_id`, and the Bot API says "If there are no new updates for at least a week, then identifier of the next update will be chosen randomly instead of sequentially"; fails: a random ID equal to a stored one returns the old result, and one below the in-memory `Poller.offset` may be confirmed unseen; needs validation of where the random ID can fall, at phase 2's live check; class: hardening
+- `tools/scripts/harness/bridge.py:73`: `json.loads` on a nested request under 64 KiB raises `RecursionError`, which the bridge does not catch; fails: exit 1 with a traceback instead of exit 2; class: hardening
+- `tools/scripts/harness/state.py:27`: the callbacks and inbound table shapes changed while `user_version` stays 1; fails: a database created before the change opens and then raises on `card_id`; class: convention
+- `tools/scripts/harness/state.py:249`: every `IntegrityError` in `_apply` becomes a stored `state_conflict` with no log line or counter; fails: a store defect consumes the owner's answer silently; class: hardening
+- `tools/scripts/harness/state.py:158`: `issue_agent_options(brief: str)` accepts `None` and issues a card with no brief; fails: every button of that card returns `missing_brief`; class: convention
+- `tools/scripts/harness/state.py:253`: `encode(update)` raises on a NaN or a lone surrogate that `json.load` accepted from the Bot API; fails: `ingest` raises and the poller refetches the update; class: hardening
+- `tools/scripts/harness/state.py:279`: the `new_task` kind has no producer, since `normalize` emits only message, callback, stop, and other, and `Poller.poll` at `telegram.py:147` returns store results without `callback_query_id` or message text; fails: a caller cannot answer a callback query or read a brief to issue New Task buttons; class: convention
