@@ -183,13 +183,12 @@ func (k *hubKeys) accountJWT(account nkeys.KeyPair, name string, diskBytes int64
 }
 
 type credentials struct {
-	AccountJWT string
-	UserJWT    secret.Value
-	Seed       secret.Value
+	UserJWT secret.Value
+	Seed    secret.Value
 }
 
-// mintUser signs a user in account with the given permissions.
-func (k *hubKeys) mintUser(account nkeys.KeyPair, accountJWT, name string, permissions jwt.Permissions) (credentials, error) {
+// mintUser signs a user in account.
+func (k *hubKeys) mintUser(account nkeys.KeyPair, name string) (credentials, error) {
 	user, err := nkeys.CreateUser()
 	if err != nil {
 		return credentials{}, errs.From(err).Code(ErrCodeKeys).Msg("create user key")
@@ -204,10 +203,9 @@ func (k *hubKeys) mintUser(account nkeys.KeyPair, accountJWT, name string, permi
 	}
 	claims := jwt.NewUserClaims(userPub)
 	claims.Name = name
-	claims.Permissions = permissions
 	encoded, err := claims.Encode(account)
 	if err != nil {
 		return credentials{}, errs.From(err).Code(ErrCodeKeys).Attr("user", name).Msg("encode user claims")
 	}
-	return credentials{AccountJWT: accountJWT, UserJWT: secret.NewString(encoded), Seed: secret.New(seed)}, nil
+	return credentials{UserJWT: secret.NewString(encoded), Seed: secret.New(seed)}, nil
 }

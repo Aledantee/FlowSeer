@@ -74,12 +74,10 @@ type HubConfig struct {
 // Hub owns CENTRAL's connection and stores in an embedded server with no
 // edge-facing listener. A Hub is safe for concurrent use.
 type Hub struct {
-	centralBudget int64
-	log           *quietLogger
-	cfg           HubConfig
-	keys          *hubKeys
-	opts          *server.Options
-	server        *server.Server
+	cfg    HubConfig
+	keys   *hubKeys
+	opts   *server.Options
+	server *server.Server
 
 	central   *nats.Conn
 	centralJS jetstream.JetStream
@@ -146,17 +144,12 @@ func StartHub(ctx context.Context, cfg HubConfig) (_ *Hub, err error) {
 		return nil, err
 	}
 
-	centralBudget := cfg.CentralBudgetBytes
-	if centralBudget <= 0 {
-		centralBudget = defaultCentralBudget
-	}
-
 	resolver := &server.MemAccResolver{}
 	systemJWT, err := keys.accountJWT(keys.system, "SYS", 0)
 	if err != nil {
 		return nil, err
 	}
-	centralJWT, err := keys.accountJWT(keys.central, "CENTRAL", centralBudget)
+	centralJWT, err := keys.accountJWT(keys.central, "CENTRAL", cfg.CentralBudget())
 	if err != nil {
 		return nil, err
 	}
@@ -199,7 +192,7 @@ func StartHub(ctx context.Context, cfg HubConfig) (_ *Hub, err error) {
 	logger := newQuietLogger(cfg.Logger)
 	srv.SetLoggerV2(logger, false, false, false)
 	srv.Start()
-	hub := &Hub{cfg: cfg, keys: keys, opts: opts, server: srv, log: logger, centralBudget: centralBudget}
+	hub := &Hub{cfg: cfg, keys: keys, opts: opts, server: srv}
 	defer func() {
 		if err != nil {
 			hub.Close()
@@ -214,7 +207,7 @@ func StartHub(ctx context.Context, cfg HubConfig) (_ *Hub, err error) {
 		return nil, errs.New().Code(ErrCodeHub).Attr("server_error", logger.lastError()).Msg("hub server did not become ready")
 	}
 
-	hub.central, hub.centralJS, err = hub.connectAccount(srv, keys.central, centralJWT, "central-journal")
+	hub.central, hub.centralJS, err = hub.connectAccount(srv, keys.central, "central-journal")
 	if err != nil {
 		return nil, err
 	}
@@ -226,8 +219,8 @@ func StartHub(ctx context.Context, cfg HubConfig) (_ *Hub, err error) {
 
 // connectAccount opens one of central's own connections, a full-permission
 // user in the named account.
-func (h *Hub) connectAccount(srv *server.Server, account nkeys.KeyPair, accountJWT, name string) (*nats.Conn, jetstream.JetStream, error) {
-	user, err := h.keys.mintUser(account, accountJWT, name, jwt.Permissions{})
+func (h *Hub) connectAccount(srv *server.Server, account nkeys.KeyPair, name string) (*nats.Conn, jetstream.JetStream, error) {
+	user, err := h.keys.mintUser(account, name)
 	if err != nil {
 		return nil, nil, err
 	}
