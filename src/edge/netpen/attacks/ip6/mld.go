@@ -9,7 +9,9 @@ package ip6
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net"
+	"time"
 
 	"github.com/gopacket/gopacket"
 	"github.com/gopacket/gopacket/layers"
@@ -25,18 +27,21 @@ type mldFinding struct {
 	Bounded    bool   `json:"bounded"`
 }
 
+// mldGroup is the multicast group the reports register.
+var mldGroup = net.ParseIP("ff0e::1234")
+
 // RunMLD sends five MLDv1 reports for a fixed multicast group from the
-// attack leg's MAC and link-local address. The group is probe content;
-// the behavior reads no target. The verdict is pending: whether the
-// snooping table took the membership needs a read of the device it does not
-// have.
+// attack leg's MAC and link-local address and reads the attack leg. The
+// group is probe content; the behavior reads no target. The predicate is
+// traffic to the group from another sender, which a switch that took the
+// membership forwards to the port, and which confirms; none within the
+// window is pending, since a Report draws no reply (RFC 2710 section 4).
 func RunMLD(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	addr := deps.AttackLeg.Addr()
-	mcastGroup := net.ParseIP("ff0e::1234")
 
 	frameCount := 5
 	for i := 1; i <= frameCount; i++ {
-		pkt, err := craftMLDReport(addr, mcastGroup)
+		pkt, err := craftMLDReport(addr, mldGroup)
 		if err != nil {
 			return check.Verdict{}, errs.Wrapf(err, "mld: craft frame %d", i)
 		}
@@ -55,7 +60,19 @@ func RunMLD(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	})
 	deps.Emitter.Finding("mld", detail)
 
-	return check.Pending("no observable: membership acceptance needs a read of the snooping table"), nil
+	found, obs, err := check.First(ctx, deps.AttackLeg, deps.Observe, func(data []byte) bool {
+		return isGroupTraffic(data, addr.MAC, mldGroup)
+	})
+	if err != nil {
+		if ctx.Err() != nil {
+			return check.Verdict{}, ctx.Err()
+		}
+		return check.Verdict{}, errs.Wrap(err, "mld: receive group traffic")
+	}
+	if found != nil {
+		return check.Confirmed(fmt.Sprintf("traffic to %s reached the port", mldGroup), obs.Elapsed), nil
+	}
+	return check.Pending(fmt.Sprintf("no group traffic in %s: a Report draws no reply (RFC 2710 section 4)", obs.Elapsed.Round(time.Millisecond))), nil
 }
 
 // craftMLDReport builds an MLDv1 Multicast Listener Report for the

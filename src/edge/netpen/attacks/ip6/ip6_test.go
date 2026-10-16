@@ -88,13 +88,15 @@ func runOne(t *testing.T, opts runner.Options) ([]findings.Record, error) {
 	return recs, err
 }
 
-// runSingle runs one attack on a single leg against the given target.
+// runSingle runs one attack on a single leg against the given target with
+// a short window, since the window's end is not what a pin test reads.
 func runSingle(t *testing.T, leg *testtest.Leg, name string, target check.Target) ([]findings.Record, error) {
 	t.Helper()
 	return runOne(t, runner.Options{
 		AttackLeg: leg,
 		Attacks:   []runner.AttackRef{{Name: name}},
 		Target:    target,
+		Observe:   50 * time.Millisecond,
 	})
 }
 
@@ -156,40 +158,64 @@ func TestDHCPStarve_FixturePins(t *testing.T) {
 	}
 }
 
-// TestRogueDHCP_FixturePins pins the OFFER and ACK against the fixture and
-// that the finding carries no credential fields.
+// TestRogueDHCP_FixturePins feeds the victim's DISCOVER with xid 0x12345678
+// and its REQUEST naming the attack leg, pins the OFFER and ACK against
+// the fixture, and checks that the finding carries no credential fields.
 func TestRogueDHCP_FixturePins(t *testing.T) {
-	leg := fixtureLeg(t, nil)
+	query := fixturePackets(t, "roguedhcp_query.pcap")
+	fixtures := fixturePackets(t, "roguedhcp.pcap")
+	synctest.Test(t, func(t *testing.T) {
+		leg := fixtureLeg(t, nil)
+		leg.PushRX(query[0]) // DISCOVER
+		p := &pusher{leg: leg}
+		p.at(500*time.Millisecond, query[1]) // REQUEST naming 172.16.0.99
 
+		r := runDirect(t, leg, "roguedhcp", fixtureTarget())
+		p.join()
+		wantVerdict(t, r, findings.VerdictConfirmed, "the victim requested 172.16.0.100 from the attack leg")
+
+		tx := leg.TX()
+		if len(tx) != 2 {
+			t.Fatalf("TX count: got %d, want 2 (offer + ack)", len(tx))
+		}
+		testtest.AssertBytesEqual(t, "Rogue DHCP OFFER", tx[0], fixtures[0])
+		testtest.AssertBytesEqual(t, "Rogue DHCP ACK", tx[1], fixtures[1])
+
+		if len(r.emitter.findings) != 1 {
+			t.Fatalf("findings = %d, want 1", len(r.emitter.findings))
+		}
+		var detail map[string]any
+		if err := json.Unmarshal(r.emitter.findings[0], &detail); err != nil {
+			t.Fatalf("unmarshal finding: %v", err)
+		}
+		for _, field := range []string{"protocol", "length"} {
+			if _, ok := detail[field]; ok {
+				t.Errorf("finding carries %q; the behavior captures no credential", field)
+			}
+		}
+		if detail["server_id"] != "172.16.0.99" {
+			t.Errorf("server_id = %v, want the leg's own IPv4", detail["server_id"])
+		}
+	})
+}
+
+// TestRogueDHCP_RunnerPath pins the behavior through the runner: with no
+// DISCOVER on the leg it sends nothing and the verdict is pending, and the
+// run ends at the window.
+func TestRogueDHCP_RunnerPath(t *testing.T) {
+	leg := fixtureLeg(t, nil)
 	recs, err := runSingle(t, leg, "roguedhcp", fixtureTarget())
 	if err != nil {
 		t.Fatalf("run roguedhcp: %v", err)
 	}
-
-	tx := leg.TX()
-	if len(tx) != 2 {
-		t.Fatalf("TX count: got %d, want 2 (offer + ack)", len(tx))
+	if leg.SendCount() != 0 {
+		t.Errorf("sends = %d, want 0 without a DISCOVER", leg.SendCount())
 	}
-
-	fixtures := fixturePackets(t, "roguedhcp.pcap")
-	testtest.AssertBytesEqual(t, "Rogue DHCP OFFER", tx[0], fixtures[0])
-	testtest.AssertBytesEqual(t, "Rogue DHCP ACK", tx[1], fixtures[1])
-
-	f := findFinding(t, recs)
-	if f == nil {
-		t.Fatal("no finding emitted")
+	if v := verdictOf(recs); v == nil || v.Kind != findings.VerdictPending || !strings.Contains(v.Detail, "no DISCOVER from the victim") {
+		t.Errorf("verdict = %+v, want pending without a DISCOVER", v)
 	}
-	var detail map[string]any
-	if err := json.Unmarshal(f.Detail, &detail); err != nil {
-		t.Fatalf("unmarshal finding: %v", err)
-	}
-	for _, field := range []string{"protocol", "length"} {
-		if _, ok := detail[field]; ok {
-			t.Errorf("finding carries %q; the behavior captures no credential", field)
-		}
-	}
-	if detail["server_id"] != "172.16.0.99" {
-		t.Errorf("server_id = %v, want the leg's own IPv4", detail["server_id"])
+	if f := findFinding(t, recs); f != nil {
+		t.Errorf("finding = %s, want none without a DISCOVER", f.Detail)
 	}
 }
 
@@ -231,14 +257,14 @@ func TestNeedFieldsPerBehavior(t *testing.T) {
 		{"roguedhcp", check.Target{}, check.ErrCodeTargetMissing, "the check needs: --victim <ip>,<mac>, --offer-ip <ip>"},
 		{"roguedhcp6", check.Target{}, check.ErrCodeTargetMissing, "the check needs: --victim6 <ip>,<mac>, --server6 <ip>,<mac>"},
 		{"daddos", check.Target{}, check.ErrCodeTargetMissing, "the check needs: --victim6 <ip>,<mac>"},
-		{"ndpspoof", check.Target{}, check.ErrCodeTargetMissing, "the check needs: --victim6 <ip>,<mac>"},
+		{"ndpspoof", check.Target{}, check.ErrCodeTargetMissing, "the check needs: --victim6 <ip>,<mac>, --server6 <ip>,<mac>"},
 		{"raguard", check.Target{}, check.ErrCodeTargetMissing, "the check needs: --prefix6 <cidr>"},
 		{"roguera", check.Target{}, check.ErrCodeTargetMissing, "the check needs: --prefix6 <cidr>"},
 		{"daddos v4-mapped victim6", check.Target{Victim6: check.Host{IP: net.ParseIP("::ffff:10.0.0.5"), MAC: fixtureMAC}}, check.ErrCodeTargetInvalid, "the check needs: --victim6 <ip>,<mac> wants an IPv6 address"},
 		{"roguedhcp IPv6 offer", check.Target{Victim: check.Host{IP: net.IPv4(172, 16, 0, 10), MAC: fixtureMAC}, OfferIP: net.ParseIP("2001:db8::1")}, check.ErrCodeTargetInvalid, "the check needs: --offer-ip <ip> wants an IPv4 address"},
 		{"roguedhcp victim without MAC", check.Target{Victim: check.Host{IP: net.IPv4(172, 16, 0, 10)}, OfferIP: net.IPv4(172, 16, 0, 100)}, check.ErrCodeTargetMissing, "the check needs: --victim <ip>,<mac>"},
 		{"roguedhcp6 victim6 without MAC", check.Target{Victim6: check.Host{IP: net.ParseIP("fd00::10")}, Server6: check.Host{IP: net.ParseIP("fd00::1")}}, check.ErrCodeTargetMissing, "the check needs: --victim6 <ip>,<mac>"},
-		{"ndpspoof victim6 without MAC", check.Target{Victim6: check.Host{IP: net.ParseIP("fd00::10")}}, check.ErrCodeTargetMissing, "the check needs: --victim6 <ip>,<mac>"},
+		{"ndpspoof victim6 without MAC", check.Target{Victim6: check.Host{IP: net.ParseIP("fd00::10")}, Server6: check.Host{IP: net.ParseIP("fd00::1")}}, check.ErrCodeTargetMissing, "the check needs: --victim6 <ip>,<mac>"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -381,8 +407,8 @@ func TestRogueDHCPv6_IgnoresOtherClients(t *testing.T) {
 		if err != nil {
 			t.Fatalf("RunRogueDHCPv6() error = %v, want nil", err)
 		}
-		if v.Kind != findings.VerdictPending || !strings.Contains(v.Detail, "REQUEST listener") {
-			t.Errorf("verdict = %+v, want pending after the advertise", v)
+		if v.Kind != findings.VerdictResisted || v.Detail != "the client did not request the lease" {
+			t.Errorf("verdict = %+v, want resisted after the advertise drew no REQUEST", v)
 		}
 		tx := leg.TX()
 		if len(tx) != 1 {
@@ -416,15 +442,19 @@ func TestNDPSpoof_FixturePins(t *testing.T) {
 	}
 
 	tx := leg.TX()
-	if len(tx) != 1 {
-		t.Fatalf("TX count: got %d, want 1", len(tx))
+	if len(tx) != 2 {
+		t.Fatalf("TX count: got %d, want 2 (advertisement + echo probe)", len(tx))
 	}
 
 	fixtures := fixturePackets(t, "ndpspoof.pcap")
 	testtest.AssertBytesEqual(t, "NDP spoof NA", tx[0], fixtures[0])
+	testtest.AssertBytesEqual(t, "NDP spoof echo probe", tx[1], fixtures[1])
 
 	if findFinding(t, recs) == nil {
 		t.Fatal("no finding emitted")
+	}
+	if v := verdictOf(recs); v == nil || v.Kind != findings.VerdictPending || !strings.Contains(v.Detail, "no reply from the victim") {
+		t.Errorf("verdict = %+v, want pending on the quiet leg", v)
 	}
 }
 
@@ -457,8 +487,8 @@ func TestDADDOS_NoDefense_AttackProceeds(t *testing.T) {
 		if err != nil {
 			t.Fatalf("RunDADDOS() error = %v, want nil", err)
 		}
-		if v.Kind != findings.VerdictPending {
-			t.Errorf("verdict = %+v, want pending", v)
+		if v.Kind != findings.VerdictPending || v.Detail != "no defense in 3s: abandonment leaves no frame" {
+			t.Errorf("verdict = %+v, want pending naming the abandonment that leaves no frame", v)
 		}
 		if elapsed := time.Since(start); elapsed != 3*time.Second {
 			t.Errorf("returned after %v, want the 3s window", elapsed)
@@ -491,11 +521,15 @@ func TestDADDOS_LateDefenseIsRead(t *testing.T) {
 		target.Victim6.IP = net.ParseIP("fd00::dead")
 		deps, em := directDeps(leg, nil, target, 3*time.Second)
 		start := time.Now()
-		if _, err := ip6.RunDADDOS(context.Background(), deps); err != nil {
+		v, err := ip6.RunDADDOS(context.Background(), deps)
+		if err != nil {
 			t.Fatalf("RunDADDOS() error = %v, want nil", err)
 		}
 		if elapsed := time.Since(start); elapsed != time.Second {
 			t.Errorf("returned after %v, want 1s, when the defense arrived", elapsed)
+		}
+		if v.Kind != findings.VerdictResisted || !strings.Contains(v.Detail, "a host holds fd00::dead") {
+			t.Errorf("verdict = %+v, want resisted naming the host that holds the address", v)
 		}
 		if !dadResisted(t, em) {
 			t.Error("resisted: got false, want true (the owner defended the address)")
@@ -533,6 +567,9 @@ func TestDADDOS_HostCompletesDAD_ReportsResisted(t *testing.T) {
 	}
 	if !detail.Resisted {
 		t.Error("resisted: got false, want true (host completed DAD before attack window)")
+	}
+	if v := verdictOf(recs); v == nil || v.Kind != findings.VerdictResisted {
+		t.Errorf("verdict = %+v, want resisted on the defending advertisement", v)
 	}
 }
 

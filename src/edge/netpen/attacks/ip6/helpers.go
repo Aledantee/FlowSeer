@@ -3,17 +3,25 @@
 // legs, the target, and the emitter. Each behavior reads the victim, server,
 // prefix, and offered address it acts on from the target and its own
 // addresses from the attack leg. A value that only has to be well-formed,
-// such as a DHCP transaction ID, a flood frame's stamped MAC, or a lease
-// address, stays a constant in the behavior. DHCPv4 shares this package with
-// DHCPv6 because both use the same fixture harness and runner contracts.
+// such as a flood frame's stamped MAC or a lease address, stays a constant
+// in the behavior. DHCPv4 shares this package with DHCPv6 because both use
+// the same fixture harness and runner contracts.
 //
-// Flood behaviors send five frames. The behaviors that wait for a frame,
-// [RunRogueDHCPv6], [RunDADDOS], and [RunRAGuard], wait for the run's
-// observation window and no longer.
+// Each behavior reads the wire for the effect its probe should have, with
+// the predicates in observe.go, and returns confirmed or resisted from what
+// it saw, or pending with the reason the leg cannot carry the observable.
+// The rogue servers answer the query they observe within the window with
+// its transaction id, since a client matches an answer to its own query by
+// that id. Flood behaviors send five frames.
 package ip6
 
 import (
+	"fmt"
 	"net"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
+
+	"go.aledante.io/FlowSeer/src/edge/netpen/check"
 )
 
 // Well-known multicast destinations.
@@ -26,10 +34,6 @@ var (
 	// Solicited-node Ethernet multicast MAC prefix (33:33:ff:XX:XX:XX).
 	solicitedMACPrefix = []byte{0x33, 0x33, 0xff}
 )
-
-// dhcpXid is the transaction ID of the rogue DHCPv4 server's replies, probe
-// content a client would match only by chance.
-const dhcpXid uint32 = 0x12345678
 
 // solicitedNodeMAC computes the solicited-node multicast MAC for the
 // given IPv6 address: 33:33:ff:<last-3-bytes-of-addr>.
@@ -67,8 +71,19 @@ func multicastMACForIPv6(ip net.IP) net.HardwareAddr {
 }
 
 // linkLocalFromMAC derives an IPv6 link-local address from a MAC using
-// the EUI-64 format: fe80::XXff:feYY:ZZZZ.
-func linkLocalFromMAC(mac net.HardwareAddr) net.IP {
+// the EUI-64 format: fe80::XXff:feYY:ZZZZ. A MAC that is not six octets
+// is an error carrying [check.ErrCodeTargetInvalid], since the attack leg's
+// address is what the behavior frames from and nothing was sent.
+func linkLocalFromMAC(mac net.HardwareAddr) (net.IP, error) {
+	if len(mac) != 6 {
+		text := fmt.Sprintf("the attack leg's MAC %q is not six octets, so no link-local address derives from it", mac)
+		return nil, errs.New().
+			Code(check.ErrCodeTargetInvalid).
+			ExitCode(2).
+			UserMsg(text).
+			Hint("pass -i <iface> naming an Ethernet interface").
+			Msg(text)
+	}
 	addr := make(net.IP, 16)
 	addr[0] = 0xfe
 	addr[1] = 0x80
@@ -81,5 +96,5 @@ func linkLocalFromMAC(mac net.HardwareAddr) net.IP {
 	addr[13] = mac[3]
 	addr[14] = mac[4]
 	addr[15] = mac[5]
-	return addr
+	return addr, nil
 }
