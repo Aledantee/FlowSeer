@@ -44,6 +44,12 @@ func TestSyslogMaximumPayloadFitsLogRecord(t *testing.T) {
 		t.Fatalf("structured data = %d elements, want every empty parameter retained", len(rec.StructuredData))
 	}
 	mapped, provenance, _ := syslogsource.MapRecord(rec, testDeviceEntry(), testEdgeRef())
+	if got := len(mapped.GetStructuredData()); got != 1 {
+		t.Fatalf("mapped structured data = %d elements, want 1", got)
+	}
+	if got, want := len(mapped.GetStructuredData()[0].GetParams()), (65535-len(header)-1)/5; got != want {
+		t.Fatalf("mapped parameters = %d, want %d", got, want)
+	}
 	ids := make([]string, 16)
 	for i := range ids {
 		ids[i] = fmt.Sprintf("0192e6a0-0000-7000-8000-%012d", i+1)
