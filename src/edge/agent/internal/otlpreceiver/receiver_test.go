@@ -55,6 +55,7 @@ func TestReceiver(t *testing.T) {
 		appends     int
 	}{
 		{name: "logs", path: "logs", body: body, status: 200, signal: telemetryv1.TelemetrySignal_TELEMETRY_SIGNAL_LOGS, appends: 1},
+		{name: "identity", path: "logs", body: body, encoding: "identity", status: 200, signal: telemetryv1.TelemetrySignal_TELEMETRY_SIGNAL_LOGS, appends: 1},
 		{name: "metrics", path: "metrics", body: body, status: 200, signal: telemetryv1.TelemetrySignal_TELEMETRY_SIGNAL_METRICS, appends: 1},
 		{name: "traces", path: "traces", body: body, status: 200, signal: telemetryv1.TelemetrySignal_TELEMETRY_SIGNAL_TRACES, appends: 1},
 		{name: "gzip", path: "logs", body: compressed.Bytes(), encoding: "gzip", status: 415},
