@@ -61,9 +61,12 @@ func (a deliveryAssembly) module() service.Module {
 		Branch: &service.Branch{
 			Intensity: budget,
 			Children: []service.Module{{
-				Name:   "drain",
-				Policy: service.Policy{Error: service.OutcomePolicy{Budget: budget}},
-				Leaf:   &service.Leaf{Setup: a.setup},
+				Name: "drain",
+				Policy: service.Policy{
+					Error: service.OutcomePolicy{Budget: budget},
+					Panic: service.OutcomePolicy{Budget: budget},
+				},
+				Leaf: &service.Leaf{Setup: a.setup},
 			}},
 		},
 	}
@@ -71,11 +74,11 @@ func (a deliveryAssembly) module() service.Module {
 
 func (a deliveryAssembly) setup(ctx context.Context) (service.Attempt, error) {
 	meter := service.Meter(ctx)
-	registration, err := registerBufferInstruments(meter, a.name, a.log.Stats)
-	if err != nil {
-		return service.Attempt{}, err
-	}
 	return service.Attempt{Runner: func(ctx context.Context) error {
+		registration, err := registerBufferInstruments(meter, a.name, a.log.Stats)
+		if err != nil {
+			return err
+		}
 		defer func() { _ = registration.Unregister() }()
 		return drain.Run(ctx, drain.Config{
 			LogName:   a.name,
@@ -89,7 +92,7 @@ func (a deliveryAssembly) setup(ctx context.Context) (service.Attempt, error) {
 }
 
 // One snapshot per collection keeps the log's record and byte totals coherent.
-// Unregister bounds the callback's lifetime to the module attempt.
+// Registration and removal bound the callback's lifetime to a running attempt.
 func registerBufferInstruments(meter metric.Meter, name string, read func() (seglog.Stats, error)) (metric.Registration, error) {
 	records, e1 := meter.Int64ObservableUpDownCounter("flowseer.edge.buffer.records", metric.WithUnit("{record}"), metric.WithDescription("records held in the edge log"))
 	size, e2 := meter.Int64ObservableUpDownCounter("flowseer.edge.buffer.size", metric.WithUnit("By"), metric.WithDescription("disk bytes held in the edge log"))
@@ -99,7 +102,7 @@ func registerBufferInstruments(meter metric.Meter, name string, read func() (seg
 	if err := errors.Join(e1, e2, e3, e4, e5); err != nil {
 		return nil, err
 	}
-	attrs := metric.WithAttributes(attribute.String("flowseer.edge.buffer.log", name))
+	attrs := metric.WithAttributes(attribute.String(drain.LogKey, name))
 	return meter.RegisterCallback(func(_ context.Context, o metric.Observer) error {
 		stats, err := read()
 		if err != nil {

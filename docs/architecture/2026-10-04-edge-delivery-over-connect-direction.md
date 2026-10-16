@@ -223,8 +223,9 @@ no leaf node and no longer calls `AttachBus`.
   settled segment from its start after a restart, and backs off from 1 s to
   30 s without jitter. It drops a record only when the log's bounds expire
   it or the record cannot be decoded into the call's item type.
-- Each drain runs under its own supervisor branch with an error budget no
-  storage fault exhausts, so a segment that keeps failing to read holds back
+- Each drain runs under its own supervisor branch with error and panic budgets
+  no persistent fault exhausts. A drain that fails or panics restarts only
+  inside its own branch, so a segment that keeps failing to read holds back
   only its own log (`src/edge/agent/host/delivery.go`).
 - The loopback OTLP receiver moved from `src/modules/edgebus` into the
   agent, and the TLS pin helpers moved to `src/common/tlspin`, since central

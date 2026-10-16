@@ -67,6 +67,166 @@ func (l *faultingDeliveryLog) Ack(sequence uint64) error {
 	return l.Log.Ack(sequence)
 }
 
+func TestDeliveryPanicStaysInItsBranch(t *testing.T) {
+	_, stopSignals := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stopSignals()
+	synctest.Test(t, func(t *testing.T) {
+		telemetry, err := seglog.Open(seglog.Config{Dir: t.TempDir()})
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer func() { _ = telemetry.Close() }()
+		ingest, err := seglog.Open(seglog.Config{Dir: t.TempDir()})
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer func() { _ = ingest.Close() }()
+		if err := telemetry.Append([]byte("queued")); err != nil {
+			t.Fatal(err)
+		}
+		var panics atomic.Int64
+		failing := deliveryAssembly{name: "telemetry", log: telemetry, send: func(context.Context, [][]byte) (int, error) {
+			panics.Add(1)
+			panic("delivery panic")
+		}}
+		delivered := make(chan struct{}, 1)
+		other := deliveryAssembly{name: "ingest", log: ingest, send: func(_ context.Context, records [][]byte) (int, error) {
+			delivered <- struct{}{}
+			return len(records), nil
+		}}
+		reader := sdkmetric.NewManualReader()
+		provider := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
+		defer func() { _ = provider.Shutdown(context.Background()) }()
+		cfg := service.Config{
+			Identity: service.Identity{Name: "agent", Namespace: "test", Version: "test"},
+			Logger:   slog.New(slog.DiscardHandler), MeterProvider: provider,
+			Modules: []service.Module{failing.module(), other.module()},
+		}
+		ctx, cancel := context.WithCancel(context.Background())
+		done := make(chan struct{})
+		var runErr error
+		spawn.Go(ctx, "test panicking delivery", func() { defer close(done); runErr = service.Run(ctx, cfg) })
+		defer func() { cancel(); <-done }()
+		time.Sleep(4 * time.Minute)
+		synctest.Wait()
+		select {
+		case <-done:
+			t.Fatalf("service.Run ended during persistent drain panic: %v", runErr)
+		default:
+		}
+		if got := panics.Load(); got < 8 {
+			t.Fatalf("send panics = %d, want at least 8 supervised attempts", got)
+		}
+		if err := ingest.Append([]byte("independent")); err != nil {
+			t.Fatal(err)
+		}
+		select {
+		case <-delivered:
+		case <-time.After(time.Second):
+			t.Fatal("ingest did not deliver during telemetry panic")
+		}
+		var rm metricdata.ResourceMetrics
+		if err := reader.Collect(ctx, &rm); err != nil {
+			t.Fatal(err)
+		}
+		var restarts, branchRestarts int64
+		for _, scope := range rm.ScopeMetrics {
+			for _, m := range scope.Metrics {
+				if m.Name != "flowseer.service.module.lifecycle.transitions" {
+					continue
+				}
+				sum, ok := m.Data.(metricdata.Sum[int64])
+				if !ok {
+					continue
+				}
+				for _, dp := range sum.DataPoints {
+					path, _ := dp.Attributes.Value("flowseer.module.path")
+					action, _ := dp.Attributes.Value("flowseer.module.lifecycle.action")
+					outcome, _ := dp.Attributes.Value("flowseer.module.lifecycle.outcome")
+					if action.AsString() != "restart" {
+						continue
+					}
+					if path.AsString() == "agent/delivery_telemetry/drain" && outcome.AsString() == "panic" {
+						restarts += dp.Value
+					}
+					if path.AsString() == "agent/delivery_telemetry" {
+						branchRestarts += dp.Value
+					}
+				}
+			}
+		}
+		if restarts < 8 {
+			t.Errorf("recorded panic restarts = %d, want at least 8", restarts)
+		}
+		if branchRestarts != 0 {
+			t.Errorf("telemetry branch restarts = %d, want 0", branchRestarts)
+		}
+		cancel()
+		<-done
+		readCtx, stopRead := context.WithTimeout(context.Background(), time.Second)
+		defer stopRead()
+		segment, err := telemetry.Next(readCtx)
+		if err != nil || len(segment.Records) != 1 || string(segment.Records[0]) != "queued" {
+			t.Fatalf("segment after drain panics = %+v, %v, want the queued record still readable", segment, err)
+		}
+	})
+}
+
+type countingDeliveryLog struct {
+	drain.Log
+	reads atomic.Int64
+}
+
+func (l *countingDeliveryLog) Stats() (seglog.Stats, error) {
+	l.reads.Add(1)
+	return seglog.Stats{}, nil
+}
+
+func TestDeliveryCanceledBeforeRunnerRegistersNoBufferCallback(t *testing.T) {
+	reader := sdkmetric.NewManualReader()
+	provider := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
+	t.Cleanup(func() { _ = provider.Shutdown(context.Background()) })
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	log := &countingDeliveryLog{}
+	a := deliveryAssembly{name: "telemetry", log: log}
+	var setups, runners atomic.Int64
+	module := service.Module{Name: "delivery", Leaf: &service.Leaf{Setup: func(ctx context.Context) (service.Attempt, error) {
+		attempt, err := a.setup(ctx)
+		if err != nil {
+			return service.Attempt{}, err
+		}
+		setups.Add(1)
+		runner := attempt.Runner
+		attempt.Runner = func(ctx context.Context) error {
+			runners.Add(1)
+			return runner(ctx)
+		}
+		cancel()
+		return attempt, nil
+	}}}
+	if err := service.Run(ctx, service.Config{
+		Identity: service.Identity{Name: "agent", Namespace: "test", Version: "test"},
+		Logger:   slog.New(slog.DiscardHandler), MeterProvider: provider,
+		Modules: []service.Module{module},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if got := setups.Load(); got != 1 {
+		t.Fatalf("delivery setups = %d, want 1", got)
+	}
+	if got := runners.Load(); got != 0 {
+		t.Fatalf("delivery runner starts = %d, want 0", got)
+	}
+	var rm metricdata.ResourceMetrics
+	if err := reader.Collect(context.Background(), &rm); err != nil {
+		t.Fatal(err)
+	}
+	if got := log.reads.Load(); got != 0 {
+		t.Errorf("stats reads after skipped runner = %d, want 0", got)
+	}
+}
+
 func TestDeliveryStorageFaultStaysInItsBranch(t *testing.T) {
 	// Initialize the process-wide signal dispatcher outside the fake-clock bubble.
 	_, stopSignals := signal.NotifyContext(context.Background(), os.Interrupt)
@@ -341,7 +501,7 @@ func bufferRecordMetric(t *testing.T, reader *sdkmetric.ManualReader, name strin
 					t.Fatalf("records data = %T, want up-down counter", m.Data)
 				}
 				for _, dp := range sum.DataPoints {
-					if v, ok := dp.Attributes.Value("flowseer.edge.buffer.log"); ok && v.AsString() == name {
+					if v, ok := dp.Attributes.Value(drain.LogKey); ok && v.AsString() == name {
 						return dp.Value
 					}
 				}
@@ -445,7 +605,7 @@ func TestBufferInstrumentsReadTheLogSnapshot(t *testing.T) {
 				if float64(point.Value) != expected.value {
 					t.Errorf("%s = %d, want %v", m.Name, point.Value, expected.value)
 				}
-				if v, _ := point.Attributes.Value("flowseer.edge.buffer.log"); v.AsString() != "ingest" {
+				if v, _ := point.Attributes.Value(drain.LogKey); v.AsString() != "ingest" {
 					t.Errorf("%s log = %v", m.Name, v)
 				}
 			case metricdata.Gauge[float64]:
@@ -457,7 +617,7 @@ func TestBufferInstrumentsReadTheLogSnapshot(t *testing.T) {
 				if point.Value != 2.5 {
 					t.Errorf("oldest_age = %v, want 2.5", point.Value)
 				}
-				if v, _ := point.Attributes.Value("flowseer.edge.buffer.log"); v.AsString() != "ingest" {
+				if v, _ := point.Attributes.Value(drain.LogKey); v.AsString() != "ingest" {
 					t.Errorf("age log = %v", v)
 				}
 			default:
