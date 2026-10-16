@@ -298,3 +298,12 @@ passes, and the verifier is green on every unit's paths. `grep -rn
       `uv run tools/scripts/run.py plan record implemented <plan> --units <n> --from <t> --to <t>`
       or `partial`.
 - [ ] No plan labels in code.
+
+## Review gaps
+
+- src/edge/agent/internal/drain/drain.go:158: the discard check runs only after Next returns a segment, so the last segment evicted inside a waiting Next is not warned about; fails: one record, central settles 0, the record ages out, nothing is appended after, and warnings stay 0; class: gap
+- src/edge/agent/host/delivery.go:65: the drain leaf sets an unbounded Error budget but leaves Panic at the default 3 per minute; fails: a drain attempt that panics on every run exhausts the leaf, then the root, and ends service.Run; class: gap
+- src/edge/agent/host/host.go:111: registering both log closes after the receiver close, so the logs close first, survives the host suite; fails: a final export posted while the runtime shuts down should land in the open telemetry log, and a test needs a seam in host.go; class: gap
+- src/edge/agent/host/delivery.go:74: the buffer callback is registered in setup and unregistered only by the runner, and the comment at :92 says Unregister bounds it to the attempt; fails: an attempt that ends after setup leaves a callback that a second attempt duplicates; class: hardening
+- src/edge/agent/host/delivery.go:102: "flowseer.edge.buffer.log" is typed again beside drain.go:27 logKey (docs/conventions/observability.md:95-99); fails: two literals that agree by accident; class: convention
+- src/edge/agent/internal/drain/drain.go:106: newDrain, run, pending, call, and warnOnDiscards each have one caller (docs/code-style.md:558); fails: the single-caller abstraction rule; class: convention
