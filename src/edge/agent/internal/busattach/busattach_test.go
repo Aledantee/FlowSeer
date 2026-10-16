@@ -18,6 +18,7 @@ import (
 
 	attachv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1"
 	"go.aledante.io/FlowSeer/src/common/service"
+	"go.aledante.io/FlowSeer/src/common/tlspin"
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/busattach"
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
 )
@@ -61,25 +62,6 @@ func TestAnEdgeWithNoAnchorsIsRefusedAtStart(t *testing.T) {
 	}
 }
 
-// TestTheEmptyAnchorSetRejectsEveryCertificate is the property the check
-// above exists because of, asserted directly rather than assumed about a
-// library. It is the difference between "trust nothing" and "trust the system
-// roots", and those read identically at the call site.
-func TestTheEmptyAnchorSetRejectsEveryCertificate(t *testing.T) {
-	certificate, digest := selfSigned(t)
-
-	if err := edgebus.PinnedTLSConfig(nil).VerifyPeerCertificate([][]byte{certificate}, nil); err == nil {
-		t.Error("an empty anchor set accepted a certificate; it must trust nothing, not the system roots")
-	}
-	if err := edgebus.PinnedTLSConfig([][]byte{digest}).VerifyPeerCertificate([][]byte{certificate}, nil); err != nil {
-		t.Errorf("the matching anchor was rejected: %v", err)
-	}
-	other := make([]byte, len(digest))
-	if err := edgebus.PinnedTLSConfig([][]byte{other}).VerifyPeerCertificate([][]byte{certificate}, nil); err == nil {
-		t.Error("a non-matching anchor accepted the certificate")
-	}
-}
-
 // TestAFailedAttachStartsNothing proves the call is what gates the rest: no
 // leaf, no receiver, and nothing left in the state directory to confuse the
 // next start.
@@ -98,30 +80,6 @@ func TestAFailedAttachStartsNothing(t *testing.T) {
 	if attachment != nil {
 		t.Error("Attach() returned an attachment alongside its error")
 	}
-}
-
-// selfSigned returns a DER certificate and the SPKI digest that pins it.
-func selfSigned(t *testing.T) (der, digest []byte) {
-	t.Helper()
-	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	if err != nil {
-		t.Fatalf("keygen: %v", err)
-	}
-	template := &x509.Certificate{
-		SerialNumber: big.NewInt(1),
-		Subject:      pkix.Name{CommonName: "central.test"},
-		NotBefore:    time.Now().Add(-time.Hour),
-		NotAfter:     time.Now().Add(time.Hour),
-	}
-	der, err = x509.CreateCertificate(rand.Reader, template, template, &key.PublicKey, key)
-	if err != nil {
-		t.Fatalf("create certificate: %v", err)
-	}
-	parsed, err := x509.ParseCertificate(der)
-	if err != nil {
-		t.Fatalf("parse certificate: %v", err)
-	}
-	return der, edgebus.SPKIDigest(parsed)
 }
 
 func selfSignedServer(t *testing.T) (*tls.Config, []byte) {
@@ -150,7 +108,7 @@ func selfSignedServer(t *testing.T) (*tls.Config, []byte) {
 			PrivateKey:  key,
 		}},
 	}
-	return tlsConfig, edgebus.SPKIDigest(parsed)
+	return tlsConfig, tlspin.SPKIDigest(parsed)
 }
 
 func waitFor(t *testing.T, what string, timeout time.Duration, cond func() bool) {

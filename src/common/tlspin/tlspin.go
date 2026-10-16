@@ -1,4 +1,5 @@
-package edgebus
+// Package tlspin verifies TLS peers against provisioned SPKI digests.
+package tlspin
 
 import (
 	"crypto/sha256"
@@ -10,14 +11,13 @@ import (
 )
 
 // ErrCodePin identifies a peer certificate whose SPKI digest is not among
-// the anchors an edge was provisioned with.
-var ErrCodePin = errs.NewCode("edgebus/pin")
+// the provisioned anchors.
+var ErrCodePin = errs.NewCode("tlspin/pin")
 
-// PinVerifier returns the tls.Config.VerifyPeerCertificate callback an edge
-// installs on every dialer that reaches central, the Connect client and
-// the leaf remote alike, so the two cannot drift apart. It accepts a chain
+// PinVerifier returns the tls.Config.VerifyPeerCertificate callback a client
+// installs on every dialer so they cannot drift apart. It accepts a chain
 // whose leaf certificate's SubjectPublicKeyInfo SHA-256 digest is one of
-// anchors, the 32-byte digests EdgeProvisioning and EnrollResponse carry.
+// anchors, the provisioned 32-byte digests.
 // A caller pairs it with InsecureSkipVerify, since the anchor replaces the
 // system roots rather than adding to them: a corporate interception
 // certificate is exactly what the pin exists to refuse.
@@ -41,7 +41,7 @@ func PinVerifier(anchors [][]byte) func(rawCerts [][]byte, _ [][]*x509.Certifica
 	}
 }
 
-// PinnedTLSConfig is the client configuration both dialers use: no system
+// PinnedTLSConfig is the client configuration for pinned dialers: no system
 // roots, the pin verifier in their place.
 func PinnedTLSConfig(anchors [][]byte) *tls.Config {
 	return &tls.Config{

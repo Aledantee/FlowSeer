@@ -21,6 +21,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/secret"
 	"go.aledante.io/FlowSeer/src/common/service"
+	"go.aledante.io/FlowSeer/src/common/tlspin"
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
 )
 
@@ -81,7 +82,7 @@ func (a *Attachment) Close(ctx context.Context) {
 // The TLS the leaf dials with is the same pinned configuration the Connect
 // client uses, built from the same anchors, so the two dialers cannot drift
 // into trusting different things. An empty anchor set is refused here rather
-// than passed down: edgebus.PinnedTLSConfig fails closed on one, which is the
+// than passed down: tlspin.PinnedTLSConfig fails closed on one, which is the
 // right direction, but the failure arrives as every hub connection being
 // refused with no explanation rather than as a configuration error at start.
 func Attach(ctx context.Context, client Attacher, cfg Config) (_ *Attachment, err error) {
@@ -108,7 +109,7 @@ func Attach(ctx context.Context, client Attacher, cfg Config) (_ *Attachment, er
 		// Copied rather than adopted: the bytes belong to the response
 		// message, and a secret.Value takes ownership of what it is given.
 		CredentialsFile: secret.New(append([]byte(nil), response.Msg.GetUserCredential()...)),
-		TLS:             edgebus.PinnedTLSConfig(cfg.TrustAnchors),
+		TLS:             tlspin.PinnedTLSConfig(cfg.TrustAnchors),
 		// Periodic rather than per-message: this buffer is the edge's own
 		// observability, and a record lost to a power cut is a gap in
 		// history rather than a lost instruction.

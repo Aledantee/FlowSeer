@@ -11,7 +11,7 @@ import (
 	"testing"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
-	"go.aledante.io/FlowSeer/src/modules/edgebus"
+	"go.aledante.io/FlowSeer/src/common/tlspin"
 	"go.aledante.io/FlowSeer/src/services/device/internal/host"
 )
 
@@ -70,7 +70,7 @@ func TestGenerationLogsThePinAndOnlyAtGeneration(t *testing.T) {
 	if !strings.Contains(generated.String(), hex.EncodeToString(certificate.SPKI)) {
 		t.Fatalf("the generation log does not carry the pin: %s", generated.String())
 	}
-	if got := edgebus.SPKIDigest(certificate.TLS.Leaf); !bytes.Equal(got, certificate.SPKI) {
+	if got := tlspin.SPKIDigest(certificate.TLS.Leaf); !bytes.Equal(got, certificate.SPKI) {
 		t.Fatalf("reported pin %x, want the leaf's %x", certificate.SPKI, got)
 	}
 

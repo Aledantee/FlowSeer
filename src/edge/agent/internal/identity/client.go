@@ -8,7 +8,7 @@ import (
 
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/capture/v1/capturev1connect"
 	"go.aledante.io/FlowSeer/src/common/errs"
-	"go.aledante.io/FlowSeer/src/modules/edgebus"
+	"go.aledante.io/FlowSeer/src/common/tlspin"
 )
 
 const (
@@ -27,7 +27,7 @@ const (
 // customer network would otherwise read every assertion this edge sends.
 func PinnedTransport(anchors [][]byte) *http.Transport {
 	transport := http.DefaultTransport.(*http.Transport).Clone()
-	transport.TLSClientConfig = edgebus.PinnedTLSConfig(anchors)
+	transport.TLSClientConfig = tlspin.PinnedTLSConfig(anchors)
 	return transport
 }
 

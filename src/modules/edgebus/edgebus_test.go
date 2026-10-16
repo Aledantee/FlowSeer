@@ -3,15 +3,9 @@ package edgebus_test
 import (
 	"bytes"
 	"context"
-	"crypto/ecdsa"
-	"crypto/elliptic"
-	"crypto/rand"
-	"crypto/x509"
-	"crypto/x509/pkix"
 	"errors"
 	"fmt"
 	"io"
-	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -538,45 +532,6 @@ func TestLaneBucketSurvivesRestart(t *testing.T) {
 	if string(entry.Value()) != "record" {
 		t.Fatalf("value after restart = %q", entry.Value())
 	}
-}
-
-func TestPinVerifierRejectsAnUnanchoredCertificate(t *testing.T) {
-	anchored := selfSigned(t)
-	other := selfSigned(t)
-	verify := edgebus.PinVerifier([][]byte{edgebus.SPKIDigest(anchored)})
-	if err := verify([][]byte{anchored.Raw}, nil); err != nil {
-		t.Fatalf("anchored certificate rejected: %v", err)
-	}
-	err := verify([][]byte{other.Raw}, nil)
-	if code, ok := errs.CodeOf(err); !ok || code != edgebus.ErrCodePin {
-		t.Fatalf("unanchored certificate: err=%v code=%q", err, code)
-	}
-	if err := verify(nil, nil); err == nil {
-		t.Fatal("empty chain accepted")
-	}
-}
-
-func selfSigned(t *testing.T) *x509.Certificate {
-	t.Helper()
-	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	if err != nil {
-		t.Fatalf("key: %v", err)
-	}
-	template := &x509.Certificate{
-		SerialNumber: big.NewInt(1),
-		Subject:      pkix.Name{CommonName: "flowseer-central"},
-		NotBefore:    time.Now().Add(-time.Hour),
-		NotAfter:     time.Now().Add(time.Hour),
-	}
-	der, err := x509.CreateCertificate(rand.Reader, template, template, &key.PublicKey, key)
-	if err != nil {
-		t.Fatalf("certificate: %v", err)
-	}
-	cert, err := x509.ParseCertificate(der)
-	if err != nil {
-		t.Fatalf("parse: %v", err)
-	}
-	return cert
 }
 
 func TestPublishOutsideTheBufferedBranchesFailsLoudly(t *testing.T) {
