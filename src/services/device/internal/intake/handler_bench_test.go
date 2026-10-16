@@ -29,10 +29,8 @@ func BenchmarkDeliver(b *testing.B) {
 			hub, err := edgebus.StartHub(context.Background(), edgebus.HubConfig{
 				StateDir:           b.TempDir(),
 				FsyncPolicy:        service.BusFsyncPerMessage,
-				ListenPort:         -1,
 				MaxStoreBytes:      768 << 20,
 				CentralBudgetBytes: 512 << 20,
-				EdgeBudgetBytes:    128 << 20,
 				IngestMaxBytes:     112 << 20,
 				EvidenceMaxBytes:   64 << 20,
 			})

@@ -44,9 +44,8 @@ type HandlerConfig struct {
 	MeterProvider metric.MeterProvider
 }
 
-// Handler is central's IngestService. It prepares and publishes each delivered
-// record as the stream consumer does for a record arriving on the edge's own
-// stream. It is safe for concurrent use when its Publisher is.
+// Handler is central's IngestService. It validates and publishes delivered
+// records. It is safe for concurrent use when its Publisher is.
 type Handler struct {
 	central    Publisher
 	edgeID     func(context.Context) (string, error)

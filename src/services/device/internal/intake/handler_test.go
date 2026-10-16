@@ -6,16 +6,25 @@ import (
 	"fmt"
 	"sync"
 	"testing"
+	"time"
 
+	"buf.build/go/protovalidate"
 	connect "connectrpc.com/connect"
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
+	"go.opentelemetry.io/otel/attribute"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
+	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	edgeingestv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/ingest/v1"
+	eventlogv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/log/v1"
 	ingestv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/ingest/v1"
+	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
+	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/service"
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
 	"go.aledante.io/FlowSeer/src/services/device/internal/edgestore"
 )
@@ -287,4 +296,116 @@ func TestMissingEdgeIsUnauthenticated(t *testing.T) {
 	if got := connect.CodeOf(err); got != connect.CodeUnauthenticated {
 		t.Fatalf("code = %v, want unauthenticated (err %v)", got, err)
 	}
+}
+
+const (
+	testTenant       = "0198a3c0-0000-7000-8000-0000000000aa"
+	otherTenant      = "0198a3c0-0000-7000-8000-0000000000ab"
+	testEdge         = "0198a3c0-0000-7000-8000-0000000000ed"
+	otherEdge        = "0198a3c0-0000-7000-8000-0000000000ee"
+	testDevice       = "0198a3c0-0000-7000-8000-000000000001"
+	otherDevice      = "0198a3c0-0000-7000-8000-000000000002"
+	testRecordID     = "0198a3c0-0000-7000-8000-000000000101"
+	otherRecordID    = "0198a3c0-0000-7000-8000-000000000102"
+	testBindingID    = "0198a3c0-0000-7000-8000-000000000201"
+	invalidReason    = "invalid"
+	provenanceReason = "foreign_provenance"
+)
+
+func startHub(t *testing.T) *edgebus.Hub {
+	t.Helper()
+	hub, err := edgebus.StartHub(context.Background(), edgebus.HubConfig{
+		StateDir:           t.TempDir(),
+		FsyncPolicy:        service.BusFsyncPeriodic,
+		MaxStoreBytes:      768 << 20,
+		CentralBudgetBytes: 512 << 20,
+		IngestMaxBytes:     112 << 20,
+		EvidenceMaxBytes:   64 << 20,
+	})
+	if err != nil {
+		t.Fatalf("start hub: %v", err)
+	}
+	t.Cleanup(hub.Close)
+	return hub
+}
+
+func validEnvelope(t *testing.T, edgeID, deviceID, recordID string, raw bool) (*ingestv1.IngestRecord, []byte) {
+	t.Helper()
+	ref := edgev1.EdgeGlobalRef_builder{Edge: edgev1.EdgeLocalRef_builder{Id: proto.String(edgeID)}.Build()}.Build()
+	device := inventoryv1.DeviceGlobalRef_builder{Device: inventoryv1.DeviceLocalRef_builder{Id: proto.String(deviceID)}.Build()}.Build()
+	binding := inventoryv1.BindingGlobalRef_builder{Binding: inventoryv1.BindingLocalRef_builder{Id: proto.String(testBindingID)}.Build()}.Build()
+	provenance := inventoryv1.Provenance_builder{
+		Binding:    binding,
+		ObservedAt: timestamppb.New(time.Now().UTC()),
+		Edge:       ref,
+		Log:        inventoryv1.LogProtocol_LOG_PROTOCOL_SYSLOG.Enum(),
+	}.Build()
+	envelope := ingestv1.IngestRecord_builder{
+		RecordId:   proto.String(recordID),
+		Provenance: provenance,
+		Syslog: eventlogv1.SyslogRecord_builder{
+			Device:     device,
+			ReceivedAt: timestamppb.New(time.Now().UTC()),
+			Message:    []byte("message"),
+		}.Build(),
+	}.Build()
+	if raw {
+		envelope.SetRaw(ingestv1.RawEvidence_builder{
+			Data:   []byte("raw bytes"),
+			Reason: ingestv1.RawReason_RAW_REASON_PARSE_FAILURE.Enum(),
+		}.Build())
+	}
+	if err := validateEnvelope(envelope); err != nil {
+		t.Fatalf("validate envelope fixture: %v", err)
+	}
+	data, err := proto.Marshal(envelope)
+	if err != nil {
+		t.Fatalf("marshal envelope fixture: %v", err)
+	}
+	return envelope, data
+}
+
+func validateEnvelope(envelope *ingestv1.IngestRecord) error {
+	return protovalidate.Validate(envelope)
+}
+
+func centralStreams(t *testing.T, hub *edgebus.Hub) (jetstream.Stream, jetstream.Stream) {
+	t.Helper()
+	typed, err := hub.JetStream().Stream(context.Background(), edgebus.IngestStream(edgebus.IngestRecordTypeSyslog))
+	if err != nil {
+		t.Fatalf("load typed stream: %v", err)
+	}
+	evidence, err := hub.JetStream().Stream(context.Background(), edgebus.EvidenceStream)
+	if err != nil {
+		t.Fatalf("load evidence stream: %v", err)
+	}
+	return typed, evidence
+}
+
+func metricValue(t *testing.T, reader *sdkmetric.ManualReader, name, key, value string) int64 {
+	t.Helper()
+	var data metricdata.ResourceMetrics
+	if err := reader.Collect(context.Background(), &data); err != nil {
+		t.Fatalf("collect metrics: %v", err)
+	}
+	for _, scope := range data.ScopeMetrics {
+		for _, metricData := range scope.Metrics {
+			if metricData.Name != name {
+				continue
+			}
+			sum, ok := metricData.Data.(metricdata.Sum[int64])
+			if !ok {
+				t.Fatalf("metric %q has data %T, want int64 sum", name, metricData.Data)
+			}
+			for _, point := range sum.DataPoints {
+				if key == "" {
+					return point.Value
+				}
+				if got, ok := point.Attributes.Value(attribute.Key(key)); ok && got.AsString() == value {
+					return point.Value
+				}
+			}
+		}
+	}
+	return 0
 }
