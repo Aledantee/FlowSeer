@@ -94,6 +94,10 @@ per call and acknowledges it after central settles every record. A short
 settlement resumes at the first unsettled record. A restart can resend a
 settled prefix. Only the log's byte and age bounds discard queued records.
 A collector outage holds telemetry in its log while ingest continues.
+Each drain runs under its own supervisor branch. A persistent storage error
+restarts only that drain with jittered backoff capped at 30 seconds, leaving
+the other log and agent modules running. Drain attempt metrics use the paths
+`agent/delivery_ingest/drain` and `agent/delivery_telemetry/drain`.
 Old `jetstream` directories and `hub.creds` files remain untouched on upgrade.
 
 Everything else is survivable, and the first device listing is the one worth

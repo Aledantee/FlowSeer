@@ -3,7 +3,9 @@ package host
 import (
 	"context"
 	"errors"
+	"math"
 	"path/filepath"
+	"time"
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
@@ -44,13 +46,27 @@ func openDeliveryLogs(cfg *Config) (*seglog.Log, *seglog.Log, error) {
 // other draining. The logs live across attempts and close after the runtime.
 type deliveryAssembly struct {
 	name      string
-	log       *seglog.Log
+	log       drain.Log
 	send      drain.Send
 	decodable func([]byte) bool
 }
 
 func (a deliveryAssembly) module() service.Module {
-	return service.Module{Name: "delivery_" + a.name, Leaf: &service.Leaf{Setup: a.setup}}
+	// The runtime requires finite positive budgets. A machine-sized count per
+	// minute leaves backoff as the practical restart limit for storage faults.
+	// The branch keeps those restarts out of the root's intensity budget.
+	budget := service.RestartBudget{Max: math.MaxInt, Window: time.Minute}
+	return service.Module{
+		Name: "delivery_" + a.name,
+		Branch: &service.Branch{
+			Intensity: budget,
+			Children: []service.Module{{
+				Name:   "drain",
+				Policy: service.Policy{Error: service.OutcomePolicy{Budget: budget}},
+				Leaf:   &service.Leaf{Setup: a.setup},
+			}},
+		},
+	}
 }
 
 func (a deliveryAssembly) setup(ctx context.Context) (service.Attempt, error) {

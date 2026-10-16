@@ -8,7 +8,11 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/netip"
+	"os"
+	"os/signal"
+	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"buf.build/go/protovalidate"
@@ -23,6 +27,8 @@ import (
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/telemetry/v1/telemetryv1connect"
 	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
 	agentv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/agent/v1"
+	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/service"
 	"go.aledante.io/FlowSeer/src/common/spawn"
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/drain"
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/lanehost"
@@ -31,6 +37,152 @@ import (
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/syslogsource"
 	"go.aledante.io/FlowSeer/src/protocol/syslog"
 )
+
+type faultingDeliveryLog struct {
+	drain.Log
+	operation string
+	recovered atomic.Bool
+	failures  atomic.Int64
+}
+
+func (l *faultingDeliveryLog) fail(operation string) error {
+	if operation == l.operation && !l.recovered.Load() {
+		l.failures.Add(1)
+		return errs.New().Code(seglog.ErrCodeIO).Msg("storage unavailable")
+	}
+	return nil
+}
+
+func (l *faultingDeliveryLog) Next(ctx context.Context) (seglog.Segment, error) {
+	if err := l.fail("next"); err != nil {
+		return seglog.Segment{}, err
+	}
+	return l.Log.Next(ctx)
+}
+
+func (l *faultingDeliveryLog) Ack(sequence uint64) error {
+	if err := l.fail("ack"); err != nil {
+		return err
+	}
+	return l.Log.Ack(sequence)
+}
+
+func TestDeliveryStorageFaultStaysInItsBranch(t *testing.T) {
+	// Initialize the process-wide signal dispatcher outside the fake-clock bubble.
+	_, stopSignals := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stopSignals()
+	for _, tc := range []struct{ name, operation string }{
+		{"ingest", "next"},
+		{"ingest", "ack"},
+		{"telemetry", "next"},
+		{"telemetry", "ack"},
+	} {
+		t.Run(tc.name+"/"+tc.operation, func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				broken, err := seglog.Open(seglog.Config{Dir: t.TempDir()})
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer func() { _ = broken.Close() }()
+				healthy, err := seglog.Open(seglog.Config{Dir: t.TempDir()})
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer func() { _ = healthy.Close() }()
+				if err := broken.Append([]byte("queued")); err != nil {
+					t.Fatal(err)
+				}
+				fault := &faultingDeliveryLog{Log: broken, operation: tc.operation}
+				otherName := "telemetry"
+				if tc.name == "telemetry" {
+					otherName = "ingest"
+				}
+				delivered := make(chan struct{}, 1)
+				failing := deliveryAssembly{name: tc.name, log: fault, send: func(_ context.Context, records [][]byte) (int, error) {
+					return len(records), nil
+				}}
+				other := deliveryAssembly{name: otherName, log: healthy, send: func(_ context.Context, records [][]byte) (int, error) {
+					delivered <- struct{}{}
+					return len(records), nil
+				}}
+				reader := sdkmetric.NewManualReader()
+				provider := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
+				defer func() { _ = provider.Shutdown(context.Background()) }()
+				var sentinelStarts atomic.Int64
+				cfg := service.Config{
+					Identity: service.Identity{Name: "agent", Namespace: "test", Version: "test"},
+					Logger:   slog.New(slog.DiscardHandler), MeterProvider: provider,
+					Modules: []service.Module{failing.module(), other.module(), {
+						Name: "sentinel", Leaf: &service.Leaf{Setup: func(context.Context) (service.Attempt, error) {
+							sentinelStarts.Add(1)
+							return service.Attempt{Runner: func(ctx context.Context) error { <-ctx.Done(); return nil }}, nil
+						}},
+					}},
+				}
+				ctx, cancel := context.WithCancel(context.Background())
+				done := make(chan struct{})
+				var runErr error
+				spawn.Go(ctx, "test supervised delivery", func() { defer close(done); runErr = service.Run(ctx, cfg) })
+				defer func() { cancel(); <-done }()
+				time.Sleep(4 * time.Minute)
+				synctest.Wait()
+				select {
+				case <-done:
+					t.Fatalf("service.Run ended during persistent storage fault: %v", runErr)
+				default:
+				}
+				if got := fault.failures.Load(); got < 8 {
+					t.Fatalf("storage failures = %d, want at least 8 supervised attempts", got)
+				}
+				if err := healthy.Append([]byte("independent")); err != nil {
+					t.Fatal(err)
+				}
+				select {
+				case <-delivered:
+				case <-time.After(time.Second):
+					t.Fatal("other drain did not deliver during storage fault")
+				}
+				if got := sentinelStarts.Load(); got != 1 {
+					t.Errorf("sentinel starts = %d, want 1", got)
+				}
+				var rm metricdata.ResourceMetrics
+				if err := reader.Collect(ctx, &rm); err != nil {
+					t.Fatal(err)
+				}
+				var restarts int64
+				for _, scope := range rm.ScopeMetrics {
+					for _, m := range scope.Metrics {
+						if m.Name != "flowseer.service.module.lifecycle.transitions" {
+							continue
+						}
+						sum, ok := m.Data.(metricdata.Sum[int64])
+						if !ok {
+							continue
+						}
+						for _, dp := range sum.DataPoints {
+							path, _ := dp.Attributes.Value("flowseer.module.path")
+							action, _ := dp.Attributes.Value("flowseer.module.lifecycle.action")
+							outcome, _ := dp.Attributes.Value("flowseer.module.lifecycle.outcome")
+							if path.AsString() == "agent/delivery_"+tc.name+"/drain" && action.AsString() == "restart" && outcome.AsString() == "error" {
+								restarts += dp.Value
+							}
+						}
+					}
+				}
+				if restarts < 8 {
+					t.Errorf("recorded error restarts = %d, want at least 8", restarts)
+				}
+				fault.recovered.Store(true)
+				time.Sleep(31 * time.Second)
+				synctest.Wait()
+				stats, err := broken.Stats()
+				if err != nil || stats.Records != 0 {
+					t.Errorf("recovered log stats = %+v, %v, want empty", stats, err)
+				}
+			})
+		})
+	}
+}
 
 type ingestHandler struct {
 	ingestv1connect.UnimplementedIngestServiceHandler
@@ -119,7 +271,7 @@ func TestDeliveryModulesKeepIngestFlowingDuringTelemetryOutage(t *testing.T) {
 		{name: "telemetry", log: telemetry, send: drain.Telemetry(telemetryv1connect.NewTelemetryServiceClient(server.Client(), server.URL)), decodable: drain.TelemetryDecodable},
 	}
 	for _, a := range assemblies {
-		attempt, err := a.module().Leaf.Setup(ctx)
+		attempt, err := a.setup(ctx)
 		if err != nil {
 			t.Fatal(err)
 		}
