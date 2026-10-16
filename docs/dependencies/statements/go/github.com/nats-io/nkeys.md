@@ -10,7 +10,7 @@ approved: 2026-10-01
 
 ## Why it is required
 
-The package at src/modules/edgebus imports github.com/nats-io/nkeys at src/modules/edgebus/keys.go:11. The pinned direct requirement is `github.com/nats-io/nkeys` at `v0.4.16`.
+The package at src/modules/edgebus imports github.com/nats-io/nkeys at src/modules/edgebus/keys.go:8. The pinned direct requirement is `github.com/nats-io/nkeys` at `v0.4.16`.
 
 ## Why it is safe
 
