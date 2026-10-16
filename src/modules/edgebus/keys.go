@@ -77,11 +77,11 @@ const secretTempPrefix = ".secret-"
 // writeSecretFile writes body to path at mode 0600, atomically, and removes
 // any temporary file an interrupted earlier write left in the directory.
 //
-// os.WriteFile applies its mode only when it creates the file, so a seed or
-// a credential left by an earlier run under a different umask keeps whatever
+// os.WriteFile applies its mode only when it creates the file, so a seed
+// left by an earlier run under a different umask keeps whatever
 // mode it had. The rename makes a crash mid-write leave the previous content
-// instead of a short one — a truncated seed is permanent, since nothing
-// rewrites it — and the directory sync makes the rename durable. Writers to
+// instead of a short one. A truncated seed is permanent, since nothing
+// rewrites it. The directory sync makes the rename durable. Writers to
 // one directory must be serialized: the sweep cannot tell a concurrent
 // writer's temporary file from a leftover.
 func writeSecretFile(path string, body []byte) error {

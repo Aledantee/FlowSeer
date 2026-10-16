@@ -1,9 +1,12 @@
 package intake
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"slices"
 	"sync"
 	"testing"
@@ -42,6 +45,7 @@ type handlerOptions struct {
 	central    func(hub *edgebus.Hub) Publisher
 	edgeID     func(context.Context) (string, error)
 	edgeTenant func(context.Context, string) (string, error)
+	logger     *slog.Logger
 }
 
 func newHandlerSystem(t *testing.T, opts handlerOptions) handlerSystem {
@@ -62,6 +66,7 @@ func newHandlerSystem(t *testing.T, opts handlerOptions) handlerSystem {
 		Central:       central,
 		EdgeID:        opts.edgeID,
 		EdgeTenant:    opts.edgeTenant,
+		Logger:        opts.logger,
 		MeterProvider: sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader)),
 	})
 	if err != nil {
@@ -382,6 +387,61 @@ func TestMissingEdgeIsUnauthenticated(t *testing.T) {
 
 	if got := connect.CodeOf(err); got != connect.CodeUnauthenticated {
 		t.Fatalf("code = %v, want unauthenticated (err %v)", got, err)
+	}
+}
+
+func TestRetryLogIsLimitedPerEdge(t *testing.T) {
+	var logs bytes.Buffer
+	s := newHandlerSystem(t, handlerOptions{logger: slog.New(slog.NewJSONHandler(&logs, nil))})
+
+	for _, edgeID := range []string{testEdge, otherEdge} {
+		s.handler.retry(t.Context(), edgeID, reasonValidation)
+		s.handler.retry(t.Context(), edgeID, reasonMarshal)
+	}
+
+	assertHandlerLogEdges(t, logs.Bytes(), "record left for redelivery", testEdge, otherEdge)
+}
+
+func TestRefusalLogIsLimitedPerEdge(t *testing.T) {
+	var logs bytes.Buffer
+	s := newHandlerSystem(t, handlerOptions{logger: slog.New(slog.NewJSONHandler(&logs, nil))})
+
+	for _, edgeID := range []string{testEdge, otherEdge} {
+		s.handler.logRefusal(t.Context(), edgeID, invalidReason)
+		s.handler.logRefusal(t.Context(), edgeID, provenanceReason)
+	}
+
+	assertHandlerLogEdges(t, logs.Bytes(), "record refused", testEdge, otherEdge)
+}
+
+func TestRefusalAndRetryLogsUseSeparateLimits(t *testing.T) {
+	var logs bytes.Buffer
+	s := newHandlerSystem(t, handlerOptions{logger: slog.New(slog.NewJSONHandler(&logs, nil))})
+
+	s.handler.logRefusal(t.Context(), testEdge, invalidReason)
+	s.handler.retry(t.Context(), testEdge, reasonValidation)
+
+	assertHandlerLogEdges(t, logs.Bytes(), "record refused", testEdge)
+	assertHandlerLogEdges(t, logs.Bytes(), "record left for redelivery", testEdge)
+}
+
+func assertHandlerLogEdges(t *testing.T, data []byte, message string, want ...string) {
+	t.Helper()
+	var got []string
+	for line := range bytes.Lines(data) {
+		var entry struct {
+			Message string `json:"msg"`
+			EdgeID  string `json:"flowseer.edge.id"`
+		}
+		if err := json.Unmarshal(line, &entry); err != nil {
+			t.Fatalf("decode log: %v", err)
+		}
+		if entry.Message == message {
+			got = append(got, entry.EdgeID)
+		}
+	}
+	if !slices.Equal(got, want) {
+		t.Errorf("%q log edges = %v, want %v", message, got, want)
 	}
 }
 

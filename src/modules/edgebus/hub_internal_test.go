@@ -25,9 +25,13 @@ func TestHubHasNoEdgeFacingListener(t *testing.T) {
 
 func TestCentralAccountCarriesNoImportsOrExports(t *testing.T) {
 	h := cleanupHub(t, t.TempDir())
-	encoded, err := h.keys.accountJWT(h.keys.central, "CENTRAL", 1)
+	central, err := h.keys.central.PublicKey()
 	if err != nil {
-		t.Fatalf("central jwt: %v", err)
+		t.Fatal(err)
+	}
+	encoded, err := h.server.AccountResolver().Fetch(central)
+	if err != nil {
+		t.Fatalf("fetch central jwt: %v", err)
 	}
 	claims, err := jwt.DecodeAccountClaims(encoded)
 	if err != nil {
