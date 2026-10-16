@@ -71,3 +71,41 @@ Waves: U1 | U2
 - Native workflow questions and initial CLI trust prompts are not proven to
   use the bridge. Unrecognized prompts block and notify instead of
   receiving a guessed terminal answer.
+
+## Carried from phase 1's review
+
+Phase 1 landed 2026-10-16 in `tools/scripts/harness/` with these
+follow-ups open. The first two block `serve` and belong in this phase's
+units. The rest are hardening to take or decline at re-plan.
+
+- `tools/scripts/harness/state.py:279`: the `new_task` kind has no
+  producer. `normalize` emits only message, callback, stop, and other, and
+  `Poller.poll` (`tools/scripts/harness/telegram.py:147`) returns store
+  results without `callback_query_id` or message text, so `serve` cannot
+  answer a callback query or read a brief to issue New Task buttons.
+- `tools/scripts/harness/state.py:253`: inbound rows are keyed by
+  `update_id`, and the Bot API says "If there are no new updates for at
+  least a week, then identifier of the next update will be chosen randomly
+  instead of sequentially". A random ID equal to a stored one returns the
+  old result. Validate where the random ID can fall at the live check.
+- `tools/scripts/harness/telegram.py:30`: `normalize` indexes nested fields
+  without type checks for the whole batch, so one update with
+  `"from": null`, or a `result` that is not a list, stops the offset.
+- `tools/scripts/harness/telegram.py:87`: `error.close()` runs inside the
+  `HTTPError` handler, so a raising `close()` chains the token-bearing
+  `HTTPError` as `__context__`.
+- `tools/scripts/harness/state.py:19`: an existing state directory keeps
+  its mode, and the database is chmodded only after the first transaction.
+- `tools/scripts/harness/render.py:81`: `_plain` truncates by code points
+  while JSON writes each C0 control character as 6 bytes, so long escape
+  runs make `_card` raise instead of truncating.
+- `tools/scripts/harness/bridge.py:73`: a deeply nested request under 64 KiB
+  raises `RecursionError` and exits 1 instead of 2.
+- `tools/scripts/harness/state.py:27`: table shapes changed while
+  `user_version` stays 1.
+- `tools/scripts/harness/state.py:249`: every `IntegrityError` in `_apply`
+  becomes a stored `state_conflict` with no log line.
+- `tools/scripts/harness/state.py:158`: `issue_agent_options(brief: str)`
+  accepts `None`.
+- `tools/scripts/harness/state.py:253`: `encode(update)` raises on a NaN or
+  a lone surrogate that `json.load` accepted.
