@@ -156,8 +156,6 @@ forwarder consumers, and the bus listener an edge dials.
   power-loss rule. That change has not landed. Target-hardware rates are
   unverified, since Go syncs with `F_FULLFSYNC` on darwin.
 - Whether the process-local bus stays. It has no consumer in either host.
-- How the agent's configuration splits its buffer bounds between the two
-  logs.
 - Whether an adapter host, the second kind of enrolled host `GOALS.md`
   names, delivers through the same ingest call. The tenant no longer
   comes from a stream, but central resolves it from the edge store, which
@@ -205,3 +203,31 @@ Landed 2026-10-15: `src/services/device/internal/intake/handler.go`,
 - The forwarder and the telemetry call classify a collector's answer through
   one `edgebus.Collector`. Both refuse to start on an endpoint that is not an
   absolute `http` or `https` URL.
+
+### 2026-10-16: agent switch landed
+
+Landed 2026-10-16: `src/edge/agent/internal/drain`,
+`src/edge/agent/internal/otlpreceiver`, `src/common/tlspin`,
+`src/edge/agent/host/delivery.go`, and `AgentLogBounds` in
+`spec/proto/flowseer/store/agent/v1/agent_config.proto`. The agent starts
+no leaf node and no longer calls `AttachBus`.
+
+- The agent's configuration splits its buffer bounds per log.
+  `AgentBuffer` holds an `ingest` and a `telemetry` `AgentLogBounds`, each
+  with `max_bytes` and `max_age`. Unset fields default to 192 MiB and 7 days
+  for ingest and 64 MiB and 7 days for telemetry, which keeps the 256 MiB
+  total the leaf's stream had. The floors are 1 MiB and 20 minutes, the
+  smallest bounds `seglog.Open` accepts. A configuration with the old flat
+  `buffer { max_bytes }` no longer loads.
+- Each log has one drain. It sends one segment per call, resends a partly
+  settled segment from its start after a restart, and backs off from 1 s to
+  30 s without jitter. It drops a record only when the log's bounds expire
+  it or the record cannot be decoded into the call's item type.
+- Each drain runs under its own supervisor branch with an error budget no
+  storage fault exhausts, so a segment that keeps failing to read holds back
+  only its own log (`src/edge/agent/host/delivery.go`).
+- The loopback OTLP receiver moved from `src/modules/edgebus` into the
+  agent, and the TLS pin helpers moved to `src/common/tlspin`, since central
+  and the agent both use them.
+- An upgraded agent leaves its old `jetstream` directory and `hub.creds` on
+  disk. Nothing removes them.
