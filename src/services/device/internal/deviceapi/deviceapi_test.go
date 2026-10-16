@@ -117,7 +117,6 @@ func newHarness(t *testing.T) *harness {
 	hub, err := edgebus.StartHub(context.Background(), edgebus.HubConfig{
 		StateDir:    t.TempDir(),
 		FsyncPolicy: service.BusFsyncPeriodic,
-		ListenPort:  0,
 	})
 	if err != nil {
 		t.Fatalf("start hub: %v", err)
@@ -1136,7 +1135,6 @@ func TestEdgeTenantErrorMappings(t *testing.T) {
 	hub, err := edgebus.StartHub(context.Background(), edgebus.HubConfig{
 		StateDir:    t.TempDir(),
 		FsyncPolicy: service.BusFsyncPeriodic,
-		ListenPort:  0,
 	})
 	if err != nil {
 		t.Fatalf("start hub: %v", err)

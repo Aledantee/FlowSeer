@@ -87,7 +87,6 @@ func TestDeliverIsDurableAndDeduplicates(t *testing.T) {
 	hub, err := edgebus.StartHub(ctx, edgebus.HubConfig{
 		StateDir:    t.TempDir(),
 		FsyncPolicy: service.BusFsyncPeriodic,
-		ListenPort:  0,
 	})
 	if err != nil {
 		t.Fatalf("start hub: %v", err)
@@ -151,7 +150,6 @@ func TestDeliverMultiTenantAuditSubject(t *testing.T) {
 	hub, err := edgebus.StartHub(ctx, edgebus.HubConfig{
 		StateDir:    t.TempDir(),
 		FsyncPolicy: service.BusFsyncPeriodic,
-		ListenPort:  0,
 	})
 	if err != nil {
 		t.Fatalf("start hub: %v", err)

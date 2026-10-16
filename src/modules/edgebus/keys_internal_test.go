@@ -7,31 +7,6 @@ import (
 	"testing"
 )
 
-func TestValidEdgeID(t *testing.T) {
-	for _, tc := range []struct {
-		id   string
-		want bool
-	}{
-		{"0192e6a0-0000-7000-8000-0000000000ed", true},
-		{"edge_1", true},
-		{strings.Repeat("a", 64), true},
-		{"", false},
-		{strings.Repeat("a", 65), false},
-		{"../escape", false},
-		{"edge/1", false},
-		{"edge.1", false},
-		{"edge 1", false},
-		{"edge*", false},
-		{"edge>", false},
-	} {
-		t.Run(tc.id, func(t *testing.T) {
-			if got := validEdgeID(tc.id); got != tc.want {
-				t.Errorf("validEdgeID(%q) = %v, want %v", tc.id, got, tc.want)
-			}
-		})
-	}
-}
-
 func TestWriteSecretFileRestrictsAFileAnEarlierRunLeftReadable(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "hub.creds")

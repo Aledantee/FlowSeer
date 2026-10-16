@@ -88,10 +88,8 @@ func startHub(t *testing.T) *edgebus.Hub {
 	hub, err := edgebus.StartHub(context.Background(), edgebus.HubConfig{
 		StateDir:           t.TempDir(),
 		FsyncPolicy:        service.BusFsyncPeriodic,
-		ListenPort:         -1,
 		MaxStoreBytes:      768 << 20,
 		CentralBudgetBytes: 512 << 20,
-		EdgeBudgetBytes:    128 << 20,
 		IngestMaxBytes:     112 << 20,
 		EvidenceMaxBytes:   64 << 20,
 	})

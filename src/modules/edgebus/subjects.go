@@ -4,27 +4,14 @@ import (
 	"fmt"
 	"strings"
 
-	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/tenant"
 )
 
-// Subject names the fabric uses. Every subject an edge publishes on sits
-// under its own subtree, flowseer.<tenant>.edge.<edge-id>.>, so the broker
-// confines the edge by prefix; the OpenTelemetry signals take the otel
-// branch and each ingestion source will take ingest.<source>.
 const (
 	// DefaultTenant is the default tenant identifier used during development
 	// and testing when no ambient tenant is configured.
 	DefaultTenant = tenant.DefaultTenant
 
-	// EdgeBufferStream is the file-backed stream on the edge's own JetStream
-	// domain holding everything the edge has published and not yet shipped.
-	EdgeBufferStream = "EDGE_BUFFER"
-	// HubEdgeStreamPrefix starts the name of the hub stream that sources one
-	// edge's buffer; the edge id follows. One stream per edge is what makes
-	// a record's edge a fact of where it is stored rather than of the
-	// subject it carries.
-	HubEdgeStreamPrefix = "FLOWSEER_EDGE_"
 	// AuditStream holds every DeviceOperationEvent central writes.
 	AuditStream = "FLOWSEER_DEVICE_AUDIT"
 	// OperatorActionStream holds every OperatorActionEvent central writes for
@@ -55,8 +42,7 @@ const (
 	// AccessBucket is the key-value bucket central keeps member, role, and
 	// partner records in. Every key starts with its tenant id.
 	AccessBucket = "access"
-	// HubDomain is the hub's JetStream domain. An edge's leaf runs its own
-	// domain; a leaf without one silently extends the hub's.
+	// HubDomain is the hub's JetStream domain.
 	HubDomain = "hub"
 )
 
@@ -69,21 +55,6 @@ const (
 	SignalMetrics OTelSignal = "metrics"
 	SignalTraces  OTelSignal = "traces"
 )
-
-// EdgeSubtree is the prefix every subject an edge may publish on shares.
-func EdgeSubtree(tenant, edgeID string) string {
-	return fmt.Sprintf("flowseer.%s.edge.%s", tenant, edgeID)
-}
-
-// OTelSubject is where an edge publishes one signal's OTLP bodies.
-func OTelSubject(tenant, edgeID string, signal OTelSignal) string {
-	return EdgeSubtree(tenant, edgeID) + ".otel." + string(signal)
-}
-
-// IngestSubject is where an edge publishes records from one ingestion source.
-func IngestSubject(tenant, edgeID, source string) string {
-	return EdgeSubtree(tenant, edgeID) + ".ingest." + source
-}
 
 // IngestRecordTypes returns the record types central stores.
 func IngestRecordTypes() []string {
@@ -105,19 +76,6 @@ func IngestStream(recordType string) string {
 	return "FLOWSEER_INGEST_" + strings.ToUpper(recordType)
 }
 
-// EdgePublishSubjects maps the logical names an edge's leaf node knows to the
-// concrete subjects it publishes on. The vocabulary lives here because the
-// module that builds the leaf node owns it; AttachBus hands the map on
-// unchanged and chooses none of it.
-func EdgePublishSubjects(tenant, edgeID string) map[string]string {
-	subjects := make(map[string]string, 4)
-	for _, signal := range []OTelSignal{SignalLogs, SignalMetrics, SignalTraces} {
-		subjects["otel."+string(signal)] = OTelSubject(tenant, edgeID, signal)
-	}
-	subjects["ingest.syslog"] = IngestSubject(tenant, edgeID, "syslog")
-	return subjects
-}
-
 // AuditSubject is where central writes the audit record of one device.
 func AuditSubject(tenant, deviceID string) string {
 	return fmt.Sprintf("flowseer.%s.audit.device.%s", tenant, deviceID)
@@ -133,83 +91,4 @@ func OperatorActionSubject(tenant, action string) string {
 // OperatorReadSubject is where central writes the audit record of one operator view.
 func OperatorReadSubject(tenant, action string) string {
 	return fmt.Sprintf("flowseer.%s.operator.read.%s", tenant, action)
-}
-
-// HubEdgeStream names the hub stream that sources one edge's buffer.
-func HubEdgeStream(edgeID string) string {
-	return HubEdgeStreamPrefix + edgeID
-}
-
-// edgeOfHubStream reads the edge id back out of a hub edge stream's name;
-// ok is false for any other stream.
-func edgeOfHubStream(name string) (string, bool) {
-	if !strings.HasPrefix(name, HubEdgeStreamPrefix) || len(name) == len(HubEdgeStreamPrefix) {
-		return "", false
-	}
-	return strings.TrimPrefix(name, HubEdgeStreamPrefix), true
-}
-
-// belongsToEdge reports whether subject lies under the edge's own subtree.
-func belongsToEdge(tenant, edgeID, subject string) bool {
-	return strings.HasPrefix(subject, EdgeSubtree(tenant, edgeID)+".")
-}
-
-// TenantFromSubject parses and validates the tenant identifier from an edge subject
-// shaped flowseer.<tenant>.edge.<edgeID>... scoped to edgeID.
-func TenantFromSubject(subject, edgeID string) (string, error) {
-	parts := strings.Split(subject, ".")
-	if len(parts) < 4 || parts[0] != "flowseer" || parts[2] != "edge" || parts[3] != edgeID {
-		return "", errs.New().Code(ErrCodeConfig).Attr("subject", subject).
-			Msg("malformed edge subject: expected flowseer.<tenant>.edge.<edgeID>...")
-	}
-	tenantID := parts[1]
-	if err := tenant.Validate(tenantID); err != nil {
-		return "", err
-	}
-	return tenantID, nil
-}
-
-// TenantFromSubjects parses and validates the tenant identifier from a map of
-// edge publish subjects (e.g. returned by AttachBus), ensuring all subjects agree
-// on the tenant and are scoped to edgeID.
-func TenantFromSubjects(edgeID string, subjects map[string]string) (string, error) {
-	if len(subjects) == 0 {
-		return "", errs.New().Code(ErrCodeConfig).Msg("empty subjects map")
-	}
-	var resolved string
-	for _, subject := range subjects {
-		t, err := TenantFromSubject(subject, edgeID)
-		if err != nil {
-			return "", err
-		}
-		if resolved == "" {
-			resolved = t
-		} else if resolved != t {
-			return "", errs.New().Code(ErrCodeConfig).
-				Attr("expected", resolved).
-				Attr("actual", t).
-				Msg("mismatched tenant across subjects")
-		}
-	}
-	return resolved, nil
-}
-
-// EdgeDomain is the JetStream domain an edge's leaf node runs.
-func EdgeDomain(edgeID string) string {
-	return "edge-" + edgeID
-}
-
-// signalOf reads the signal back out of an otel subject; ok is false for a
-// subject that is not one.
-func signalOf(subject string) (OTelSignal, bool) {
-	parts := strings.Split(subject, ".")
-	if len(parts) < 2 || parts[len(parts)-2] != "otel" {
-		return "", false
-	}
-	switch signal := OTelSignal(parts[len(parts)-1]); signal {
-	case SignalLogs, SignalMetrics, SignalTraces:
-		return signal, true
-	default:
-		return "", false
-	}
 }
