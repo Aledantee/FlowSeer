@@ -143,6 +143,16 @@ This phase adds:
 | `docs/plans/2026-10-15-1542-perf-hub-periodic-fsync-plan.md` (implementation-ready, no branch) | `hub.go`, `hub_test.go`, `fsync.go`, `edgebus/README.md`, `handler.go`, `intake/README.md`, the device service and edge delivery records | It edits code this phase keeps. Neither needs the other, so whichever lands second merges. Its decision that `NormalizeFsync` stays "since the leaf and local bus have no async-persist streams" names the leaf. |
 | Branch `Aledantee/bp-streams` (also `parked/bp-streams`, tip `06adf5e0`, 2026-10-14) | `edgebus/{hub.go,cleanup.go,cleanup_test.go,hub_test.go,edgebus_test.go,README.md}`, `intake/{intake.go,intake_test.go,README.md}` | It is not the Postgres read model branch, whose state names `codex/postgres-state-plan`. Its edgebus and intake hunks are an unverified checkpoint of the bounded ingest backpressure work, which landed on `main` and was retired in `5a15fc4e`. `06adf5e0` is not an ancestor of `main`. No plan claims it, so this phase adds no `after`. Its `intake.go` hunks have nothing to apply to once U2 lands. |
 
+- U3 re-points the operator-authorization record's line citations into
+  `src/modules/edgebus/subjects.go` and `hub.go`
+  (`docs/architecture/2026-09-30-operator-authorization-direction.md:485`
+  and `:869-870`) to the lines they name in the reduced files. Only the
+  citation text changes, and nothing the record decides. Why:
+  `TestTheDirectionRecordCitationsAndDecisions`
+  (`src/services/device/test/integration/lab_fixtures_test.go:707-755`)
+  fails on a citation past the end of its file, and U3 shortens
+  `subjects.go` below line 108. (decided by the user, 2026-10-16)
+
 ## Requirements
 
 The parent's requirement 8 is claimed here.
@@ -176,9 +186,9 @@ The parent's requirement 8 is claimed here.
 - Removing orphaned edge key files and JetStream directories on an
   upgraded central (Decisions).
 - Line citations into `hub.go`, `keys.go`, and `subjects.go` in records
-  and research other than the ones this phase edits, such as
-  `docs/architecture/2026-09-30-operator-authorization-direction.md:485`
-  and `:869-870`. They drift with the deletions.
+  and research other than the ones this phase edits and the
+  operator-authorization record (Decisions). They drift with the
+  deletions.
 
 ## Units
 
@@ -241,7 +251,7 @@ Verify: `uv run tools/scripts/run.py verify change -- src/services/device/intern
 
 ### U3. Edgebus reduced to the CENTRAL account
 
-Files: src/modules/edgebus/leaf.go, src/modules/edgebus/follower.go, src/modules/edgebus/follower_test.go, src/modules/edgebus/forwarder.go, src/modules/edgebus/forwarder_internal_test.go, src/modules/edgebus/storage_test.go, src/modules/edgebus/attribution_test.go, src/modules/edgebus/hub.go, src/modules/edgebus/hub_internal_test.go, src/modules/edgebus/keys.go, src/modules/edgebus/keys_internal_test.go, src/modules/edgebus/subjects.go, src/modules/edgebus/fsync.go, src/modules/edgebus/collector.go, src/modules/edgebus/doc.go, src/modules/edgebus/edgebus_test.go, src/modules/edgebus/README.md, src/modules/README.md, src/services/device/internal/otlpapi/handler.go, src/services/device/internal/otlpapi/README.md, src/services/device/test/integration/delivery_test.go, src/services/device/internal/accessstore/store_test.go, src/services/device/internal/auditapi/service_test.go, src/services/device/internal/captureapi/artifact_invariant_internal_test.go, src/services/device/internal/captureapi/operator_service_test.go, src/services/device/internal/captureapi/store_test.go, src/services/device/internal/deviceapi/deviceapi_test.go, src/services/device/internal/dispatchapi/relay_test.go, src/services/device/internal/drift/drift_test.go, src/services/device/internal/edgestore/store_test.go, src/services/device/internal/historysink/sink_test.go, src/services/device/internal/historysink/README.md, src/services/device/internal/identityapi/identityapi_test.go, src/services/device/internal/journal/journal_test.go, src/services/device/internal/projector/projector_test.go, src/services/device/internal/rawwindowapi/store_test.go, src/services/device/internal/tenantstore/claim_internal_test.go, src/services/device/internal/tenantstore/store_test.go
+Files: src/modules/edgebus/leaf.go, src/modules/edgebus/follower.go, src/modules/edgebus/follower_test.go, src/modules/edgebus/forwarder.go, src/modules/edgebus/forwarder_internal_test.go, src/modules/edgebus/storage_test.go, src/modules/edgebus/attribution_test.go, src/modules/edgebus/hub.go, src/modules/edgebus/hub_internal_test.go, src/modules/edgebus/keys.go, src/modules/edgebus/keys_internal_test.go, src/modules/edgebus/subjects.go, src/modules/edgebus/fsync.go, src/modules/edgebus/collector.go, src/modules/edgebus/doc.go, src/modules/edgebus/edgebus_test.go, src/modules/edgebus/README.md, src/modules/README.md, src/services/device/internal/otlpapi/handler.go, src/services/device/internal/otlpapi/README.md, src/services/device/test/integration/delivery_test.go, src/services/device/internal/accessstore/store_test.go, src/services/device/internal/auditapi/service_test.go, src/services/device/internal/captureapi/artifact_invariant_internal_test.go, src/services/device/internal/captureapi/operator_service_test.go, src/services/device/internal/captureapi/store_test.go, src/services/device/internal/deviceapi/deviceapi_test.go, src/services/device/internal/dispatchapi/relay_test.go, src/services/device/internal/drift/drift_test.go, src/services/device/internal/edgestore/store_test.go, src/services/device/internal/historysink/sink_test.go, src/services/device/internal/historysink/README.md, src/services/device/internal/identityapi/identityapi_test.go, src/services/device/internal/journal/journal_test.go, src/services/device/internal/projector/projector_test.go, src/services/device/internal/rawwindowapi/store_test.go, src/services/device/internal/tenantstore/claim_internal_test.go, src/services/device/internal/tenantstore/store_test.go, docs/architecture/2026-09-30-operator-authorization-direction.md
 After: U1, U2
 Change: `leaf.go`, `follower.go`, `forwarder.go`, and their tests,
 `storage_test.go`, and `attribution_test.go` are deleted. `HubConfig`
@@ -376,17 +386,3 @@ Waves: U1 | U2 | U3 | U4 U5
   (the WebSocket listener and leaf-node operator mode), the deployment
   parent's plural LoadBalancers, and the fsync plan's `NormalizeFsync`
   decision.
-- Parked by drive: U3 deletes code from `src/modules/edgebus/subjects.go`
-  and `hub.go`, and `TestTheDirectionRecordCitationsAndDecisions`
-  (`src/services/device/test/integration/lab_fixtures_test.go:707-755`)
-  then fails on the accepted operator-authorization record's citation
-  `src/modules/edgebus/subjects.go:108-110` (record line 869), which Out of
-  scope excludes. U3's staged work is on `parked/edp4-u3` (`a9cc1982`,
-  unverified). Options: let U3 re-point the operator-authorization record's
-  line citations into `subjects.go` and `hub.go` (`:485`, `:869-870`) to the
-  reduced files, citation text only (the record's decisions are unchanged,
-  but it edits an accepted record) | send the phase back to `plan` to
-  reconsider which records it edits (slower, re-opens the whole scope) |
-  stop the phase here. Recommended: the citation-only edit, because the
-  test enforces exactly those citations and moving them changes nothing the
-  record decides.
