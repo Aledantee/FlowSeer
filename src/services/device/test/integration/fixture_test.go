@@ -83,15 +83,9 @@ const (
 	fixtureResolveDeadline = 4 * time.Minute
 )
 
-// freePort asks the kernel for a port and gives it straight back.
-//
-// It is a race, and it is here because both addresses this fixture needs have
-// to be written into files before anything binds. The bus is named by
-// cluster_urls, and the API is named by the provisioning the agent reads at
-// start — and the agent has to keep dialing one address across a central
-// restart, which is a scenario this test exercises. Central can report the
-// port it bound, and does, but nothing can tell the agent about a new one
-// after it has read its file.
+// freePort releases a kernel-assigned port for a listener. Another process
+// can take it before central binds. The fixture needs fixed addresses so the
+// agent can keep dialing its provisioning URL across a central restart.
 func freePort(t *testing.T) int {
 	t.Helper()
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
@@ -262,7 +256,6 @@ type central struct {
 	registry  string
 	apiPort   int
 	edgePort  int
-	busPort   int
 
 	// captureSweep overrides the retention sweep cadence when set. Zero leaves
 	// the field out so the host applies its one-minute default.
@@ -431,7 +424,6 @@ func newCentral(t *testing.T, dir, registryPath string) *central {
 		registry:    registryPath,
 		apiPort:     freePort(t),
 		edgePort:    freePort(t),
-		busPort:     freePort(t),
 		issuer:      iss,
 		token:       token,
 		principalID: principalID,
@@ -533,13 +525,11 @@ registry_path: %q
 credential_root: %q
 listeners {
   api: "127.0.0.1:%d"
-  bus: "127.0.0.1:%d"
   edge: "127.0.0.1:%d"
 }
 edges {
   central_url: %q
   assertion_audience: %q
-  cluster_urls: "ws://127.0.0.1:%d"
 }
 intervals {
   dispatch_resend { seconds: 1 }
@@ -557,7 +547,7 @@ authentication {
 %s
 %s
 `, filepath.Join(c.dir, "central-state"), c.registry, filepath.Join(c.dir, "credentials"),
-		c.apiPort, c.busPort, c.edgePort, c.edgeURL(), audience, c.busPort, captureSweepLine(c.captureSweep),
+		c.apiPort, c.edgePort, c.edgeURL(), audience, captureSweepLine(c.captureSweep),
 		platformAdminBlock,
 		c.issuer.URL(), audience, caPath, authzBlock, rawWindowBlock(c.rawWindowAllowance), c.history)
 

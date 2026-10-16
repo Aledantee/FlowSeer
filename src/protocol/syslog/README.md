@@ -89,8 +89,11 @@ certificate. Plain TCP and UDP never assert authentication.
 Call `Next(ctx)` when downstream has capacity. One call may be active; another
 returns `ErrBusy`. UDP drops new datagrams when admission is full. TCP/TLS stop
 reading until capacity is released, subject to `PressureTimeout`. There is no
-persistent queue, retry spool, source-indexed history, or NATS dependency. A future
-agent can place its NATS publication after `Next` and own durable buffering there.
+persistent queue, retry spool, source-indexed history, or NATS dependency.
+The caller owns durable buffering after `Next`.
+The FlowSeer agent uses its ingest segmented log and sends `IngestRecord`
+envelopes through `IngestService.Deliver`
+([delivery host](../../edge/agent/host/delivery.go)).
 
 ```go
 for {

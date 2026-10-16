@@ -127,13 +127,12 @@ func (e failingBatchEngine) BatchCheck(context.Context, []authz.Query) ([]bool, 
 var testClock = time.Date(2026, 9, 7, 12, 0, 0, 0, time.UTC)
 
 // newHub starts the embedded hub the tests run against: it holds the edges
-// bucket and mints the bus credentials AttachBus returns, so neither is faked.
+// bucket, so its persistence behavior is exercised.
 func newHub(t *testing.T) *edgebus.Hub {
 	t.Helper()
 	hub, err := edgebus.StartHub(context.Background(), edgebus.HubConfig{
 		StateDir:    t.TempDir(),
 		FsyncPolicy: service.BusFsyncPeriodic,
-		ListenPort:  0,
 	})
 	if err != nil {
 		t.Fatalf("start hub: %v", err)
@@ -995,11 +994,10 @@ func TestCrossTenantIsolation(t *testing.T) {
 	}.Build()))
 	wantConnectCode(t, err, connect.CodeNotFound)
 
-	// Enroll under the issued setup key writes edge_<id> index and attaches under tenant A.
-	edgeSvc, err := edgeapi.NewService(store, testRegistry(t, edgeID, nil), &fakeLanes{}, &fakeCredentials{material: snmpMaterial()}, hub, edgeapi.ServiceConfig{
+	// Enrollment indexes the edge under tenant A.
+	edgeSvc, err := edgeapi.NewService(store, testRegistry(t, edgeID, nil), &fakeLanes{}, &fakeCredentials{material: snmpMaterial()}, edgeapi.ServiceConfig{
 		Audience:      "flowseer-central",
 		TrustAnchors:  [][]byte{make([]byte, 32)},
-		ClusterURLs:   []string{"wss://central.example.test:4223"},
 		PulseInterval: 5 * time.Millisecond,
 	}, func() time.Time { return testClock }, nil)
 	if err != nil {
@@ -1029,15 +1027,6 @@ func TestCrossTenantIsolation(t *testing.T) {
 	}
 	if string(indexEntry.Value()) != tenantA {
 		t.Fatalf("edge index value = %q, want %q", string(indexEntry.Value()), tenantA)
-	}
-
-	// Assert hub.EdgeTenant returns tenant A
-	gotTenant, ok := hub.EdgeTenant(edgeID)
-	if !ok {
-		t.Fatalf("hub.EdgeTenant(%s) returned not found", edgeID)
-	}
-	if gotTenant != tenantA {
-		t.Fatalf("hub.EdgeTenant(%s) = %q, want %q", edgeID, gotTenant, tenantA)
 	}
 }
 
@@ -1069,10 +1058,9 @@ func TestCreateEdgeIndexesEdgeBeforeEnrollment(t *testing.T) {
 	}
 
 	setupKey := resp.Msg.GetProvisioning().GetSetupKey()
-	edgeSvc, err := edgeapi.NewService(store, testRegistry(t, edgeID, nil), &fakeLanes{}, &fakeCredentials{material: snmpMaterial()}, hub, edgeapi.ServiceConfig{
+	edgeSvc, err := edgeapi.NewService(store, testRegistry(t, edgeID, nil), &fakeLanes{}, &fakeCredentials{material: snmpMaterial()}, edgeapi.ServiceConfig{
 		Audience:      "flowseer-central",
 		TrustAnchors:  [][]byte{make([]byte, 32)},
-		ClusterURLs:   []string{"wss://central.example.test:4223"},
 		PulseInterval: 5 * time.Millisecond,
 	}, func() time.Time { return testClock }, nil)
 	if err != nil {

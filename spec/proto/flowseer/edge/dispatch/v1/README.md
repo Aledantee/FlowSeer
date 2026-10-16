@@ -46,8 +46,9 @@ device or edge ref of their own; the stream and the report name the device
 by id, and `MutationIntent.device` still travels inside a mutation because
 the intent is recorded centrally with it.
 
-Nothing here rides the bus. The leaf node carries what the edge publishes
-for observability and nothing the edge must act on.
+Ingest records travel separately through `IngestService.Deliver` in
+`edge/ingest/v1`. The agent sends its telemetry through
+`TelemetryService.Deliver` in `edge/telemetry/v1`.
 
 ## The barrier, message by message
 

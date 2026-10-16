@@ -639,3 +639,64 @@ The operator-facing device API is authorized through the Zanzibar-style
 authorization model described by the [operator authorization direction
 record](2026-09-30-operator-authorization-direction.md#every-rpc-declares-its-rule). The transport diagram
 labels the ingress as authorized rather than naming a specific engine.
+
+### 2026-10-16: Connect replaces the edge bus attachment
+
+Landed 2026-10-16: the edge delivery handlers in
+`src/services/device/internal/intake/handler.go` (`Handler.Deliver`) and
+`src/services/device/internal/otlpapi/handler.go`, mounted by
+`src/services/device/internal/host/serve.go` (`assembly.mux`).
+The [edge delivery record](2026-10-04-edge-delivery-over-connect-direction.md)
+states the delivery and buffering contract.
+
+This amendment replaces these passages above:
+
+- The Decision paragraph's NATS integration fabric and embedded leaf node,
+  the Transport diagram, and the rejected alternative about routing live
+  requests through central over Connect. Dispatch and reports already use
+  Connect. Ingest and telemetry now use their own `Deliver` calls on the
+  same edge listener.
+- The 2026-09-06 Transport paragraph's bus publication path and "leaf's
+  local buffer", and the Events bullet's edge `ingest.<source>` branch.
+  The edge holds separate ingest and telemetry segmented logs. CENTRAL
+  keeps typed ingest streams and the evidence stream. Telemetry goes
+  directly from its handler to the collector.
+- The whole "Edge attachment and enrollment" section's leaf attachment,
+  JetStream source streams, broker tenancy, and NATS credential handover,
+  including the authenticated enrollment RPC sentence and "Exposing NATS"
+  bullet. Enrollment still registers the edge's public key, and later
+  calls use verified assertions. No RPC returns NATS credentials or cluster
+  URLs. The edge store supplies the tenant, and intake rejects provenance
+  naming a different edge. Device credentials retain their separate
+  authenticated Connect channel.
+- The durability bullet's "Edge leaf buffers" sentence. Edge segmented
+  logs use periodic sync and may lose recent records after power loss.
+  This amendment does not change central's declared fsync policy.
+- The local service runtime boundary's comparison to the edge leaf-node
+  fabric. The optional process-local bus remains separate from central's
+  hub and the agent's segmented logs. Neither host enables that local bus.
+- Sequencing step 4's per-edge accounts and distinct JetStream domains.
+  The hub keeps operator mode, the system account, and one data account,
+  CENTRAL. It serves central in process and binds no edge-facing listener
+  (`StartHub` in `src/modules/edgebus/hub.go`).
+- The embedded leaf-node open question and the Sources entries on leaf
+  options, WebSocket attachment, edge account isolation, and source-stream
+  recovery. They no longer describe a component FlowSeer runs. The current
+  sources are the delivery handlers above, `busResources.edgeTenant` in
+  `src/services/device/internal/host/host.go`, and `loadOrCreateKeys` in
+  `src/modules/edgebus/keys.go`.
+
+The Connect and Announce bullets' optional NATS attachment and future bus
+liveness claims are also replaced: the edge uses Connect enrollment and
+heartbeat. This amendment leaves the load target and the central durability
+requirement in place.
+
+```mermaid
+flowchart LR
+    W[web and workflows] -->|operator Connect API| C[central device service]
+    E[edge agent] -->|dispatch subscription and reports| C
+    I[ingest segmented log] -->|IngestService.Deliver| C
+    T[telemetry segmented log] -->|TelemetryService.Deliver| C
+    C -->|validated records and evidence| N[CENTRAL JetStream stores]
+    C -->|OTLP bodies| O[collector]
+```

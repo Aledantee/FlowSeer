@@ -1,8 +1,7 @@
 // Package otlpapi is central's TelemetryService: it posts the OTLP bodies an
 // edge delivers to central's collector, unchanged, and answers with how many
-// leading bodies it settled. It classifies the collector's answer with the
-// same [edgebus.Collector] the forwarder uses for bodies that arrive over the
-// edge's stream.
+// leading bodies it settled. It classifies the collector's answer through
+// [edgebus.Collector].
 package otlpapi
 
 import (

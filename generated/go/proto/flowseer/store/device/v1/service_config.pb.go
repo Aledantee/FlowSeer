@@ -92,10 +92,8 @@ func (x LogLevel) Number() protoreflect.EnumNumber {
 // A deployment writes one of these. Every duration may be left unset, and
 // each says what the host does then, so a working file is short.
 //
-// Most of the bus's storage bounds are deliberately not here. The JetStream
-// store ceiling, the per-account budgets that keep edge telemetry from
-// starving the journal, and the per-edge stream bounds come from the defaults
-// in src/modules/edgebus, which no deployment has yet had reason to move off.
+// The JetStream store ceiling and the CENTRAL account budget default in
+// src/modules/edgebus.
 // The typed ingest streams are the exception, because their size follows the
 // fleet: ingest_streams holds the bounds a deployment sizes for its devices
 // and its outage tolerance.
@@ -477,8 +475,8 @@ type DeviceServiceConfig_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
 	// The directory the service owns: the hub's JetStream store, the keys it
-	// mints accounts with, and the certificate it serves. Must be present and
-	// absolute, because the service resolves nothing against its working
+	// signs CENTRAL claims with, and the certificate it serves. Must be present
+	// and absolute, because the service resolves nothing against its working
 	// directory.
 	StateDir *string
 	// The prototext DeviceRegistry file. Must be present; the service serves no
@@ -1772,13 +1770,10 @@ func (b0 PlatformAdmin_builder) Build() *PlatformAdmin {
 	return m0
 }
 
-// The three addresses the service binds: one for the operator APIs, one for
-// the services an edge calls, and one for the leaf nodes its edges attach
-// with.
+// The addresses for operator APIs and edge-facing services.
 type ServiceListeners struct {
 	state                      protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_Api             *string                `protobuf:"bytes,1,opt,name=api"`
-	xxx_hidden_Bus             *string                `protobuf:"bytes,2,opt,name=bus"`
 	xxx_hidden_CertificateFile *string                `protobuf:"bytes,3,opt,name=certificate_file,json=certificateFile"`
 	xxx_hidden_PrivateKeyFile  *string                `protobuf:"bytes,4,opt,name=private_key_file,json=privateKeyFile"`
 	xxx_hidden_Edge            *string                `protobuf:"bytes,5,opt,name=edge"`
@@ -1823,16 +1818,6 @@ func (x *ServiceListeners) GetApi() string {
 	return ""
 }
 
-func (x *ServiceListeners) GetBus() string {
-	if x != nil {
-		if x.xxx_hidden_Bus != nil {
-			return *x.xxx_hidden_Bus
-		}
-		return ""
-	}
-	return ""
-}
-
 func (x *ServiceListeners) GetCertificateFile() string {
 	if x != nil {
 		if x.xxx_hidden_CertificateFile != nil {
@@ -1865,27 +1850,22 @@ func (x *ServiceListeners) GetEdge() string {
 
 func (x *ServiceListeners) SetApi(v string) {
 	x.xxx_hidden_Api = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 5)
-}
-
-func (x *ServiceListeners) SetBus(v string) {
-	x.xxx_hidden_Bus = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 5)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 4)
 }
 
 func (x *ServiceListeners) SetCertificateFile(v string) {
 	x.xxx_hidden_CertificateFile = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 5)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 4)
 }
 
 func (x *ServiceListeners) SetPrivateKeyFile(v string) {
 	x.xxx_hidden_PrivateKeyFile = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 5)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 4)
 }
 
 func (x *ServiceListeners) SetEdge(v string) {
 	x.xxx_hidden_Edge = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 5)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 4)
 }
 
 func (x *ServiceListeners) HasApi() bool {
@@ -1895,32 +1875,25 @@ func (x *ServiceListeners) HasApi() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
 }
 
-func (x *ServiceListeners) HasBus() bool {
+func (x *ServiceListeners) HasCertificateFile() bool {
 	if x == nil {
 		return false
 	}
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
 }
 
-func (x *ServiceListeners) HasCertificateFile() bool {
+func (x *ServiceListeners) HasPrivateKeyFile() bool {
 	if x == nil {
 		return false
 	}
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
 }
 
-func (x *ServiceListeners) HasPrivateKeyFile() bool {
-	if x == nil {
-		return false
-	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 3)
-}
-
 func (x *ServiceListeners) HasEdge() bool {
 	if x == nil {
 		return false
 	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 4)
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 3)
 }
 
 func (x *ServiceListeners) ClearApi() {
@@ -1928,23 +1901,18 @@ func (x *ServiceListeners) ClearApi() {
 	x.xxx_hidden_Api = nil
 }
 
-func (x *ServiceListeners) ClearBus() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
-	x.xxx_hidden_Bus = nil
-}
-
 func (x *ServiceListeners) ClearCertificateFile() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
 	x.xxx_hidden_CertificateFile = nil
 }
 
 func (x *ServiceListeners) ClearPrivateKeyFile() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 3)
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
 	x.xxx_hidden_PrivateKeyFile = nil
 }
 
 func (x *ServiceListeners) ClearEdge() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 4)
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 3)
 	x.xxx_hidden_Edge = nil
 }
 
@@ -1962,19 +1930,12 @@ type ServiceListeners_builder struct {
 	// service logs and reports the address it actually bound, so a caller that
 	// wrote 0 can find out which port it got.
 	//
-	// The bus and edge fields below must name a fixed port for a reason that
-	// does not apply here. An edge dials the cluster_urls and central_url this
-	// same file names, so a port of 0 there leaves edges dialing a port nothing
-	// serves. The pattern accepts :0 and nothing else refuses it, so the fixed
-	// port is the operator's to choose. The API alone can take a port it did not
-	// choose because nothing else has to know it in advance.
+	// The edge field below needs a fixed port. An edge dials central_url, so
+	// a port of 0 there leaves edges dialing a port nothing serves. The pattern
+	// accepts :0, so the fixed port is the operator's to choose. The API alone
+	// can take a port it did not choose because nothing else has to know it in
+	// advance.
 	Api *string
-	// host:port for the bus's WebSocket listener. Must be present and must
-	// carry a port. Use a fixed port, not 0: an edge dials the cluster_urls this
-	// same file names, and validation accepts :0 but a bus on a port the kernel
-	// picked matches none of them. It serves the same certificate
-	// the API does, so an edge pins one digest for both.
-	Bus *string
 	// The certificate and private key to serve, in PEM. Unset means the service
 	// generates a self-signed pair into state_dir on first start and reuses it
 	// afterwards, printing the digest an edge pins once. A deployment with its
@@ -1988,7 +1949,7 @@ type ServiceListeners_builder struct {
 	// EdgeEnrollmentPolicy.central_url names this listener. Must be present and
 	// must carry a port. Use a fixed port, not 0: an edge dials central_url, and
 	// validation accepts :0 but an edge listener on a port the kernel picked
-	// matches nothing an edge was told. It serves the same certificate as api and bus.
+	// matches nothing an edge was told. It serves the same certificate as api.
 	Edge *string
 }
 
@@ -1997,23 +1958,19 @@ func (b0 ServiceListeners_builder) Build() *ServiceListeners {
 	b, x := &b0, m0
 	_, _ = b, x
 	if b.Api != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 5)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 4)
 		x.xxx_hidden_Api = b.Api
 	}
-	if b.Bus != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 5)
-		x.xxx_hidden_Bus = b.Bus
-	}
 	if b.CertificateFile != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 5)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 4)
 		x.xxx_hidden_CertificateFile = b.CertificateFile
 	}
 	if b.PrivateKeyFile != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 5)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 4)
 		x.xxx_hidden_PrivateKeyFile = b.PrivateKeyFile
 	}
 	if b.Edge != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 5)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 4)
 		x.xxx_hidden_Edge = b.Edge
 	}
 	return m0
@@ -2032,7 +1989,6 @@ type EdgeEnrollmentPolicy struct {
 	state                         protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_CentralUrl         *string                `protobuf:"bytes,1,opt,name=central_url,json=centralUrl"`
 	xxx_hidden_AssertionAudience  *string                `protobuf:"bytes,2,opt,name=assertion_audience,json=assertionAudience"`
-	xxx_hidden_ClusterUrls        []string               `protobuf:"bytes,3,rep,name=cluster_urls,json=clusterUrls"`
 	xxx_hidden_AssertionClockSkew *durationpb.Duration   `protobuf:"bytes,4,opt,name=assertion_clock_skew,json=assertionClockSkew"`
 	XXX_raceDetectHookData        protoimpl.RaceDetectHookData
 	XXX_presence                  [1]uint32
@@ -2085,13 +2041,6 @@ func (x *EdgeEnrollmentPolicy) GetAssertionAudience() string {
 	return ""
 }
 
-func (x *EdgeEnrollmentPolicy) GetClusterUrls() []string {
-	if x != nil {
-		return x.xxx_hidden_ClusterUrls
-	}
-	return nil
-}
-
 func (x *EdgeEnrollmentPolicy) GetAssertionClockSkew() *durationpb.Duration {
 	if x != nil {
 		return x.xxx_hidden_AssertionClockSkew
@@ -2101,16 +2050,12 @@ func (x *EdgeEnrollmentPolicy) GetAssertionClockSkew() *durationpb.Duration {
 
 func (x *EdgeEnrollmentPolicy) SetCentralUrl(v string) {
 	x.xxx_hidden_CentralUrl = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 4)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 3)
 }
 
 func (x *EdgeEnrollmentPolicy) SetAssertionAudience(v string) {
 	x.xxx_hidden_AssertionAudience = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 4)
-}
-
-func (x *EdgeEnrollmentPolicy) SetClusterUrls(v []string) {
-	x.xxx_hidden_ClusterUrls = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 3)
 }
 
 func (x *EdgeEnrollmentPolicy) SetAssertionClockSkew(v *durationpb.Duration) {
@@ -2162,11 +2107,6 @@ type EdgeEnrollmentPolicy_builder struct {
 	// be present: an assertion with nothing to be addressed to is replayable at
 	// any other deployment that trusts the same key.
 	AssertionAudience *string
-	// The endpoints an edge's leaf node dials, in preference order. At least
-	// one is required. They point at the bus listener above, which may be a
-	// different name from central_url when a load balancer fronts one and not
-	// the other.
-	ClusterUrls []string
 	// How much clock difference an assertion may carry. Unset means one minute.
 	AssertionClockSkew *durationpb.Duration
 }
@@ -2176,14 +2116,13 @@ func (b0 EdgeEnrollmentPolicy_builder) Build() *EdgeEnrollmentPolicy {
 	b, x := &b0, m0
 	_, _ = b, x
 	if b.CentralUrl != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 4)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 3)
 		x.xxx_hidden_CentralUrl = b.CentralUrl
 	}
 	if b.AssertionAudience != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 4)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 3)
 		x.xxx_hidden_AssertionAudience = b.AssertionAudience
 	}
-	x.xxx_hidden_ClusterUrls = b.ClusterUrls
 	x.xxx_hidden_AssertionClockSkew = b.AssertionClockSkew
 	return m0
 }
@@ -2647,20 +2586,18 @@ const file_flowseer_store_device_v1_service_config_proto_rawDesc = "" +
 	"\xc8\x01\x01r\x05\x10\x01\x18\x80\x02R\forganization\x121\n" +
 	"\bsubjects\x18\x05 \x03(\tB\x15\xbaH\x12\x92\x01\x0f\b\x01\x10\x10\x18\x01\"\ar\x05\x10\x01\x18\x80\x02R\bsubjects\x12E\n" +
 	"\x17organization_claim_name\x18\x04 \x01(\tB\r\xbaH\n" +
-	"\xc8\x01\x01r\x05\x10\x01\x18\x80\x01R\x15organizationClaimName\"\xbc\x03\n" +
+	"\xc8\x01\x01r\x05\x10\x01\x18\x80\x01R\x15organizationClaimName\"\x8a\x03\n" +
 	"\x10ServiceListeners\x120\n" +
-	"\x03api\x18\x01 \x01(\tB\x1e\xbaH\x1b\xc8\x01\x01r\x16\x10\x03\x18\x80\x022\x0f^.+:[0-9]{1,5}$R\x03api\x120\n" +
-	"\x03bus\x18\x02 \x01(\tB\x1e\xbaH\x1b\xc8\x01\x01r\x16\x10\x03\x18\x80\x022\x0f^.+:[0-9]{1,5}$R\x03bus\x123\n" +
+	"\x03api\x18\x01 \x01(\tB\x1e\xbaH\x1b\xc8\x01\x01r\x16\x10\x03\x18\x80\x022\x0f^.+:[0-9]{1,5}$R\x03api\x123\n" +
 	"\x10certificate_file\x18\x03 \x01(\tB\b\xbaH\x05r\x03\x18\x80 R\x0fcertificateFile\x122\n" +
 	"\x10private_key_file\x18\x04 \x01(\tB\b\xbaH\x05r\x03\x18\x80 R\x0eprivateKeyFile\x122\n" +
 	"\x04edge\x18\x05 \x01(\tB\x1e\xbaH\x1b\xc8\x01\x01r\x16\x10\x03\x18\x80\x022\x0f^.+:[0-9]{1,5}$R\x04edge:\xa6\x01\xbaH\xa2\x01\x1a\x9f\x01\n" +
-	"-service_listeners.key_accompanies_certificate\x124a certificate and its private key are named together\x1a8has(this.certificate_file) == has(this.private_key_file)\"\x92\x02\n" +
+	"-service_listeners.key_accompanies_certificate\x124a certificate and its private key are named together\x1a8has(this.certificate_file) == has(this.private_key_file)\"\xdc\x01\n" +
 	"\x14EdgeEnrollmentPolicy\x12/\n" +
 	"\vcentral_url\x18\x01 \x01(\tB\x0e\xbaH\v\xc8\x01\x01r\x06\x18\x80\x10\x88\x01\x01R\n" +
 	"centralUrl\x12<\n" +
 	"\x12assertion_audience\x18\x02 \x01(\tB\r\xbaH\n" +
-	"\xc8\x01\x01r\x05\x10\x01\x18\x80\x02R\x11assertionAudience\x124\n" +
-	"\fcluster_urls\x18\x03 \x03(\tB\x11\xbaH\x0e\x92\x01\v\b\x01\x10\b\"\x05r\x03\x88\x01\x01R\vclusterUrls\x12U\n" +
+	"\xc8\x01\x01r\x05\x10\x01\x18\x80\x02R\x11assertionAudience\x12U\n" +
 	"\x14assertion_clock_skew\x18\x04 \x01(\v2\x19.google.protobuf.DurationB\b\xbaH\x05\xaa\x01\x022\x00R\x12assertionClockSkew\"\xd7\x01\n" +
 	"\x10ServiceTelemetry\x12*\n" +
 	"\bendpoint\x18\x01 \x01(\tB\x0e\xbaH\v\xc8\x01\x01r\x06\x18\x80\x10\x88\x01\x01R\bendpoint\x12[\n" +

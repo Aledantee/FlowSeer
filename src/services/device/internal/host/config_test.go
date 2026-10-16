@@ -23,18 +23,16 @@ registry_path: "/etc/flowseer/registry.textproto"
 credential_root: "/etc/flowseer/credentials"
 listeners {
   api: "0.0.0.0:8443"
-  bus: "0.0.0.0:8444"
   edge: "0.0.0.0:8442"
 }
 edges {
   central_url: "https://central.example.test"
   assertion_audience: "flowseer-device-central"
-  cluster_urls: "wss://central.example.test:8444"
 }
 `
 
 // validConfig is the shortest file that starts a service: the three paths, the
-// three listeners, what an edge is told, and the required authentication and
+// two listeners, what an edge is told, and the required authentication and
 // authorization sections. Everything else has a default.
 const validConfig = baseConfig + `
 authentication {
@@ -102,11 +100,19 @@ func TestLoadConfigReadsTheDeployment(t *testing.T) {
 	if got := cfg.AssertionAudience(); got != "flowseer-device-central" {
 		t.Errorf("AssertionAudience = %q", got)
 	}
-	if got := cfg.ClusterURLs(); len(got) != 1 || got[0] != "wss://central.example.test:8444" {
-		t.Errorf("ClusterURLs = %v", got)
-	}
 	if _, _, supplied := cfg.CertificateFiles(); supplied {
 		t.Error("a file naming no certificate reported one")
+	}
+}
+
+func TestLoadConfigRefusesBusListener(t *testing.T) {
+	body := strings.Replace(validConfig, "listeners {", "listeners {\n  bus: \"0.0.0.0:7422\"", 1)
+	_, err := host.LoadConfig(writeConfig(t, body))
+	if code, _ := errs.CodeOf(err); code != host.ErrCodeConfigLoad {
+		t.Fatalf("LoadConfig error = %v, want config-load for unknown bus field", err)
+	}
+	if !strings.Contains(err.Error(), "unknown field: bus") {
+		t.Fatalf("LoadConfig error = %v, want unknown field: bus", err)
 	}
 }
 
@@ -192,13 +198,8 @@ func TestLoadConfigRefusals(t *testing.T) {
 		"no listeners": {
 			body: strings.Replace(validConfig, `listeners {
   api: "0.0.0.0:8443"
-  bus: "0.0.0.0:8444"
   edge: "0.0.0.0:8442"
 }`, "", 1),
-			code: host.ErrCodeConfigInvalid,
-		},
-		"no cluster url": {
-			body: strings.Replace(validConfig, `  cluster_urls: "wss://central.example.test:8444"`+"\n", "", 1),
 			code: host.ErrCodeConfigInvalid,
 		},
 		// The pairing is a schema rule, so it refuses here without the host
@@ -208,11 +209,9 @@ func TestLoadConfigRefusals(t *testing.T) {
 		"certificate without its key": {
 			body: strings.Replace(validConfig, `listeners {
   api: "0.0.0.0:8443"
-  bus: "0.0.0.0:8444"
   edge: "0.0.0.0:8442"
 }`, `listeners {
   api: "0.0.0.0:8443"
-  bus: "0.0.0.0:8444"
   edge: "0.0.0.0:8442"
   certificate_file: "/tls.crt"
 }`, 1),
@@ -371,11 +370,7 @@ func TestLogLevelIsConfigurable(t *testing.T) {
 	}
 }
 
-// TestAListenerWithoutAPortIsRefused covers a typo that starts a
-// healthy-looking service. An address with no port reads as "pick a free
-// one", so the bus would listen somewhere unpredictable while every edge
-// dialed the cluster_urls the same file named — with nothing logging a
-// mismatch, because from the service's side nothing was wrong.
+// A listener address needs a port so a typo fails before binding.
 func TestAListenerWithoutAPortIsRefused(t *testing.T) {
 	for _, tc := range []struct {
 		name    string
@@ -383,7 +378,6 @@ func TestAListenerWithoutAPortIsRefused(t *testing.T) {
 		to      string
 		refused bool
 	}{
-		{"bus with no port", `bus: "0.0.0.0:8444"`, `bus: "central.example.test"`, true},
 		{"api with no port", `api: "0.0.0.0:8443"`, `api: "central.example.test"`, true},
 		{"edge with no port", `edge: "0.0.0.0:8442"`, `edge: "central.example.test"`, true},
 		{"a port of zero is still a port", `api: "0.0.0.0:8443"`, `api: "0.0.0.0:0"`, false},

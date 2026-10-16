@@ -54,8 +54,8 @@ waiting to land stays ahead of both, since it gates the branch it sits on.
 - Discovery and asynchronous ingestion (traps, webhooks, pollers) are planes
   of their own that feed the inventory. Same record.
   [`src/services/README.md`](src/services/README.md) names where they land.
-- NATS is the integration fabric between edge and central, on the hardened
-  profile from the first deployment. Same record.
+- Connect carries ingest records and telemetry from edge to central. NATS
+  remains central's store. Same record, 2026-10-16 amendment.
 - A typed change reaches a device through the local-network lane, and an
   observation verifies that it took effect.
   [`verified-device-access-direction`](docs/architecture/2026-09-05-verified-device-access-direction.md)
@@ -72,10 +72,10 @@ waiting to land stays ahead of both, since it gates the branch it sits on.
   run centrally names no host. It also replaces the adapter hosted in
   central that the
   [`central-ingestion-pipeline-direction`](docs/architecture/2026-10-02-central-ingestion-pipeline-direction.md)
-  record lets publish into the CENTRAL account. That record's intake reads
-  only per-Edge streams and takes the tenant from the stream, so how an
-  adapter host's observations reach intake and get their tenant is not
-  decided either.
+  record lets publish into the CENTRAL account. Intake now handles
+  `IngestService.Deliver`, taking the edge from its assertion and the tenant
+  from the edge store. Whether an adapter host uses that call and how its
+  tenant is resolved remain undecided.
 - One controller or cloud platform can serve more than one Site and more
   than one Tenant. Each Tenant configures its own integration against the
   shared platform, so an integration stays in one Tenant and tenancy stays

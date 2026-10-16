@@ -33,7 +33,6 @@ import (
 	"go.aledante.io/FlowSeer/src/services/device/internal/edgestore"
 	"go.aledante.io/FlowSeer/src/services/device/internal/history"
 	"go.aledante.io/FlowSeer/src/services/device/internal/historysink"
-	"go.aledante.io/FlowSeer/src/services/device/internal/intake"
 	"go.aledante.io/FlowSeer/src/services/device/internal/journal"
 	"go.aledante.io/FlowSeer/src/services/device/internal/projector"
 	"go.aledante.io/FlowSeer/src/services/device/internal/rawwindowapi"
@@ -215,8 +214,6 @@ func Run(ctx context.Context, cfg *Config, version string, opts Options) error {
 func (h *assembly) modules() []service.Module {
 	return []service.Module{
 		{Name: "hub", Leaf: &service.Leaf{Setup: h.setupHub}},
-		{Name: "forwarder", Gate: h.forwarderGate(), Leaf: &service.Leaf{Setup: h.setupForwarder}},
-		{Name: "intake", Leaf: &service.Leaf{Setup: h.setupIntake}},
 		{Name: "journal", Leaf: &service.Leaf{Setup: h.setupJournal}},
 		{Name: "connect", Leaf: &service.Leaf{Setup: h.setupConnect}},
 		{Name: "drift", Leaf: &service.Leaf{Setup: h.setupDrift}},
@@ -298,14 +295,6 @@ func (h *assembly) telemetryConfig() service.TelemetryConfig {
 	}
 }
 
-// forwarderGate disables the forwarder when the deployment names no
-// collector. Without one there is nowhere to forward an edge's telemetry to,
-// and a module that starts only to fail on its first record is worse than one
-// that says it is off.
-func (h *assembly) forwarderGate() service.Gate {
-	return service.FixedGate(h.cfg.TelemetryEndpoint() != "")
-}
-
 // setupHub starts the embedded hub and builds everything that lives as long
 // as it does.
 func (h *assembly) setupHub(ctx context.Context) (service.Attempt, error) {
@@ -313,9 +302,6 @@ func (h *assembly) setupHub(ctx context.Context) (service.Attempt, error) {
 	hub, err := edgebus.StartHub(ctx, h.cfg.IngestStreams().apply(edgebus.HubConfig{
 		StateDir:    h.cfg.StateDir(),
 		FsyncPolicy: service.BusFsyncPerMessage,
-		ListenHost:  listenHostOf(h.cfg.BusAddress()),
-		ListenPort:  portOf(h.cfg.BusAddress()),
-		TLS:         h.serverTLS(),
 		Logger:      log,
 	}))
 	if err != nil {
@@ -497,65 +483,6 @@ func (h *assembly) buildResources(ctx context.Context, hub *edgebus.Hub, log *sl
 	})
 
 	return res, nil
-}
-
-// setupForwarder ships every edge's buffered telemetry on to the collector.
-func (h *assembly) setupForwarder(ctx context.Context) (service.Attempt, error) {
-	resources, err := h.hub.await(ctx)
-	if err != nil {
-		return service.Attempt{}, err
-	}
-	forwarder, err := edgebus.StartForwarder(ctx, resources.hub, edgebus.ForwarderConfig{
-		Endpoint:      h.cfg.TelemetryEndpoint(),
-		Headers:       h.cfg.TelemetryHeaders(),
-		Logger:        service.Logger(ctx),
-		MeterProvider: service.MeterProvider(ctx),
-	})
-	if err != nil {
-		return service.Attempt{}, err
-	}
-	// See setupHub: the Runner is not guaranteed to run, so an attempt
-	// canceled during Setup would leave this forwarder's goroutines and
-	// its subscription behind.
-	if err := ctx.Err(); err != nil {
-		forwarder.Close()
-		return service.Attempt{}, err
-	}
-
-	return service.Attempt{Runner: func(ctx context.Context) error {
-		<-ctx.Done()
-		forwarder.Close()
-		return nil
-	}}, nil
-}
-
-// setupIntake moves validated edge records into the central ingestion streams.
-func (h *assembly) setupIntake(ctx context.Context) (service.Attempt, error) {
-	resources, err := h.hub.await(ctx)
-	if err != nil {
-		return service.Attempt{}, err
-	}
-	worker, err := intake.Start(ctx, intake.Config{
-		Hub:           resources.hub,
-		Central:       resources.hub.JetStream(),
-		Logger:        service.Logger(ctx),
-		MeterProvider: service.MeterProvider(ctx),
-	})
-	if err != nil {
-		return service.Attempt{}, err
-	}
-	// See setupHub: the Runner is not guaranteed to run, so an attempt
-	// canceled during Setup would leave intake's follower and consumers behind.
-	if err := ctx.Err(); err != nil {
-		worker.Close()
-		return service.Attempt{}, err
-	}
-
-	return service.Attempt{Runner: func(ctx context.Context) error {
-		<-ctx.Done()
-		worker.Close()
-		return nil
-	}}, nil
 }
 
 // setupJournal runs the read sweeper: the one piece of the journal's work

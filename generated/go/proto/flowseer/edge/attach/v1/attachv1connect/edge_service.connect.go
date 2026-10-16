@@ -42,8 +42,6 @@ const (
 	EdgeServiceRekeyProcedure = "/flowseer.edge.attach.v1.EdgeService/Rekey"
 	// EdgeServiceHeartbeatProcedure is the fully-qualified name of the EdgeService's Heartbeat RPC.
 	EdgeServiceHeartbeatProcedure = "/flowseer.edge.attach.v1.EdgeService/Heartbeat"
-	// EdgeServiceAttachBusProcedure is the fully-qualified name of the EdgeService's AttachBus RPC.
-	EdgeServiceAttachBusProcedure = "/flowseer.edge.attach.v1.EdgeService/AttachBus"
 	// EdgeServiceListDevicesProcedure is the fully-qualified name of the EdgeService's ListDevices RPC.
 	EdgeServiceListDevicesProcedure = "/flowseer.edge.attach.v1.EdgeService/ListDevices"
 	// EdgeServiceAcquireReadCredentialProcedure is the fully-qualified name of the EdgeService's
@@ -67,12 +65,9 @@ type EdgeServiceClient interface {
 	Rekey(context.Context, *connect.Request[v1.RekeyRequest]) (*connect.Response[v1.RekeyResponse], error)
 	// Reports that the edge is alive and returns central's clock.
 	Heartbeat(context.Context, *connect.Request[v1.HeartbeatRequest]) (*connect.Response[v1.HeartbeatResponse], error)
-	// Hands the calling edge its NATS account, user credential, subject map,
-	// and cluster URLs. Bus credentials never ride the bus itself.
-	AttachBus(context.Context, *connect.Request[v1.AttachBusRequest]) (*connect.Response[v1.AttachBusResponse], error)
 	// Names the devices the calling edge serves, and for each one where it
 	// answers, the binding that reaches it, the access policy it pins, and
-	// its measured delayed-apply horizon. The edge lists after attaching and
+	// its measured delayed-apply horizon. The edge lists after enrolling and
 	// again whenever it reconnects its dispatch stream, and holds what it was
 	// last told in between.
 	ListDevices(context.Context, *connect.Request[v1.ListDevicesRequest]) (*connect.Response[v1.ListDevicesResponse], error)
@@ -116,12 +111,6 @@ func NewEdgeServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			connect.WithSchema(edgeServiceMethods.ByName("Heartbeat")),
 			connect.WithClientOptions(opts...),
 		),
-		attachBus: connect.NewClient[v1.AttachBusRequest, v1.AttachBusResponse](
-			httpClient,
-			baseURL+EdgeServiceAttachBusProcedure,
-			connect.WithSchema(edgeServiceMethods.ByName("AttachBus")),
-			connect.WithClientOptions(opts...),
-		),
 		listDevices: connect.NewClient[v1.ListDevicesRequest, v1.ListDevicesResponse](
 			httpClient,
 			baseURL+EdgeServiceListDevicesProcedure,
@@ -148,7 +137,6 @@ type edgeServiceClient struct {
 	enroll                *connect.Client[v1.EnrollRequest, v1.EnrollResponse]
 	rekey                 *connect.Client[v1.RekeyRequest, v1.RekeyResponse]
 	heartbeat             *connect.Client[v1.HeartbeatRequest, v1.HeartbeatResponse]
-	attachBus             *connect.Client[v1.AttachBusRequest, v1.AttachBusResponse]
 	listDevices           *connect.Client[v1.ListDevicesRequest, v1.ListDevicesResponse]
 	acquireReadCredential *connect.Client[v1.AcquireReadCredentialRequest, v1.AcquireReadCredentialResponse]
 	openDeviceSubmission  *connect.Client[v1.OpenDeviceSubmissionRequest, v1.OpenDeviceSubmissionResponse]
@@ -167,11 +155,6 @@ func (c *edgeServiceClient) Rekey(ctx context.Context, req *connect.Request[v1.R
 // Heartbeat calls flowseer.edge.attach.v1.EdgeService.Heartbeat.
 func (c *edgeServiceClient) Heartbeat(ctx context.Context, req *connect.Request[v1.HeartbeatRequest]) (*connect.Response[v1.HeartbeatResponse], error) {
 	return c.heartbeat.CallUnary(ctx, req)
-}
-
-// AttachBus calls flowseer.edge.attach.v1.EdgeService.AttachBus.
-func (c *edgeServiceClient) AttachBus(ctx context.Context, req *connect.Request[v1.AttachBusRequest]) (*connect.Response[v1.AttachBusResponse], error) {
-	return c.attachBus.CallUnary(ctx, req)
 }
 
 // ListDevices calls flowseer.edge.attach.v1.EdgeService.ListDevices.
@@ -202,12 +185,9 @@ type EdgeServiceHandler interface {
 	Rekey(context.Context, *connect.Request[v1.RekeyRequest]) (*connect.Response[v1.RekeyResponse], error)
 	// Reports that the edge is alive and returns central's clock.
 	Heartbeat(context.Context, *connect.Request[v1.HeartbeatRequest]) (*connect.Response[v1.HeartbeatResponse], error)
-	// Hands the calling edge its NATS account, user credential, subject map,
-	// and cluster URLs. Bus credentials never ride the bus itself.
-	AttachBus(context.Context, *connect.Request[v1.AttachBusRequest]) (*connect.Response[v1.AttachBusResponse], error)
 	// Names the devices the calling edge serves, and for each one where it
 	// answers, the binding that reaches it, the access policy it pins, and
-	// its measured delayed-apply horizon. The edge lists after attaching and
+	// its measured delayed-apply horizon. The edge lists after enrolling and
 	// again whenever it reconnects its dispatch stream, and holds what it was
 	// last told in between.
 	ListDevices(context.Context, *connect.Request[v1.ListDevicesRequest]) (*connect.Response[v1.ListDevicesResponse], error)
@@ -247,12 +227,6 @@ func NewEdgeServiceHandler(svc EdgeServiceHandler, opts ...connect.HandlerOption
 		connect.WithSchema(edgeServiceMethods.ByName("Heartbeat")),
 		connect.WithHandlerOptions(opts...),
 	)
-	edgeServiceAttachBusHandler := connect.NewUnaryHandler(
-		EdgeServiceAttachBusProcedure,
-		svc.AttachBus,
-		connect.WithSchema(edgeServiceMethods.ByName("AttachBus")),
-		connect.WithHandlerOptions(opts...),
-	)
 	edgeServiceListDevicesHandler := connect.NewUnaryHandler(
 		EdgeServiceListDevicesProcedure,
 		svc.ListDevices,
@@ -279,8 +253,6 @@ func NewEdgeServiceHandler(svc EdgeServiceHandler, opts ...connect.HandlerOption
 			edgeServiceRekeyHandler.ServeHTTP(w, r)
 		case EdgeServiceHeartbeatProcedure:
 			edgeServiceHeartbeatHandler.ServeHTTP(w, r)
-		case EdgeServiceAttachBusProcedure:
-			edgeServiceAttachBusHandler.ServeHTTP(w, r)
 		case EdgeServiceListDevicesProcedure:
 			edgeServiceListDevicesHandler.ServeHTTP(w, r)
 		case EdgeServiceAcquireReadCredentialProcedure:
@@ -306,10 +278,6 @@ func (UnimplementedEdgeServiceHandler) Rekey(context.Context, *connect.Request[v
 
 func (UnimplementedEdgeServiceHandler) Heartbeat(context.Context, *connect.Request[v1.HeartbeatRequest]) (*connect.Response[v1.HeartbeatResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("flowseer.edge.attach.v1.EdgeService.Heartbeat is not implemented"))
-}
-
-func (UnimplementedEdgeServiceHandler) AttachBus(context.Context, *connect.Request[v1.AttachBusRequest]) (*connect.Response[v1.AttachBusResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("flowseer.edge.attach.v1.EdgeService.AttachBus is not implemented"))
 }
 
 func (UnimplementedEdgeServiceHandler) ListDevices(context.Context, *connect.Request[v1.ListDevicesRequest]) (*connect.Response[v1.ListDevicesResponse], error) {

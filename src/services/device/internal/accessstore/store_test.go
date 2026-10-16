@@ -35,7 +35,7 @@ var enrolledAt = time.Date(2026, 10, 4, 12, 0, 0, 0, time.UTC)
 func newStore(t *testing.T) (*accessstore.Store, jetstream.KeyValue, *edgebus.Hub) {
 	t.Helper()
 	hub, err := edgebus.StartHub(t.Context(), edgebus.HubConfig{
-		StateDir: t.TempDir(), FsyncPolicy: service.BusFsyncPeriodic, ListenPort: 0,
+		StateDir: t.TempDir(), FsyncPolicy: service.BusFsyncPeriodic,
 	})
 	if err != nil {
 		t.Fatalf("start hub: %v", err)

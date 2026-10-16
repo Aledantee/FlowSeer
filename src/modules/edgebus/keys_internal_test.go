@@ -7,34 +7,9 @@ import (
 	"testing"
 )
 
-func TestValidEdgeID(t *testing.T) {
-	for _, tc := range []struct {
-		id   string
-		want bool
-	}{
-		{"0192e6a0-0000-7000-8000-0000000000ed", true},
-		{"edge_1", true},
-		{strings.Repeat("a", 64), true},
-		{"", false},
-		{strings.Repeat("a", 65), false},
-		{"../escape", false},
-		{"edge/1", false},
-		{"edge.1", false},
-		{"edge 1", false},
-		{"edge*", false},
-		{"edge>", false},
-	} {
-		t.Run(tc.id, func(t *testing.T) {
-			if got := validEdgeID(tc.id); got != tc.want {
-				t.Errorf("validEdgeID(%q) = %v, want %v", tc.id, got, tc.want)
-			}
-		})
-	}
-}
-
 func TestWriteSecretFileRestrictsAFileAnEarlierRunLeftReadable(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, "hub.creds")
+	path := filepath.Join(dir, "central.nk")
 	if err := os.WriteFile(path, []byte("previous"), 0o644); err != nil {
 		t.Fatalf("plant the readable file: %v", err)
 	}
@@ -62,11 +37,11 @@ func TestWriteSecretFileRestrictsAFileAnEarlierRunLeftReadable(t *testing.T) {
 func TestWriteSecretFileSweepsWhatAnInterruptedWriteLeft(t *testing.T) {
 	dir := t.TempDir()
 	leftover := filepath.Join(dir, secretTempPrefix+"271828")
-	if err := os.WriteFile(leftover, []byte("a usable credential"), 0o600); err != nil {
+	if err := os.WriteFile(leftover, []byte("a usable seed"), 0o600); err != nil {
 		t.Fatalf("plant the leftover: %v", err)
 	}
 
-	if err := writeSecretFile(filepath.Join(dir, "hub.creds"), []byte("current")); err != nil {
+	if err := writeSecretFile(filepath.Join(dir, "central.nk"), []byte("current")); err != nil {
 		t.Fatalf("writeSecretFile: %v", err)
 	}
 

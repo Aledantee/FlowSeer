@@ -173,7 +173,7 @@ func TestBodyReachesTheCollectorUnchanged(t *testing.T) {
 	}
 }
 
-func TestCollectorAnswersMapAsTheForwarderMapsThem(t *testing.T) {
+func TestCollectorAnswerClassSettlesOrRetriesTheBody(t *testing.T) {
 	for _, tc := range []struct {
 		name        string
 		status      int

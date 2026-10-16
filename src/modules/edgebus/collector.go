@@ -52,9 +52,8 @@ type CollectorConfig struct {
 	Client *http.Client
 }
 
-// Collector posts OTLP bodies to one collector and classifies its answer. The
-// forwarder and central's telemetry call share it, so the two classify an
-// answer alike. A Collector is safe for concurrent use.
+// Collector posts OTLP bodies to one collector and classifies its answer
+// for central's telemetry call. A Collector is safe for concurrent use.
 type Collector struct {
 	endpoint string
 	headers  map[string]string
@@ -86,11 +85,8 @@ func validateCollectorEndpoint(endpoint string) error {
 
 // collectorClient returns client when it sets a request timeout, and
 // otherwise a client that does. A nil client gets a new one. A client with no
-// timeout is copied: the per-request deadline and the forwarder's AckWait are
-// both derived from the timeout, so zero would expire every context before
-// the request starts, and the caller's client may be shared (the motivating
-// case is http.DefaultClient), with its Timeout read without synchronization
-// by every request already in flight.
+// timeout is copied because the per-request deadline needs a positive timeout.
+// The caller's client may be shared with requests already in flight.
 func collectorClient(client *http.Client) *http.Client {
 	switch {
 	case client == nil:

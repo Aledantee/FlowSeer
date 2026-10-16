@@ -1,21 +1,34 @@
 package intake
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
+	"slices"
 	"sync"
 	"testing"
+	"time"
 
+	"buf.build/go/protovalidate"
 	connect "connectrpc.com/connect"
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
+	"go.opentelemetry.io/otel/attribute"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
+	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	edgeingestv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/ingest/v1"
+	eventlogv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/log/v1"
 	ingestv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/ingest/v1"
+	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
+	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/service"
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
 	"go.aledante.io/FlowSeer/src/services/device/internal/edgestore"
 )
@@ -32,6 +45,7 @@ type handlerOptions struct {
 	central    func(hub *edgebus.Hub) Publisher
 	edgeID     func(context.Context) (string, error)
 	edgeTenant func(context.Context, string) (string, error)
+	logger     *slog.Logger
 }
 
 func newHandlerSystem(t *testing.T, opts handlerOptions) handlerSystem {
@@ -52,6 +66,7 @@ func newHandlerSystem(t *testing.T, opts handlerOptions) handlerSystem {
 		Central:       central,
 		EdgeID:        opts.edgeID,
 		EdgeTenant:    opts.edgeTenant,
+		Logger:        opts.logger,
 		MeterProvider: sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader)),
 	})
 	if err != nil {
@@ -167,19 +182,25 @@ func TestForeignProvenanceIsSettledAndRefused(t *testing.T) {
 	}
 }
 
-// failingPublisher refuses its failAt-th call and forwards the rest.
 type failingPublisher struct {
-	mu      sync.Mutex
-	inner   Publisher
-	failAt  int
-	failure error
-	calls   int
+	mu          sync.Mutex
+	inner       Publisher
+	failAt      int
+	failure     error
+	calls       int
+	failSubject string
+	failed      bool
+	subjects    []string
 }
 
 func (p *failingPublisher) Publish(ctx context.Context, subject string, data []byte, opts ...jetstream.PublishOpt) (*jetstream.PubAck, error) {
 	p.mu.Lock()
 	p.calls++
-	fail := p.calls == p.failAt
+	p.subjects = append(p.subjects, subject)
+	fail := p.calls == p.failAt || (subject == p.failSubject && !p.failed)
+	if fail {
+		p.failed = true
+	}
 	p.mu.Unlock()
 	if fail {
 		return nil, p.failure
@@ -224,6 +245,66 @@ func TestFullTypedStreamStopsTheCount(t *testing.T) {
 	}
 }
 
+func TestRawPublicationFailureRedelivers(t *testing.T) {
+	typedSubject := edgebus.CentralIngestSubject(testTenant, edgebus.IngestRecordTypeSyslog, testDevice)
+	evidenceSubject := edgebus.EvidenceSubject(testTenant, edgebus.IngestRecordTypeSyslog, testDevice)
+	for _, tc := range []struct {
+		name         string
+		failSubject  string
+		wantTyped    uint64
+		wantReason   string
+		wantSubjects []string
+	}{
+		{"typed", typedSubject, 0, reasonStreamFull, []string{typedSubject, typedSubject, evidenceSubject}},
+		{"evidence", evidenceSubject, 1, reasonPublishFailed, []string{typedSubject, evidenceSubject, typedSubject, evidenceSubject}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var publisher *failingPublisher
+			s := newHandlerSystem(t, handlerOptions{central: func(hub *edgebus.Hub) Publisher {
+				publisher = &failingPublisher{
+					inner: hub.JetStream(), failSubject: tc.failSubject,
+					failure: fmt.Errorf("nats: %w", &jetstream.APIError{Code: 503, ErrorCode: 10077, Description: "maximum bytes exceeded"}),
+				}
+				return publisher
+			}})
+			delivered := record(t, testEdge, testRecordID, true)
+			if got := mustDeliver(t, s, delivered); got != 0 {
+				t.Fatalf("settled = %d, want 0", got)
+			}
+			if got := s.typedMessages(t); got != tc.wantTyped {
+				t.Errorf("typed messages before retry = %d, want %d", got, tc.wantTyped)
+			}
+			_, evidence := centralStreams(t, s.hub)
+			info, err := evidence.Info(context.Background())
+			if err != nil {
+				t.Fatalf("evidence stream info: %v", err)
+			}
+			if got := info.State.Msgs; got != 0 {
+				t.Errorf("evidence messages before retry = %d, want 0", got)
+			}
+			if got := metricValue(t, s.reader, "flowseer.intake.records.retried", "flowseer.intake.reason", tc.wantReason); got != 1 {
+				t.Errorf("%s retries = %d, want 1", tc.wantReason, got)
+			}
+			if got := mustDeliver(t, s, delivered); got != 1 {
+				t.Fatalf("settled on retry = %d, want 1", got)
+			}
+			if got := s.typedMessages(t); got != 1 {
+				t.Errorf("typed messages after retry = %d, want 1", got)
+			}
+			info, err = evidence.Info(context.Background())
+			if err != nil {
+				t.Fatalf("evidence stream info after retry: %v", err)
+			}
+			if got := info.State.Msgs; got != 1 {
+				t.Errorf("evidence messages after retry = %d, want 1", got)
+			}
+			if !slices.Equal(publisher.subjects, tc.wantSubjects) {
+				t.Errorf("publish subjects = %v, want %v", publisher.subjects, tc.wantSubjects)
+			}
+		})
+	}
+}
+
 func TestTenantComesFromTheEdgeStore(t *testing.T) {
 	var asked string
 	s := newHandlerSystem(t, handlerOptions{edgeTenant: func(_ context.Context, edgeID string) (string, error) {
@@ -261,19 +342,39 @@ func TestTenantLookupErrorIsUnavailable(t *testing.T) {
 
 func TestBatchDeliveredTwiceIsStoredOnce(t *testing.T) {
 	s := newHandlerSystem(t, handlerOptions{})
-	delivered := record(t, testEdge, testRecordID, false)
+	delivered := []*ingestv1.IngestRecord{
+		record(t, testEdge, testRecordID, true),
+		record(t, testEdge, otherRecordID, true),
+	}
 
 	for attempt := 1; attempt <= 2; attempt++ {
-		if got := mustDeliver(t, s, delivered); got != 1 {
-			t.Fatalf("attempt %d: settled = %d, want 1", attempt, got)
+		if got := mustDeliver(t, s, delivered...); got != 2 {
+			t.Fatalf("attempt %d: settled = %d, want 2", attempt, got)
 		}
 	}
 
-	if got := s.typedMessages(t); got != 1 {
-		t.Errorf("typed messages = %d, want 1", got)
+	if got := s.typedMessages(t); got != 2 {
+		t.Errorf("typed messages = %d, want 2", got)
 	}
-	if got := metricValue(t, s.reader, "flowseer.intake.records.duplicate", "flowseer.intake.record_type", edgebus.IngestRecordTypeSyslog); got != 1 {
-		t.Errorf("duplicates = %d, want 1", got)
+	_, evidence := centralStreams(t, s.hub)
+	info, err := evidence.Info(context.Background())
+	if err != nil {
+		t.Fatalf("evidence stream info: %v", err)
+	}
+	if got := info.State.Msgs; got != 2 {
+		t.Errorf("evidence messages = %d, want 2", got)
+	}
+	for _, counter := range []struct {
+		name string
+		want int64
+	}{
+		{"flowseer.intake.records.republished", 4},
+		{"flowseer.intake.evidence.stored", 4},
+		{"flowseer.intake.records.duplicate", 2},
+	} {
+		if got := metricValue(t, s.reader, counter.name, "flowseer.intake.record_type", edgebus.IngestRecordTypeSyslog); got != counter.want {
+			t.Errorf("%s = %d, want %d", counter.name, got, counter.want)
+		}
 	}
 }
 
@@ -287,4 +388,171 @@ func TestMissingEdgeIsUnauthenticated(t *testing.T) {
 	if got := connect.CodeOf(err); got != connect.CodeUnauthenticated {
 		t.Fatalf("code = %v, want unauthenticated (err %v)", got, err)
 	}
+}
+
+func TestRetryLogIsLimitedPerEdge(t *testing.T) {
+	var logs bytes.Buffer
+	s := newHandlerSystem(t, handlerOptions{logger: slog.New(slog.NewJSONHandler(&logs, nil))})
+
+	for _, edgeID := range []string{testEdge, otherEdge} {
+		s.handler.retry(t.Context(), edgeID, reasonValidation)
+		s.handler.retry(t.Context(), edgeID, reasonMarshal)
+	}
+
+	assertHandlerLogEdges(t, logs.Bytes(), "record left for redelivery", testEdge, otherEdge)
+}
+
+func TestRefusalLogIsLimitedPerEdge(t *testing.T) {
+	var logs bytes.Buffer
+	s := newHandlerSystem(t, handlerOptions{logger: slog.New(slog.NewJSONHandler(&logs, nil))})
+
+	for _, edgeID := range []string{testEdge, otherEdge} {
+		s.handler.logRefusal(t.Context(), edgeID, invalidReason)
+		s.handler.logRefusal(t.Context(), edgeID, provenanceReason)
+	}
+
+	assertHandlerLogEdges(t, logs.Bytes(), "record refused", testEdge, otherEdge)
+}
+
+func TestRefusalAndRetryLogsUseSeparateLimits(t *testing.T) {
+	var logs bytes.Buffer
+	s := newHandlerSystem(t, handlerOptions{logger: slog.New(slog.NewJSONHandler(&logs, nil))})
+
+	s.handler.logRefusal(t.Context(), testEdge, invalidReason)
+	s.handler.retry(t.Context(), testEdge, reasonValidation)
+
+	assertHandlerLogEdges(t, logs.Bytes(), "record refused", testEdge)
+	assertHandlerLogEdges(t, logs.Bytes(), "record left for redelivery", testEdge)
+}
+
+func assertHandlerLogEdges(t *testing.T, data []byte, message string, want ...string) {
+	t.Helper()
+	var got []string
+	for line := range bytes.Lines(data) {
+		var entry struct {
+			Message string `json:"msg"`
+			EdgeID  string `json:"flowseer.edge.id"`
+		}
+		if err := json.Unmarshal(line, &entry); err != nil {
+			t.Fatalf("decode log: %v", err)
+		}
+		if entry.Message == message {
+			got = append(got, entry.EdgeID)
+		}
+	}
+	if !slices.Equal(got, want) {
+		t.Errorf("%q log edges = %v, want %v", message, got, want)
+	}
+}
+
+const (
+	testTenant       = "0198a3c0-0000-7000-8000-0000000000aa"
+	otherTenant      = "0198a3c0-0000-7000-8000-0000000000ab"
+	testEdge         = "0198a3c0-0000-7000-8000-0000000000ed"
+	otherEdge        = "0198a3c0-0000-7000-8000-0000000000ee"
+	testDevice       = "0198a3c0-0000-7000-8000-000000000001"
+	otherDevice      = "0198a3c0-0000-7000-8000-000000000002"
+	testRecordID     = "0198a3c0-0000-7000-8000-000000000101"
+	otherRecordID    = "0198a3c0-0000-7000-8000-000000000102"
+	testBindingID    = "0198a3c0-0000-7000-8000-000000000201"
+	invalidReason    = "invalid"
+	provenanceReason = "foreign_provenance"
+)
+
+func startHub(t *testing.T) *edgebus.Hub {
+	t.Helper()
+	hub, err := edgebus.StartHub(context.Background(), edgebus.HubConfig{
+		StateDir:           t.TempDir(),
+		FsyncPolicy:        service.BusFsyncPeriodic,
+		MaxStoreBytes:      768 << 20,
+		CentralBudgetBytes: 512 << 20,
+		IngestMaxBytes:     112 << 20,
+		EvidenceMaxBytes:   64 << 20,
+	})
+	if err != nil {
+		t.Fatalf("start hub: %v", err)
+	}
+	t.Cleanup(hub.Close)
+	return hub
+}
+
+func validEnvelope(t *testing.T, edgeID, deviceID, recordID string, raw bool) (*ingestv1.IngestRecord, []byte) {
+	t.Helper()
+	ref := edgev1.EdgeGlobalRef_builder{Edge: edgev1.EdgeLocalRef_builder{Id: proto.String(edgeID)}.Build()}.Build()
+	device := inventoryv1.DeviceGlobalRef_builder{Device: inventoryv1.DeviceLocalRef_builder{Id: proto.String(deviceID)}.Build()}.Build()
+	binding := inventoryv1.BindingGlobalRef_builder{Binding: inventoryv1.BindingLocalRef_builder{Id: proto.String(testBindingID)}.Build()}.Build()
+	provenance := inventoryv1.Provenance_builder{
+		Binding:    binding,
+		ObservedAt: timestamppb.New(time.Now().UTC()),
+		Edge:       ref,
+		Log:        inventoryv1.LogProtocol_LOG_PROTOCOL_SYSLOG.Enum(),
+	}.Build()
+	envelope := ingestv1.IngestRecord_builder{
+		RecordId:   proto.String(recordID),
+		Provenance: provenance,
+		Syslog: eventlogv1.SyslogRecord_builder{
+			Device:     device,
+			ReceivedAt: timestamppb.New(time.Now().UTC()),
+			Message:    []byte("message"),
+		}.Build(),
+	}.Build()
+	if raw {
+		envelope.SetRaw(ingestv1.RawEvidence_builder{
+			Data:   []byte("raw bytes"),
+			Reason: ingestv1.RawReason_RAW_REASON_PARSE_FAILURE.Enum(),
+		}.Build())
+	}
+	if err := validateEnvelope(envelope); err != nil {
+		t.Fatalf("validate envelope fixture: %v", err)
+	}
+	data, err := proto.Marshal(envelope)
+	if err != nil {
+		t.Fatalf("marshal envelope fixture: %v", err)
+	}
+	return envelope, data
+}
+
+func validateEnvelope(envelope *ingestv1.IngestRecord) error {
+	return protovalidate.Validate(envelope)
+}
+
+func centralStreams(t *testing.T, hub *edgebus.Hub) (jetstream.Stream, jetstream.Stream) {
+	t.Helper()
+	typed, err := hub.JetStream().Stream(context.Background(), edgebus.IngestStream(edgebus.IngestRecordTypeSyslog))
+	if err != nil {
+		t.Fatalf("load typed stream: %v", err)
+	}
+	evidence, err := hub.JetStream().Stream(context.Background(), edgebus.EvidenceStream)
+	if err != nil {
+		t.Fatalf("load evidence stream: %v", err)
+	}
+	return typed, evidence
+}
+
+func metricValue(t *testing.T, reader *sdkmetric.ManualReader, name, key, value string) int64 {
+	t.Helper()
+	var data metricdata.ResourceMetrics
+	if err := reader.Collect(context.Background(), &data); err != nil {
+		t.Fatalf("collect metrics: %v", err)
+	}
+	for _, scope := range data.ScopeMetrics {
+		for _, metricData := range scope.Metrics {
+			if metricData.Name != name {
+				continue
+			}
+			sum, ok := metricData.Data.(metricdata.Sum[int64])
+			if !ok {
+				t.Fatalf("metric %q has data %T, want int64 sum", name, metricData.Data)
+			}
+			for _, point := range sum.DataPoints {
+				if key == "" {
+					return point.Value
+				}
+				if got, ok := point.Attributes.Value(attribute.Key(key)); ok && got.AsString() == value {
+					return point.Value
+				}
+			}
+		}
+	}
+	return 0
 }
