@@ -376,3 +376,17 @@ Waves: U1 | U2 | U3 | U4 U5
   (the WebSocket listener and leaf-node operator mode), the deployment
   parent's plural LoadBalancers, and the fsync plan's `NormalizeFsync`
   decision.
+- Parked by drive: U3 deletes code from `src/modules/edgebus/subjects.go`
+  and `hub.go`, and `TestTheDirectionRecordCitationsAndDecisions`
+  (`src/services/device/test/integration/lab_fixtures_test.go:707-755`)
+  then fails on the accepted operator-authorization record's citation
+  `src/modules/edgebus/subjects.go:108-110` (record line 869), which Out of
+  scope excludes. U3's staged work is on `parked/edp4-u3` (`a9cc1982`,
+  unverified). Options: let U3 re-point the operator-authorization record's
+  line citations into `subjects.go` and `hub.go` (`:485`, `:869-870`) to the
+  reduced files, citation text only (the record's decisions are unchanged,
+  but it edits an accepted record) | send the phase back to `plan` to
+  reconsider which records it edits (slower, re-opens the whole scope) |
+  stop the phase here. Recommended: the citation-only edit, because the
+  test enforces exactly those citations and moving them changes nothing the
+  record decides.
