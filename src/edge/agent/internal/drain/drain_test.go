@@ -125,6 +125,10 @@ func (r *running) await(t *testing.T) {
 	}
 }
 
+// stop is the deferred join. The test's own mustStop or await checks the
+// result, so a failed drain is reported where the test can name it.
+func (r *running) stop() { _ = r.join() }
+
 func (r *running) mustStop(t *testing.T) {
 	t.Helper()
 	if err := r.join(); err != nil {
@@ -257,17 +261,16 @@ func (c *capture) warnings() []slog.Record {
 	return out
 }
 
-func attrOf(r slog.Record, key string) (slog.Value, bool) {
+func attrOf(r slog.Record, key string) slog.Value {
 	var found slog.Value
-	var ok bool
 	r.Attrs(func(a slog.Attr) bool {
 		if a.Key == key {
-			found, ok = a.Value, true
+			found = a.Value
 			return false
 		}
 		return true
 	})
-	return found, ok
+	return found
 }
 
 func baseConfig(l drain.Log, s *scripted) drain.Config {
@@ -290,7 +293,7 @@ func TestRefusedThenAcceptedWithinTheBackoffCeiling(t *testing.T) {
 		appendAll(t, l.Log, "r001")
 
 		r := start(baseConfig(l, s))
-		defer r.join()
+		defer r.stop()
 		<-delivered
 		synctest.Wait()
 
@@ -329,7 +332,7 @@ func TestShortSettleResumesAtTheFirstUnsettledRecord(t *testing.T) {
 		appendAll(t, l.Log, "r001", "r002", "r003", "r004", "r005")
 
 		r := start(baseConfig(l, s))
-		defer r.join()
+		defer r.stop()
 		<-finished
 		synctest.Wait()
 
@@ -381,7 +384,7 @@ func TestADamagedRecordCostsOneSegmentAndIsCounted(t *testing.T) {
 		}
 		s := &scripted{fn: settleAll}
 		r := start(baseConfig(l, s))
-		defer r.join()
+		defer r.stop()
 		idle()
 
 		want := [][]string{{"r001", "r002", "r003"}, {"r004", "r005"}, {"r007", "r008", "r009"}}
@@ -423,7 +426,7 @@ func TestBackoffDoublesToTheCeiling(t *testing.T) {
 		cfg.Wait = w.wait
 
 		r := start(cfg)
-		defer r.join()
+		defer r.stop()
 		r.await(t)
 
 		want := []time.Duration{time.Second, 2 * time.Second, 4 * time.Second, 8 * time.Second, 16 * time.Second, 30 * time.Second, 30 * time.Second}
@@ -448,7 +451,7 @@ func TestBackoffResetsAfterAPartialSettle(t *testing.T) {
 		cfg.Wait = w.wait
 
 		r := start(cfg)
-		defer r.join()
+		defer r.stop()
 		r.await(t)
 
 		// The partial settle waits for nothing, so the next wait is the first
@@ -474,7 +477,7 @@ func TestAnUndecodableRecordIsCountedAndPassed(t *testing.T) {
 		cfg.Meter = m.meter
 
 		r := start(cfg)
-		defer r.join()
+		defer r.stop()
 		idle()
 		r.mustStop(t)
 
@@ -509,7 +512,7 @@ func TestAnUndecodableRecordBehindASettledPrefixIsPassedOnce(t *testing.T) {
 		cfg.Meter = m.meter
 
 		r := start(cfg)
-		defer r.join()
+		defer r.stop()
 		idle()
 		r.mustStop(t)
 
@@ -538,7 +541,7 @@ func TestASegmentOfOnlyUndecodableRecordsIsAcknowledgedWithoutACall(t *testing.T
 		dc.Meter = m.meter
 
 		r := start(dc)
-		defer r.join()
+		defer r.stop()
 		idle()
 		r.mustStop(t)
 
@@ -586,7 +589,7 @@ func TestASegmentRecoveredWithZeroRecordsIsAcknowledgedWithoutACall(t *testing.T
 		s := &scripted{fn: settleAll}
 
 		r := start(baseConfig(l, s))
-		defer r.join()
+		defer r.stop()
 		idle()
 		r.mustStop(t)
 
@@ -624,7 +627,7 @@ func runAgeBound(t *testing.T, logger *slog.Logger) [][]string {
 	cfg.Logger = logger
 
 	r := start(cfg)
-	defer r.join()
+	defer r.stop()
 	time.Sleep(59 * time.Minute)
 	appendAll(t, l, "b001", "b002")
 	<-done
@@ -665,13 +668,13 @@ func TestTheDiscardWarningFollowsTheAgeBoundDroppingASegment(t *testing.T) {
 			t.Fatalf("warnings = %d, want 1: %v", len(warnings), warnings)
 		}
 		w := warnings[0]
-		if got, _ := attrOf(w, "otel.event.name"); got.String() != "flowseer.edge.buffer.discarded" {
+		if got := attrOf(w, "otel.event.name"); got.String() != "flowseer.edge.buffer.discarded" {
 			t.Errorf("event name = %q, want flowseer.edge.buffer.discarded", got.String())
 		}
-		if got, _ := attrOf(w, logAttrKey); got.String() != "ingest" {
+		if got := attrOf(w, logAttrKey); got.String() != "ingest" {
 			t.Errorf("%s = %q, want ingest", logAttrKey, got.String())
 		}
-		if got, _ := attrOf(w, "flowseer.edge.buffer.discarded_records"); got.Int64() != 3 {
+		if got := attrOf(w, "flowseer.edge.buffer.discarded_records"); got.Int64() != 3 {
 			t.Errorf("discarded records = %d, want 3", got.Int64())
 		}
 	})
@@ -695,7 +698,7 @@ func TestTheDurationHistogramNamesAnErrorAndAZeroSettle(t *testing.T) {
 		cfg.Meter = m.meter
 
 		r := start(cfg)
-		defer r.join()
+		defer r.stop()
 		idle()
 		r.mustStop(t)
 
@@ -724,7 +727,7 @@ func TestASettledCountAboveTheNumberSentIsAllSent(t *testing.T) {
 		cfg.Meter = m.meter
 
 		r := start(cfg)
-		defer r.join()
+		defer r.stop()
 		idle()
 		r.mustStop(t)
 
@@ -746,12 +749,12 @@ func TestRunReturnsNilWhenTheLogCloses(t *testing.T) {
 		s := &scripted{fn: settleAll}
 
 		r := start(baseConfig(l, s))
-		defer r.join()
+		defer r.stop()
 		idle()
 		if err := l.Close(); err != nil {
 			t.Fatal(err)
 		}
-		// Joined without cancelling: Close alone must end the drain.
+		// Joined without canceling: Close alone must end the drain.
 		r.await(t)
 	})
 }
