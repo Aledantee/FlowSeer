@@ -1,11 +1,16 @@
 {
   "contract": "flowseer-plan-state/v1",
-  "status": "planned",
+  "status": "partially-implemented",
   "readiness": "implementation-ready",
   "review": null,
   "review_rounds": 0,
   "compound": null,
-  "outcome": null,
+  "outcome": {
+    "units": 2,
+    "from": "2026-10-16T11:59:44Z",
+    "to": "2026-10-16T12:13:19Z",
+    "note": "Edgebus removal blocked: integration citation gate requires editing the excluded operator-authorization direction record. Record and solution units wait on the removal."
+  },
   "superseded_by": null,
   "branch": null,
   "parent": "docs/plans/2026-10-04-2232-refactor-edge-delivery-over-connect-plan.md",
