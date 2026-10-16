@@ -384,3 +384,70 @@ failure, or a marshal failure ends the count, so the record waits in the
 edge's log. The call does not share the stream consumer's full-stream gate,
 which lives in the `Intake` the intake module owns. The edge's backoff spaces
 the retry.
+
+### 2026-10-16: intake is the ingest delivery handler
+
+Landed 2026-10-16: `Handler.Deliver` in
+`src/services/device/internal/intake/handler.go`, with record preparation in
+`src/services/device/internal/intake/prepare.go`. The host mounts the handler
+on its edge listener in `src/services/device/internal/host/serve.go`.
+
+This amendment replaces the Context: the envelope now exists in
+`spec/proto/flowseer/integration/ingest/v1/ingest_record.proto`, central
+accepts records through `IngestService.Deliver`, and the Stores decisions
+and their amendments govern history and current state. The former OTLP
+forwarder is gone. Its Sources entry, `src/modules/edgebus/forwarder.go`,
+is replaced by `src/services/device/internal/otlpapi/handler.go` and
+`src/modules/edgebus/collector.go` (`Collector.Post`).
+
+The tenant-from-stream sentence under "One envelope carries every ingested
+record", the Stages diagram, and both intake paragraphs below it are
+replaced. Intake is the handler of the ingest call. It takes the edge from
+the verified assertion and the tenant from `busResources.edgeTenant` in
+`src/services/device/internal/host/host.go`. It validates the envelope and
+refuses provenance that names another edge. No per-edge account, stream,
+or subject supplies identity. The open question about per-tenant versus
+per-edge NATS accounts is closed: CENTRAL is the only data account.
+
+```mermaid
+flowchart LR
+    A[edge adapter] --> L[ingest segmented log]
+    L -->|IngestService.Deliver| D[intake handler]
+    D -->|typed record| E[CENTRAL stream per record type]
+    D -->|raw evidence| R[evidence stream]
+    E --> H[history sink] --> CH[(ClickHouse)]
+    E --> S[state projector] --> KV[(JetStream KV)]
+    KV --> P[read-model projector] --> PG[(Postgres)]
+```
+
+The 2026-10-04 amendment's opening wiring paragraph, edge publication
+subject, edge-stream-only input, follower lifetime paragraphs, and retry
+bound from edge stream limits are replaced by this call path. Typed and
+evidence publications retain their central subjects and
+`<tenant>.<record_id>` message id (`prepareRecord`). A replay can repeat
+past the central stream's duplicate window, so the history store's
+read-time deduplication remains required. A centrally hosted adapter input
+is still not built. `GOALS.md` leaves adapter host delivery and tenant
+resolution undecided.
+
+The 2026-10-14 amendment's full-stream gate, naks, and rolling per-edge hub
+stream sentences are replaced. A full typed stream ends the call's settled
+prefix. The record waits in the edge's ingest log and the drain's backoff
+spaces retries. Typed stream membership and cleanup are unchanged. The
+edge log discards its oldest segments at its byte or age bound, and the
+evidence stream still discards its oldest records at its bounds. No
+per-edge stream split remains to be built.
+
+The 2026-10-15 amendment's parallel stream and call paths and comparison of
+their identity sources are replaced: only the call remains. `settled`
+counts the leading records stored, already held, or refused for a reason
+about the record. A full stream, publish failure, marshal failure, or
+validator infrastructure failure leaves the current record unsettled and
+ends the count. The edge retries from that record. Typed publication comes
+before evidence, so a full typed stream stores no new evidence.
+
+"One central host, one module per stage" no longer describes intake as a
+background Service Module. It is constructed with a central publisher as
+part of mounting Connect services. Sinks and projectors remain host modules.
+The Consequences bullet's edge `ingest.<source>` branch is replaced by the
+`Deliver` path and CENTRAL subjects above.

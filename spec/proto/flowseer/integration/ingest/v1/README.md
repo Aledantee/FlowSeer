@@ -1,10 +1,10 @@
 # Ingest Envelopes
 
 `flowseer.integration.ingest.v1` defines `IngestRecord`, the envelope carrying
-observation data published from edge and centrally hosted adapters to the
-central ingestion pipeline. An edge record arrives by one of two paths: its
-per-edge NATS JetStream stream, or the Connect call
-`flowseer.edge.ingest.v1.IngestService.Deliver`.
+observation data from adapters to the central ingestion pipeline.
+Edge records travel through the Connect call
+`flowseer.edge.ingest.v1.IngestService.Deliver`. Intake validates each record
+and publishes it into CENTRAL's typed and evidence streams.
 
 ## Boundaries
 
@@ -14,10 +14,8 @@ Imported by: edge/ingest
 
 Deliberately absent:
 
-- A tenant identifier. Tenancy stays ambient. For a record on the per-edge
-  stream, intake resolves the tenant from the edge account and the stream it
-  arrived on. For a record delivered through `IngestService.Deliver`, central
-  takes the edge from the call's assertion and the tenant from its edge store.
+- A tenant identifier. Tenancy stays ambient. Central takes the edge from
+  the delivery call's verified assertion and the tenant from its edge store.
 - A per-payload id. Deduplication and record identity belong to the envelope's
   `record_id`, which is also passed as the NATS message id.
 

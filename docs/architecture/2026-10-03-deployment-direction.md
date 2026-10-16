@@ -53,7 +53,6 @@ flowchart LR
     F[OpenFGA, 3 replicas]
   end
   A -- edge RPCs --> LB --> C
-  A -- wss leaf link --> LB --> N
   O --> C
   C --> N
   C --> PG
@@ -64,8 +63,9 @@ flowchart LR
 ### Central and its stores run on Kubernetes
 
 Central is a Deployment with no volume of its own. Its TLS pair, its NATS
-keys, and the device credential files mount from Secrets. The base spreads
-its replicas across nodes and keeps one available through a disruption.
+client credentials, and the device credential files mount from Secrets.
+The base spreads its replicas across nodes and keeps one available through
+a disruption.
 
 ### Kustomize renders FlowSeer's manifests, Helm installs third-party software
 
@@ -106,13 +106,13 @@ Kustomize patch. The stream replica count is a field of central's own
 configuration, because central creates the streams. Every NATS server sets
 `sync_interval: always` in its `jetstream` block.
 
-### A cluster exposes two listeners, with TLS passed through
+### A cluster exposes one edge-facing address, with TLS passed through
 
-Central's edge listener and the NATS WebSocket listener are exposed through
-LoadBalancers that pass TLS through unchanged, so an edge keeps pinning the
-key it was provisioned with. Both serve one certificate from one Secret. The
-operator API is a ClusterIP Service and a NetworkPolicy restricts who reaches
-it.
+Central's edge listener is exposed through one LoadBalancer that passes TLS
+through unchanged, so an edge keeps pinning the key it was provisioned with.
+It serves the certificate from a Secret. NATS stays internal to the cluster.
+The operator API is a ClusterIP Service and a NetworkPolicy restricts who
+reaches it.
 
 ### The edge agent is a host binary under the host's service manager
 
@@ -125,7 +125,7 @@ it through host networking.
 
 ### No secret lives in the repository
 
-Device credential files, the TLS pair, the NATS signing keys, the telemetry
+Device credential files, the TLS pair, NATS client credentials, the telemetry
 headers, and store passwords are Kubernetes Secrets created outside the
 repository and referenced by name. A manifest that needs one fails to start
 without it.
@@ -166,17 +166,13 @@ without it.
 - Whether CloudNativePG replicates synchronously by default. The architecture
   page does not say. Unverified.
 - Backups for NATS, Postgres, and ClickHouse.
-- Ports and hostnames for the two passthrough listeners. The device service
-  record wants 443 for firewall posture, and two listeners cannot share one
-  address and port.
 
 ## Sources
 
 - Repository: `spec/proto/flowseer/model/edge/v1/provisioning.proto`,
   `src/modules/capture/rawsocket/`, `deploy/lab/`.
 - NATS Helm chart, repository `https://nats-io.github.io/k8s/helm/charts/`,
-  clustering, JetStream volume, leaf node and WebSocket listeners, resolver,
-  `config.merge`:
+  clustering, JetStream volume, and `config.merge`:
   <https://raw.githubusercontent.com/nats-io/k8s/main/helm/charts/nats/README.md>.
 - Kustomize `configMapGenerator`, content-hash suffix and workload update:
   <https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/configmapgenerator/>.
