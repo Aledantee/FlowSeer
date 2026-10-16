@@ -177,14 +177,15 @@ issue time and supply it on the normalized update. Topic creation is
 external to this store. `create_task` and `attach_topic` also support trusted
 local setup. Use `map_draft` to bind native Stop controls before delivery.
 
-Every inbound dictionary with an integer `update_id` is committed with an
-accepted or rejected result before `ingest` returns. A replay returns that
-original result. A caller advances its polling offset only after that
-return. Sender and chat must
-match configuration. Stops have no sender and require the full stored
-chat, topic, and draft mapping. Refused callbacks and replies report a
-specific reason such as `unknown_callback`, `topic_mismatch`,
-`obsolete_revision`, or `already_answered` and produce no task event.
+`ingest` requires an integer `update_id`. A normal return guarantees a
+committed inbound row with an accepted or rejected result for that ID.
+A replay returns that original result.
+Serialization failures and unexpected errors can raise without committing
+an inbound row. A caller advances its polling offset only after a normal
+return. Sender and chat must match configuration. Stops have no sender and
+require the full stored chat, topic, and draft mapping. Refused callbacks
+and replies report a specific reason such as `unknown_callback`,
+`topic_mismatch`, `obsolete_revision`, or `already_answered` and produce no task event.
 A decision callback for a task without a topic reports `no_topic`.
 Malformed routing IDs are rejected before lookup. Inbound IDs are stored
 as decimal text to preserve integers outside SQLite's integer range.

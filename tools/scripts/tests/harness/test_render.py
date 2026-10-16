@@ -68,7 +68,10 @@ class RenderTest(unittest.TestCase):
         self.assertIn('Send a brief', json.dumps(prompt))
 
     def test_overview_refuses_unknown_state(self):
-        summary = render.OverviewSummary((render.TaskSummary('t', 'Storage', 'cancel_requested', 'Waiting'),))
+        summary = render.OverviewSummary((
+            render.TaskSummary('first', 'Storage', 'active', 'Working'),
+            render.TaskSummary('second', 'Network', 'cancel_requested', 'Waiting'),
+        ))
         with self.assertRaisesRegex(ValueError, 'cancel_requested'):
             render.overview(summary)
 
@@ -119,6 +122,13 @@ class RenderTest(unittest.TestCase):
             self.assertIn(text, content)
         with self.assertRaisesRegex(ValueError, 'callback'):
             render.status(dataclasses.replace(render.TaskSummary('t', 'T', 'active', 'Work'), controls=(render.ButtonSummary('Cancel', 'x' * 33),)))
+
+    def test_callback_limit_counts_utf8_bytes(self):
+        summary = render.TaskSummary('t', 'Storage', 'active', 'Working')
+        card = render.status(dataclasses.replace(summary, controls=(render.ButtonSummary('Cancel', '界' * 10),)))
+        self.assertEqual(buttons(card)[0]['callback_data'], '界' * 10)
+        with self.assertRaisesRegex(ValueError, 'callback'):
+            render.status(dataclasses.replace(summary, controls=(render.ButtonSummary('Cancel', '界' * 11),)))
 
     def test_cards_bound_worker_output_without_cutting_callbacks(self):
         text = '🦊' * 100000
