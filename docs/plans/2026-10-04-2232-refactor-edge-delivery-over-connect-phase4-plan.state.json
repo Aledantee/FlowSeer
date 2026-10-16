@@ -4,7 +4,7 @@
   "readiness": "implementation-ready",
   "review": "accept after fixes",
   "review_rounds": 0,
-  "compound": null,
+  "compound": "docs/solutions/conventions/inspect-the-installed-value-in-a-startup-contract-test.md",
   "outcome": {
     "units": 5,
     "from": "2026-10-16T11:59:44Z",
