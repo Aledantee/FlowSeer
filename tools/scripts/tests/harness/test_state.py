@@ -37,10 +37,18 @@ class StateTest(unittest.TestCase):
 
     def test_rejected_sender(self):
         queued = self.rows("outbound")
-        for number, fields in enumerate(({"sender_id": 42}, {"chat_id": 42}), 1):
+        self.store.map_message(self.task, 12, self.decision)
+        cases = (
+            {"sender_id": 42},
+            {"chat_id": 42},
+            {"kind": "message", "sender_id": 42, "reply_to_message_id": 12, "text": "Unauthorized answer"},
+        )
+        for number, fields in enumerate(cases, 1):
             result = self.store.ingest(self.update(number, **fields))
             self.assertEqual(result["reason"], "unauthorized")
-        self.assertEqual(len(self.rows("inbound")), 2)
+        self.assertEqual(len(self.rows("inbound")), len(cases))
+        self.assertTrue(all(not json.loads(row["result"])["accepted"] for row in self.rows("inbound")))
+        self.assertEqual(self.rows("answers"), [])
         self.assertEqual(self.rows("events"), [])
         self.assertEqual(self.rows("outbound"), queued)
 
@@ -53,6 +61,16 @@ class StateTest(unittest.TestCase):
         self.assertEqual(reopened.ingest(update), first)
         self.assertEqual(len(self.rows("tasks")), 2)
         self.assertEqual(first["thread_id"], 4)
+
+    def test_new_task_refuses_occupied_topic(self):
+        update = self.update(kind="new_task", brief="Another task", thread_id=3)
+        result = self.store.ingest(update)
+        self.assertEqual(result["reason"], "topic_in_use")
+        self.assertFalse(result["accepted"])
+        self.assertEqual(Store(self.config).ingest(update), result)
+        self.assertEqual(len(self.rows("tasks")), 1)
+        self.assertEqual([row["task_id"] for row in self.rows("topics")], [self.task])
+        self.assertEqual(self.rows("events"), [])
 
     def test_double_answer(self):
         first = self.store.ingest(self.update())
@@ -206,6 +224,7 @@ store.ingest({"update_id": 99, "kind": "new_task", "sender_id": 7,
 
     def test_repeated_progress_digest(self):
         self.assertTrue(self.store.queue_notification(self.task, "progress", {"summary": "Working"}, "a"))
+        self.assertTrue(self.store.queue_notification(self.task, "complete", {"summary": "Notification"}, "notice"))
         self.assertFalse(self.store.queue_notification(self.task, "progress", {"summary": "Working"}, "b"))
         self.assertTrue(self.store.queue_notification(self.task, "progress", {"summary": "Testing"}, "c"))
         self.assertTrue(self.store.queue_notification(self.task, "progress", {"summary": "Working"}, "d"))
@@ -254,6 +273,15 @@ store.ingest({"update_id": 99, "kind": "new_task", "sender_id": 7,
         accepted = self.store.ingest(self.update(2, kind="message", reply_to_message_id=12, text="Custom"))
         self.assertTrue(accepted["accepted"])
         self.assertEqual(self.store.answer(self.decision)["text"], "Custom")
+
+    def test_whitespace_reply_is_rejected(self):
+        self.store.map_message(self.task, 12, self.decision)
+        result = self.store.ingest(self.update(kind="message", reply_to_message_id=12, text=" \t\n"))
+        self.assertEqual(result["reason"], "empty_answer")
+        self.assertFalse(result["accepted"])
+        self.assertEqual(self.rows("answers"), [])
+        self.assertEqual(self.rows("events"), [])
+        self.assertEqual(self.store.decision(self.decision)["status"], "pending")
 
     def test_decision_retry_and_binding(self):
         self.assertEqual(self.store.request_decision(self.task, question()), self.decision)

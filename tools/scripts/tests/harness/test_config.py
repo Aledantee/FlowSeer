@@ -21,9 +21,11 @@ class ConfigTest(unittest.TestCase):
             load(self.path)
 
     def test_public_token_file(self):
-        (self.root / "credential").chmod(0o644)
-        with self.assertRaisesRegex(ValueError, "permissions"):
-            load(self.path)
+        for mode in (0o644, 0o640):
+            with self.subTest(mode=oct(mode)):
+                (self.root / "credential").chmod(mode)
+                with self.assertRaisesRegex(ValueError, "permissions"):
+                    load(self.path)
 
     def test_valid_configuration_and_environment(self):
         with patch.dict(os.environ, {"FLOWSEER_HARNESS_CONFIG": str(self.path)}):

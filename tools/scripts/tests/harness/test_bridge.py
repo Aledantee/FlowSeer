@@ -26,8 +26,9 @@ class BridgeTest(unittest.TestCase):
 
     def invoke(self, command="ask", extra=()):
         output, errors = io.StringIO(), io.StringIO()
+        timeout = ("--timeout", "0.05") if command == "ask" and "--timeout" not in extra else ()
         with contextlib.redirect_stdout(output), contextlib.redirect_stderr(errors):
-            result = bridge.main([command, "--config", str(self.config_path), "--task", self.task, "--request", str(self.request), *extra])
+            result = bridge.main([command, "--config", str(self.config_path), "--task", self.task, "--request", str(self.request), *timeout, *extra])
         return result, output.getvalue(), errors.getvalue()
 
     def assert_empty(self):
@@ -94,12 +95,17 @@ class BridgeTest(unittest.TestCase):
         self.assertEqual(self.invoke(extra=("--timeout", "0"))[:2], (3, ""))
 
     def test_polling_waits_for_answer(self):
-        def answer(_seconds):
-            decision = self.store.request_decision(self.task, question())
-            self.store.cancel_decision(decision)
+        decision = self.store.request_decision(self.task, question())
+        callback = self.store.issue_callback(self.task, decision, "sqlite")
 
-        with patch.object(bridge.time, "sleep", side_effect=answer) as sleep:
-            self.assertEqual(self.invoke()[0], 3)
+        def answer(_seconds):
+            self.assertTrue(self.store.ingest({"update_id": 1, "kind": "callback", "sender_id": 7, "chat_id": 11, "thread_id": 3, "callback_id": callback})["accepted"])
+
+        with patch.object(bridge.time, "sleep", side_effect=answer) as sleep, patch.object(bridge.time, "monotonic", side_effect=(0, 0, 0, 2)):
+            code, output, errors = self.invoke(extra=("--timeout", "1"))
+        self.assertEqual((code, errors), (0, ""))
+        self.assertEqual(json.loads(output), {"decision": decision, "revision": 1, "option": "sqlite", "text": None})
+        self.assertEqual(len(output.splitlines()), 1)
         sleep.assert_called_once_with(1)
 
     def test_events_and_result_no_checkpoint(self):

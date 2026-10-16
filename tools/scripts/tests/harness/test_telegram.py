@@ -140,6 +140,15 @@ class TelegramTest(unittest.TestCase):
                 self.assertEqual(sleeps, [2])
                 self.assertEqual(len(opener.calls), 2)
 
+    def test_retry_after_is_retried_only_once(self):
+        sleeps = []
+        opener = Opener(fixture('retry_after'), fixture('retry_after'), {'ok': True, 'result': True})
+        client = telegram.Client(TOKEN, opener=opener, sleep=sleeps.append)
+        with self.assertRaisesRegex(telegram.TelegramError, 'answerCallbackQuery'):
+            client.answer_callback_query('q')
+        self.assertEqual(sleeps, [2])
+        self.assertEqual([call[0] for call in opener.calls], ['answerCallbackQuery', 'answerCallbackQuery'])
+
     def test_errors_and_chains_do_not_expose_credential(self):
         errors = [TimeoutError(TOKEN), URLError(TOKEN), HTTPError('https://example/' + TOKEN, 403, TOKEN, {}, io.BytesIO(b'bad')), fixture('api_error'), {'ok': False, 'description': TOKEN}, {'ok': True}, ValueError(TOKEN)]
         records = []
