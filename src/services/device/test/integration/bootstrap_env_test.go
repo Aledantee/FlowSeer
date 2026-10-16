@@ -188,7 +188,7 @@ func bootstrapEnvironment(t *testing.T, dir string) string {
 	authnCAPath := iss.WriteCACertFile(t)
 	fgaEndpoint, fgaCAFile, fgaKeyFile := startFakeOpenFGA(t, dir)
 
-	apiPort, edgePort, busPort := freePort(t), freePort(t), freePort(t)
+	apiPort, edgePort := freePort(t), freePort(t)
 	central := fmt.Sprintf("https://127.0.0.1:%d", apiPort)
 	edgeURL := fmt.Sprintf("https://127.0.0.1:%d", edgePort)
 
@@ -198,13 +198,11 @@ registry_path: %q
 credential_root: %q
 listeners {
   api: "127.0.0.1:%d"
-  bus: "127.0.0.1:%d"
   edge: "127.0.0.1:%d"
 }
 edges {
   central_url: %q
   assertion_audience: "flowseer-lab"
-  cluster_urls: "ws://127.0.0.1:%d"
 }
 intervals {
   drift { seconds: 3600 }
@@ -224,7 +222,7 @@ authorization {
   preshared_key_file: %q
   ca_file: %q
 }
-`, state, registry, credentials, apiPort, busPort, edgePort, edgeURL, busPort,
+`, state, registry, credentials, apiPort, edgePort, edgeURL,
 		iss.URL(), authnCAPath,
 		fgaEndpoint, fgaKeyFile, fgaCAFile)))
 

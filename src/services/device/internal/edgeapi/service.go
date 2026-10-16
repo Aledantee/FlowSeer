@@ -16,7 +16,6 @@ import (
 	policyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/policy/v1"
 	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
-	"go.aledante.io/FlowSeer/src/modules/edgebus"
 	"go.aledante.io/FlowSeer/src/services/device/internal/edgestore"
 	"go.aledante.io/FlowSeer/src/services/device/internal/registry"
 )
@@ -36,8 +35,6 @@ var (
 	// ErrCodePolicy is a request naming a policy the device does not pin, or a
 	// registry that cannot resolve one.
 	ErrCodePolicy = errs.NewCode("edgeapi/policy")
-	// ErrCodeBus is a failure to mint the edge's bus credential.
-	ErrCodeBus = errs.NewCode("edgeapi/bus")
 	// ErrCodeCredential is a failure to read the credential material a policy
 	// resolves to.
 	ErrCodeCredential = errs.NewCode("edgeapi/credential")
@@ -50,21 +47,13 @@ const setupKeyIDLen = 26
 // first thing an unauthenticated caller controls.
 var setupKeyStringPattern = regexp.MustCompile(`^fse1_[a-z2-7]{26}_[a-z2-7]{52}$`)
 
-// BusMinter hands an edge the NATS identity its leaf node authenticates with.
-// The hub implements it; the permission set on the minted user belongs to the
-// hub and is never widened here.
-type BusMinter interface {
-	AttachEdge(ctx context.Context, tenant, edgeID string) error
-	MintEdgeUser(ctx context.Context, edgeID string) (edgebus.EdgeCredentials, error)
-}
-
 // CredentialSource resolves a pinned credential version to its material.
 type CredentialSource interface {
 	Get(key string, version uint64) (*credentialv1.CredentialMaterial, error)
 }
 
 // ServiceConfig is the deployment configuration behind the edge-facing
-// answers: what an edge is told to trust, and where it dials the bus.
+// answers: what an edge is told to trust.
 type ServiceConfig struct {
 	// Audience is the value an edge puts in every assertion, and the one the
 	// verifier checks.
@@ -73,9 +62,6 @@ type ServiceConfig struct {
 	// deployment can rotate its TLS chain without re-provisioning an edge.
 	// At least one is required.
 	TrustAnchors [][]byte
-	// ClusterURLs are the endpoints an edge's leaf node dials, in preference
-	// order. At least one is required.
-	ClusterURLs []string
 	// PulseInterval is how often an open submission stream restates the
 	// edge's authority. Zero uses the default.
 	PulseInterval time.Duration
@@ -94,7 +80,6 @@ type Service struct {
 	registry *registry.Registry
 	lanes    LaneRecords
 	creds    CredentialSource
-	bus      BusMinter
 	cfg      ServiceConfig
 	clock    func() time.Time
 	log      *slog.Logger
@@ -102,8 +87,8 @@ type Service struct {
 
 // NewService constructs the edge handler. A nil clock uses the wall clock and a
 // nil logger discards. It returns an error for a configuration that would leave
-// an edge trusting anything or unable to reach the bus.
-func NewService(store *edgestore.Store, reg *registry.Registry, lanes LaneRecords, creds CredentialSource, bus BusMinter, cfg ServiceConfig, clock func() time.Time, log *slog.Logger) (*Service, error) {
+// an edge without an audience or a valid trust anchor.
+func NewService(store *edgestore.Store, reg *registry.Registry, lanes LaneRecords, creds CredentialSource, cfg ServiceConfig, clock func() time.Time, log *slog.Logger) (*Service, error) {
 	if cfg.Audience == "" {
 		return nil, errs.New().Code(ErrCodeConfig).Msg("edge service names no audience")
 	}
@@ -120,16 +105,13 @@ func NewService(store *edgestore.Store, reg *registry.Registry, lanes LaneRecord
 				Msg("trust anchor is not a sha-256 digest")
 		}
 	}
-	if len(cfg.ClusterURLs) == 0 {
-		return nil, errs.New().Code(ErrCodeConfig).Msg("edge service names no cluster url")
-	}
 	if clock == nil {
 		clock = time.Now
 	}
 	if log == nil {
 		log = slog.New(slog.DiscardHandler)
 	}
-	return &Service{store: store, registry: reg, lanes: lanes, creds: creds, bus: bus, cfg: cfg, clock: clock, log: log}, nil
+	return &Service{store: store, registry: reg, lanes: lanes, creds: creds, cfg: cfg, clock: clock, log: log}, nil
 }
 
 // Heartbeat records that the edge is alive, what version it is running, and
@@ -173,45 +155,6 @@ func (s *Service) Heartbeat(ctx context.Context, req *connect.Request[attachv1.H
 	}
 
 	return connect.NewResponse(attachv1.HeartbeatResponse_builder{ServerTime: timestamppb.New(now)}.Build()), nil
-}
-
-// AttachBus hands the calling edge the NATS identity its embedded leaf node
-// authenticates with, the subjects it publishes on, and the endpoints to dial.
-// The user is minted by the hub with the hub's own permission set; this handler
-// chooses nothing about what the edge may reach.
-func (s *Service) AttachBus(ctx context.Context, _ *connect.Request[attachv1.AttachBusRequest]) (*connect.Response[attachv1.AttachBusResponse], error) {
-	edgeID, err := EdgeIDFromContext(ctx)
-	if err != nil {
-		return nil, unauthenticated(err)
-	}
-
-	tenantID, err := s.store.TenantForEdge(ctx, edgeID)
-	if err != nil {
-		return nil, connectErr(err)
-	}
-	if tenantID == "" {
-		return nil, connectErr(notFound(edgeID))
-	}
-
-	if err := s.bus.AttachEdge(ctx, tenantID, edgeID); err != nil {
-		return nil, connectErr(errs.From(err).Code(ErrCodeBus).Attr("edge", edgeID).Msg("attach edge to bus"))
-	}
-
-	creds, err := s.bus.MintEdgeUser(ctx, edgeID)
-	if err != nil {
-		return nil, connectErr(errs.From(err).Code(ErrCodeBus).Attr("edge", edgeID).Msg("mint edge bus user"))
-	}
-	credsFile, err := creds.CredsFile()
-	if err != nil {
-		return nil, connectErr(errs.From(err).Code(ErrCodeBus).Attr("edge", edgeID).Msg("render edge bus credential"))
-	}
-
-	return connect.NewResponse(attachv1.AttachBusResponse_builder{
-		AccountJwt:     []byte(creds.AccountJWT),
-		UserCredential: credsFile,
-		Subjects:       edgebus.EdgePublishSubjects(tenantID, edgeID),
-		ClusterUrls:    s.cfg.ClusterURLs,
-	}.Build()), nil
 }
 
 // ListDevices names the devices the calling edge serves and what it needs to

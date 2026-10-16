@@ -110,8 +110,8 @@ func (c *Config) History() *storev1.HistoryStore {
 	return c.msg.GetHistory()
 }
 
-// StateDir is the directory the service owns: the bus store, the keys it mints
-// accounts with, and the certificate it serves.
+// StateDir is the directory for the hub store, the keys that sign CENTRAL
+// claims, and the certificate the service serves.
 func (c *Config) StateDir() string { return c.msg.GetStateDir() }
 
 // LogLevel is how much this deployment wants written locally. Unset is INFO,
@@ -148,9 +148,6 @@ func (c *Config) APIAddress() string { return c.msg.GetListeners().GetApi() }
 // service if the port written here is the port bound.
 func (c *Config) EdgeAddress() string { return c.msg.GetListeners().GetEdge() }
 
-// BusAddress is the host:port the bus's WebSocket listener binds.
-func (c *Config) BusAddress() string { return c.msg.GetListeners().GetBus() }
-
 // CertificateFiles names the certificate and key the deployment supplies, and
 // reports whether it supplies one at all. When it does not, the host generates
 // and persists a self-signed pair; the schema pairs the two fields, so either
@@ -166,10 +163,6 @@ func (c *Config) CentralURL() string { return c.msg.GetEdges().GetCentralUrl() }
 // AssertionAudience is the value an edge puts in every assertion and this
 // service checks.
 func (c *Config) AssertionAudience() string { return c.msg.GetEdges().GetAssertionAudience() }
-
-// ClusterURLs are the endpoints an edge's leaf node dials, in preference
-// order.
-func (c *Config) ClusterURLs() []string { return c.msg.GetEdges().GetClusterUrls() }
 
 // AssertionClockSkew is how much clock difference an assertion may carry,
 // defaulted here because the verifier treats zero as no tolerance at all.

@@ -15,7 +15,6 @@ import (
 	"time"
 
 	connect "connectrpc.com/connect"
-	jwt "github.com/nats-io/jwt/v2"
 
 	apicapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/capture/v1"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/capture/v1/capturev1connect"
@@ -117,15 +116,9 @@ func assemble(t *testing.T) *deployment {
 	}
 }
 
-// The agent enrolls against a real central, attaches its bus, and onboards
-// the device central's registry lists for it.
-//
-// Everything past the attachment is what a unit test could not reach: it
-// takes a live hub for the attachment to succeed, and a successful attachment
-// for the lane to exist. What proves onboarding happened is the device
-// itself — the agent opened a session against the address the registry named,
-// which means it listed the device, resolved its endpoint, and acquired a
-// credential for the identity probe.
+// The agent enrolls against central and onboards the registry's device. A
+// session at the listed address proves it resolved the endpoint and acquired
+// a credential for the identity probe.
 func TestAnAgentOnboardsTheDeviceCentralListsForIt(t *testing.T) {
 	d := assemble(t)
 
@@ -868,7 +861,7 @@ func accessGoroutines() string {
 	return strings.Join(kept, "\n\n")
 }
 
-func TestMultiTenantIsolationAndEdgeBusPartitioning(t *testing.T) {
+func TestMultiTenantIsolationAndEdgeEnrollment(t *testing.T) {
 	dir := t.TempDir()
 	writeCredentials(t, filepath.Join(dir, "credentials"))
 
@@ -989,26 +982,6 @@ func TestMultiTenantIsolationAndEdgeBusPartitioning(t *testing.T) {
 	}
 	if indexedTenant != tenantA {
 		t.Fatalf("TenantForEdge = %q, want %q", indexedTenant, tenantA)
-	}
-
-	creds, err := hub.MintEdgeUser(ctx, edgeID)
-	if err != nil {
-		t.Fatalf("MintEdgeUser: %v", err)
-	}
-	claims, err := jwt.DecodeUserClaims(creds.UserJWT.RevealString())
-	if err != nil {
-		t.Fatalf("decode claims: %v", err)
-	}
-	expectedSubtree := "flowseer." + tenantA + ".edge." + edgeID + ".>"
-	foundPubAllow := false
-	for _, sub := range claims.Pub.Allow {
-		if sub == expectedSubtree {
-			foundPubAllow = true
-			break
-		}
-	}
-	if !foundPubAllow {
-		t.Fatalf("claims.Pub.Allow %v does not contain %s", claims.Pub.Allow, expectedSubtree)
 	}
 
 	// 4. Create capture session via operator API under tenant A

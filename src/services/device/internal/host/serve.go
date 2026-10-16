@@ -5,10 +5,8 @@ import (
 	"crypto/tls"
 	"fmt"
 	"log/slog"
-	"net"
 	"net/http"
 	"os"
-	"strconv"
 	"time"
 
 	connect "connectrpc.com/connect"
@@ -220,11 +218,10 @@ func (h *assembly) mux(ctx context.Context, resources *busResources, log *slog.L
 	middleware := edgeapi.NewMiddleware(verifier, maxEdgeBody, log)
 
 	edgeService, err := edgeapi.NewService(
-		resources.edges, h.registry, &edgeLaneRecords{journal: resources.journal, edgeTenant: resources.edgeTenant}, h.credentials, resources.hub,
+		resources.edges, h.registry, &edgeLaneRecords{journal: resources.journal, edgeTenant: resources.edgeTenant}, h.credentials,
 		edgeapi.ServiceConfig{
 			Audience:      h.cfg.AssertionAudience(),
 			TrustAnchors:  [][]byte{h.certificate.SPKI},
-			ClusterURLs:   h.cfg.ClusterURLs(),
 			PulseInterval: h.cfg.Intervals().SubmissionPulse,
 		}, nil, log)
 	if err != nil {
@@ -404,9 +401,7 @@ func (h *assembly) mux(ctx context.Context, resources *busResources, log *slog.L
 	return &servedMuxes{edge: edgeMux, api: apiMux}, nil
 }
 
-// serverTLS is the configuration the API and edge listeners serve, and the
-// certificate the bus serves too, so an edge pins one digest for the edge
-// listener and the bus alike and an operator sees the same one on the API.
+// serverTLS serves the same certificate on the API and edge listeners.
 func (h *assembly) serverTLS() *tls.Config {
 	return &tls.Config{
 		MinVersion:   tls.VersionTLS12,
@@ -490,26 +485,6 @@ func edgeIDFromContext(ctx context.Context) (string, error) {
 // auditPublisher writes central's own records onto the audit stream.
 func auditPublisher(hub *edgebus.Hub) auditapi.JetStreamPublisher {
 	return auditapi.JetStreamPublisher{JS: hub.JetStream()}
-}
-
-// portOf is the port half of a host:port.
-//
-// It returns -1 when the address names no parsable port, which the hub reads
-// as "pick a free one". That is unreachable from a validated configuration:
-// the schema requires both listener addresses to end in a port, precisely
-// because an address without one starts a healthy-looking service on an
-// unpredictable port while every edge dials the cluster_urls the same file
-// names, with nothing logging the mismatch.
-func portOf(address string) int {
-	_, port, err := net.SplitHostPort(address)
-	if err != nil {
-		return -1
-	}
-	number, err := strconv.Atoi(port)
-	if err != nil {
-		return -1
-	}
-	return number
 }
 
 func newStderr() *os.File { return os.Stderr }

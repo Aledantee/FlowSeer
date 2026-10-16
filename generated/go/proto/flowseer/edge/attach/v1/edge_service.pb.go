@@ -599,7 +599,7 @@ var File_flowseer_edge_attach_v1_edge_service_proto protoreflect.FileDescriptor
 
 const file_flowseer_edge_attach_v1_edge_service_proto_rawDesc = "" +
 	"\n" +
-	"*flowseer/edge/attach/v1/edge_service.proto\x12\x17flowseer.edge.attach.v1\x1a!flowseer/edge/attach/v1/bus.proto\x1a(flowseer/edge/attach/v1/credential.proto\x1a$flowseer/edge/attach/v1/device.proto\x1a!flowseer/model/edge/v1/edge.proto\x1a&flowseer/model/edge/v1/key_proof.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x98\x01\n" +
+	"*flowseer/edge/attach/v1/edge_service.proto\x12\x17flowseer.edge.attach.v1\x1a(flowseer/edge/attach/v1/credential.proto\x1a$flowseer/edge/attach/v1/device.proto\x1a!flowseer/model/edge/v1/edge.proto\x1a&flowseer/model/edge/v1/key_proof.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x98\x01\n" +
 	"\rEnrollRequest\x12G\n" +
 	"\tsetup_key\x18\x01 \x01(\tB*\xbaH'\xc8\x01\x01r\"2 ^fse1_[a-z2-7]{26}_[a-z2-7]{52}$R\bsetupKey\x12>\n" +
 	"\x05proof\x18\x02 \x01(\v2 .flowseer.model.edge.v1.KeyProofB\x06\xbaH\x03\xc8\x01\x01R\x05proof\"\xfa\x01\n" +
@@ -622,12 +622,11 @@ const file_flowseer_edge_attach_v1_edge_service_proto_rawDesc = "" +
 	"\x0fbuffering_since\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\x0ebufferingSince\"X\n" +
 	"\x11HeartbeatResponse\x12C\n" +
 	"\vserver_time\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampB\x06\xbaH\x03\xc8\x01\x01R\n" +
-	"serverTime2\x83\x06\n" +
+	"serverTime2\x9f\x05\n" +
 	"\vEdgeService\x12Y\n" +
 	"\x06Enroll\x12&.flowseer.edge.attach.v1.EnrollRequest\x1a'.flowseer.edge.attach.v1.EnrollResponse\x12V\n" +
 	"\x05Rekey\x12%.flowseer.edge.attach.v1.RekeyRequest\x1a&.flowseer.edge.attach.v1.RekeyResponse\x12b\n" +
-	"\tHeartbeat\x12).flowseer.edge.attach.v1.HeartbeatRequest\x1a*.flowseer.edge.attach.v1.HeartbeatResponse\x12b\n" +
-	"\tAttachBus\x12).flowseer.edge.attach.v1.AttachBusRequest\x1a*.flowseer.edge.attach.v1.AttachBusResponse\x12h\n" +
+	"\tHeartbeat\x12).flowseer.edge.attach.v1.HeartbeatRequest\x1a*.flowseer.edge.attach.v1.HeartbeatResponse\x12h\n" +
 	"\vListDevices\x12+.flowseer.edge.attach.v1.ListDevicesRequest\x1a,.flowseer.edge.attach.v1.ListDevicesResponse\x12\x86\x01\n" +
 	"\x15AcquireReadCredential\x125.flowseer.edge.attach.v1.AcquireReadCredentialRequest\x1a6.flowseer.edge.attach.v1.AcquireReadCredentialResponse\x12\x85\x01\n" +
 	"\x14OpenDeviceSubmission\x124.flowseer.edge.attach.v1.OpenDeviceSubmissionRequest\x1a5.flowseer.edge.attach.v1.OpenDeviceSubmissionResponse0\x01B\xf9\x01\n" +
@@ -644,14 +643,12 @@ var file_flowseer_edge_attach_v1_edge_service_proto_goTypes = []any{
 	(*v1.KeyProof)(nil),                   // 6: flowseer.model.edge.v1.KeyProof
 	(*v1.EdgeGlobalRef)(nil),              // 7: flowseer.model.edge.v1.EdgeGlobalRef
 	(*timestamppb.Timestamp)(nil),         // 8: google.protobuf.Timestamp
-	(*AttachBusRequest)(nil),              // 9: flowseer.edge.attach.v1.AttachBusRequest
-	(*ListDevicesRequest)(nil),            // 10: flowseer.edge.attach.v1.ListDevicesRequest
-	(*AcquireReadCredentialRequest)(nil),  // 11: flowseer.edge.attach.v1.AcquireReadCredentialRequest
-	(*OpenDeviceSubmissionRequest)(nil),   // 12: flowseer.edge.attach.v1.OpenDeviceSubmissionRequest
-	(*AttachBusResponse)(nil),             // 13: flowseer.edge.attach.v1.AttachBusResponse
-	(*ListDevicesResponse)(nil),           // 14: flowseer.edge.attach.v1.ListDevicesResponse
-	(*AcquireReadCredentialResponse)(nil), // 15: flowseer.edge.attach.v1.AcquireReadCredentialResponse
-	(*OpenDeviceSubmissionResponse)(nil),  // 16: flowseer.edge.attach.v1.OpenDeviceSubmissionResponse
+	(*ListDevicesRequest)(nil),            // 9: flowseer.edge.attach.v1.ListDevicesRequest
+	(*AcquireReadCredentialRequest)(nil),  // 10: flowseer.edge.attach.v1.AcquireReadCredentialRequest
+	(*OpenDeviceSubmissionRequest)(nil),   // 11: flowseer.edge.attach.v1.OpenDeviceSubmissionRequest
+	(*ListDevicesResponse)(nil),           // 12: flowseer.edge.attach.v1.ListDevicesResponse
+	(*AcquireReadCredentialResponse)(nil), // 13: flowseer.edge.attach.v1.AcquireReadCredentialResponse
+	(*OpenDeviceSubmissionResponse)(nil),  // 14: flowseer.edge.attach.v1.OpenDeviceSubmissionResponse
 }
 var file_flowseer_edge_attach_v1_edge_service_proto_depIdxs = []int32{
 	6,  // 0: flowseer.edge.attach.v1.EnrollRequest.proof:type_name -> flowseer.model.edge.v1.KeyProof
@@ -664,19 +661,17 @@ var file_flowseer_edge_attach_v1_edge_service_proto_depIdxs = []int32{
 	0,  // 7: flowseer.edge.attach.v1.EdgeService.Enroll:input_type -> flowseer.edge.attach.v1.EnrollRequest
 	2,  // 8: flowseer.edge.attach.v1.EdgeService.Rekey:input_type -> flowseer.edge.attach.v1.RekeyRequest
 	4,  // 9: flowseer.edge.attach.v1.EdgeService.Heartbeat:input_type -> flowseer.edge.attach.v1.HeartbeatRequest
-	9,  // 10: flowseer.edge.attach.v1.EdgeService.AttachBus:input_type -> flowseer.edge.attach.v1.AttachBusRequest
-	10, // 11: flowseer.edge.attach.v1.EdgeService.ListDevices:input_type -> flowseer.edge.attach.v1.ListDevicesRequest
-	11, // 12: flowseer.edge.attach.v1.EdgeService.AcquireReadCredential:input_type -> flowseer.edge.attach.v1.AcquireReadCredentialRequest
-	12, // 13: flowseer.edge.attach.v1.EdgeService.OpenDeviceSubmission:input_type -> flowseer.edge.attach.v1.OpenDeviceSubmissionRequest
-	1,  // 14: flowseer.edge.attach.v1.EdgeService.Enroll:output_type -> flowseer.edge.attach.v1.EnrollResponse
-	3,  // 15: flowseer.edge.attach.v1.EdgeService.Rekey:output_type -> flowseer.edge.attach.v1.RekeyResponse
-	5,  // 16: flowseer.edge.attach.v1.EdgeService.Heartbeat:output_type -> flowseer.edge.attach.v1.HeartbeatResponse
-	13, // 17: flowseer.edge.attach.v1.EdgeService.AttachBus:output_type -> flowseer.edge.attach.v1.AttachBusResponse
-	14, // 18: flowseer.edge.attach.v1.EdgeService.ListDevices:output_type -> flowseer.edge.attach.v1.ListDevicesResponse
-	15, // 19: flowseer.edge.attach.v1.EdgeService.AcquireReadCredential:output_type -> flowseer.edge.attach.v1.AcquireReadCredentialResponse
-	16, // 20: flowseer.edge.attach.v1.EdgeService.OpenDeviceSubmission:output_type -> flowseer.edge.attach.v1.OpenDeviceSubmissionResponse
-	14, // [14:21] is the sub-list for method output_type
-	7,  // [7:14] is the sub-list for method input_type
+	9,  // 10: flowseer.edge.attach.v1.EdgeService.ListDevices:input_type -> flowseer.edge.attach.v1.ListDevicesRequest
+	10, // 11: flowseer.edge.attach.v1.EdgeService.AcquireReadCredential:input_type -> flowseer.edge.attach.v1.AcquireReadCredentialRequest
+	11, // 12: flowseer.edge.attach.v1.EdgeService.OpenDeviceSubmission:input_type -> flowseer.edge.attach.v1.OpenDeviceSubmissionRequest
+	1,  // 13: flowseer.edge.attach.v1.EdgeService.Enroll:output_type -> flowseer.edge.attach.v1.EnrollResponse
+	3,  // 14: flowseer.edge.attach.v1.EdgeService.Rekey:output_type -> flowseer.edge.attach.v1.RekeyResponse
+	5,  // 15: flowseer.edge.attach.v1.EdgeService.Heartbeat:output_type -> flowseer.edge.attach.v1.HeartbeatResponse
+	12, // 16: flowseer.edge.attach.v1.EdgeService.ListDevices:output_type -> flowseer.edge.attach.v1.ListDevicesResponse
+	13, // 17: flowseer.edge.attach.v1.EdgeService.AcquireReadCredential:output_type -> flowseer.edge.attach.v1.AcquireReadCredentialResponse
+	14, // 18: flowseer.edge.attach.v1.EdgeService.OpenDeviceSubmission:output_type -> flowseer.edge.attach.v1.OpenDeviceSubmissionResponse
+	13, // [13:19] is the sub-list for method output_type
+	7,  // [7:13] is the sub-list for method input_type
 	7,  // [7:7] is the sub-list for extension type_name
 	7,  // [7:7] is the sub-list for extension extendee
 	0,  // [0:7] is the sub-list for field type_name
@@ -687,7 +682,6 @@ func file_flowseer_edge_attach_v1_edge_service_proto_init() {
 	if File_flowseer_edge_attach_v1_edge_service_proto != nil {
 		return
 	}
-	file_flowseer_edge_attach_v1_bus_proto_init()
 	file_flowseer_edge_attach_v1_credential_proto_init()
 	file_flowseer_edge_attach_v1_device_proto_init()
 	type x struct{}

@@ -91,7 +91,7 @@ var importOrder = map[string][]string{
 	"api/identity": {"model/identity", "authz"},
 
 	// The service an edge calls to get and keep its standing: enrollment,
-	// rekey, heartbeat, bus attachment, the device listing, and the two
+	// rekey, heartbeat, the device listing, and the two
 	// credential lifecycles. The listing and the credentials are what reach
 	// past the entity into the policy handles, the credential material, and
 	// the management address.

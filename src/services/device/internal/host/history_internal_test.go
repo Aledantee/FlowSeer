@@ -19,7 +19,7 @@ func TestTheHistorySinkIsTheLastModule(t *testing.T) {
 		names = append(names, m.Name)
 	}
 
-	want := []string{"hub", "forwarder", "intake", "journal", "connect", "drift", "capture_sweeper", "projector", "history_sink"}
+	want := []string{"hub", "journal", "connect", "drift", "capture_sweeper", "projector", "history_sink"}
 	if !reflect.DeepEqual(names, want) {
 		t.Errorf("modules = %q, want %q", names, want)
 	}

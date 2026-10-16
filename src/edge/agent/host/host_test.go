@@ -206,11 +206,6 @@ func TestTheAgentEnrollsFirstAndSignsEverythingAfterwards(t *testing.T) {
 	if len(seen) < 2 || seen[0].procedure != "Enroll" || seen[0].signed || !seen[1].signed {
 		t.Fatalf("calls = %v, want unsigned Enroll then signed call", seen)
 	}
-	for _, call := range seen {
-		if call.procedure == "AttachBus" {
-			t.Error("agent called AttachBus")
-		}
-	}
 	cancel()
 	select {
 	case err := <-done:
