@@ -182,6 +182,58 @@ func (l *countingDeliveryLog) Stats() (seglog.Stats, error) {
 	return seglog.Stats{}, nil
 }
 
+func TestDeliveryRestartKeepsOneBufferCallback(t *testing.T) {
+	_, stopSignals := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stopSignals()
+
+	synctest.Test(t, func(t *testing.T) {
+		buffer, err := seglog.Open(seglog.Config{Dir: t.TempDir()})
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer func() { _ = buffer.Close() }()
+		fault := &faultingDeliveryLog{Log: buffer, operation: "next"}
+		log := &countingDeliveryLog{Log: fault}
+		a := deliveryAssembly{name: "telemetry", log: log, send: func(_ context.Context, records [][]byte) (int, error) {
+			return len(records), nil
+		}}
+		reader := sdkmetric.NewManualReader()
+		provider := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
+		defer func() { _ = provider.Shutdown(context.Background()) }()
+		cfg := service.Config{
+			Identity: service.Identity{Name: "agent", Namespace: "test", Version: "test"},
+			Logger:   slog.New(slog.DiscardHandler), MeterProvider: provider,
+			Modules: []service.Module{a.module()},
+		}
+		ctx, cancel := context.WithCancel(context.Background())
+		done := make(chan struct{})
+		var runErr error
+		spawn.Go(ctx, "test restarted delivery", func() { defer close(done); runErr = service.Run(ctx, cfg) })
+		defer func() { cancel(); <-done }()
+		time.Sleep(31 * time.Second)
+		synctest.Wait()
+		if got := fault.failures.Load(); got < 2 {
+			t.Fatalf("storage failures = %d, want at least 2 supervised attempts", got)
+		}
+		fault.recovered.Store(true)
+		time.Sleep(31 * time.Second)
+		synctest.Wait()
+		select {
+		case <-done:
+			t.Fatalf("service.Run ended after drain restart: %v", runErr)
+		default:
+		}
+		before := log.reads.Load()
+		var rm metricdata.ResourceMetrics
+		if err := reader.Collect(ctx, &rm); err != nil {
+			t.Fatal(err)
+		}
+		if got := log.reads.Load() - before; got != 1 {
+			t.Errorf("stats reads per collection after restart = %d, want 1", got)
+		}
+	})
+}
+
 func TestDeliveryCanceledBeforeRunnerRegistersNoBufferCallback(t *testing.T) {
 	reader := sdkmetric.NewManualReader()
 	provider := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))

@@ -53,7 +53,7 @@ type deliveryAssembly struct {
 
 func (a deliveryAssembly) module() service.Module {
 	// The runtime requires finite positive budgets. A machine-sized count per
-	// minute leaves backoff as the practical restart limit for storage faults.
+	// minute leaves backoff as the practical restart limit for faults and panics.
 	// The branch keeps those restarts out of the root's intensity budget.
 	budget := service.RestartBudget{Max: math.MaxInt, Window: time.Minute}
 	return service.Module{
