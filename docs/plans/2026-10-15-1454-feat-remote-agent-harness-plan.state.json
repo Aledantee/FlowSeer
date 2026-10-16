@@ -1,7 +1,7 @@
 {
   "contract": "flowseer-plan-state/v1",
   "status": "planned",
-  "readiness": "needs-decisions",
+  "readiness": "implementation-ready",
   "review": null,
   "review_rounds": 0,
   "compound": null,
@@ -11,6 +11,17 @@
   "parent": null,
   "after": [],
   "landed": null,
-  "phases": [],
-  "retired": []
+  "phases": [
+    "docs/plans/2026-10-15-1454-feat-remote-agent-harness-phase2-plan.md"
+  ],
+  "retired": [
+    {
+      "plan": "docs/plans/2026-10-15-1454-feat-remote-agent-harness-phase1-plan.md",
+      "status": "implemented",
+      "landed": {
+        "first": "7140618c",
+        "last": "7784feba"
+      }
+    }
+  ]
 }

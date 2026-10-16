@@ -24,7 +24,7 @@ covering port tables and VLAN membership.
 
 | Record | Status | Read when |
 | --- | --- | --- |
-| [Remote Agent Harness](2026-10-15-remote-agent-harness-direction.md) | Proposed direction | Adding Telegram control, persistent remote tasks, human decisions, or Linux Orca coordination for project development. |
+| [Remote Agent Harness](2026-10-15-remote-agent-harness-direction.md) | Accepted direction | Adding Telegram control, persistent remote tasks, human decisions, or Linux Orca coordination for project development. |
 | [Device Service, Integrations, and Inventory](2026-08-20-device-service-and-inventory-direction.md) | Accepted direction | Working on the device service, integrations, inventory, discovery, ingestion, attachment, or the transport fabric. |
 | [Network Model Structure](2026-08-20-network-model-structure-direction.md) | Accepted direction | Adding or moving FlowSeer-owned protobuf packages, network primitives, entities, refs, or device-facing capability models, or a README under `spec/proto`. |
 | [YANG Protocol Libraries](2026-09-28-yang-protocol-libraries-direction.md) | Accepted direction | Working on the YANG runtime, the `yanggen` generator, the generated `generated/go/yang` bindings, or the NETCONF, RESTCONF, and gNMI client libraries. |

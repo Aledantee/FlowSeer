@@ -3,7 +3,7 @@ title: Remote Agent Harness - Direction
 type: direction
 date: 2026-10-15
 topic: remote-agent-harness
-status: proposed-direction
+status: accepted-direction
 ---
 
 # Remote agent harness
