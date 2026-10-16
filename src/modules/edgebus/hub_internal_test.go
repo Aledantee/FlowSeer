@@ -2,6 +2,7 @@ package edgebus
 
 import (
 	"context"
+	"encoding/json"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -133,11 +134,24 @@ func TestHubServesCentralWithFormerEdgeState(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := strings.Count(string(logs), "Account fetch failed"); got != 1 {
-		t.Errorf("account fetch warnings = %d, want 1: %s", got, logs)
+	warnings := 0
+	for _, line := range strings.Split(strings.TrimSpace(string(logs)), "\n") {
+		var entry struct {
+			Level  string `json:"level"`
+			Detail string `json:"flowseer.edgebus.detail"`
+		}
+		if err := json.Unmarshal([]byte(line), &entry); err != nil {
+			t.Fatalf("decode server log: %v", err)
+		}
+		if strings.Contains(entry.Detail, "Account fetch failed") {
+			warnings++
+			if entry.Level != "WARN" {
+				t.Errorf("account fetch log level = %q, want WARN", entry.Level)
+			}
+		}
 	}
-	if !strings.Contains(string(logs), `"level":"WARN"`) {
-		t.Errorf("warning not routed to host logger: %s", logs)
+	if warnings != 1 {
+		t.Errorf("account fetch warnings = %d, want 1: %s", warnings, logs)
 	}
 	for path, want := range strays {
 		got, err := os.ReadFile(path)

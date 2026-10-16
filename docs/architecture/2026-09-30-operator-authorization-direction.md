@@ -482,7 +482,7 @@ so each recorded operator action is emitted with its authenticated
 `OperatorRef`, object, action, and outcome in the same change that turns
 authorization on. That event goes to a stream using
 `flowseer.<tenant>.operator.action.<action>` subjects (subject pattern in
-`src/modules/edgebus/subjects.go:103-105`, stream binding in `src/modules/edgebus/hub.go:408`).
+`src/modules/edgebus/subjects.go:87-89`, stream binding in `src/modules/edgebus/hub.go:301-312`).
 
 ## Consequences
 
@@ -866,8 +866,8 @@ record of a change.
 | `FLOWSEER_OPERATOR_READS` | `flowseer.<tenant>.operator.read.<action>` | `GetEdge` and `ListEdges` | 16 MiB | 1,000 |
 
 `OperatorReadSubject` builds the read subject
-(`src/modules/edgebus/subjects.go:108-110`) and the hub creates the read stream
-beside the action stream (`src/modules/edgebus/hub.go:419-438`). The
+(`src/modules/edgebus/subjects.go:92-94`) and the hub creates the read stream
+beside the action stream (`src/modules/edgebus/hub.go:314-333`). The
 interceptor sends the two view actions to it
 (`src/services/device/internal/actiontrail/interceptor.go:233-238`). Both limits
 are `HubConfig` fields with no deployment setting, as `DeviceServiceConfig`
