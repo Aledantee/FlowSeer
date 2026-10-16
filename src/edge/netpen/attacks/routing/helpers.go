@@ -27,6 +27,4 @@ var (
 	ospfMulticastMAC = net.HardwareAddr{0x01, 0x00, 0x5e, 0x00, 0x00, 0x05}
 	// eigrpMulticastMAC is the L2 multicast for 224.0.0.10.
 	eigrpMulticastMAC = net.HardwareAddr{0x01, 0x00, 0x5e, 0x00, 0x00, 0x0a}
-	// broadcastMAC is ff:ff:ff:ff:ff:ff (NBT-NS broadcast).
-	broadcastMAC = net.HardwareAddr{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
 )

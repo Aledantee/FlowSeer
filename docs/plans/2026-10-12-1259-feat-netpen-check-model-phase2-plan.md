@@ -702,6 +702,8 @@ Verify: `uv run tools/scripts/run.py verify change -- src/edge/netpen/attacks/ip
 
 Files: src/edge/netpen/attacks/routing/ospf.go, src/edge/netpen/attacks/routing/eigrp.go,
 src/edge/netpen/attacks/routing/wpad.go, src/edge/netpen/attacks/routing/observe.go,
+src/edge/netpen/attacks/routing/helpers.go (the broadcast MAC loses its last
+caller once the WPAD answer is unicast),
 src/edge/netpen/attacks/routing/harvest_routing.go,
 src/edge/netpen/attacks/routing/routing_test.go,
 src/edge/netpen/attacks/routing/observe_test.go,

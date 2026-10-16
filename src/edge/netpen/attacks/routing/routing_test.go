@@ -1,10 +1,12 @@
 // routing_test.go tests the routing-injection and rogue-WPAD attack
 // behaviors against fixture-mirrored TX sequences: byte-for-byte where
-// deterministic, field-set where randomized. Tests use the in-memory
-// [testtest.Leg] harness (pcap-fed RX + recorded TX) and exercise each
-// behavior through the runner, which creates the Stream, Teardown, and
-// Deps. The target and the leg's addresses are the fixture's values, so
-// the frames the harvest generator pinned still come out byte for byte.
+// deterministic, field-set where randomized. The pin tests drive each
+// behavior directly inside a synctest bubble with the peer's frames fed
+// at the moments the sequence expects them, since the windows are seconds
+// long; the gate tests exercise the runner, which creates the Stream,
+// Teardown, and Deps. The target and the leg's addresses are the fixture's
+// values, so the frames the harvest generator pinned still come out byte
+// for byte.
 
 package routing_test
 
@@ -20,12 +22,16 @@ import (
 	"testing/synctest"
 	"time"
 
+	"github.com/gopacket/gopacket"
+	"github.com/gopacket/gopacket/layers"
+
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/routing"
 	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/testtest"
 	"go.aledante.io/FlowSeer/src/edge/netpen/catalog"
 	"go.aledante.io/FlowSeer/src/edge/netpen/check"
 	"go.aledante.io/FlowSeer/src/edge/netpen/findings"
+	nl "go.aledante.io/FlowSeer/src/edge/netpen/layers"
 	"go.aledante.io/FlowSeer/src/edge/netpen/link"
 	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
 )
@@ -131,18 +137,6 @@ func runOne(t *testing.T, opts runner.Options) ([]findings.Record, error) {
 	return recs, err
 }
 
-// runSingle runs one attack on a single leg with a one-second teardown
-// budget so teardown tests complete in milliseconds.
-func runSingle(t *testing.T, leg *testtest.Leg, name string) ([]findings.Record, error) {
-	t.Helper()
-	return runOne(t, runner.Options{
-		AttackLeg:      leg,
-		Attacks:        []runner.AttackRef{{Name: name}},
-		Target:         fixtureTarget(),
-		TeardownBudget: time.Second,
-	})
-}
-
 func mustEntry(t *testing.T, name string) check.Entry {
 	t.Helper()
 	e, _, ok := catalog.MustNew(routing.Behaviors()...).Lookup(name, "")
@@ -157,18 +151,6 @@ func findFinding(t *testing.T, recs []findings.Record) *findings.Finding {
 	t.Helper()
 	for i := range recs {
 		if recs[i].Kind == findings.KindFinding {
-			return recs[i].Finding
-		}
-	}
-	return nil
-}
-
-// findFindingByModule returns the first KindFinding record for the given
-// module, or nil.
-func findFindingByModule(t *testing.T, recs []findings.Record, module string) *findings.Finding {
-	t.Helper()
-	for i := range recs {
-		if recs[i].Kind == findings.KindFinding && recs[i].Finding != nil && recs[i].Finding.Module == module {
 			return recs[i].Finding
 		}
 	}
@@ -190,41 +172,55 @@ func fixturePackets(t *testing.T, name string) [][]byte {
 	return testtest.ReadPcap(t, testtest.FixturePath(t, "routing/"+name))
 }
 
-// TestOSPF_FixturePins verifies the OSPF attack TX matches the fixture
-// byte-for-byte (hello, db-desc, lsa-update), and the teardown TX matches
-// the restore fixture (flush, goodbye). These fixtures carry protocol-valid
-// checksums instead of the zero checksums in the Python characterization
-// capture, which IOS-XE rejects.
-func TestOSPF_FixturePins(t *testing.T) {
+// ospfExchange runs the OSPF behavior against the target's two hellos,
+// the second arriving one second after the probe, runs the armed steps,
+// and returns the leg with all six frames recorded. Call it inside a
+// synctest bubble.
+func ospfExchange(t *testing.T) (*testtest.Leg, directRun) {
+	t.Helper()
+	target := fixturePackets(t, "ospf_target.pcap")
 	leg := fixtureLeg(t)
-
-	targetPackets := fixturePackets(t, "ospf_target.pcap")
-	for _, p := range targetPackets {
-		leg.PushRX(p)
+	leg.PushRX(target[0])
+	p := &pusher{leg: leg}
+	p.at(time.Second, target[1])
+	r := runDirect(t, leg, "ospf", 20*time.Second)
+	p.join()
+	if r.err != nil {
+		t.Fatalf("RunOSPF() error = %v, want nil", r.err)
 	}
+	runSteps(t, r.teardown)
+	return leg, r
+}
 
-	recs, err := runSingle(t, leg, "ospf")
-	if err != nil {
-		t.Fatalf("run ospf: %v", err)
-	}
+// TestOSPF_FixturePins verifies the OSPF attack TX matches the fixture
+// byte-for-byte (hello, hello listing the target, db-desc, lsa-update),
+// and the teardown TX matches the restore fixture (flush, goodbye). These
+// fixtures carry protocol-valid checksums instead of the zero checksums in
+// the Python characterization capture, which IOS-XE rejects.
+func TestOSPF_FixturePins(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		leg, r := ospfExchange(t)
+		wantVerdict(t, r, findings.VerdictConfirmed, "10.0.0.2 lists router ID 10.0.0.99 as a neighbor")
 
-	tx := leg.TX()
-	if len(tx) != 5 {
-		t.Fatalf("TX count: got %d, want 5 (hello + db-desc + lsa-update + flush + goodbye)", len(tx))
-	}
+		tx := leg.TX()
+		if len(tx) != 6 {
+			t.Fatalf("TX count: got %d, want 6 (hello + 2-way hello + db-desc + lsa-update + flush + goodbye)", len(tx))
+		}
 
-	fixtures := fixturePackets(t, "ospf.pcap")
-	testtest.AssertBytesEqual(t, "OSPF hello", tx[0], fixtures[0])
-	testtest.AssertBytesEqual(t, "OSPF db-desc", tx[1], fixtures[1])
-	testtest.AssertBytesEqual(t, "OSPF lsa-update", tx[2], fixtures[2])
+		fixtures := fixturePackets(t, "ospf.pcap")
+		testtest.AssertBytesEqual(t, "OSPF hello", tx[0], fixtures[0])
+		testtest.AssertBytesEqual(t, "OSPF 2-way hello", tx[1], fixtures[1])
+		testtest.AssertBytesEqual(t, "OSPF db-desc", tx[2], fixtures[2])
+		testtest.AssertBytesEqual(t, "OSPF lsa-update", tx[3], fixtures[3])
 
-	restoreFixtures := fixturePackets(t, "ospf_restore.pcap")
-	testtest.AssertBytesEqual(t, "OSPF flush", tx[3], restoreFixtures[0])
-	testtest.AssertBytesEqual(t, "OSPF goodbye", tx[4], restoreFixtures[1])
+		restoreFixtures := fixturePackets(t, "ospf_restore.pcap")
+		testtest.AssertBytesEqual(t, "OSPF flush", tx[4], restoreFixtures[0])
+		testtest.AssertBytesEqual(t, "OSPF goodbye", tx[5], restoreFixtures[1])
 
-	if f := findFinding(t, recs); f == nil {
-		t.Fatal("no finding emitted")
-	}
+		if len(r.emitter.findings) != 1 {
+			t.Errorf("findings = %d, want 1", len(r.emitter.findings))
+		}
+	})
 }
 
 // TestEmptyTargetIsSkipped pins the one-round contract on a real behavior:
@@ -297,35 +293,6 @@ func TestNeedFieldsPerBehavior(t *testing.T) {
 	}
 }
 
-// armRecorder is the teardown handle a direct call to a behavior arms its
-// steps against, keeping their names in arm order.
-type armRecorder struct {
-	names []string
-}
-
-func (a *armRecorder) Arm(name string, _ check.Step) { a.names = append(a.names, name) }
-
-// nopEmitter drops the records a direct call to a behavior emits.
-type nopEmitter struct{}
-
-func (nopEmitter) Emit(findings.Record) bool            { return true }
-func (nopEmitter) Finding(string, json.RawMessage) bool { return true }
-func (nopEmitter) Progress(_, _ string) bool            { return true }
-
-// directDeps builds the dependencies for a direct call to a behavior with
-// the given window and a recording teardown handle.
-func directDeps(leg *testtest.Leg, window time.Duration) (check.Deps, *armRecorder) {
-	td := &armRecorder{}
-	return check.Deps{
-		AttackLeg: leg,
-		Target:    fixtureTarget(),
-		Observe:   window,
-		Emitter:   nopEmitter{},
-		Teardown:  td,
-		Listen:    memListen,
-	}, td
-}
-
 // arpFrame is a broadcast ARP request from the fixture MAC, a frame neither
 // routing decoder reads.
 func arpFrame() []byte {
@@ -338,84 +305,73 @@ func arpFrame() []byte {
 
 // TestOSPF_HelloBehindAnARPFrameIsRead pins that an unrelated frame ahead of
 // the target's hello does not end the observation: the ARP frame is
-// skipped, the hello that arrives one second later is read, and the
-// sequence proceeds then rather than at the window.
+// skipped, the hello that arrives one second later is read, the hello
+// listing the attack leg two seconds later confirms, and the sequence
+// proceeds then rather than at the window.
 func TestOSPF_HelloBehindAnARPFrameIsRead(t *testing.T) {
-	hello := fixturePackets(t, "ospf_target.pcap")[0]
+	target := fixturePackets(t, "ospf_target.pcap")
 	synctest.Test(t, func(t *testing.T) {
 		leg := fixtureLeg(t)
 		leg.PushRX(arpFrame())
-		go func() {
-			time.Sleep(time.Second)
-			leg.PushRX(hello)
-		}()
-		deps, td := directDeps(leg, 3*time.Second)
+		p := &pusher{leg: leg}
+		p.at(time.Second, target[0])
+		p.at(2*time.Second, target[1])
 		start := time.Now()
-		v, err := routing.RunOSPF(context.Background(), deps)
-		if err != nil {
-			t.Fatalf("RunOSPF() error = %v, want nil", err)
+		r := runDirect(t, leg, "ospf", 20*time.Second)
+		p.join()
+		wantVerdict(t, r, findings.VerdictConfirmed, "lists router ID 10.0.0.99")
+		if elapsed := time.Since(start); elapsed != 2*time.Second {
+			t.Errorf("returned after %v, want 2s, when the 2-way hello arrived", elapsed)
 		}
-		if elapsed := time.Since(start); elapsed != time.Second {
-			t.Errorf("returned after %v, want 1s, when the hello arrived", elapsed)
+		if n := leg.SendCount(); n != 4 {
+			t.Errorf("sends = %d, want 4 (hello, 2-way hello, db-desc, lsa-update)", n)
 		}
-		if v.Kind != findings.VerdictPending {
-			t.Errorf("verdict = %+v, want pending", v)
-		}
-		if n := leg.SendCount(); n != 3 {
-			t.Errorf("sends = %d, want 3 (hello, db-desc, lsa-update)", n)
-		}
-		if len(td.names) != 2 || td.names[0] != "ospf-lsa-flush" || td.names[1] != "ospf-goodbye" {
-			t.Errorf("armed steps = %v, want [ospf-lsa-flush ospf-goodbye]", td.names)
+		if got := r.teardown.names(); strings.Join(got, ",") != "ospf-lsa-flush,ospf-goodbye" {
+			t.Errorf("armed steps = %v, want [ospf-lsa-flush ospf-goodbye]", got)
 		}
 	})
 }
 
-// TestOSPF_NoHelloProceedsAtTheWindow pins that a quiet leg runs the window
-// out and the sequence still proceeds.
-func TestOSPF_NoHelloProceedsAtTheWindow(t *testing.T) {
+// TestOSPF_NoHelloIsResisted pins that a quiet leg runs the hello interval
+// out with the first hello alone sent and a resisted verdict.
+func TestOSPF_NoHelloIsResisted(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		leg := fixtureLeg(t)
-		deps, _ := directDeps(leg, 3*time.Second)
 		start := time.Now()
-		if _, err := routing.RunOSPF(context.Background(), deps); err != nil {
-			t.Fatalf("RunOSPF() error = %v, want nil", err)
+		r := runDirect(t, leg, "ospf", 20*time.Second)
+		wantVerdict(t, r, findings.VerdictResisted, "no OSPF hello in 10s")
+		if elapsed := time.Since(start); elapsed != 10*time.Second {
+			t.Errorf("returned after %v, want the 10s hello interval", elapsed)
 		}
-		if elapsed := time.Since(start); elapsed != 3*time.Second {
-			t.Errorf("returned after %v, want the 3s window", elapsed)
-		}
-		if n := leg.SendCount(); n != 3 {
-			t.Errorf("sends = %d, want 3 (hello, db-desc, lsa-update)", n)
+		if n := leg.SendCount(); n != 1 {
+			t.Errorf("sends = %d, want 1 (the hello only)", n)
 		}
 	})
 }
 
 // TestEIGRP_GoodbyeBehindAnotherFrameIsRead pins that a non-matching first
 // frame does not end the observation: the ARP frame is skipped, the
-// goodbye that arrives one second later is read, the verdict is resisted
-// at that moment with no inject sent, and the goodbye teardown was armed
-// under its name.
+// goodbye with the Peer Termination TLV that arrives one second later is
+// read, the verdict is resisted at that moment with no inject sent, and
+// the goodbye teardown was armed under its name.
 func TestEIGRP_GoodbyeBehindAnotherFrameIsRead(t *testing.T) {
 	goodbye := fixturePackets(t, "eigrp_reject.pcap")[0]
 	synctest.Test(t, func(t *testing.T) {
 		leg := fixtureLeg(t)
 		leg.PushRX(arpFrame())
-		go func() {
-			time.Sleep(time.Second)
-			leg.PushRX(goodbye)
-		}()
-		deps, td := directDeps(leg, 3*time.Second)
-		v, err := routing.RunEIGRP(context.Background(), deps)
-		if err != nil {
-			t.Fatalf("RunEIGRP() error = %v, want nil", err)
-		}
-		if v.Kind != findings.VerdictResisted || v.Observed != time.Second {
-			t.Errorf("verdict = %+v, want resisted at 1s, when the goodbye arrived", v)
+		p := &pusher{leg: leg}
+		p.at(time.Second, goodbye)
+		r := runDirect(t, leg, "eigrp", 3*time.Second)
+		p.join()
+		wantVerdict(t, r, findings.VerdictResisted, "adjacency refused")
+		if r.verdict.Observed != time.Second {
+			t.Errorf("observed = %v, want 1s, when the goodbye arrived", r.verdict.Observed)
 		}
 		if n := leg.SendCount(); n != 1 {
 			t.Errorf("sends = %d, want 1 (the hello only)", n)
 		}
-		if len(td.names) != 1 || td.names[0] != "eigrp-goodbye" {
-			t.Errorf("armed steps = %v, want [eigrp-goodbye]", td.names)
+		if got := r.teardown.names(); strings.Join(got, ",") != "eigrp-goodbye" {
+			t.Errorf("armed steps = %v, want [eigrp-goodbye]", got)
 		}
 	})
 }
@@ -461,20 +417,19 @@ func assertOSPFChecksumValid(t *testing.T, frame []byte) {
 }
 
 func TestOSPF_ChecksumValid(t *testing.T) {
-	leg := fixtureLeg(t)
+	var emitted [][]byte
+	synctest.Test(t, func(t *testing.T) {
+		leg, _ := ospfExchange(t)
+		emitted = leg.TX()
+	})
 
-	_, err := runSingle(t, leg, "ospf")
-	if err != nil {
-		t.Fatalf("run ospf: %v", err)
-	}
-
-	names := []string{"hello", "db-desc", "lsa-update", "flush", "goodbye"}
+	names := []string{"hello", "2-way-hello", "db-desc", "lsa-update", "flush", "goodbye"}
 	fixtures := append(fixturePackets(t, "ospf.pcap"), fixturePackets(t, "ospf_restore.pcap")...)
 	sources := []struct {
 		name   string
 		frames [][]byte
 	}{
-		{name: "emitted", frames: leg.TX()},
+		{name: "emitted", frames: emitted},
 		{name: "fixture", frames: fixtures},
 	}
 
@@ -491,24 +446,21 @@ func TestOSPF_ChecksumValid(t *testing.T) {
 }
 
 func TestOSPF_LSAChecksumValid(t *testing.T) {
-	leg := fixtureLeg(t)
-
-	_, err := runSingle(t, leg, "ospf")
-	if err != nil {
-		t.Fatalf("run ospf: %v", err)
-	}
-
-	tx := leg.TX()
-	if len(tx) < 4 {
-		t.Fatalf("TX count: got %d, want at least 4", len(tx))
+	var tx [][]byte
+	synctest.Test(t, func(t *testing.T) {
+		leg, _ := ospfExchange(t)
+		tx = leg.TX()
+	})
+	if len(tx) < 5 {
+		t.Fatalf("TX count: got %d, want at least 5", len(tx))
 	}
 
 	tests := []struct {
 		name  string
 		frame []byte
 	}{
-		{name: "lsa-update", frame: tx[2]},
-		{name: "flush", frame: tx[3]},
+		{name: "lsa-update", frame: tx[3]},
+		{name: "flush", frame: tx[4]},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -545,176 +497,197 @@ func TestOSPF_LSAChecksumValid(t *testing.T) {
 	}
 }
 
-// TestOSPF_TeardownOrder: the teardown steps execute in arm order:
-// flush first (armed first), then goodbye.
-func TestOSPF_TeardownOrder(t *testing.T) {
-	leg := fixtureLeg(t)
-
-	_, err := runSingle(t, leg, "ospf")
-	if err != nil {
-		t.Fatalf("run ospf: %v", err)
-	}
-
-	tx := leg.TX()
-	if len(tx) < 5 {
-		t.Fatalf("TX count: got %d, want >= 5", len(tx))
-	}
-
-	restoreFixtures := fixturePackets(t, "ospf_restore.pcap")
-	testtest.AssertBytesEqual(t, "OSPF flush (teardown step 1)", tx[3], restoreFixtures[0])
-	testtest.AssertBytesEqual(t, "OSPF goodbye (teardown step 2)", tx[4], restoreFixtures[1])
-}
-
-// TestReproducibility: two runs over the same fixture produce the same
-// findings class and identical TX sequences. The WPAD PAC port comes from
-// the in-memory listener, so the TX frames are identical there too.
+// TestReproducibility: two direct runs over the same fed frames produce
+// identical TX sequences. The WPAD PAC port comes from the in-memory
+// listener, so the TX frames are identical there too.
 func TestReproducibility(t *testing.T) {
 	for _, name := range []string{"ospf", "eigrp", "wpad"} {
 		t.Run(name, func(t *testing.T) {
-			leg1 := fixtureLeg(t)
-			recs1, err1 := runSingle(t, leg1, name)
-			if err1 != nil {
-				t.Fatalf("run 1: %v", err1)
+			var tx [2][][]byte
+			for i := range tx {
+				synctest.Test(t, func(t *testing.T) {
+					leg := fixtureLeg(t)
+					window := 3 * time.Second
+					switch name {
+					case "ospf":
+						target := fixturePackets(t, "ospf_target.pcap")
+						leg.PushRX(target[0])
+						p := &pusher{leg: leg}
+						p.at(time.Second, target[1])
+						defer p.join()
+						window = 20 * time.Second
+					case "eigrp":
+						target := fixturePackets(t, "eigrp_target.pcap")
+						leg.PushRX(target[0])
+						p := &pusher{leg: leg}
+						p.at(time.Second, target[1])
+						defer p.join()
+					case "wpad":
+						leg.PushRX(fixturePackets(t, "wpad_query.pcap")[0])
+					}
+					r := runDirect(t, leg, name, window)
+					if r.err != nil {
+						t.Fatalf("run %d: %v", i, r.err)
+					}
+					runSteps(t, r.teardown)
+					tx[i] = leg.TX()
+				})
 			}
-			tx1 := leg1.TX()
-
-			leg2 := fixtureLeg(t)
-			recs2, err2 := runSingle(t, leg2, name)
-			if err2 != nil {
-				t.Fatalf("run 2: %v", err2)
+			if len(tx[0]) == 0 || len(tx[0]) != len(tx[1]) {
+				t.Fatalf("TX count mismatch: run1=%d, run2=%d", len(tx[0]), len(tx[1]))
 			}
-			tx2 := leg2.TX()
-
-			f1 := findFinding(t, recs1)
-			f2 := findFinding(t, recs2)
-			if f1 == nil || f2 == nil {
-				t.Fatal("both runs should emit a finding")
-			}
-			if f1.Module != f2.Module {
-				t.Fatalf("finding module mismatch: %s vs %s", f1.Module, f2.Module)
-			}
-			if len(tx1) != len(tx2) {
-				t.Fatalf("TX count mismatch: run1=%d, run2=%d", len(tx1), len(tx2))
-			}
-			for i := range tx1 {
-				testtest.AssertBytesEqual(t, name+" frame "+strconv.Itoa(i), tx1[i], tx2[i])
+			for i := range tx[0] {
+				testtest.AssertBytesEqual(t, name+" frame "+strconv.Itoa(i), tx[0][i], tx[1][i])
 			}
 		})
 	}
 }
 
+// eigrpExchange runs the EIGRP behavior against the target's hello and its
+// acknowledgment one second after the null update, runs the armed step,
+// and returns the leg with all four frames recorded.
+func eigrpExchange(t *testing.T) (*testtest.Leg, directRun) {
+	t.Helper()
+	target := fixturePackets(t, "eigrp_target.pcap")
+	leg := fixtureLeg(t)
+	leg.PushRX(target[0])
+	p := &pusher{leg: leg}
+	p.at(time.Second, target[1])
+	r := runDirect(t, leg, "eigrp", 3*time.Second)
+	p.join()
+	if r.err != nil {
+		t.Fatalf("RunEIGRP() error = %v, want nil", r.err)
+	}
+	runSteps(t, r.teardown)
+	return leg, r
+}
+
 // TestEIGRP_FixturePins verifies the EIGRP attack TX matches the fixture
-// byte-for-byte (hello, route-inject), and the teardown TX matches the
-// restore fixture (goodbye hello).
+// byte-for-byte (hello, null update, route-inject), and the teardown TX
+// matches the restore fixture (goodbye with the Peer Termination TLV).
 func TestEIGRP_FixturePins(t *testing.T) {
-	leg := fixtureLeg(t)
+	synctest.Test(t, func(t *testing.T) {
+		leg, r := eigrpExchange(t)
+		wantVerdict(t, r, findings.VerdictConfirmed, "the target acknowledged the adjacency in AS 100")
 
-	targetPackets := fixturePackets(t, "eigrp_target.pcap")
-	for _, p := range targetPackets {
-		leg.PushRX(p)
-	}
-
-	recs, err := runSingle(t, leg, "eigrp")
-	if err != nil {
-		t.Fatalf("run eigrp: %v", err)
-	}
-
-	tx := leg.TX()
-	if len(tx) != 3 {
-		t.Fatalf("TX count: got %d, want 3 (hello + inject + goodbye)", len(tx))
-	}
-
-	fixtures := fixturePackets(t, "eigrp.pcap")
-	testtest.AssertBytesEqual(t, "EIGRP hello", tx[0], fixtures[0])
-	testtest.AssertBytesEqual(t, "EIGRP route-inject", tx[1], fixtures[1])
-
-	restoreFixtures := fixturePackets(t, "eigrp_restore.pcap")
-	testtest.AssertBytesEqual(t, "EIGRP goodbye", tx[2], restoreFixtures[0])
-
-	if f := findFinding(t, recs); f == nil {
-		t.Fatal("no finding emitted")
-	}
-}
-
-// TestEIGRP_AuthMismatchRefusal: the target rejects adjacency mid-formation
-// (auth mismatch, fed via PushRX as a goodbye frame). The behavior reports
-// a refused adjacency finding, a resisted verdict, and tears down cleanly
-// with no route inject frame on TX.
-func TestEIGRP_AuthMismatchRefusal(t *testing.T) {
-	leg := fixtureLeg(t)
-
-	rejectPackets := fixturePackets(t, "eigrp_reject.pcap")
-	for _, p := range rejectPackets {
-		leg.PushRX(p)
-	}
-
-	recs, err := runSingle(t, leg, "eigrp")
-	if err != nil {
-		t.Fatalf("run eigrp: %v", err)
-	}
-
-	tx := leg.TX()
-	if len(tx) != 2 {
-		t.Fatalf("TX count: got %d, want 2 (hello + goodbye, no inject)", len(tx))
-	}
-
-	f := findFindingByModule(t, recs, "eigrp")
-	if f == nil {
-		t.Fatal("no eigrp finding emitted")
-	}
-	var detail struct {
-		Refused bool `json:"refused"`
-	}
-	if err := json.Unmarshal(f.Detail, &detail); err != nil {
-		t.Fatalf("unmarshal finding: %v", err)
-	}
-	if !detail.Refused {
-		t.Fatal("finding should report refused=true for auth-mismatch")
-	}
-	if v := verdictOf(recs); v == nil || v.Kind != findings.VerdictResisted {
-		t.Errorf("verdict = %+v, want resisted on a refused adjacency", v)
-	}
-}
-
-// TestWPAD_FixturePins verifies the WPAD attack TX matches the fixture
-// byte-for-byte (NBT-NS response, LLMNR response), that the PAC port came
-// from the in-memory listener, and that the finding carries no credential
-// fields.
-func TestWPAD_FixturePins(t *testing.T) {
-	leg := fixtureLeg(t)
-
-	recs, err := runSingle(t, leg, "wpad")
-	if err != nil {
-		t.Fatalf("run wpad: %v", err)
-	}
-
-	tx := leg.TX()
-	if len(tx) != 2 {
-		t.Fatalf("TX count: got %d, want 2 (nbt-ns + llmnr)", len(tx))
-	}
-
-	fixtures := fixturePackets(t, "wpad.pcap")
-	testtest.AssertBytesEqual(t, "WPAD nbt-ns", tx[0], fixtures[0])
-	testtest.AssertBytesEqual(t, "WPAD llmnr", tx[1], fixtures[1])
-
-	f := findFindingByModule(t, recs, "wpad")
-	if f == nil {
-		t.Fatal("no wpad finding emitted")
-	}
-	var detail map[string]any
-	if err := json.Unmarshal(f.Detail, &detail); err != nil {
-		t.Fatalf("unmarshal finding: %v", err)
-	}
-	if detail["port"] != float64(8080) {
-		t.Errorf("port = %v, want 8080 from the in-memory listener", detail["port"])
-	}
-	for _, field := range []string{"protocol", "length"} {
-		if _, ok := detail[field]; ok {
-			t.Errorf("finding carries %q; the behavior captures no credential", field)
+		tx := leg.TX()
+		if len(tx) != 4 {
+			t.Fatalf("TX count: got %d, want 4 (hello + null update + inject + goodbye)", len(tx))
 		}
+
+		fixtures := fixturePackets(t, "eigrp.pcap")
+		testtest.AssertBytesEqual(t, "EIGRP hello", tx[0], fixtures[0])
+		testtest.AssertBytesEqual(t, "EIGRP null update", tx[1], fixtures[1])
+		testtest.AssertBytesEqual(t, "EIGRP route-inject", tx[2], fixtures[2])
+
+		restoreFixtures := fixturePackets(t, "eigrp_restore.pcap")
+		testtest.AssertBytesEqual(t, "EIGRP goodbye", tx[3], restoreFixtures[0])
+
+		if len(r.emitter.findings) != 1 {
+			t.Errorf("findings = %d, want 1", len(r.emitter.findings))
+		}
+	})
+}
+
+// TestEIGRP_HelloCarriesParameters decodes the sent hello with the owned
+// layer and reads the Parameters TLV: type 1, length 12, the K-values at
+// their RFC 7868 section 6.7.1 defaults.
+func TestEIGRP_HelloCarriesParameters(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		leg, _ := eigrpExchange(t)
+		hello := leg.TX()[0]
+		pkt := gopacket.NewPacket(hello, layers.LayerTypeEthernet, gopacket.Default)
+		eigrp, ok := pkt.Layer(nl.LayerTypeEIGRP).(*nl.EIGRP)
+		if !ok {
+			t.Fatalf("hello decodes to %v, want an EIGRP layer", pkt.Layers())
+		}
+		if eigrp.Flags != 0 {
+			t.Errorf("hello flags = %#x, want 0", eigrp.Flags)
+		}
+		if len(eigrp.TLVs) != 1 || eigrp.TLVs[0].Type != 0x0001 || eigrp.TLVs[0].Length != 12 {
+			t.Fatalf("hello TLVs = %+v, want one Parameters TLV of length 12", eigrp.TLVs)
+		}
+		if got := eigrp.TLVs[0].Value; string(got[:6]) != string([]byte{1, 0, 1, 0, 0, 0}) {
+			t.Errorf("K-values = %v, want [1 0 1 0 0 0]", got[:6])
+		}
+	})
+}
+
+// TestEIGRP_AuthMismatchRefusal: the target rejects the adjacency with a
+// goodbye, in the Peer Termination TLV form and in the older K-values-of-
+// 255 form. The behavior reports a refused adjacency finding, a resisted
+// verdict, and tears down cleanly with no inject frame on TX.
+func TestEIGRP_AuthMismatchRefusal(t *testing.T) {
+	rejects := fixturePackets(t, "eigrp_reject.pcap")
+	for i, name := range []string{"peer termination TLV", "K-values of 255"} {
+		t.Run(name, func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				leg := fixtureLeg(t)
+				leg.PushRX(rejects[i])
+				r := runDirect(t, leg, "eigrp", 3*time.Second)
+				wantVerdict(t, r, findings.VerdictResisted, "adjacency refused")
+				runSteps(t, r.teardown)
+				if tx := leg.TX(); len(tx) != 2 {
+					t.Fatalf("TX count: got %d, want 2 (hello + goodbye, no inject)", len(tx))
+				}
+				if len(r.emitter.findings) != 1 {
+					t.Fatalf("findings = %d, want 1", len(r.emitter.findings))
+				}
+				var detail struct {
+					Refused bool `json:"refused"`
+				}
+				if err := json.Unmarshal(r.emitter.findings[0], &detail); err != nil {
+					t.Fatalf("unmarshal finding: %v", err)
+				}
+				if !detail.Refused {
+					t.Fatal("finding should report refused=true for the goodbye")
+				}
+			})
+		})
 	}
-	if strings.Contains(string(f.Detail), "NTLMSSP") {
-		t.Errorf("finding carries credential material: %s", f.Detail)
+}
+
+// TestWPAD_FixturePins feeds the client's NBT-NS query and its LLMNR query
+// in turn and pins each answer against the fixture: unicast to the client
+// with the query's id. The PAC port comes from the in-memory listener and
+// the finding carries no credential fields.
+func TestWPAD_FixturePins(t *testing.T) {
+	queries := fixturePackets(t, "wpad_query.pcap")
+	fixtures := fixturePackets(t, "wpad.pcap")
+	for i, name := range []string{"nbt-ns", "llmnr"} {
+		t.Run(name, func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				leg := fixtureLeg(t)
+				leg.PushRX(queries[i])
+				r := runDirect(t, leg, "wpad", time.Second)
+				wantVerdict(t, r, findings.VerdictResisted, "no PAC fetch in 1s")
+
+				tx := leg.TX()
+				if len(tx) != 1 {
+					t.Fatalf("TX count: got %d, want 1 (the answer)", len(tx))
+				}
+				testtest.AssertBytesEqual(t, "WPAD "+name+" answer", tx[0], fixtures[i])
+
+				if len(r.emitter.findings) != 1 {
+					t.Fatalf("findings = %d, want 1", len(r.emitter.findings))
+				}
+				var detail map[string]any
+				if err := json.Unmarshal(r.emitter.findings[0], &detail); err != nil {
+					t.Fatalf("unmarshal finding: %v", err)
+				}
+				if detail["port"] != float64(8080) {
+					t.Errorf("port = %v, want 8080 from the in-memory listener", detail["port"])
+				}
+				for _, field := range []string{"protocol", "length"} {
+					if _, ok := detail[field]; ok {
+						t.Errorf("finding carries %q; the behavior captures no credential", field)
+					}
+				}
+				if strings.Contains(string(r.emitter.findings[0]), "NTLMSSP") {
+					t.Errorf("finding carries credential material: %s", r.emitter.findings[0])
+				}
+			})
+		})
 	}
 }
 
@@ -757,6 +730,36 @@ func TestWPAD_ListenFailureIsCoded(t *testing.T) {
 	}
 }
 
+// TestWPAD_BindsTheLegAddress pins the address the listener is asked for:
+// the attack leg's IPv4 on port 80.
+func TestWPAD_BindsTheLegAddress(t *testing.T) {
+	leg := fixtureLeg(t)
+	var asked string
+	bs := routing.Behaviors()
+	for i := range bs {
+		if bs[i].Name == "wpad" {
+			run := bs[i].Run
+			bs[i].Run = func(ctx context.Context, deps check.Deps) (check.Verdict, error) {
+				deps.Listen = func(ctx context.Context, network, address string) (net.Listener, error) {
+					asked = network + " " + address
+					return memListen(ctx, network, address)
+				}
+				return run(ctx, deps)
+			}
+		}
+	}
+	if _, err := runOne(t, runner.Options{
+		Catalog:   catalog.MustNew(bs...),
+		AttackLeg: leg,
+		Attacks:   []runner.AttackRef{{Name: "wpad"}},
+	}); err != nil {
+		t.Fatalf("run wpad: %v", err)
+	}
+	if asked != "tcp 10.0.0.99:80" {
+		t.Errorf("listen address = %q, want %q", asked, "tcp 10.0.0.99:80")
+	}
+}
+
 // TestCatalogCostFields pins the routing entries' cost fields: both
 // injections restore actively and WPAD decays with its 30 s PAC TTL.
 func TestCatalogCostFields(t *testing.T) {
@@ -776,43 +779,56 @@ func TestCatalogCostFields(t *testing.T) {
 // the fork's SerializeTo, which doesn't exist for OSPFv2), by checking the
 // OSPF version at the header offset of each emitted frame.
 func TestOSPF_AllRawCraft(t *testing.T) {
-	leg := fixtureLeg(t)
-
-	_, err := runSingle(t, leg, "ospf")
-	if err != nil {
-		t.Fatalf("run ospf: %v", err)
-	}
-
-	tx := leg.TX()
-	if len(tx) < 3 {
-		t.Fatalf("TX count: got %d, want >= 3", len(tx))
-	}
-	for i, frame := range tx[:3] {
-		if len(frame) < 35 {
-			t.Fatalf("frame %d too short for OSPF header", i)
+	synctest.Test(t, func(t *testing.T) {
+		leg, _ := ospfExchange(t)
+		tx := leg.TX()
+		if len(tx) < 4 {
+			t.Fatalf("TX count: got %d, want >= 4", len(tx))
 		}
-		if frame[34] != 2 {
-			t.Errorf("frame %d: OSPF version: got %d, want 2", i, frame[34])
+		for i, frame := range tx[:4] {
+			if len(frame) < 35 {
+				t.Fatalf("frame %d too short for OSPF header", i)
+			}
+			if frame[34] != 2 {
+				t.Errorf("frame %d: OSPF version: got %d, want 2", i, frame[34])
+			}
 		}
-	}
+	})
 }
 
-// TestTeardownStepCounts verifies the OSPF behavior arms exactly 2
-// teardown steps (flush + goodbye), EIGRP exactly 1 (goodbye), and WPAD
-// none, read off the TX counts.
+// TestTeardownStepCounts lists each actively restored behavior's armed
+// steps by name and asserts that every step sends one frame when run, and
+// that WPAD arms none.
 func TestTeardownStepCounts(t *testing.T) {
-	for _, c := range []struct {
-		name string
-		want int
-	}{{"ospf", 5}, {"eigrp", 3}, {"wpad", 2}} {
-		t.Run(c.name, func(t *testing.T) {
-			leg := fixtureLeg(t)
-			if _, err := runSingle(t, leg, c.name); err != nil {
-				t.Fatalf("run %s: %v", c.name, err)
-			}
-			if got := len(leg.TX()); got != c.want {
-				t.Fatalf("TX count: got %d, want %d", got, c.want)
-			}
+	cases := []struct {
+		name  string
+		steps []string
+	}{
+		{"ospf", []string{"ospf-lsa-flush", "ospf-goodbye"}},
+		{"eigrp", []string{"eigrp-goodbye"}},
+		{"wpad", nil},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				leg := fixtureLeg(t)
+				r := runDirect(t, leg, tc.name, time.Second)
+				if r.err != nil {
+					t.Fatalf("run %s: %v", tc.name, r.err)
+				}
+				if got := r.teardown.names(); strings.Join(got, ",") != strings.Join(tc.steps, ",") {
+					t.Fatalf("armed steps = %v, want %v", got, tc.steps)
+				}
+				for _, s := range r.teardown.steps {
+					before := leg.SendCount()
+					if err := s.step(context.Background()); err != nil {
+						t.Fatalf("step %s: %v", s.name, err)
+					}
+					if got := leg.SendCount() - before; got != 1 {
+						t.Errorf("step %s sent %d frames, want 1", s.name, got)
+					}
+				}
+			})
 		})
 	}
 }

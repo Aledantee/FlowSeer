@@ -76,6 +76,9 @@ func TestRoutingReceiveFailureStopsSequence(t *testing.T) {
 					Attacks:        []runner.AttackRef{{Name: name}},
 					Target:         fixtureTarget(),
 					TeardownBudget: time.Second,
+					// A window the OSPF check accepts; the receive fails
+					// at once, so none of it is waited.
+					Observe: 20 * time.Second,
 				})
 				if err != nil {
 					t.Fatalf("run: %v", err)

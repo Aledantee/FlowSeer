@@ -1,8 +1,8 @@
 // ospf.go implements the OSPF LSA injection check. Impact temporary,
-// restore active, affects fabric: the hello, database description, and
+// restore active, affects fabric: the hellos, database description, and
 // router-LSA update offer the area a neighbor and a route, and the armed
-// LSA flush and goodbye hello withdraw them when the run ends. Neither
-// adjacency nor restoration is verified.
+// LSA flush and goodbye hello withdraw them when the run ends.
+// Restoration is not verified.
 
 package routing
 
@@ -11,6 +11,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/gopacket/gopacket"
 	"github.com/gopacket/gopacket/layers"
@@ -28,6 +29,10 @@ const (
 	ospfLSAHeaderLen = 20
 )
 
+// ospfHelloInterval is the HelloInterval the hello carries and the check
+// sends on; a window shorter than it cannot hold the target's answer.
+const ospfHelloInterval = 10 * time.Second
+
 // ospfFinding is the finding detail for the OSPF behavior.
 type ospfFinding struct {
 	Action    string `json:"action"`
@@ -39,14 +44,17 @@ type ospfFinding struct {
 	Restore   string `json:"restore"`
 }
 
-// RunOSPF sends a hello, a database description, and a router-LSA update
-// as the target's router ID from the attack leg's own addresses, with a
-// flush and goodbye teardown armed before the first frame. The backbone
-// area and the LSA sequence are probe content. The verdict is pending:
-// whether the neighbor formed needs a hello listener it does not have.
-//
-// The target's hello is read within the window, frames that do not decode
-// as OSPF skipped, and a window that ends without one is tolerated. A
+// RunOSPF sends a hello as the target's router ID from the attack leg's
+// own addresses, reads the target's hello, sends a hello listing the
+// target's router ID every hello interval, and reads for a hello from the
+// target listing the attack leg's router ID, the 2-WayReceived event of
+// RFC 2328 section 10.5. The database description and the router-LSA
+// update follow that hello, with a flush and goodbye teardown armed before
+// the first frame. The backbone area and the LSA sequence are probe
+// content. The predicate is the target's hello listing the attack leg's
+// router ID, which confirms; a hello from the target without it at the
+// window's end resists, no hello from the target resists, and a window
+// under one hello interval is pending naming the window to pass. A
 // receive failure stops the sequence. Cancellation returns ctx.Err().
 // Concurrent calls require separate dependencies.
 func RunOSPF(ctx context.Context, deps check.Deps) (check.Verdict, error) {
@@ -81,7 +89,11 @@ func RunOSPF(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 		return deps.AttackLeg.Send(ctx, goodbyePkt)
 	})
 
-	// Phase 1: Hello.
+	if deps.Observe < ospfHelloInterval {
+		return check.Pending(fmt.Sprintf("the window %s is shorter than the %s hello interval: pass --observe 20s", deps.Observe, ospfHelloInterval)), nil
+	}
+
+	// Phase 1: the first hello, listing no neighbor.
 	helloPkt, err := craftOSPFHello(addr, routerID, areaID, nil)
 	if err != nil {
 		return check.Verdict{}, errs.Wrap(err, "ospf: craft hello")
@@ -93,17 +105,62 @@ func RunOSPF(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 		return check.Verdict{}, errs.Wrap(err, "ospf: send hello")
 	}
 
-	// Phase 2: the target's hello (adjacency formation), read within the
-	// window. A window with no hello is not fatal: the behavior proceeds
-	// with the inject either way.
-	if _, _, err := check.First(ctx, deps.AttackLeg, deps.Observe, isOSPFFrame); err != nil {
+	// Phase 2: the target's hello, read for one hello interval.
+	var target ospfHello
+	_, pre, err := check.First(ctx, deps.AttackLeg, min(ospfHelloInterval, deps.Observe), func(data []byte) bool {
+		hello, ok := isOSPFHelloFrom(data, addr.MAC)
+		if ok {
+			target = hello
+		}
+		return ok
+	})
+	if err != nil {
 		if ctx.Err() != nil {
 			return check.Verdict{}, ctx.Err()
 		}
 		return check.Verdict{}, errs.Wrap(err, "ospf: receive")
 	}
+	if target.routerID == 0 {
+		return check.Resisted(fmt.Sprintf("no OSPF hello in %s", pre.Elapsed.Round(time.Millisecond)), pre.Elapsed), nil
+	}
 
-	// Phase 3: Database Description.
+	// Phase 3: the hello listing the target, every hello interval, until
+	// the target lists the attack leg's router ID back.
+	twoWayPkt, err := craftOSPFHello(addr, routerID, areaID, []uint32{target.routerID})
+	if err != nil {
+		return check.Verdict{}, errs.Wrap(err, "ospf: craft 2-way hello")
+	}
+	heard := false
+	found, obs, err := check.Sustain(ctx, deps.AttackLeg, deps.Observe-pre.Elapsed, ospfHelloInterval,
+		func(ctx context.Context) error {
+			if err := deps.AttackLeg.Send(ctx, twoWayPkt); err != nil {
+				return errs.Wrap(err, "ospf: send 2-way hello")
+			}
+			return nil
+		},
+		func(data []byte) bool {
+			hello, ok := isOSPFHelloFrom(data, addr.MAC)
+			if !ok || hello.routerID != target.routerID {
+				return false
+			}
+			heard = true
+			return isOSPFHelloListing(data, addr.MAC, target.routerID, routerID)
+		})
+	if err != nil {
+		if ctx.Err() != nil {
+			return check.Verdict{}, ctx.Err()
+		}
+		return check.Verdict{}, errs.Wrap(err, "ospf: receive 2-way hello")
+	}
+	observed := pre.Elapsed + obs.Elapsed
+	if found == nil {
+		if heard {
+			return check.Resisted(fmt.Sprintf("the target's hello does not list router ID %s", ipToRouterID(routerID)), observed), nil
+		}
+		return check.Resisted(fmt.Sprintf("no OSPF hello from %s after the probe in %s", ipToRouterID(target.routerID), obs.Elapsed.Round(time.Millisecond)), observed), nil
+	}
+
+	// Phase 4: Database Description.
 	dbDescPkt, err := craftDBDesc(addr, routerID, areaID)
 	if err != nil {
 		return check.Verdict{}, errs.Wrap(err, "ospf: craft db desc")
@@ -115,7 +172,7 @@ func RunOSPF(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 		return check.Verdict{}, errs.Wrap(err, "ospf: send db desc")
 	}
 
-	// Phase 4: LSA Update (inject route).
+	// Phase 5: LSA Update (inject route).
 	injectSeq := uint32(0x80000001) // The probe's LSA sequence, which the flush repeats.
 	lsaUpdatePkt, err := craftLSAUpdate(addr, routerID, areaID, injectSeq)
 	if err != nil {
@@ -128,7 +185,6 @@ func RunOSPF(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 		return check.Verdict{}, errs.Wrap(err, "ospf: send lsa update")
 	}
 
-	// Emit the finding.
 	detail := ospfFinding{
 		Action:    "ospf-lsa-inject",
 		RouterID:  ipToRouterID(routerID),
@@ -141,15 +197,7 @@ func RunOSPF(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	detailBytes, _ := json.Marshal(detail)
 	deps.Emitter.Finding("ospf", detailBytes)
 
-	return check.Pending("no observable: neighbor formation needs a hello listener"), nil
-}
-
-// isOSPFFrame reports whether data decodes to an OSPFv2 packet behind its
-// Ethernet and IPv4 headers.
-func isOSPFFrame(data []byte) bool {
-	pkt := gopacket.NewPacket(data, layers.LayerTypeEthernet, gopacket.Default)
-	_, ok := pkt.Layer(layers.LayerTypeOSPF).(*layers.OSPFv2)
-	return ok
+	return check.Confirmed(fmt.Sprintf("%s lists router ID %s as a neighbor", ipToRouterID(target.routerID), ipToRouterID(routerID)), observed), nil
 }
 
 // craftOSPFHello builds an OSPFv2 Hello packet: Ethernet → IPv4 (proto 89) →
