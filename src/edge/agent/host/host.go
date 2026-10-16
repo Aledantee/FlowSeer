@@ -19,16 +19,18 @@ import (
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1/dispatchv1connect"
 	edgeingestv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/ingest/v1"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/ingest/v1/ingestv1connect"
+	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/telemetry/v1/telemetryv1connect"
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/fsconv"
 	"go.aledante.io/FlowSeer/src/common/service"
 	"go.aledante.io/FlowSeer/src/common/spawn"
-	"go.aledante.io/FlowSeer/src/edge/agent/internal/busattach"
 	agentcapture "go.aledante.io/FlowSeer/src/edge/agent/internal/capture"
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/dispatch"
+	"go.aledante.io/FlowSeer/src/edge/agent/internal/drain"
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/identity"
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/lanehost"
+	"go.aledante.io/FlowSeer/src/edge/agent/internal/otlpreceiver"
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/rawwindow"
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/report"
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/subscribeloop"
@@ -61,51 +63,15 @@ const (
 
 // Run brings the agent up and runs it until ctx ends.
 //
-// # The order, and what forces each step
+// Enrollment precedes every signed call. Its anchor set replaces the
+// provisioned set and must be nonempty before the signing client is built.
+// Both segmented logs and the loopback receiver open before service.Run,
+// because the runtime exports to the receiver's fresh bound endpoint.
+// Each log has its own drain module so a telemetry fault cannot hold ingest
+// back. The lane is built before the loops that drive it.
 //
-// Every link below is required by a different fact, and none of them is
-// visible from the call it constrains. Written together because a reader
-// meeting any one of them alone would read it as arbitrary sequencing, and
-// each of them fails silently rather than loudly.
-//
-//  1. The identity comes first, and its failure is fatal. Every call but
-//     Enroll carries an assertion signed by the key central registered, so an
-//     agent that could not enroll cannot make any other call — there is
-//     nothing to carry on with, which is why this is the one failure that
-//     ends the process rather than being logged and retried.
-//
-//  2. The signing client is built from the enrollment's trust anchors, not
-//     the provisioned ones. EnrollResponse is the authoritative set and
-//     replaces what the edge shipped with, so the two dialers here and the
-//     leaf below cannot pin different certificates.
-//
-//     It is the set this edge pins for the rest of its life. Nothing central
-//     sends afterwards carries a replacement — trust_anchors appears on the
-//     provisioning and on the enrollment answer and nowhere else — and an
-//     enrolled edge never calls Enroll again, so rotating central's chain
-//     means re-enrolling every edge in the field, not re-provisioning it.
-//
-//  3. The bus attachment comes next, and its failure is fatal too. AttachBus
-//     is a signed call, so it cannot precede the identity, and the receiver
-//     it binds is where this agent's own telemetry goes. Fatal because the
-//     alternative is an agent whose observability is silently absent, which
-//     is the state hardest to notice from outside.
-//
-//  4. The telemetry export is pointed at the receiver's own bound address,
-//     which is fresh on every start: the receiver binds 127.0.0.1:0 so a
-//     port collision cannot stop the agent. An exporter built before the
-//     receiver, or against a remembered address, exports into nothing and
-//     says nothing. The protocol and compression are pinned rather than left
-//     to OTEL_EXPORTER_OTLP_*, because the receiver forwards bodies verbatim
-//     and answers 415 to anything it cannot pass on.
-//
-//  5. The lane is built before the loops that drive it, and the onboarder
-//     before the dispatch loop. A dispatch for a device with no lane has
-//     nowhere to go, and the loop re-lists before every attempt precisely so
-//     that a dispatch never arrives for a device this edge has not onboarded.
-//
-// The attachment is closed after the runtime returns, in that order: the
-// telemetry export lives as long as the attachment and ends with it.
+// Shutdown stops the runtime first, allowing its final export into the
+// receiver, then closes the receiver, telemetry log, and ingest log in order.
 func Run(ctx context.Context, cfg *Config, version string, opts Options) error {
 	if cfg == nil {
 		return errs.New().Code(ErrCodeStart).Msg("the agent was given no configuration")
@@ -128,7 +94,9 @@ func Run(ctx context.Context, cfg *Config, version string, opts Options) error {
 	edgeID := edge.Enrollment.GetEdge().GetEdge().GetId()
 	base = base.With(fsconv.EdgeID(edgeID))
 
-	// 2. The clients every later call goes through.
+	if len(edge.TrustAnchors()) == 0 {
+		return errs.New().Code(ErrCodeStart).Msg("the agent requires at least one trust anchor")
+	}
 	signer := edge.Signer(ctx, time.Now, base)
 	signed := identity.SigningClient(edge.TrustAnchors(), signer)
 	edgeClient := attachv1connect.NewEdgeServiceClient(signed, cfg.CentralURL())
@@ -136,19 +104,26 @@ func Run(ctx context.Context, cfg *Config, version string, opts Options) error {
 	auditClient := auditv1connect.NewAuditServiceClient(signed, cfg.CentralURL())
 	captureClient := capturev1connect.NewCaptureEdgeServiceClient(signed, cfg.CentralURL())
 
-	bufferBytes, bufferAge := cfg.Buffer()
-	attachment, err := busattach.Attach(ctx, edgeClient, busattach.Config{
-		StateDir:       cfg.StateDir(),
-		EdgeID:         edgeID,
-		TrustAnchors:   edge.TrustAnchors(),
-		BufferMaxBytes: bufferBytes,
-		BufferMaxAge:   bufferAge,
-		Logger:         base,
-	})
+	ingestLog, telemetryLog, err := openDeliveryLogs(cfg)
 	if err != nil {
 		return err
 	}
-	defer attachment.Close(context.WithoutCancel(ctx))
+	defer func() { _ = ingestLog.Close() }()
+	defer func() { _ = telemetryLog.Close() }()
+	receiver, err := otlpreceiver.Start(telemetryLog)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = receiver.Close(context.WithoutCancel(ctx)) }()
+
+	ingestDelivery := deliveryAssembly{
+		name: "ingest", log: ingestLog,
+		send: drain.Ingest(ingestv1connect.NewIngestServiceClient(signed, cfg.CentralURL())), decodable: drain.IngestDecodable,
+	}
+	telemetryDelivery := deliveryAssembly{
+		name: "telemetry", log: telemetryLog,
+		send: drain.Telemetry(telemetryv1connect.NewTelemetryServiceClient(signed, cfg.CentralURL())), decodable: drain.TelemetryDecodable,
+	}
 
 	deviceIndex := lanehost.NewDeviceIndex()
 
@@ -181,34 +156,28 @@ func Run(ctx context.Context, cfg *Config, version string, opts Options) error {
 		captureClient: captureClient,
 	}
 
-	syslogAssembly := syslogAssemblyFor(assembly, attachment.Leaf)
+	syslogAssembly := syslogAssemblyFor(assembly, ingestLog)
 
-	return service.Run(ctx, service.Config{
+	return service.Run(ctx, runtimeConfig(version, base, receiver.Endpoint(),
+		append(modules(assembly, captureAssembly, syslogAssembly), rawWindowAssembly.module(), ingestDelivery.module(), telemetryDelivery.module())))
+}
+
+func runtimeConfig(version string, base *slog.Logger, endpoint string, modules []service.Module) service.Config {
+	return service.Config{
 		Identity: service.Identity{Name: serviceName, Namespace: serviceNamespace, Version: version},
 		Logger:   base,
 		Telemetry: service.TelemetryConfig{
-			Endpoint: attachment.Endpoint,
-			// Pinned, not defaulted, and pinned whole. The receiver stores
-			// and forwards each body unchanged, so it accepts only what it
-			// can pass on: an environment that chose grpc or gzip would fail
-			// every export with a 415 nothing here would explain.
-			//
-			// The connection settings are pinned for a sharper reason. This
-			// endpoint is a loopback address this process bound itself, so
-			// there is no transport security to configure and no collector
-			// to authenticate to — but every one of these settings falls
-			// back to OTEL_EXPORTER_OTLP_* when the field is unset. A host
-			// carrying those for an unrelated collector would have the agent
-			// refuse its own configuration at startup, after enrolling and
-			// attaching, and restart into the same refusal for as long as
-			// the variable is set.
+			Endpoint: endpoint,
+			// The receiver takes uncompressed protobuf on a local endpoint. Pin all
+			// connection settings so unrelated exporter environment variables cannot
+			// redirect or prevent the agent's own exports.
 			Protocol:    "http/protobuf",
 			Compression: "none",
 			Insecure:    &loopbackIsInsecure,
 			Headers:     map[string]string{},
 		},
-		Modules: append(modules(assembly, captureAssembly, syslogAssembly), rawWindowAssembly.module()),
-	})
+		Modules: modules,
+	}
 }
 
 // newRawWindowController advances the durable boot generation, then builds the
@@ -610,24 +579,24 @@ func registerCaptureInstruments(meter metric.Meter, contact *subscribeloop.Conta
 
 // syslogAssemblyFor builds the syslog module's assembly from what the lane's
 // already holds, so the two cannot be given different device indexes.
-func syslogAssemblyFor(lane *assembly, leaf syslogsource.Publisher) *syslogAssembly {
+func syslogAssemblyFor(lane *assembly, publisher syslogsource.Publisher) *syslogAssembly {
 	return &syslogAssembly{
-		cfg:     lane.cfg,
-		opts:    lane.opts,
-		edgeID:  lane.edgeID,
-		leaf:    leaf,
-		index:   lane.index,
-		windows: lane.windows,
+		cfg:       lane.cfg,
+		opts:      lane.opts,
+		edgeID:    lane.edgeID,
+		publisher: publisher,
+		index:     lane.index,
+		windows:   lane.windows,
 	}
 }
 
 type syslogAssembly struct {
-	cfg     *Config
-	opts    Options
-	edgeID  string
-	leaf    syslogsource.Publisher
-	index   *lanehost.DeviceIndex
-	windows *rawwindow.Controller
+	cfg       *Config
+	opts      Options
+	edgeID    string
+	publisher syslogsource.Publisher
+	index     *lanehost.DeviceIndex
+	windows   *rawwindow.Controller
 }
 
 func (sa *syslogAssembly) setup(ctx context.Context) (service.Attempt, error) {
@@ -645,7 +614,7 @@ func (sa *syslogAssembly) setup(ctx context.Context) (service.Attempt, error) {
 	src, err := syslogsource.Listen(ctx, syslogsource.Config{
 		Listeners: listeners,
 		Index:     sa.index,
-		Publisher: sa.leaf,
+		Publisher: sa.publisher,
 		EdgeRef:   edgeRefOf(sa.edgeID),
 		Policy:    policy,
 		Windows:   sa.windows,

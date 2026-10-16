@@ -1,6 +1,7 @@
 package host_test
 
 import (
+	"bytes"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -72,10 +73,11 @@ func TestAWorkingFileIsTwoLinesAndEverythingElseDefaults(t *testing.T) {
 	if got := cfg.LogLevel(); got != slog.LevelInfo {
 		t.Errorf("LogLevel() = %v, want INFO", got)
 	}
-	// The bus module's defaults, deliberately passed through as zero: this
-	// configuration does not own the buffer's bounds and must not invent one.
-	if bytes, age := cfg.Buffer(); bytes != 0 || age != 0 {
-		t.Errorf("Buffer() = %d/%v, want zero for a file that names neither", bytes, age)
+	if bytes, age := cfg.IngestBuffer(); bytes != 192<<20 || age != 7*24*time.Hour {
+		t.Errorf("IngestBuffer = %d/%v", bytes, age)
+	}
+	if bytes, age := cfg.TelemetryBuffer(); bytes != 64<<20 || age != 7*24*time.Hour {
+		t.Errorf("TelemetryBuffer = %d/%v", bytes, age)
 	}
 	if got := cfg.SyslogListeners(); got != nil {
 		t.Errorf("SyslogListeners() = %v, want nil for a file that names no syslog block", got)
@@ -114,7 +116,7 @@ func TestConfiguredIntervalsWin(t *testing.T) {
   dispatch_backoff_min { seconds: 2 }
   dispatch_backoff_max { seconds: 60 }
 }
-buffer { max_bytes: 1048576 max_age { seconds: 3600 } }
+buffer { ingest { max_bytes: 1048576 max_age { seconds: 3600 } } }
 log_level: AGENT_LOG_LEVEL_DEBUG
 `))
 	if err != nil {
@@ -128,8 +130,8 @@ log_level: AGENT_LOG_LEVEL_DEBUG
 	if minimum != 2*time.Second || maximum != time.Minute {
 		t.Errorf("DispatchBackoff() = %v/%v, want the configured 2s/60s", minimum, maximum)
 	}
-	if bytes, age := cfg.Buffer(); bytes != 1<<20 || age != time.Hour {
-		t.Errorf("Buffer() = %d/%v, want the configured 1MiB/1h", bytes, age)
+	if bytes, age := cfg.IngestBuffer(); bytes != 1<<20 || age != time.Hour {
+		t.Errorf("IngestBuffer() = %d/%v, want the configured 1MiB/1h", bytes, age)
 	}
 	if got := cfg.LogLevel(); got != slog.LevelDebug {
 		t.Errorf("LogLevel() = %v, want DEBUG", got)
@@ -456,5 +458,72 @@ func TestSyslogConfig_ZeroNumbersRefused(t *testing.T) {
 `))
 	if code, _ := errs.CodeOf(err); code != host.ErrCodeConfigInvalid {
 		t.Fatalf("raw_sample_every 0 code = %v, want ErrCodeConfigInvalid", code)
+	}
+}
+
+func TestLogBoundsAreIndependentAndValidated(t *testing.T) {
+	for _, tc := range []struct {
+		name, body        string
+		ingest, telemetry int64
+		age               time.Duration
+	}{
+		{"ingest only", `buffer { ingest { max_bytes: 2097152 } }`, 2097152, 64 << 20, 7 * 24 * time.Hour},
+		{"telemetry only", `buffer { telemetry { max_bytes: 3145728 max_age { seconds: 1200 } } }`, 192 << 20, 3145728, 20 * time.Minute},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			path := configFile(t, tc.body)
+			content, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			content = bytes.Replace(content, []byte("/var/lib/flowseer/agent"), []byte(t.TempDir()), 1)
+			if err := os.WriteFile(path, content, 0o600); err != nil {
+				t.Fatal(err)
+			}
+			cfg, err := host.LoadConfig(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if tc.name == "ingest only" {
+				ingest, telemetry, err := host.OpenDeliveryLogsForTest(cfg)
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer func() { _ = telemetry.Close(); _ = ingest.Close() }()
+				for range 12 {
+					data := bytes.Repeat([]byte{1}, 256<<10)
+					if err := ingest.Append(data); err != nil {
+						t.Fatal(err)
+					}
+					if err := telemetry.Append(data); err != nil {
+						t.Fatal(err)
+					}
+				}
+				is, err := ingest.Stats()
+				if err != nil {
+					t.Fatal(err)
+				}
+				ts, err := telemetry.Stats()
+				if err != nil {
+					t.Fatal(err)
+				}
+				if is.Bytes > 2097152 || is.DiscardedRecords == 0 || ts.Bytes <= 2097152 || ts.DiscardedRecords != 0 {
+					t.Errorf("configured log bounds: ingest %+v, telemetry %+v", is, ts)
+				}
+			}
+			ib, ia := cfg.IngestBuffer()
+			tb, ta := cfg.TelemetryBuffer()
+			if ib != tc.ingest || tb != tc.telemetry || ia != 7*24*time.Hour || ta != tc.age {
+				t.Fatalf("bounds = %d/%v, %d/%v", ib, ia, tb, ta)
+			}
+		})
+	}
+	for _, log := range []string{"ingest", "telemetry"} {
+		for _, bounds := range []string{`max_bytes: 1000`, `max_bytes: 0`, `max_age { seconds: 1199 }`, `max_age { seconds: 0 }`} {
+			_, err := host.LoadConfig(configFile(t, `buffer { `+log+` { `+bounds+` } }`))
+			if code, _ := errs.CodeOf(err); code != host.ErrCodeConfigInvalid {
+				t.Errorf("%s %s: error = %v", log, bounds, err)
+			}
+		}
 	}
 }
