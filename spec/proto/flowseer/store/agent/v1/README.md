@@ -17,8 +17,8 @@ Deliberately absent:
 
 - Central URL, trust anchors, and setup key. Those belong in
   `flowseer.model.edge.v1.EdgeProvisioning`.
-- Telemetry endpoints and queue bounds. Telemetry routes through the local leaf
-  node and bounds default in code.
+- Telemetry endpoints. Telemetry appends through the local receiver to its own
+  log and drains to central over Connect.
 
 It is a separate package from `flowseer.store.device.v1` because it is a
 separate process's file. The two deployments share no state and no lifetime:
@@ -37,8 +37,8 @@ refuses every certificate central presents, and the file that is wrong is the
 one nobody is looking at.
 
 **A telemetry endpoint.** The agent exports to the loopback OTLP receiver it
-binds for itself, which forwards over its leaf node to central. That address
-is fresh on every start, so a configured endpoint is not a setting an operator
+binds for itself, which appends to the telemetry log for delivery to central.
+That address is fresh on every start, so a configured endpoint is not a setting an operator
 has not needed yet — it is a second answer to a question the deployment has
 already answered, and the wrong one whenever the two differ.
 
@@ -56,8 +56,23 @@ provisioning_path: "/etc/flowseer/provisioning.textproto"
 ```
 
 Everything else defaults: thirty-second heartbeats, a dispatch backoff from
-one second to thirty, the bus module's buffer bounds, and INFO logging.
+one second to thirty, 192 MiB for ingest and 64 MiB for telemetry with seven-day
+retention, and INFO logging.
 Leaving `syslog` unset runs no syslog source.
+
+## Independent log bounds
+
+```prototext
+buffer {
+  ingest { max_bytes: 2097152 }
+  telemetry { max_age { seconds: 86400 } }
+}
+```
+
+Unset fields take each log's defaults. Each `max_bytes` must be at least
+1048576 and each `max_age` at least twenty minutes, so a configuration that
+loads can open both logs. The former `buffer.max_bytes` and `buffer.max_age`
+fields no longer load. Configure them within `ingest` or `telemetry` instead.
 
 ## Syslog listener configuration
 

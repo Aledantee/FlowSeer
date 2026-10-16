@@ -4,3 +4,6 @@ package host
 // central is owed. It is the host's own wiring rather than an exported API:
 // the lane is given one of these and nothing else ever holds it.
 func LaneReporterForTest(out Outbound) laneReporter { return laneReporter{out: out} } //nolint:revive // the test needs the concrete adapter, and it is this package's own type
+
+// OpenDeliveryLogsForTest exposes the host's storage assembly to configuration tests.
+var OpenDeliveryLogsForTest = openDeliveryLogs

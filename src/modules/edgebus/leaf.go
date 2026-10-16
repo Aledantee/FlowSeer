@@ -53,7 +53,7 @@ type LeafConfig struct {
 	// hand and is carried as one.
 	CredentialsFile secret.Value
 	// TLS is the client configuration for a wss hub, normally
-	// PinnedTLSConfig with the edge's anchors. Nil dials plain ws.
+	// tlspin.PinnedTLSConfig with the edge's anchors. Nil dials plain ws.
 	TLS *tls.Config
 	// FsyncPolicy must be declared; an edge buffer runs BusFsyncPeriodic,
 	// since a record lost to a power cut here is a gap in history.

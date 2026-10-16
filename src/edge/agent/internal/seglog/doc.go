@@ -1,7 +1,8 @@
 // Package seglog stores checksummed records in bounded segment files.
 // Append order is preserved across segments and Open. Concurrent Append calls
 // are ordered by the log's lock. One process owns a directory and one reader
-// drains a log. No caller imports this package yet.
+// drains a log. The agent host opens separate ingest and telemetry logs,
+// and internal/drain delivers their sealed records to central.
 //
 // For example, append a, b, c, then Close and Open the same directory.
 // Next returns a segment containing a, b, c. Ack removes that file after all

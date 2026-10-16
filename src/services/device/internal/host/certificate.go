@@ -19,7 +19,7 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
-	"go.aledante.io/FlowSeer/src/modules/edgebus"
+	"go.aledante.io/FlowSeer/src/common/tlspin"
 )
 
 // ErrCodeCertificate is a certificate the service cannot obtain, read, or
@@ -104,7 +104,7 @@ func loadCertificate(certificateFile, keyFile string, log *slog.Logger) (*Certif
 	}
 	pair.Leaf = leaf
 	log.Info("service certificate loaded", slog.String("flowseer.device.certificate.path", certificateFile))
-	return &Certificate{TLS: pair, SPKI: edgebus.SPKIDigest(leaf)}, nil
+	return &Certificate{TLS: pair, SPKI: tlspin.SPKIDigest(leaf)}, nil
 }
 
 // generateCertificate writes a fresh self-signed pair and reports its digest.
@@ -150,7 +150,7 @@ func generateCertificate(cfg *Config, certificateFile, keyFile string, log *slog
 		return nil, errs.From(err).Code(ErrCodeCertificate).Msg("parse the certificate just written")
 	}
 	pair := tls.Certificate{Certificate: [][]byte{der}, PrivateKey: key, Leaf: leaf}
-	digest := edgebus.SPKIDigest(leaf)
+	digest := tlspin.SPKIDigest(leaf)
 
 	log.Info("service certificate generated",
 		slog.String("flowseer.device.certificate.spki_sha256", hex.EncodeToString(digest)),

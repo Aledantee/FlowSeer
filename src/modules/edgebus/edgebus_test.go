@@ -3,15 +3,9 @@ package edgebus_test
 import (
 	"bytes"
 	"context"
-	"crypto/ecdsa"
-	"crypto/elliptic"
-	"crypto/rand"
-	"crypto/x509"
-	"crypto/x509/pkix"
 	"errors"
 	"fmt"
 	"io"
-	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -270,65 +264,6 @@ func (c *collector) received(path string) [][]byte {
 	return c.bodies[path]
 }
 
-func postOTLP(t *testing.T, endpoint string, signal edgebus.OTelSignal, body []byte) *http.Response {
-	t.Helper()
-	req, err := http.NewRequest(http.MethodPost, endpoint+"/v1/"+string(signal), bytes.NewReader(body))
-	if err != nil {
-		t.Fatalf("build request: %v", err)
-	}
-	req.Header.Set("Content-Type", "application/x-protobuf")
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		t.Fatalf("post: %v", err)
-	}
-	t.Cleanup(func() { _ = resp.Body.Close() })
-	return resp
-}
-
-func TestReceiverToForwarderCarriesBodiesUnchanged(t *testing.T) {
-	hub := startHub(t, t.TempDir(), -1)
-	leaf := startLeaf(t, t.TempDir(), hub, edgeID)
-	waitFor(t, "leaf link", 10*time.Second, func() bool { return hub.LeafCount() == 1 })
-	if err := hub.AttachEdge(context.Background(), edgebus.DefaultTenant, edgeID); err != nil {
-		t.Fatalf("add edge source: %v", err)
-	}
-	receiver, err := edgebus.StartReceiver(leaf)
-	if err != nil {
-		t.Fatalf("start receiver: %v", err)
-	}
-	t.Cleanup(func() { _ = receiver.Close(context.Background()) })
-	c, collectorSrv := newCollector(t)
-	forwarder, err := edgebus.StartForwarder(context.Background(), hub, edgebus.ForwarderConfig{Endpoint: collectorSrv.URL, RetryDelay: 100 * time.Millisecond})
-	if err != nil {
-		t.Fatalf("start forwarder: %v", err)
-	}
-	t.Cleanup(forwarder.Close)
-
-	body := []byte{0x0a, 0x03, 0x01, 0x02, 0x03}
-	if resp := postOTLP(t, receiver.Endpoint(), edgebus.SignalLogs, body); resp.StatusCode != http.StatusOK {
-		t.Fatalf("receiver status = %d", resp.StatusCode)
-	}
-	waitFor(t, "forwarded body", 15*time.Second, func() bool { return len(c.received("/v1/logs")) == 1 })
-	if got := c.received("/v1/logs")[0]; !bytes.Equal(got, body) {
-		t.Fatalf("forwarded body = %x, want %x", got, body)
-	}
-
-	compressed, err := http.NewRequest(http.MethodPost, receiver.Endpoint()+"/v1/logs", bytes.NewReader(body))
-	if err != nil {
-		t.Fatalf("build request: %v", err)
-	}
-	compressed.Header.Set("Content-Type", "application/x-protobuf")
-	compressed.Header.Set("Content-Encoding", "gzip")
-	resp, err := http.DefaultClient.Do(compressed)
-	if err != nil {
-		t.Fatalf("post compressed: %v", err)
-	}
-	_ = resp.Body.Close()
-	if resp.StatusCode != http.StatusUnsupportedMediaType {
-		t.Fatalf("compressed export status = %d, want 415", resp.StatusCode)
-	}
-}
-
 func TestRecordsPublishedWhileTheHubIsDownArriveAfterReconnect(t *testing.T) {
 	hubDir := t.TempDir()
 	first := startHub(t, hubDir, -1)
@@ -538,45 +473,6 @@ func TestLaneBucketSurvivesRestart(t *testing.T) {
 	if string(entry.Value()) != "record" {
 		t.Fatalf("value after restart = %q", entry.Value())
 	}
-}
-
-func TestPinVerifierRejectsAnUnanchoredCertificate(t *testing.T) {
-	anchored := selfSigned(t)
-	other := selfSigned(t)
-	verify := edgebus.PinVerifier([][]byte{edgebus.SPKIDigest(anchored)})
-	if err := verify([][]byte{anchored.Raw}, nil); err != nil {
-		t.Fatalf("anchored certificate rejected: %v", err)
-	}
-	err := verify([][]byte{other.Raw}, nil)
-	if code, ok := errs.CodeOf(err); !ok || code != edgebus.ErrCodePin {
-		t.Fatalf("unanchored certificate: err=%v code=%q", err, code)
-	}
-	if err := verify(nil, nil); err == nil {
-		t.Fatal("empty chain accepted")
-	}
-}
-
-func selfSigned(t *testing.T) *x509.Certificate {
-	t.Helper()
-	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	if err != nil {
-		t.Fatalf("key: %v", err)
-	}
-	template := &x509.Certificate{
-		SerialNumber: big.NewInt(1),
-		Subject:      pkix.Name{CommonName: "flowseer-central"},
-		NotBefore:    time.Now().Add(-time.Hour),
-		NotAfter:     time.Now().Add(time.Hour),
-	}
-	der, err := x509.CreateCertificate(rand.Reader, template, template, &key.PublicKey, key)
-	if err != nil {
-		t.Fatalf("certificate: %v", err)
-	}
-	cert, err := x509.ParseCertificate(der)
-	if err != nil {
-		t.Fatalf("parse: %v", err)
-	}
-	return cert
 }
 
 func TestPublishOutsideTheBufferedBranchesFailsLoudly(t *testing.T) {

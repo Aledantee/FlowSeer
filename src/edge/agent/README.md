@@ -5,24 +5,25 @@ central's dispatch and capture-assignment streams open, drives the
 local-network access lane and packet captures from what arrives on them, and
 reports back what happened.
 
-Assembled from `src/modules/localnet/access` (the lane), `src/modules/edgebus`
-(the leaf node and the loopback OTLP receiver), and `src/modules/capture` (the
-capture engine). It owns no device logic of its own: what it adds is identity,
-transport, and the orderings between them.
+Assembled from `src/modules/localnet/access` (the lane) and
+`src/modules/capture` (the capture engine). The agent owns two segmented logs,
+a loopback OTLP receiver, and a separate delivery drain for each log. It adds
+identity, transport, and the orderings between them.
 
 ## What it is made of
 
 | Package | What it does |
 | --- | --- |
 | `internal/identity` | The Ed25519 key pair central registered, the enrollment answer, and the assertion signer every call except `Enroll` carries |
-| `internal/busattach` | `AttachBus`, the embedded leaf node, and the loopback receiver the agent's own telemetry goes to |
+| `internal/otlpreceiver` | The loopback OTLP receiver that appends exports to the telemetry log |
+| `internal/drain` | Separate ingest and telemetry delivery loops, with retry and resume after a short settlement |
 | `internal/subscribeloop` | The reconnecting stream loop with backoff and its `Contact` counters, generic over the streamed message type |
 | `internal/dispatch` | What the stream loop needs to carry dispatches — the opener, the event names, the dropped-message attributes — and the routing of each dispatch to its lane call |
 | `internal/report` | The re-send queue for dispatch reports, and the blocking deliverer for audit records |
 | `internal/lanehost` | Contact with central and the freeze it drives, the device listing and what it onboards, and the per-operation device session factories |
 | `internal/capture` | The capture assignment stream loop, active session registry, engine runner, and chunk upload client |
 | `internal/syslogsource` | Sockets, mapping, and raw payload suppression for syslog ingestion from hosted network devices |
-| `internal/seglog` | Checksummed segment files bounded by bytes and age, with append-order delivery and deletion on acknowledgement. Nothing imports it yet. See [the package contract](internal/seglog/doc.go). |
+| `internal/seglog` | Checksummed segment files bounded by bytes and age, with append-order delivery and deletion on acknowledgement. The host opens both logs and the drains acknowledge settled segments. See [the package contract](internal/seglog/doc.go). |
 
 ## Which devices this edge serves
 
@@ -69,21 +70,35 @@ become visible.
 
 ## Starting up, and the order that is forced
 
-`cmd/agent` reads one prototext file and hands it to `host`, which
-brings the agent up in an order where every step is required by something the
-step after it needs. `host` is the one package here outside `internal/`, so
-that the end-to-end test can assemble a live agent next to a live central;
-its doc comment says why that makes it public without making it reusable. `host.Run`'s doc comment carries the whole chain with each
-reason; the short version is that the identity comes before the bus attachment
-because `AttachBus` is signed, the receiver comes before the telemetry exporter
-because its loopback port is fresh on every start, and the lane comes before
-the loops that drive it because a dispatch for a device with no lane has
-nowhere to go.
+`cmd/agent` reads one prototext file and hands it to `host`. The identity
+comes before every signed call. The logs and receiver open before the runtime
+because telemetry exports need the receiver's bound address.
 
-Two failures end the process rather than being logged: enrollment and the bus
-attachment. Without an identity there is nothing to carry on with, since every
-call but `Enroll` is signed by the key enrollment registers — an agent that
-continued would make one failing call after another with no way to recover.
+```mermaid
+flowchart LR
+    identity --> logs[Ingest and telemetry logs]
+    logs --> receiver[Loopback OTLP receiver]
+    receiver --> runtime[Runtime and separate drain modules]
+```
+
+Enrollment, an empty anchor set, or failure to open storage or bind the receiver
+ends startup. After the runtime returns, shutdown closes the receiver, then
+the telemetry log, then the ingest log. This lets the runtime's final export
+reach the telemetry log before the receiver closes.
+
+The logs live in `<state_dir>/buffer/ingest` and `<state_dir>/buffer/telemetry`.
+Ingest defaults to 192 MiB, telemetry to 64 MiB, and both retain seven days.
+Each log's `max_bytes` and `max_age` can be configured independently. The
+512 KiB segment and 256 KiB record bounds are fixed. A drain sends one segment
+per call and acknowledges it after central settles every record. A short
+settlement resumes at the first unsettled record. A restart can resend a
+settled prefix. Only the log's byte and age bounds discard queued records.
+A collector outage holds telemetry in its log while ingest continues.
+Each drain runs under its own supervisor branch. A persistent storage error
+restarts only that drain with jittered backoff capped at 30 seconds, leaving
+the other log and agent modules running. Drain attempt metrics use the paths
+`agent/delivery_ingest/drain` and `agent/delivery_telemetry/drain`.
+Old `jetstream` directories and `hub.creds` files remain untouched on upgrade.
 
 Everything else is survivable, and the first device listing is the one worth
 knowing about. A listing that fails at startup is not fatal: the dispatch
@@ -114,7 +129,7 @@ has by then consumed.
 An edge that enrolls also adopts central's clock for the run that enrolled it.
 `EnrollResponse` carries central's time, and an edge whose real-time clock is
 dead would otherwise sign every assertion from a factory date, be refused for
-skew, and fail the bus attachment — which ends the process. The difference is
+skew, and retry delivery without making progress. The difference is
 measured, not stored: an edge that loads an enrollment written on an earlier
 run signs on its own clock again. Carrying it across restarts means adopting
 the time the heartbeat already returns, and a decision about where that offset
@@ -207,7 +222,8 @@ count, and whether it is final.
 When configured with listeners, `host.Run` includes the `"syslog"` module
 gated on listener presence. It binds UDP and TCP listeners, admits syslog
 datagrams and frames up to 65,535 bytes, maps them to `SyslogRecord` payloads,
-and publishes them to the local edge buffer on `flowseer.<tenant>.edge.<edge-id>.ingest.syslog`.
+and appends them to the ingest log. Its drain delivers them through
+`IngestService.Deliver`, with the record id retained for central deduplication.
 
 Incoming datagrams are accepted only from management addresses resolved by
 `lanehost.DeviceIndex`, which follows the device listing and nothing else. An

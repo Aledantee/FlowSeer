@@ -210,7 +210,7 @@ func (x AgentSyslogFraming) Number() protoreflect.EnumNumber {
 //
 // There is no telemetry endpoint, and its absence is a decision rather than
 // an omission. The agent exports to the loopback OTLP receiver it binds for
-// itself, which forwards over its leaf node, and that address is fresh on
+// itself, which appends to its telemetry log, and that address is fresh on
 // every start — so a configured endpoint would be a second answer to a
 // question this deployment has already answered, and the wrong one whenever
 // the two differ.
@@ -408,7 +408,7 @@ type AgentConfig_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
 	// The directory the agent owns: its key pair, its enrollment answer, and
-	// the leaf node's credential file and buffer. Must be present and
+	// the ingest and telemetry logs. Must be present and
 	// absolute, because the agent resolves nothing against its working
 	// directory.
 	//
@@ -429,7 +429,7 @@ type AgentConfig_builder struct {
 	// Intervals for the work that runs on its own. Unset takes every default.
 	Intervals *AgentIntervals
 	// What the agent may hold locally while central is unreachable. Unset
-	// takes the bus module's defaults.
+	// takes each log's defaults.
 	Buffer *AgentBuffer
 	// How much the agent logs locally. Unset is INFO.
 	LogLevel *AgentLogLevel
@@ -594,17 +594,14 @@ func (b0 AgentIntervals_builder) Build() *AgentIntervals {
 	return m0
 }
 
-// What the agent may hold locally while central is unreachable. This bounds
-// the edge's own telemetry only; the reports it owes central are bounded by
-// the operations that caused them.
+// Separate disk and age bounds keep telemetry volume from evicting device
+// records. Reports owed central are bounded by the operations that caused them.
 type AgentBuffer struct {
-	state                  protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_MaxBytes    int64                  `protobuf:"varint,1,opt,name=max_bytes,json=maxBytes"`
-	xxx_hidden_MaxAge      *durationpb.Duration   `protobuf:"bytes,2,opt,name=max_age,json=maxAge"`
-	XXX_raceDetectHookData protoimpl.RaceDetectHookData
-	XXX_presence           [1]uint32
-	unknownFields          protoimpl.UnknownFields
-	sizeCache              protoimpl.SizeCache
+	state                protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Ingest    *AgentLogBounds        `protobuf:"bytes,3,opt,name=ingest"`
+	xxx_hidden_Telemetry *AgentLogBounds        `protobuf:"bytes,4,opt,name=telemetry"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
 }
 
 func (x *AgentBuffer) Reset() {
@@ -632,65 +629,161 @@ func (x *AgentBuffer) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-func (x *AgentBuffer) GetMaxBytes() int64 {
+func (x *AgentBuffer) GetIngest() *AgentLogBounds {
+	if x != nil {
+		return x.xxx_hidden_Ingest
+	}
+	return nil
+}
+
+func (x *AgentBuffer) GetTelemetry() *AgentLogBounds {
+	if x != nil {
+		return x.xxx_hidden_Telemetry
+	}
+	return nil
+}
+
+func (x *AgentBuffer) SetIngest(v *AgentLogBounds) {
+	x.xxx_hidden_Ingest = v
+}
+
+func (x *AgentBuffer) SetTelemetry(v *AgentLogBounds) {
+	x.xxx_hidden_Telemetry = v
+}
+
+func (x *AgentBuffer) HasIngest() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Ingest != nil
+}
+
+func (x *AgentBuffer) HasTelemetry() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Telemetry != nil
+}
+
+func (x *AgentBuffer) ClearIngest() {
+	x.xxx_hidden_Ingest = nil
+}
+
+func (x *AgentBuffer) ClearTelemetry() {
+	x.xxx_hidden_Telemetry = nil
+}
+
+type AgentBuffer_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// Device records. Unset means 192 MiB and seven days.
+	Ingest *AgentLogBounds
+	// The agent's own telemetry. Unset means 64 MiB and seven days.
+	Telemetry *AgentLogBounds
+}
+
+func (b0 AgentBuffer_builder) Build() *AgentBuffer {
+	m0 := &AgentBuffer{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_Ingest = b.Ingest
+	x.xxx_hidden_Telemetry = b.Telemetry
+	return m0
+}
+
+// Bounds on one segmented log. Unset fields take the owning log's defaults.
+type AgentLogBounds struct {
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_MaxBytes    int64                  `protobuf:"varint,1,opt,name=max_bytes,json=maxBytes"`
+	xxx_hidden_MaxAge      *durationpb.Duration   `protobuf:"bytes,2,opt,name=max_age,json=maxAge"`
+	XXX_raceDetectHookData protoimpl.RaceDetectHookData
+	XXX_presence           [1]uint32
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
+}
+
+func (x *AgentLogBounds) Reset() {
+	*x = AgentLogBounds{}
+	mi := &file_flowseer_store_agent_v1_agent_config_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AgentLogBounds) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AgentLogBounds) ProtoMessage() {}
+
+func (x *AgentLogBounds) ProtoReflect() protoreflect.Message {
+	mi := &file_flowseer_store_agent_v1_agent_config_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *AgentLogBounds) GetMaxBytes() int64 {
 	if x != nil {
 		return x.xxx_hidden_MaxBytes
 	}
 	return 0
 }
 
-func (x *AgentBuffer) GetMaxAge() *durationpb.Duration {
+func (x *AgentLogBounds) GetMaxAge() *durationpb.Duration {
 	if x != nil {
 		return x.xxx_hidden_MaxAge
 	}
 	return nil
 }
 
-func (x *AgentBuffer) SetMaxBytes(v int64) {
+func (x *AgentLogBounds) SetMaxBytes(v int64) {
 	x.xxx_hidden_MaxBytes = v
 	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 2)
 }
 
-func (x *AgentBuffer) SetMaxAge(v *durationpb.Duration) {
+func (x *AgentLogBounds) SetMaxAge(v *durationpb.Duration) {
 	x.xxx_hidden_MaxAge = v
 }
 
-func (x *AgentBuffer) HasMaxBytes() bool {
+func (x *AgentLogBounds) HasMaxBytes() bool {
 	if x == nil {
 		return false
 	}
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
 }
 
-func (x *AgentBuffer) HasMaxAge() bool {
+func (x *AgentLogBounds) HasMaxAge() bool {
 	if x == nil {
 		return false
 	}
 	return x.xxx_hidden_MaxAge != nil
 }
 
-func (x *AgentBuffer) ClearMaxBytes() {
+func (x *AgentLogBounds) ClearMaxBytes() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
 	x.xxx_hidden_MaxBytes = 0
 }
 
-func (x *AgentBuffer) ClearMaxAge() {
+func (x *AgentLogBounds) ClearMaxAge() {
 	x.xxx_hidden_MaxAge = nil
 }
 
-type AgentBuffer_builder struct {
+type AgentLogBounds_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// The most disk the leaf node's buffer may take. Unset takes the bus
-	// module's default.
+	// Maximum disk bytes including segment and record headers. At least 1 MiB.
 	MaxBytes *int64
-	// How long a buffered record is kept before it is dropped. Unset takes the
-	// bus module's default.
+	// Maximum segment age before discard. At least twenty minutes.
 	MaxAge *durationpb.Duration
 }
 
-func (b0 AgentBuffer_builder) Build() *AgentBuffer {
-	m0 := &AgentBuffer{}
+func (b0 AgentLogBounds_builder) Build() *AgentLogBounds {
+	m0 := &AgentLogBounds{}
 	b, x := &b0, m0
 	_, _ = b, x
 	if b.MaxBytes != nil {
@@ -716,7 +809,7 @@ type AgentSyslog struct {
 
 func (x *AgentSyslog) Reset() {
 	*x = AgentSyslog{}
-	mi := &file_flowseer_store_agent_v1_agent_config_proto_msgTypes[3]
+	mi := &file_flowseer_store_agent_v1_agent_config_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -728,7 +821,7 @@ func (x *AgentSyslog) String() string {
 func (*AgentSyslog) ProtoMessage() {}
 
 func (x *AgentSyslog) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_store_agent_v1_agent_config_proto_msgTypes[3]
+	mi := &file_flowseer_store_agent_v1_agent_config_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -843,7 +936,7 @@ type AgentSyslogListener struct {
 
 func (x *AgentSyslogListener) Reset() {
 	*x = AgentSyslogListener{}
-	mi := &file_flowseer_store_agent_v1_agent_config_proto_msgTypes[4]
+	mi := &file_flowseer_store_agent_v1_agent_config_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -855,7 +948,7 @@ func (x *AgentSyslogListener) String() string {
 func (*AgentSyslogListener) ProtoMessage() {}
 
 func (x *AgentSyslogListener) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_store_agent_v1_agent_config_proto_msgTypes[4]
+	mi := &file_flowseer_store_agent_v1_agent_config_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -996,11 +1089,13 @@ const file_flowseer_store_agent_v1_agent_config_proto_rawDesc = "" +
 	"\xbaH\a\xaa\x01\x042\x02\b\x01R\x12dispatchBackoffMin\x12W\n" +
 	"\x14dispatch_backoff_max\x18\x03 \x01(\v2\x19.google.protobuf.DurationB\n" +
 	"\xbaH\a\xaa\x01\x042\x02\b\x01R\x12dispatchBackoffMax:\xe5\x01\xbaH\xe1\x01\x1a\xde\x01\n" +
-	"\x1fagent_intervals.backoff_ordered\x12=dispatch_backoff_max is not shorter than dispatch_backoff_min\x1a|!has(this.dispatch_backoff_min) || !has(this.dispatch_backoff_max) || this.dispatch_backoff_max >= this.dispatch_backoff_min\"s\n" +
-	"\vAgentBuffer\x12$\n" +
-	"\tmax_bytes\x18\x01 \x01(\x03B\a\xbaH\x04\"\x02(\x01R\bmaxBytes\x12>\n" +
-	"\amax_age\x18\x02 \x01(\v2\x19.google.protobuf.DurationB\n" +
-	"\xbaH\a\xaa\x01\x042\x02\b\x01R\x06maxAge\"\xd8\x01\n" +
+	"\x1fagent_intervals.backoff_ordered\x12=dispatch_backoff_max is not shorter than dispatch_backoff_min\x1a|!has(this.dispatch_backoff_min) || !has(this.dispatch_backoff_max) || this.dispatch_backoff_max >= this.dispatch_backoff_min\"\x95\x01\n" +
+	"\vAgentBuffer\x12?\n" +
+	"\x06ingest\x18\x03 \x01(\v2'.flowseer.store.agent.v1.AgentLogBoundsR\x06ingest\x12E\n" +
+	"\ttelemetry\x18\x04 \x01(\v2'.flowseer.store.agent.v1.AgentLogBoundsR\ttelemetry\"y\n" +
+	"\x0eAgentLogBounds\x12&\n" +
+	"\tmax_bytes\x18\x01 \x01(\x03B\t\xbaH\x06\"\x04(\x80\x80@R\bmaxBytes\x12?\n" +
+	"\amax_age\x18\x02 \x01(\v2\x19.google.protobuf.DurationB\v\xbaH\b\xaa\x01\x052\x03\b\xb0\tR\x06maxAge\"\xd8\x01\n" +
 	"\vAgentSyslog\x12V\n" +
 	"\tlisteners\x18\x01 \x03(\v2,.flowseer.store.agent.v1.AgentSyslogListenerB\n" +
 	"\xbaH\a\x92\x01\x04\b\x01\x10\bR\tlisteners\x12>\n" +
@@ -1031,7 +1126,7 @@ const file_flowseer_store_agent_v1_agent_config_proto_rawDesc = "" +
 	"\x1bcom.flowseer.store.agent.v1B\x10AgentConfigProtoZJgo.aledante.io/FlowSeer/generated/go/proto/flowseer/store/agent/v1;agentv1\xa2\x02\x03FSA\xaa\x02\x17Flowseer.Store.Agent.V1\xca\x02\x17Flowseer\\Store\\Agent\\V1\xe2\x02#Flowseer\\Store\\Agent\\V1\\GPBMetadata\xea\x02\x1aFlowseer::Store::Agent::V1b\beditionsp\xe9\a"
 
 var file_flowseer_store_agent_v1_agent_config_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_flowseer_store_agent_v1_agent_config_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_flowseer_store_agent_v1_agent_config_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_flowseer_store_agent_v1_agent_config_proto_goTypes = []any{
 	(AgentLogLevel)(0),          // 0: flowseer.store.agent.v1.AgentLogLevel
 	(AgentSyslogTransport)(0),   // 1: flowseer.store.agent.v1.AgentSyslogTransport
@@ -1039,27 +1134,30 @@ var file_flowseer_store_agent_v1_agent_config_proto_goTypes = []any{
 	(*AgentConfig)(nil),         // 3: flowseer.store.agent.v1.AgentConfig
 	(*AgentIntervals)(nil),      // 4: flowseer.store.agent.v1.AgentIntervals
 	(*AgentBuffer)(nil),         // 5: flowseer.store.agent.v1.AgentBuffer
-	(*AgentSyslog)(nil),         // 6: flowseer.store.agent.v1.AgentSyslog
-	(*AgentSyslogListener)(nil), // 7: flowseer.store.agent.v1.AgentSyslogListener
-	(*durationpb.Duration)(nil), // 8: google.protobuf.Duration
+	(*AgentLogBounds)(nil),      // 6: flowseer.store.agent.v1.AgentLogBounds
+	(*AgentSyslog)(nil),         // 7: flowseer.store.agent.v1.AgentSyslog
+	(*AgentSyslogListener)(nil), // 8: flowseer.store.agent.v1.AgentSyslogListener
+	(*durationpb.Duration)(nil), // 9: google.protobuf.Duration
 }
 var file_flowseer_store_agent_v1_agent_config_proto_depIdxs = []int32{
 	4,  // 0: flowseer.store.agent.v1.AgentConfig.intervals:type_name -> flowseer.store.agent.v1.AgentIntervals
 	5,  // 1: flowseer.store.agent.v1.AgentConfig.buffer:type_name -> flowseer.store.agent.v1.AgentBuffer
 	0,  // 2: flowseer.store.agent.v1.AgentConfig.log_level:type_name -> flowseer.store.agent.v1.AgentLogLevel
-	6,  // 3: flowseer.store.agent.v1.AgentConfig.syslog:type_name -> flowseer.store.agent.v1.AgentSyslog
-	8,  // 4: flowseer.store.agent.v1.AgentIntervals.heartbeat:type_name -> google.protobuf.Duration
-	8,  // 5: flowseer.store.agent.v1.AgentIntervals.dispatch_backoff_min:type_name -> google.protobuf.Duration
-	8,  // 6: flowseer.store.agent.v1.AgentIntervals.dispatch_backoff_max:type_name -> google.protobuf.Duration
-	8,  // 7: flowseer.store.agent.v1.AgentBuffer.max_age:type_name -> google.protobuf.Duration
-	7,  // 8: flowseer.store.agent.v1.AgentSyslog.listeners:type_name -> flowseer.store.agent.v1.AgentSyslogListener
-	1,  // 9: flowseer.store.agent.v1.AgentSyslogListener.transport:type_name -> flowseer.store.agent.v1.AgentSyslogTransport
-	2,  // 10: flowseer.store.agent.v1.AgentSyslogListener.framing:type_name -> flowseer.store.agent.v1.AgentSyslogFraming
-	11, // [11:11] is the sub-list for method output_type
-	11, // [11:11] is the sub-list for method input_type
-	11, // [11:11] is the sub-list for extension type_name
-	11, // [11:11] is the sub-list for extension extendee
-	0,  // [0:11] is the sub-list for field type_name
+	7,  // 3: flowseer.store.agent.v1.AgentConfig.syslog:type_name -> flowseer.store.agent.v1.AgentSyslog
+	9,  // 4: flowseer.store.agent.v1.AgentIntervals.heartbeat:type_name -> google.protobuf.Duration
+	9,  // 5: flowseer.store.agent.v1.AgentIntervals.dispatch_backoff_min:type_name -> google.protobuf.Duration
+	9,  // 6: flowseer.store.agent.v1.AgentIntervals.dispatch_backoff_max:type_name -> google.protobuf.Duration
+	6,  // 7: flowseer.store.agent.v1.AgentBuffer.ingest:type_name -> flowseer.store.agent.v1.AgentLogBounds
+	6,  // 8: flowseer.store.agent.v1.AgentBuffer.telemetry:type_name -> flowseer.store.agent.v1.AgentLogBounds
+	9,  // 9: flowseer.store.agent.v1.AgentLogBounds.max_age:type_name -> google.protobuf.Duration
+	8,  // 10: flowseer.store.agent.v1.AgentSyslog.listeners:type_name -> flowseer.store.agent.v1.AgentSyslogListener
+	1,  // 11: flowseer.store.agent.v1.AgentSyslogListener.transport:type_name -> flowseer.store.agent.v1.AgentSyslogTransport
+	2,  // 12: flowseer.store.agent.v1.AgentSyslogListener.framing:type_name -> flowseer.store.agent.v1.AgentSyslogFraming
+	13, // [13:13] is the sub-list for method output_type
+	13, // [13:13] is the sub-list for method input_type
+	13, // [13:13] is the sub-list for extension type_name
+	13, // [13:13] is the sub-list for extension extendee
+	0,  // [0:13] is the sub-list for field type_name
 }
 
 func init() { file_flowseer_store_agent_v1_agent_config_proto_init() }
@@ -1073,7 +1171,7 @@ func file_flowseer_store_agent_v1_agent_config_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_flowseer_store_agent_v1_agent_config_proto_rawDesc), len(file_flowseer_store_agent_v1_agent_config_proto_rawDesc)),
 			NumEnums:      3,
-			NumMessages:   5,
+			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

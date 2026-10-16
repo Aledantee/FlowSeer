@@ -73,41 +73,33 @@ func freeUDPAddress(t *testing.T) string {
 	return conn.LocalAddr().String()
 }
 
-type publication struct {
-	subject string
-	data    []byte
-	msgID   string
-}
-
-// recordingPublisher stands in for the edge buffer's leaf node and remembers
+// recordingPublisher stands in for the ingest log and remembers
 // what the syslog module published to it.
 type recordingPublisher struct {
-	published chan publication
+	published chan []byte
 }
 
 func newRecordingPublisher() *recordingPublisher {
-	return &recordingPublisher{published: make(chan publication, 16)}
+	return &recordingPublisher{published: make(chan []byte, 16)}
 }
 
-func (p *recordingPublisher) Subject(name string) string { return "test." + name }
-
-func (p *recordingPublisher) Publish(_ context.Context, subject string, data []byte, msgID string) error {
-	p.published <- publication{subject: subject, data: data, msgID: msgID}
+func (p *recordingPublisher) Append(data []byte) error {
+	p.published <- data
 	return nil
 }
 
-func (p *recordingPublisher) next(t *testing.T) (publication, *ingestv1.IngestRecord) {
+func (p *recordingPublisher) next(t *testing.T) *ingestv1.IngestRecord {
 	t.Helper()
 	select {
 	case pub := <-p.published:
 		record := &ingestv1.IngestRecord{}
-		if err := proto.Unmarshal(pub.data, record); err != nil {
+		if err := proto.Unmarshal(pub, record); err != nil {
 			t.Fatalf("published data is not an IngestRecord: %v", err)
 		}
-		return pub, record
+		return record
 	case <-time.After(10 * time.Second):
 		t.Fatal("timed out waiting for the syslog module to publish")
-		return publication{}, nil
+		return nil
 	}
 }
 
@@ -304,12 +296,9 @@ func TestSyslogAssembly_SetupPublishesAnIngestRecordNamingThisEdge(t *testing.T)
 
 	wantRaw := []bool{false, true, false}
 	for i, wantRaw := range wantRaw {
-		pub, record := publisher.next(t)
-		if pub.subject != "test.ingest.syslog" {
-			t.Errorf("record %d subject = %q, want the ingest.syslog subject the leaf names", i, pub.subject)
-		}
-		if pub.msgID != record.GetRecordId() {
-			t.Errorf("record %d bus message id = %q, want the record id %q", i, pub.msgID, record.GetRecordId())
+		record := publisher.next(t)
+		if record.GetRecordId() == "" {
+			t.Errorf("record %d has no record id", i)
 		}
 		if got := record.GetProvenance().GetEdge().GetEdge().GetId(); got != syslogTestEdgeID {
 			t.Errorf("record %d names edge %q, want %q", i, got, syslogTestEdgeID)
@@ -376,7 +365,14 @@ func TestSyslogAssembly_SharesTheProcessWindowsWithItsSource(t *testing.T) {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	spawn.Go(ctx, "syslog runner", func() { _ = attempt.Runner(ctx) })
+	done := make(chan error, 1)
+	spawn.Go(ctx, "syslog runner", func() { done <- attempt.Runner(ctx) })
+	defer func() {
+		cancel()
+		if err := <-done; err != nil {
+			t.Error(err)
+		}
+	}()
 	conn, err := net.Dial("udp", address)
 	if err != nil {
 		t.Fatalf("dial the listener: %v", err)
@@ -388,7 +384,7 @@ func TestSyslogAssembly_SharesTheProcessWindowsWithItsSource(t *testing.T) {
 		t.Fatalf("send a datagram: %v", err)
 	}
 
-	_, record := publisher.next(t)
+	record := publisher.next(t)
 	raw := record.GetRaw()
 	if raw.GetReason() != ingestv1.RawReason_RAW_REASON_WINDOW || len(raw.GetWindows()) != 1 {
 		t.Fatalf("raw = %v, want window evidence naming the one window", raw)

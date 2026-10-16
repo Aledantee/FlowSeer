@@ -1,16 +1,14 @@
 # edgebus
 
-The NATS carrier between an edge and central, assembled by both hosts. The
-device service starts the hub; the edge agent starts the leaf node and the
-loopback receiver. Nothing an edge must act on rides here: dispatches,
-reports, and audit records are Connect calls in `edge/dispatch/v1` and
-`edge/audit/v1`. The bus carries what the edge publishes, the agent's own
-OpenTelemetry signals today and, on the same buffer, the device logs, traps,
-and change events the ingestion sources will add. The accepted
-[device-service record](../../../docs/architecture/2026-08-20-device-service-and-inventory-direction.md)
-fixes the shape ("Edge attachment and enrollment"): an embedded leaf node per
-edge, its own JetStream domain, a bounded local buffer, and broker-enforced
-accounts.
+Central's embedded NATS hub, JetStream stores, and OTLP collector client.
+The agent delivers ingest records and its own telemetry over authenticated
+Connect calls, with separate segmented logs as its buffers. It joins no bus.
+The leaf, per-edge streams, and forwarder remain pending removal, and central
+still binds the leaf listener. The
+[edge delivery record](../../../docs/architecture/2026-10-04-edge-delivery-over-connect-direction.md)
+states the delivery path. `TestASyslogDatagramReachesItsStreamWithNoLeafLink`
+in `src/services/device/test/integration/delivery_test.go` checks that a real
+agent delivers a record with no leaf link or JetStream directory.
 
 ## Accounts are the security boundary, one per edge
 
@@ -330,52 +328,42 @@ journal's authority; an edge declares `BusFsyncPeriodic` for its buffer, since
 a record lost to a power cut there is a gap in history. An undeclared policy
 refuses to start, before any key is written, with `edgebus/config`.
 
-## OTLP over the bus
+## OTLP delivery
 
-The edge's runtime exports OTLP/HTTP to `Receiver`, bound to `127.0.0.1` on a
-kernel-chosen port so a collision cannot stop the agent. The runtime must
-export protobuf with no compression: the receiver stores and forwards the
-bytes unchanged, so it accepts only what it can pass on verbatim and answers
-415 to a compressed or non-protobuf body. An agent host therefore pins
-`Protocol` `http/protobuf` and leaves compression off rather than letting the
-`OTEL_EXPORTER_OTLP_*` environment variables choose gzip or grpc. The receiver
-publishes each body into the buffer and answers 200; a refused buffer answers
-503 so the runtime retries. The receiver refuses a body over 255 KiB with a
-413, so an accepted body and its envelope fit one edge log record and one
-`TelemetryExport`. `Collector` posts a body to central's collector and
-classifies the answer as accepted, refused, retry for a configuration answer,
-or retry for an unavailable collector. `NewCollector` and `StartForwarder`
-refuse an endpoint that is not an absolute `http` or `https` URL. Central's
-`Forwarder` follows every edge's hub stream with a durable consumer,
-discovering edges attached after it started on an interval, and posts each
-body through a `Collector`, acknowledging only on a 2xx. The
-`TelemetryService.Deliver` call, served by `otlpapi` in the device service,
-posts through the same `Collector`. A 400-class answer that describes this body —
-malformed, oversized, the wrong content type — drops it on sight, since
-retrying cannot change the answer. A 401, 403, 404, 408 or 429 describes the
-collector's configuration instead, so the record is redelivered; the delivery
-backstop bounds that at eight attempts five seconds apart, and a
-misconfiguration outlasting that minute does lose the records that meet it.
-Those drops are counted as `collector_rejected`, not as the backstop, so the
-`flowseer.edgebus.records.refused` counter still says the collector is refusing
-this deployment's authorization. `TestReceiverToForwarderCarriesBodiesUnchanged` checks the
-bytes end to end, and `TestRecordsPublishedWhileTheHubIsDownArriveAfterReconnect`
-is the evidence that sourcing across a leaf link survives the link dropping
-and returning. After a hub restart the source takes about forty seconds to
-re-establish, the server's own retry cadence; a record published meanwhile
-waits in the edge's buffer and arrives when it does.
+The agent's loopback receiver lives in
+[`otlpreceiver`](../../edge/agent/internal/otlpreceiver/receiver.go). It appends
+OTLP bodies to the telemetry log. The agent drains that log through
+`TelemetryService.Deliver`, served by `otlpapi` in the device service.
+`Collector` posts each body unchanged to central's collector and classifies
+the answer as accepted, refused, retry for a configuration answer, or retry
+for an unavailable collector. `NewCollector` refuses an endpoint that is not
+an absolute `http` or `https` URL.
+
+The retained `Forwarder` uses the same `Collector` for bodies in per-edge hub
+streams. It discovers attached edges on an interval and acknowledges a body
+on a 2xx. A 400-class answer that describes the body drops it on sight, since
+retrying cannot change the answer. A 401, 403, 404, 408 or 429 instead causes
+redelivery. The forwarder's delivery backstop bounds that at eight attempts
+five seconds apart. Those configuration refusals count as
+`collector_rejected`. The Connect delivery call has no delivery backstop and
+leaves an unsettled body in the agent's telemetry log until the collector
+settles it or the log's bounds discard it.
+
+`TestRecordsPublishedWhileTheHubIsDownArriveAfterReconnect` checks the retained
+leaf sourcing path across a hub restart.
 
 ## TLS
 
-The hub's WebSocket listener serves Connect's certificate. An edge verifies it
-with `PinVerifier`, which accepts a leaf certificate whose SPKI SHA-256 digest
-is among the anchors `EdgeProvisioning` and `EnrollResponse` carry, and both
-of the edge's dialers, the Connect client and the leaf remote, install the
-same verifier so they cannot drift apart. A non-loopback listener must serve
-TLS; the hub refuses a plaintext listener on any other host. The WebSocket
-leaf path needs the leaf-node subsystem enabled, which the server keys on a
-leaf port, so the hub also binds a plain leaf listener on loopback; an edge
-never dials it.
+The hub's WebSocket listener serves Connect's certificate. Retained legacy
+leaf clients can pin that certificate through `LeafConfig.TLS` with
+[`tlspin.PinnedTLSConfig`](../../common/tlspin/tlspin.go). The agent's Connect
+client uses the same helper, while the agent itself has no leaf remote.
+The shared verifier accepts a peer leaf certificate whose SPKI SHA-256 digest
+is among the anchors `EdgeProvisioning` and `EnrollResponse` carry. A non-loopback
+listener must serve TLS. The hub refuses a plaintext listener on any other
+host. The WebSocket leaf path needs the leaf-node subsystem enabled, which
+the server keys on a leaf port, so the hub also binds a plain leaf listener
+on loopback. Legacy leaf clients dial the WebSocket listener.
 
 ## What is deliberately absent
 

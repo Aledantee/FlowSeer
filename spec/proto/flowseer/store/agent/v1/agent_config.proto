@@ -23,7 +23,7 @@ import option "buf/validate/validate.proto";
 //
 // There is no telemetry endpoint, and its absence is a decision rather than
 // an omission. The agent exports to the loopback OTLP receiver it binds for
-// itself, which forwards over its leaf node, and that address is fresh on
+// itself, which appends to its telemetry log, and that address is fresh on
 // every start — so a configured endpoint would be a second answer to a
 // question this deployment has already answered, and the wrong one whenever
 // the two differ.
@@ -34,7 +34,7 @@ import option "buf/validate/validate.proto";
 // that was not forgotten: it is one field away when a deployment needs it.
 message AgentConfig {
   // The directory the agent owns: its key pair, its enrollment answer, and
-  // the leaf node's credential file and buffer. Must be present and
+  // the ingest and telemetry logs. Must be present and
   // absolute, because the agent resolves nothing against its working
   // directory.
   //
@@ -64,7 +64,7 @@ message AgentConfig {
   // Intervals for the work that runs on its own. Unset takes every default.
   AgentIntervals intervals = 3;
   // What the agent may hold locally while central is unreachable. Unset
-  // takes the bus module's defaults.
+  // takes each log's defaults.
   AgentBuffer buffer = 4;
   // How much the agent logs locally. Unset is INFO.
   AgentLogLevel log_level = 5;
@@ -101,16 +101,21 @@ message AgentIntervals {
   google.protobuf.Duration dispatch_backoff_max = 3 [(buf.validate.field).duration.gte = {seconds: 1}];
 }
 
-// What the agent may hold locally while central is unreachable. This bounds
-// the edge's own telemetry only; the reports it owes central are bounded by
-// the operations that caused them.
+// Separate disk and age bounds keep telemetry volume from evicting device
+// records. Reports owed central are bounded by the operations that caused them.
 message AgentBuffer {
-  // The most disk the leaf node's buffer may take. Unset takes the bus
-  // module's default.
-  int64 max_bytes = 1 [(buf.validate.field).int64.gte = 1];
-  // How long a buffered record is kept before it is dropped. Unset takes the
-  // bus module's default.
-  google.protobuf.Duration max_age = 2 [(buf.validate.field).duration.gte = {seconds: 1}];
+  // Device records. Unset means 192 MiB and seven days.
+  AgentLogBounds ingest = 3;
+  // The agent's own telemetry. Unset means 64 MiB and seven days.
+  AgentLogBounds telemetry = 4;
+}
+
+// Bounds on one segmented log. Unset fields take the owning log's defaults.
+message AgentLogBounds {
+  // Maximum disk bytes including segment and record headers. At least 1 MiB.
+  int64 max_bytes = 1 [(buf.validate.field).int64.gte = 1048576];
+  // Maximum segment age before discard. At least twenty minutes.
+  google.protobuf.Duration max_age = 2 [(buf.validate.field).duration.gte = {seconds: 1200}];
 }
 
 // How much the agent logs locally.

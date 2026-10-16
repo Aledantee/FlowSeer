@@ -39,11 +39,14 @@ var (
 	ErrCodeConfigInvalid = errs.NewCode("agent/config-invalid")
 )
 
-// Defaults for the intervals a deployment leaves unset. Each is the value the
-// package that consumes it would have used anyway; they are named here so a
-// reader of the configuration finds them in one place, and so the schema
-// comments have something true to point at.
+// Defaults for omitted deployment fields. Segment and record bounds are fixed
+// so a sealed segment fits one delivery request.
 const (
+	defaultIngestBytes          = 192 << 20
+	defaultTelemetryBytes       = 64 << 20
+	defaultBufferAge            = 7 * 24 * time.Hour
+	defaultSegmentBytes         = 512 << 10
+	defaultRecordBytes          = 256 << 10
 	defaultHeartbeat            = 30 * time.Second
 	defaultDispatchFloor        = time.Second
 	defaultDispatchCeiling      = 30 * time.Second
@@ -111,7 +114,7 @@ func loadProvisioning(path string) (*edgev1.EdgeProvisioning, error) {
 }
 
 // StateDir is the directory the agent owns: its key pair, its enrollment
-// answer, and the leaf node's credential file and buffer.
+// answer, and the ingest and telemetry logs.
 func (c *Config) StateDir() string { return c.msg.GetStateDir() }
 
 // CentralURL is the base URL this edge dials, from its provisioning.
@@ -141,13 +144,24 @@ func (c *Config) DispatchBackoff() (minimum, maximum time.Duration) {
 		duration(intervals.GetDispatchBackoffMax(), defaultDispatchCeiling)
 }
 
-// Buffer bounds what the leaf node may hold locally. A zero is the bus
-// module's own default rather than "no buffer": this configuration passes the
-// value through, and the module owns the default because the module owns the
-// storage.
-func (c *Config) Buffer() (maxBytes int64, maxAge time.Duration) {
-	buffer := c.msg.GetBuffer()
-	return buffer.GetMaxBytes(), buffer.GetMaxAge().AsDuration()
+// IngestBuffer bounds device records held locally. Unset fields default to
+// 192 MiB and seven days.
+func (c *Config) IngestBuffer() (maxBytes int64, maxAge time.Duration) {
+	return logBounds(c.msg.GetBuffer().GetIngest(), defaultIngestBytes)
+}
+
+// TelemetryBuffer bounds the agent's own telemetry held locally. Unset fields
+// default to 64 MiB and seven days.
+func (c *Config) TelemetryBuffer() (maxBytes int64, maxAge time.Duration) {
+	return logBounds(c.msg.GetBuffer().GetTelemetry(), defaultTelemetryBytes)
+}
+
+func logBounds(bounds *agentv1.AgentLogBounds, fallback int64) (int64, time.Duration) {
+	bytes := bounds.GetMaxBytes()
+	if bytes == 0 {
+		bytes = fallback
+	}
+	return bytes, duration(bounds.GetMaxAge(), defaultBufferAge)
 }
 
 // LogLevel is how much this deployment wants written locally. Unset is INFO,
