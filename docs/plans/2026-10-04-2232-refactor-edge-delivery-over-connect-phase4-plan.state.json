@@ -6,10 +6,10 @@
   "review_rounds": 0,
   "compound": null,
   "outcome": {
-    "units": 2,
+    "units": 3,
     "from": "2026-10-16T11:59:44Z",
-    "to": "2026-10-16T12:13:19Z",
-    "note": "Edgebus removal blocked: integration citation gate requires editing the excluded operator-authorization direction record. Record and solution units wait on the removal."
+    "to": "2026-10-16T13:21:32Z",
+    "note": "Edgebus removal verified. Documentation branches prepared but unmerged: dependency Decision requires updating the nkeys statement, absent from every unit Files list. Brief forbids out-of-scope edits."
   },
   "superseded_by": null,
   "branch": "edp4-implement2",
