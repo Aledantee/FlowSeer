@@ -54,8 +54,8 @@ class Store:
             "CREATE TABLE decisions (id TEXT PRIMARY KEY, task_id TEXT NOT NULL REFERENCES tasks(id), revision INTEGER NOT NULL, commit_id TEXT, diff_digest TEXT, request_id TEXT NOT NULL, payload TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','answered','cancelled')), UNIQUE(task_id, request_id))",
             "CREATE TABLE drafts (chat_id INTEGER NOT NULL, thread_id INTEGER NOT NULL, draft_id INTEGER NOT NULL, task_id TEXT NOT NULL REFERENCES tasks(id), PRIMARY KEY(chat_id, thread_id, draft_id))",
             "CREATE TABLE messages (chat_id INTEGER NOT NULL, thread_id INTEGER NOT NULL, message_id INTEGER NOT NULL, task_id TEXT NOT NULL REFERENCES tasks(id), decision_id TEXT REFERENCES decisions(id), PRIMARY KEY(chat_id, message_id))",
-            "CREATE TABLE callbacks (id TEXT PRIMARY KEY, task_id TEXT REFERENCES tasks(id), decision_id TEXT REFERENCES decisions(id), revision INTEGER, option_id TEXT, agent TEXT, model TEXT, brief TEXT, used INTEGER NOT NULL DEFAULT 0)",
-            "CREATE TABLE inbound (update_id INTEGER PRIMARY KEY, payload TEXT NOT NULL, result TEXT NOT NULL)",
+            "CREATE TABLE callbacks (id TEXT PRIMARY KEY, task_id TEXT REFERENCES tasks(id), decision_id TEXT REFERENCES decisions(id), revision INTEGER, option_id TEXT, agent TEXT, model TEXT, brief TEXT, card_id TEXT, used INTEGER NOT NULL DEFAULT 0)",
+            "CREATE TABLE inbound (update_id TEXT PRIMARY KEY, payload TEXT NOT NULL, result TEXT NOT NULL)",
             "CREATE TABLE events (id INTEGER PRIMARY KEY, task_id TEXT NOT NULL REFERENCES tasks(id), kind TEXT NOT NULL, payload TEXT NOT NULL, event_key TEXT UNIQUE)",
             "CREATE TABLE operations (id TEXT PRIMARY KEY, task_id TEXT NOT NULL REFERENCES tasks(id), kind TEXT NOT NULL, operation_key TEXT NOT NULL UNIQUE, state TEXT NOT NULL CHECK(state IN ('intended','running','succeeded','failed','blocked')))",
             "CREATE UNIQUE INDEX one_open_operation ON operations(task_id) WHERE state IN ('intended','running')",
@@ -108,6 +108,7 @@ class Store:
             task = self._task(connection, task_id)
             revision = task["revision"] + 1
             connection.execute("UPDATE tasks SET revision = ?, commit_id = ?, diff_digest = ? WHERE id = ?", (revision, commit, diff_digest, task_id))
+            connection.execute("UPDATE decisions SET status = 'cancelled' WHERE task_id = ? AND status = 'pending'", (task_id,))
             return revision
 
     def request_decision(self, task_id: str, payload: dict) -> str:
@@ -152,12 +153,22 @@ class Store:
     def issue_agent_option(self, pair: AgentModel, brief: str | None = None) -> str:
         if pair not in (self.config.default, *self.config.alternatives):
             raise ValueError("unconfigured agent and model")
+        return self._issue_agent_options((pair,), brief)[0]
+
+    def issue_agent_options(self, brief: str) -> tuple[str, ...]:
+        return self._issue_agent_options((self.config.default, *self.config.alternatives), brief)
+
+    def _issue_agent_options(self, pairs: tuple[AgentModel, ...], brief: str | None) -> tuple[str, ...]:
         if brief is not None and (not isinstance(brief, str) or not brief.strip()):
             raise ValueError("task brief must be nonempty")
         with self._write() as connection:
-            callback = secrets.token_hex(16)
-            connection.execute("INSERT INTO callbacks (id, agent, model, brief) VALUES (?,?,?,?)", (callback, pair.agent, pair.model, brief))
-            return callback
+            card_id = secrets.token_hex(16)
+            callbacks = []
+            for pair in pairs:
+                callback = secrets.token_hex(16)
+                connection.execute("INSERT INTO callbacks (id, agent, model, brief, card_id) VALUES (?,?,?,?,?)", (callback, pair.agent, pair.model, brief, card_id))
+                callbacks.append(callback)
+            return tuple(callbacks)
 
     def _topic(self, connection: sqlite3.Connection, task_id: str) -> sqlite3.Row:
         topic = connection.execute("SELECT * FROM topics WHERE task_id = ?", (task_id,)).fetchone()
@@ -227,12 +238,19 @@ class Store:
     def ingest(self, update: dict) -> dict:
         if type(update.get("update_id")) is not int:
             raise ValueError("update_id must be an integer")
+        update_id = str(update["update_id"])
         with self._write() as connection:
-            old = connection.execute("SELECT result FROM inbound WHERE update_id = ?", (update["update_id"],)).fetchone()
+            old = connection.execute("SELECT result FROM inbound WHERE update_id = ?", (update_id,)).fetchone()
             if old:
                 return json.loads(old["result"])
-            result = self._apply(connection, update)
-            connection.execute("INSERT INTO inbound VALUES (?,?,?)", (update["update_id"], encode(update), encode(result)))
+            connection.execute("SAVEPOINT inbound_effect")
+            try:
+                result = self._apply(connection, update)
+            except sqlite3.IntegrityError:
+                connection.execute("ROLLBACK TO inbound_effect")
+                result = self._result("state_conflict")
+            connection.execute("RELEASE inbound_effect")
+            connection.execute("INSERT INTO inbound VALUES (?,?,?)", (update_id, encode(update), encode(result)))
             return result
 
     def _result(self, reason: str, **fields) -> dict:
@@ -244,7 +262,13 @@ class Store:
             return self._result("unauthorized")
         if kind != "stop" and (type(update.get("sender_id")) is not int or update["sender_id"] != self.config.allowed_user_id):
             return self._result("unauthorized")
+        thread_id = update.get("thread_id")
+        if thread_id is not None and (type(thread_id) is not int or not 0 < thread_id < 2 ** 63):
+            return self._result("invalid_topic")
         if kind == "stop":
+            draft_id = update.get("draft_id")
+            if type(draft_id) is not int or not 0 < draft_id < 2 ** 63:
+                return self._result("draft_mismatch")
             draft = connection.execute("SELECT task_id FROM drafts WHERE chat_id = ? AND thread_id = ? AND draft_id = ?", (update["chat_id"], update.get("thread_id"), update.get("draft_id"))).fetchone()
             if not draft:
                 return self._result("draft_mismatch")
@@ -255,6 +279,8 @@ class Store:
         if kind == "new_task":
             return self._new_task(connection, update, self.config.default)
         if kind == "callback":
+            if not isinstance(update.get("callback_id"), str):
+                return self._result("unknown_callback")
             callback = connection.execute("SELECT * FROM callbacks WHERE id = ?", (update.get("callback_id"),)).fetchone()
             if callback is None:
                 return self._result("unknown_callback")
@@ -264,10 +290,13 @@ class Store:
                 request = update if callback["brief"] is None else update | {"brief": callback["brief"]}
                 result = self._new_task(connection, request, AgentModel(callback["agent"], callback["model"]))
                 if result["accepted"]:
-                    connection.execute("UPDATE callbacks SET used = 1 WHERE id = ?", (callback["id"],))
+                    connection.execute("UPDATE callbacks SET used = 1 WHERE card_id = ?", (callback["card_id"],))
                 return result
             return self._respond(connection, update, callback["task_id"], callback["decision_id"], callback["option_id"], None)
         if kind == "message":
+            message_id = update.get("reply_to_message_id")
+            if type(message_id) is not int or not 0 < message_id < 2 ** 63:
+                return self._result("message_mismatch")
             message = connection.execute("SELECT * FROM messages WHERE chat_id = ? AND message_id = ? AND thread_id = ?", (update["chat_id"], update.get("reply_to_message_id"), update.get("thread_id"))).fetchone()
             if message is None or message["decision_id"] is None:
                 return self._result("message_mismatch")
@@ -291,7 +320,9 @@ class Store:
         return self._result("accepted", task_id=task_id, thread_id=thread_id)
 
     def _respond(self, connection: sqlite3.Connection, update: dict, task_id: str, decision_id: str, option: str | None, text: str | None) -> dict:
-        topic = self._topic(connection, task_id)
+        topic = connection.execute("SELECT * FROM topics WHERE task_id = ?", (task_id,)).fetchone()
+        if topic is None:
+            return self._result("no_topic")
         if topic["chat_id"] != update["chat_id"] or topic["thread_id"] != update.get("thread_id"):
             return self._result("topic_mismatch")
         decision = connection.execute("SELECT * FROM decisions WHERE id = ? AND task_id = ?", (decision_id, task_id)).fetchone()

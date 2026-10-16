@@ -66,7 +66,8 @@ class DecisionSummary:
 
 
 def new_task_summary(store: Store, brief: str) -> NewTaskSummary:
-    choices = tuple(AgentChoice(pair.agent, pair.model, store.issue_agent_option(pair, brief=brief)) for pair in (store.config.default, *store.config.alternatives))
+    callbacks = store.issue_agent_options(brief)
+    choices = tuple(AgentChoice(pair.agent, pair.model, callback) for pair, callback in zip((store.config.default, *store.config.alternatives), callbacks))
     return NewTaskSummary(brief, choices[0], choices[1:])
 
 
@@ -109,8 +110,12 @@ def _card(blocks: list[dict]) -> dict:
 
 
 def overview(summary: OverviewSummary) -> dict:
+    groups = ('active', 'awaiting decision', 'blocked', 'finished')
+    for task in summary.tasks:
+        if task.state not in groups:
+            raise ValueError(f'unknown task state: {task.state}')
     blocks = []
-    for group in ('active', 'awaiting decision', 'blocked', 'finished'):
+    for group in groups:
         tasks = [task for task in summary.tasks if task.state == group]
         blocks.append(_heading(group.capitalize()))
         cells = [[{'text': title, 'is_header': True, 'align': 'left', 'valign': 'top'} for title in ('Task', 'Title', 'Outcome')]]

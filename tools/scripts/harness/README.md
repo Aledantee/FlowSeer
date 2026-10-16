@@ -128,15 +128,18 @@ operations. The crash and concurrent-writer tests are in
 stateDiagram-v2
     [*] --> pending: request_decision
     pending --> answered: matching reply or option
-    pending --> cancelled: cancel_decision
+    pending --> cancelled: cancel_decision or revise_task
     answered --> answered: repeated answer refused
     cancelled --> cancelled: answer refused
 ```
 
 A decision stores the task revision, commit ID, and diff digest at issue
-time. `revise_task` advances the revision and binds a new proposal. A reply
-against an older fingerprint is refused. `issue_callback` stores a random
-32-byte hexadecimal ID mapped to its task, decision, revision, and option.
+time. `revise_task` advances the revision, binds a new proposal, and cancels
+pending decisions in the same transaction so waiting asks exit 3. Retrying
+the same request ID returns the cancelled decision. A reply against an
+older fingerprint still reports `obsolete_revision`. `issue_callback` stores
+a random 32-byte hexadecimal ID mapped to its task, decision, revision,
+and option.
 A null option requests a Custom Answer without resolving the decision.
 `map_message` binds the reply message to that task and decision.
 
@@ -156,7 +159,8 @@ carry button data and message context. Bind a received natural-language
 brief before issuing agent/model buttons:
 
 ```python
-callback = store.issue_agent_option(config.alternatives[0], brief="Build storage")
+callbacks = store.issue_agent_options("Build storage")
+callback = callbacks[1]
 result = store.ingest({
     "update_id": 18, "kind": "callback", "sender_id": 7,
     "chat_id": 11, "thread_id": None, "callback_id": callback,
@@ -164,19 +168,28 @@ result = store.ingest({
 store.attach_topic(result["task_id"], 4)
 ```
 
-The stored brief and pair survive restart. A consumed agent/model callback
-cannot create another task. Callers that already carry a brief may omit it
-at issue time and supply it on the normalized update. Topic creation is
+The stored brief and pair survive restart. `issue_agent_options` issues
+one card's callbacks in configured order, default first. Accepting any
+button consumes the whole card in the task creation transaction so sibling
+buttons cannot create another task. `issue_agent_option` issues a standalone
+button. Callers that already carry a brief may omit it for that button at
+issue time and supply it on the normalized update. Topic creation is
 external to this store. `create_task` and `attach_topic` also support trusted
 local setup. Use `map_draft` to bind native Stop controls before delivery.
 
-Every inbound dictionary is committed with an accepted or rejected result
-before `ingest` returns. A replay returns that original result. A caller
-advances its polling offset only after that return. Sender and chat must
+Every inbound dictionary with an integer `update_id` is committed with an
+accepted or rejected result before `ingest` returns. A replay returns that
+original result. A caller advances its polling offset only after that
+return. Sender and chat must
 match configuration. Stops have no sender and require the full stored
 chat, topic, and draft mapping. Refused callbacks and replies report a
 specific reason such as `unknown_callback`, `topic_mismatch`,
 `obsolete_revision`, or `already_answered` and produce no task event.
+A decision callback for a task without a topic reports `no_topic`.
+Malformed routing IDs are rejected before lookup. Inbound IDs are stored
+as decimal text to preserve integers outside SQLite's integer range.
+A constraint failure rolls back the update's effects to a savepoint and
+records `state_conflict`, preserving the inbound result without a partial task.
 
 Progress deduplication compares canonical content with the last queued
 progress for the task. Bridge request IDs do not enter that digest. A
