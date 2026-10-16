@@ -26,7 +26,7 @@ import (
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/seglog"
 )
 
-const logAttrKey = "flowseer.edge.buffer.log"
+const logAttrKey = drain.LogKey
 
 // scripted is a Send whose answer a test decides per call. It keeps a copy of
 // every call's records and the fake time of the call.
@@ -636,6 +636,74 @@ func runAgeBound(t *testing.T, logger *slog.Logger) [][]string {
 	idle()
 	r.mustStop(t)
 	return s.snapshot()
+}
+
+func runOnlyRecordToAgeBound(t *testing.T) (*running, *capture) {
+	t.Helper()
+	l := openLog(t, t.TempDir(), seglog.Config{MaxAge: time.Hour, RollAge: 10 * time.Minute})
+	appendAll(t, l, "a001")
+	s := &scripted{fn: func(int, []string) (int, error) { return 0, nil }}
+	c := &capture{}
+	cfg := baseConfig(l, s)
+	cfg.Logger = slog.New(c)
+	r := start(cfg)
+	t.Cleanup(r.stop)
+
+	// The retry after the hour bound evicts the only record, then Next waits.
+	time.Sleep(time.Hour + 2*time.Second)
+	synctest.Wait()
+	stats, err := l.Stats()
+	if err != nil || stats.Records != 0 || stats.DiscardedRecords != 1 {
+		t.Fatalf("Stats() = %+v, %v, want no records and one discarded record", stats, err)
+	}
+	if got := s.snapshot(); len(got) == 0 || !reflect.DeepEqual(got[0], []string{"a001"}) {
+		t.Fatalf("calls = %v, want the only record sent before eviction", got)
+	}
+	return r, c
+}
+
+func TestTheOnlyRecordAgingOutWarnsWhileNextWaits(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		r, c := runOnlyRecordToAgeBound(t)
+		idle()
+		select {
+		case err := <-r.done:
+			r.done <- err
+			t.Fatalf("Run() returned %v, want the drain still waiting", err)
+		default:
+		}
+		warnings := c.warnings()
+		if len(warnings) != 1 {
+			t.Fatalf("warnings = %d, want 1: %v", len(warnings), warnings)
+		}
+		if got := attrOf(warnings[0], logAttrKey); got.String() != "ingest" {
+			t.Errorf("%s = %q, want ingest", logAttrKey, got.String())
+		}
+		if got := attrOf(warnings[0], "flowseer.edge.buffer.discarded_records"); got.Int64() != 1 {
+			t.Errorf("discarded records = %d, want 1", got.Int64())
+		}
+		r.mustStop(t)
+		if got := len(c.warnings()); got != 1 {
+			t.Errorf("warnings after shutdown = %d, want 1", got)
+		}
+	})
+}
+
+func TestShutdownWarnsOnADiscardBeforeNextReturns(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		r, c := runOnlyRecordToAgeBound(t)
+		if got := len(c.warnings()); got != 0 {
+			t.Fatalf("warnings before shutdown = %d, want 0 before the bounded wait expires", got)
+		}
+		r.mustStop(t)
+		warnings := c.warnings()
+		if len(warnings) != 1 {
+			t.Fatalf("warnings before Run returns = %d, want 1: %v", len(warnings), warnings)
+		}
+		if got := attrOf(warnings[0], logAttrKey); got.String() != "ingest" {
+			t.Errorf("%s = %q, want ingest", logAttrKey, got.String())
+		}
+	})
 }
 
 func TestAPartialSettleThenTheAgeBoundRestartsTheNextSegmentFromItsFirstRecord(t *testing.T) {
