@@ -105,7 +105,7 @@ type fixture struct {
 
 func newFixture(t *testing.T) *fixture {
 	t.Helper()
-	hub, err := edgebus.StartHub(t.Context(), edgebus.HubConfig{StateDir: t.TempDir(), FsyncPolicy: service.BusFsyncPeriodic, ListenPort: 0})
+	hub, err := edgebus.StartHub(t.Context(), edgebus.HubConfig{StateDir: t.TempDir(), FsyncPolicy: service.BusFsyncPeriodic})
 	if err != nil {
 		t.Fatal(err)
 	}
