@@ -11,9 +11,7 @@
   "parent": null,
   "after": [],
   "landed": null,
-  "phases": [
-    "docs/plans/2026-10-04-2232-refactor-edge-delivery-over-connect-phase4-plan.md"
-  ],
+  "phases": [],
   "retired": [
     {
       "plan": "docs/plans/2026-10-04-2232-refactor-edge-delivery-over-connect-phase1-plan.md",
@@ -37,6 +35,14 @@
       "landed": {
         "first": "20437173",
         "last": "8345562e"
+      }
+    },
+    {
+      "plan": "docs/plans/2026-10-04-2232-refactor-edge-delivery-over-connect-phase4-plan.md",
+      "status": "implemented",
+      "landed": {
+        "first": "75f3c8ea",
+        "last": "1e7365fa"
       }
     }
   ]
