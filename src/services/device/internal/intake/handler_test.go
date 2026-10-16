@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -176,19 +177,25 @@ func TestForeignProvenanceIsSettledAndRefused(t *testing.T) {
 	}
 }
 
-// failingPublisher refuses its failAt-th call and forwards the rest.
 type failingPublisher struct {
-	mu      sync.Mutex
-	inner   Publisher
-	failAt  int
-	failure error
-	calls   int
+	mu          sync.Mutex
+	inner       Publisher
+	failAt      int
+	failure     error
+	calls       int
+	failSubject string
+	failed      bool
+	subjects    []string
 }
 
 func (p *failingPublisher) Publish(ctx context.Context, subject string, data []byte, opts ...jetstream.PublishOpt) (*jetstream.PubAck, error) {
 	p.mu.Lock()
 	p.calls++
-	fail := p.calls == p.failAt
+	p.subjects = append(p.subjects, subject)
+	fail := p.calls == p.failAt || (subject == p.failSubject && !p.failed)
+	if fail {
+		p.failed = true
+	}
 	p.mu.Unlock()
 	if fail {
 		return nil, p.failure
@@ -233,6 +240,66 @@ func TestFullTypedStreamStopsTheCount(t *testing.T) {
 	}
 }
 
+func TestRawPublicationFailureRedelivers(t *testing.T) {
+	typedSubject := edgebus.CentralIngestSubject(testTenant, edgebus.IngestRecordTypeSyslog, testDevice)
+	evidenceSubject := edgebus.EvidenceSubject(testTenant, edgebus.IngestRecordTypeSyslog, testDevice)
+	for _, tc := range []struct {
+		name         string
+		failSubject  string
+		wantTyped    uint64
+		wantReason   string
+		wantSubjects []string
+	}{
+		{"typed", typedSubject, 0, reasonStreamFull, []string{typedSubject, typedSubject, evidenceSubject}},
+		{"evidence", evidenceSubject, 1, reasonPublishFailed, []string{typedSubject, evidenceSubject, typedSubject, evidenceSubject}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var publisher *failingPublisher
+			s := newHandlerSystem(t, handlerOptions{central: func(hub *edgebus.Hub) Publisher {
+				publisher = &failingPublisher{
+					inner: hub.JetStream(), failSubject: tc.failSubject,
+					failure: fmt.Errorf("nats: %w", &jetstream.APIError{Code: 503, ErrorCode: 10077, Description: "maximum bytes exceeded"}),
+				}
+				return publisher
+			}})
+			delivered := record(t, testEdge, testRecordID, true)
+			if got := mustDeliver(t, s, delivered); got != 0 {
+				t.Fatalf("settled = %d, want 0", got)
+			}
+			if got := s.typedMessages(t); got != tc.wantTyped {
+				t.Errorf("typed messages before retry = %d, want %d", got, tc.wantTyped)
+			}
+			_, evidence := centralStreams(t, s.hub)
+			info, err := evidence.Info(context.Background())
+			if err != nil {
+				t.Fatalf("evidence stream info: %v", err)
+			}
+			if got := info.State.Msgs; got != 0 {
+				t.Errorf("evidence messages before retry = %d, want 0", got)
+			}
+			if got := metricValue(t, s.reader, "flowseer.intake.records.retried", "flowseer.intake.reason", tc.wantReason); got != 1 {
+				t.Errorf("%s retries = %d, want 1", tc.wantReason, got)
+			}
+			if got := mustDeliver(t, s, delivered); got != 1 {
+				t.Fatalf("settled on retry = %d, want 1", got)
+			}
+			if got := s.typedMessages(t); got != 1 {
+				t.Errorf("typed messages after retry = %d, want 1", got)
+			}
+			info, err = evidence.Info(context.Background())
+			if err != nil {
+				t.Fatalf("evidence stream info after retry: %v", err)
+			}
+			if got := info.State.Msgs; got != 1 {
+				t.Errorf("evidence messages after retry = %d, want 1", got)
+			}
+			if !slices.Equal(publisher.subjects, tc.wantSubjects) {
+				t.Errorf("publish subjects = %v, want %v", publisher.subjects, tc.wantSubjects)
+			}
+		})
+	}
+}
+
 func TestTenantComesFromTheEdgeStore(t *testing.T) {
 	var asked string
 	s := newHandlerSystem(t, handlerOptions{edgeTenant: func(_ context.Context, edgeID string) (string, error) {
@@ -270,19 +337,39 @@ func TestTenantLookupErrorIsUnavailable(t *testing.T) {
 
 func TestBatchDeliveredTwiceIsStoredOnce(t *testing.T) {
 	s := newHandlerSystem(t, handlerOptions{})
-	delivered := record(t, testEdge, testRecordID, false)
+	delivered := []*ingestv1.IngestRecord{
+		record(t, testEdge, testRecordID, true),
+		record(t, testEdge, otherRecordID, true),
+	}
 
 	for attempt := 1; attempt <= 2; attempt++ {
-		if got := mustDeliver(t, s, delivered); got != 1 {
-			t.Fatalf("attempt %d: settled = %d, want 1", attempt, got)
+		if got := mustDeliver(t, s, delivered...); got != 2 {
+			t.Fatalf("attempt %d: settled = %d, want 2", attempt, got)
 		}
 	}
 
-	if got := s.typedMessages(t); got != 1 {
-		t.Errorf("typed messages = %d, want 1", got)
+	if got := s.typedMessages(t); got != 2 {
+		t.Errorf("typed messages = %d, want 2", got)
 	}
-	if got := metricValue(t, s.reader, "flowseer.intake.records.duplicate", "flowseer.intake.record_type", edgebus.IngestRecordTypeSyslog); got != 1 {
-		t.Errorf("duplicates = %d, want 1", got)
+	_, evidence := centralStreams(t, s.hub)
+	info, err := evidence.Info(context.Background())
+	if err != nil {
+		t.Fatalf("evidence stream info: %v", err)
+	}
+	if got := info.State.Msgs; got != 2 {
+		t.Errorf("evidence messages = %d, want 2", got)
+	}
+	for _, counter := range []struct {
+		name string
+		want int64
+	}{
+		{"flowseer.intake.records.republished", 4},
+		{"flowseer.intake.evidence.stored", 4},
+		{"flowseer.intake.records.duplicate", 2},
+	} {
+		if got := metricValue(t, s.reader, counter.name, "flowseer.intake.record_type", edgebus.IngestRecordTypeSyslog); got != counter.want {
+			t.Errorf("%s = %d, want %d", counter.name, got, counter.want)
+		}
 	}
 }
 
