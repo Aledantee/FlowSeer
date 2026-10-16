@@ -81,8 +81,8 @@ func TestOpenMirrorUDP_RealPktinfo(t *testing.T) {
 	frames := make(chan Frame, 1)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	src := &linuxMirrorSource{done: make(chan struct{})}
-	go src.runMirrorLoop(ctx, sock, decodeUDP, frames)
+	src := &mirrorSource{done: make(chan struct{})}
+	go src.runMirrorLoop(ctx, linuxMirrorSocket(sock), decodeUDP, frames)
 
 	select {
 	case f := <-frames:

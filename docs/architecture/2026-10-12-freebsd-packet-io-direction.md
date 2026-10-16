@@ -85,9 +85,20 @@ until their suites pass there.
   instructions working, which `filter.Compile` allows (`maxInstructions` in
   `src/modules/capture/filter/compile.go`). The cost is that every frame is
   copied out of the kernel.
-- **Local capture** reports `bs_recv - bs_drop` as received and `bs_drop`
-  as dropped, as deltas since the last `Stats` call, with modular `uint32`
-  arithmetic. That matches the Linux contract in `rawsocket.Source.Stats`.
+- **Local capture** opens its device with `BPF_D_INOUT` and `Immediate`.
+  A zero `Config` would apply `BPF_D_IN`, which would hide the frames the
+  host itself sends from a capture of a local interface. `Immediate` makes a
+  read return as soon as a frame arrives, instead of when the buffer fills
+  or the read timeout expires, so capture latency does not depend on the
+  traffic rate.
+- **Local capture** computes each counter's delta with modular `uint32`
+  arithmetic. It reports at most the receive delta as dropped and reports
+  the remainder as received. Excess drops carry into the next sample by
+  advancing the drop baseline only by the reported drops
+  (`src/modules/capture/rawsocket/stats_delta.go`). FreeBSD 14.3 reads
+  `bs_recv` before `bs_drop` without a lock, so a concurrent packet can
+  appear in the drop count before the receive count
+  ([`sys/net/bpf.c`, lines 1709–1710](https://github.com/freebsd/freebsd-src/blob/releng/14.3/sys/net/bpf.c#L1709-L1710)).
 - **Local capture** takes `CapturedAt` from the BPF header's timestamp,
   which is the kernel's receive time.
 - **Local capture** refuses an interface whose `BIOCGDLT` is not

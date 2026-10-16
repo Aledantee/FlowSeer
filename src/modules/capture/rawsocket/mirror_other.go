@@ -1,8 +1,6 @@
-// mirror_other.go is the non-Linux stub. Raw IP sockets and IP_PKTINFO are
-// Linux-specific here, so on every other platform OpenMirrorReceiver returns
-// ErrUnsupportedPlatform.
+// Platforms without a mirror socket implementation return ErrUnsupportedPlatform.
 //
-//go:build !linux
+//go:build !linux && !(freebsd && (amd64 || arm64))
 
 package rawsocket
 

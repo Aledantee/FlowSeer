@@ -25,13 +25,13 @@ var ErrCodeSourceOpen = errs.NewCode("capture/source-open")
 var ErrCodeUnsupportedPlatform = errs.NewCode("capture/unsupported-platform")
 
 // ErrUnsupportedPlatform is returned by OpenLocalInterface and
-// OpenMirrorReceiver on a platform with no AF_PACKET or raw-socket
-// implementation.
+// OpenMirrorReceiver on a platform with no AF_PACKET, BPF device, or
+// raw-socket implementation.
 var ErrUnsupportedPlatform = errs.New().
 	Code(ErrCodeUnsupportedPlatform).
 	UserMsg("raw packet capture is not supported on this platform").
-	Hint("run on Linux, where the capture engine uses AF_PACKET and raw IP sockets").
-	Msg("capture source is linux-only")
+	Hint("run on Linux, where the capture engine uses AF_PACKET and raw IP sockets, or on FreeBSD, where it uses BPF devices").
+	Msg("capture source is supported on linux and freebsd only")
 
 // IsUnsupported reports whether err is the unsupported-platform failure. It
 // matches through the code, so a wrapped or wire-reconstructed variant still
@@ -87,8 +87,9 @@ type Source interface {
 // OpenLocalInterface opens iface as a capture source: promiscuous when
 // asked, with prog applied after any VLAN tag removed by receive offload is
 // restored. An empty prog accepts every packet, matching filter.Compile's
-// own empty-filter contract. On Linux this is an AF_PACKET socket; elsewhere
-// it returns ErrUnsupportedPlatform.
+// own empty-filter contract. On Linux this is an AF_PACKET socket and on
+// FreeBSD (amd64, arm64) a BPF device in both directions, which refuses an
+// interface that is not Ethernet; elsewhere it returns ErrUnsupportedPlatform.
 func OpenLocalInterface(iface string, promiscuous bool, prog []bpf.RawInstruction) (Source, error) {
 	return openLocalInterface(iface, promiscuous, prog)
 }
@@ -99,8 +100,9 @@ func OpenLocalInterface(iface string, promiscuous bool, prog []bpf.RawInstructio
 // UDP-family arms (vxlan, tzsp), each bound to bindInterface when it is not
 // empty. prog runs against each decapsulated inner frame through
 // golang.org/x/net/bpf's VM; its field offsets assume an Ethernet frame
-// starting after the envelope. On Linux this opens real sockets; elsewhere
-// it returns ErrUnsupportedPlatform.
+// starting after the envelope. Linux binds sockets to bindInterface in the
+// kernel. FreeBSD (amd64 and arm64) drops datagrams from other receive
+// interfaces before counting them. Other platforms return ErrUnsupportedPlatform.
 func OpenMirrorReceiver(encapsulations []capturev1.MirrorEncapsulation, udpPort uint32, bindInterface string, prog []bpf.RawInstruction) (Source, error) {
 	return openMirrorReceiver(encapsulations, udpPort, bindInterface, prog)
 }
