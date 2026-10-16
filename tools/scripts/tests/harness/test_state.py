@@ -76,6 +76,76 @@ class StateTest(unittest.TestCase):
         self.assertEqual(self.store.ingest(self.update(callback_id="forged"))["reason"], "unknown_callback")
         self.assertEqual(self.rows("answers"), [])
 
+    def test_topicless_callback_is_durably_rejected(self):
+        task = self.store.create_task("No topic")
+        decision = self.store.request_decision(task, question())
+        callback = self.store.issue_callback(task, decision, "sqlite")
+        update = self.update(callback_id=callback, thread_id=None)
+        try:
+            result = self.store.ingest(update)
+        except ValueError as error:
+            self.fail(f"ingest raised instead of recording rejection: {error}")
+        self.assertEqual(result["reason"], "no_topic")
+        self.assertEqual(Store(self.config).ingest(update), result)
+        self.assertEqual(len(self.rows("inbound")), 1)
+        self.assertEqual(self.rows("events"), [])
+        self.assertEqual(self.rows("answers"), [])
+        self.assertTrue(self.store.ingest(self.update(2))["accepted"])
+
+    def test_malformed_routing_ids_are_durably_rejected(self):
+        self.store.map_draft(self.task, 9)
+        self.store.map_message(self.task, 12, self.decision)
+        cases = []
+        for value in ([], {}, True, 1.5, "3", 2 ** 80):
+            cases.extend((
+                {"callback_id": value},
+                {"thread_id": value},
+                {"kind": "stop", "thread_id": value, "draft_id": 9},
+                {"kind": "message", "thread_id": value, "reply_to_message_id": 12, "text": "Answer"},
+                {"kind": "stop", "draft_id": value},
+                {"kind": "message", "reply_to_message_id": value, "text": "Answer"},
+            ))
+        for number, fields in enumerate(cases, 1):
+            with self.subTest(fields=fields):
+                update = self.update(number, **fields)
+                try:
+                    result = self.store.ingest(update)
+                except (sqlite3.Error, OverflowError, ValueError) as error:
+                    self.fail(f"ingest raised instead of recording rejection: {error}")
+                self.assertFalse(result["accepted"])
+                self.assertEqual(Store(self.config).ingest(update), result)
+        self.assertEqual(len(self.rows("inbound")), len(cases))
+        self.assertEqual(self.rows("events"), [])
+        self.assertEqual(self.rows("answers"), [])
+
+    def test_topic_constraint_rejection_rolls_back_task(self):
+        create = self.store._create_task
+
+        def occupied_topic(connection, brief, pair, thread_id):
+            return create(connection, brief, pair, 3)
+
+        update = self.update(kind="new_task", brief="Conflict", thread_id=4)
+        with patch.object(self.store, "_create_task", side_effect=occupied_topic):
+            try:
+                result = self.store.ingest(update)
+            except sqlite3.IntegrityError as error:
+                self.fail(f"ingest raised instead of recording rejection: {error}")
+        self.assertEqual(result["reason"], "state_conflict")
+        self.assertEqual(Store(self.config).ingest(update), result)
+        self.assertEqual(len(self.rows("tasks")), 1)
+        self.assertEqual(len(self.rows("inbound")), 1)
+        self.assertEqual(self.rows("events"), [])
+
+    def test_large_integer_update_id_is_durable(self):
+        update = self.update(2 ** 80, callback_id="unknown")
+        try:
+            result = self.store.ingest(update)
+        except (sqlite3.Error, OverflowError) as error:
+            self.fail(f"ingest raised instead of recording rejection: {error}")
+        self.assertEqual(result["reason"], "unknown_callback")
+        self.assertEqual(Store(self.config).ingest(update), result)
+        self.assertEqual(len(self.rows("inbound")), 1)
+
     def test_concurrent_writers_one_answer(self):
         barrier = threading.Barrier(2)
 

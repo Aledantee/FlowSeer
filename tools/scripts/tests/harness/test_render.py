@@ -51,7 +51,8 @@ class RenderTest(unittest.TestCase):
         card = render.new_task(summary)
         self.assertIn('claude / default-model', json.dumps(card))
         self.assertEqual([b['text'] for b in buttons(card)], ['claude / default-model (default)', 'codex / gpt-5.5'])
-        for index, (button, pair) in enumerate(zip(buttons(card), (store.config.default, *store.config.alternatives))):
+        for index, pair in enumerate((store.config.default, *store.config.alternatives)):
+            button = buttons(render.new_task(render.new_task_summary(store, 'Build storage')))[index]
             self.assertLessEqual(len(button['callback_data'].encode()), 32)
             raw = fixture('callback')
             raw['update_id'] = 200 + index
@@ -65,6 +66,25 @@ class RenderTest(unittest.TestCase):
             self.assertEqual(store.ingest(update), result)
         prompt = render.new_task(render.NewTaskSummary('Send a brief', summary.default, summary.alternatives))
         self.assertIn('Send a brief', json.dumps(prompt))
+
+    def test_overview_refuses_unknown_state(self):
+        summary = render.OverviewSummary((render.TaskSummary('t', 'Storage', 'cancel_requested', 'Waiting'),))
+        with self.assertRaisesRegex(ValueError, 'cancel_requested'):
+            render.overview(summary)
+
+    def test_new_task_card_consumes_sibling_buttons(self):
+        store = self.store()
+        summary = render.new_task_summary(store, 'Build storage')
+        update = {'update_id': 1, 'kind': 'callback', 'sender_id': 7, 'chat_id': 11, 'thread_id': None, 'callback_id': summary.default.callback_id}
+        first = Store(store.config).ingest(update)
+        self.assertTrue(first['accepted'])
+        sibling = update | {'update_id': 2, 'callback_id': summary.alternatives[0].callback_id}
+        self.assertEqual(Store(store.config).ingest(sibling)['reason'], 'callback_used')
+        self.assertEqual(Store(store.config).ingest(update), first)
+        with store._connect() as connection:
+            self.assertEqual(connection.execute('SELECT count(*) FROM tasks').fetchone()[0], 1)
+            self.assertEqual(connection.execute('SELECT count(*) FROM events').fetchone()[0], 1)
+            self.assertEqual(connection.execute('SELECT count(*) FROM inbound').fetchone()[0], 2)
 
     def test_decision_controls_bind_to_store_and_custom_reply(self):
         store = self.store()

@@ -83,6 +83,16 @@ class BridgeTest(unittest.TestCase):
         with sqlite3.connect(self.store.path) as connection:
             self.assertEqual(connection.execute("SELECT status FROM decisions").fetchone()[0], "pending")
 
+    def test_revision_ends_waiting_ask(self):
+        def revise(_seconds):
+            self.store.revise_task(self.task, commit="changed", diff_digest="digest")
+
+        with patch.object(bridge.time, "sleep", side_effect=revise):
+            self.assertEqual(self.invoke(extra=("--timeout", "0.05"))[:2], (3, ""))
+        decision = self.store.request_decision(self.task, question())
+        self.assertEqual(self.store.decision(decision)["status"], "cancelled")
+        self.assertEqual(self.invoke(extra=("--timeout", "0"))[:2], (3, ""))
+
     def test_polling_waits_for_answer(self):
         def answer(_seconds):
             decision = self.store.request_decision(self.task, question())
