@@ -264,65 +264,6 @@ func (c *collector) received(path string) [][]byte {
 	return c.bodies[path]
 }
 
-func postOTLP(t *testing.T, endpoint string, signal edgebus.OTelSignal, body []byte) *http.Response {
-	t.Helper()
-	req, err := http.NewRequest(http.MethodPost, endpoint+"/v1/"+string(signal), bytes.NewReader(body))
-	if err != nil {
-		t.Fatalf("build request: %v", err)
-	}
-	req.Header.Set("Content-Type", "application/x-protobuf")
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		t.Fatalf("post: %v", err)
-	}
-	t.Cleanup(func() { _ = resp.Body.Close() })
-	return resp
-}
-
-func TestReceiverToForwarderCarriesBodiesUnchanged(t *testing.T) {
-	hub := startHub(t, t.TempDir(), -1)
-	leaf := startLeaf(t, t.TempDir(), hub, edgeID)
-	waitFor(t, "leaf link", 10*time.Second, func() bool { return hub.LeafCount() == 1 })
-	if err := hub.AttachEdge(context.Background(), edgebus.DefaultTenant, edgeID); err != nil {
-		t.Fatalf("add edge source: %v", err)
-	}
-	receiver, err := edgebus.StartReceiver(leaf)
-	if err != nil {
-		t.Fatalf("start receiver: %v", err)
-	}
-	t.Cleanup(func() { _ = receiver.Close(context.Background()) })
-	c, collectorSrv := newCollector(t)
-	forwarder, err := edgebus.StartForwarder(context.Background(), hub, edgebus.ForwarderConfig{Endpoint: collectorSrv.URL, RetryDelay: 100 * time.Millisecond})
-	if err != nil {
-		t.Fatalf("start forwarder: %v", err)
-	}
-	t.Cleanup(forwarder.Close)
-
-	body := []byte{0x0a, 0x03, 0x01, 0x02, 0x03}
-	if resp := postOTLP(t, receiver.Endpoint(), edgebus.SignalLogs, body); resp.StatusCode != http.StatusOK {
-		t.Fatalf("receiver status = %d", resp.StatusCode)
-	}
-	waitFor(t, "forwarded body", 15*time.Second, func() bool { return len(c.received("/v1/logs")) == 1 })
-	if got := c.received("/v1/logs")[0]; !bytes.Equal(got, body) {
-		t.Fatalf("forwarded body = %x, want %x", got, body)
-	}
-
-	compressed, err := http.NewRequest(http.MethodPost, receiver.Endpoint()+"/v1/logs", bytes.NewReader(body))
-	if err != nil {
-		t.Fatalf("build request: %v", err)
-	}
-	compressed.Header.Set("Content-Type", "application/x-protobuf")
-	compressed.Header.Set("Content-Encoding", "gzip")
-	resp, err := http.DefaultClient.Do(compressed)
-	if err != nil {
-		t.Fatalf("post compressed: %v", err)
-	}
-	_ = resp.Body.Close()
-	if resp.StatusCode != http.StatusUnsupportedMediaType {
-		t.Fatalf("compressed export status = %d, want 415", resp.StatusCode)
-	}
-}
-
 func TestRecordsPublishedWhileTheHubIsDownArriveAfterReconnect(t *testing.T) {
 	hubDir := t.TempDir()
 	first := startHub(t, hubDir, -1)

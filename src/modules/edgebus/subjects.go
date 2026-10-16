@@ -60,8 +60,7 @@ const (
 	HubDomain = "hub"
 )
 
-// OTelSignal is one of the three OpenTelemetry signals the receiver accepts
-// and the forwarder ships.
+// OTelSignal is one of the three OpenTelemetry signals the collector posts.
 type OTelSignal string
 
 // The three OpenTelemetry signals, spelled as the subject token each takes.

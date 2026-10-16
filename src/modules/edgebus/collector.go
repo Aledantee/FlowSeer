@@ -12,6 +12,8 @@ import (
 	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
+const otlpContentType = "application/x-protobuf"
+
 // defaultCollectorTimeout is the request deadline of a client that sets none.
 const defaultCollectorTimeout = 30 * time.Second
 
