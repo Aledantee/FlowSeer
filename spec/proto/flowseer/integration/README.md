@@ -2,21 +2,22 @@
 
 ## Identity
 
-The `integration/` root is reserved for the integration fabric contract the
-[device service direction record's "Transport" section](../../../../docs/architecture/2026-08-20-device-service-and-inventory-direction.md#transport-nats-as-the-integration-fabric)
-names: what a distributed integration and central exchange over NATS to
-announce itself, describe its kind, and publish events. The root holds this
-README and one package per contract; `ingest/v1` is the first.
+The `integration/` root holds contracts for a distributed integration to
+announce itself, describe its kind, and publish observations to central.
+`ingest/v1` defines the typed `IngestRecord` envelope carried by
+`flowseer.edge.ingest.v1.IngestService.Deliver`. Central intake validates it
+and publishes it into CENTRAL streams, as the
+[device service direction record's delivery amendment](../../../../docs/architecture/2026-08-20-device-service-and-inventory-direction.md#2026-10-16-connect-replaces-the-edge-bus-attachment)
+states. The root holds this README and one package per contract.
+`ingest/v1` is the first.
 
 ## Admission
 
-A package belongs in `integration/` when it defines that fabric contract: an
-announcement, a kind descriptor, or an event subject a distributed
-integration and central exchange over NATS. `edge/dispatch/v1` fails
-admission even though central and an edge exchange its messages too, because
-that exchange is a Connect call between central and an already-enrolled
-edge, not the fabric an integration uses to announce and describe itself
-before one exists.
+A package belongs in `integration/` when it defines an announcement, a kind
+descriptor, or an observation contract, independent of its transport.
+`edge/ingest/v1` defines the delivery call that carries ingest envelopes. `edge/dispatch/v1`
+belongs under `edge/` because its messages control execution on an enrolled
+edge rather than describe observations.
 
 ## Boundaries
 

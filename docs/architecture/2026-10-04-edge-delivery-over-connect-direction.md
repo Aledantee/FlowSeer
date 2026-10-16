@@ -231,3 +231,50 @@ no leaf node and no longer calls `AttachBus`.
   and the agent both use them.
 - An upgraded agent leaves its old `jetstream` directory and `hub.creds` on
   disk. Nothing removes them.
+
+### 2026-10-16: central bus attachment removed
+
+Landed 2026-10-16: `spec/proto/flowseer/edge/attach/v1/bus.proto` and
+`EdgeService.AttachBus` are removed, along with `ServiceListeners.bus` and
+`EdgeEnrollmentPolicy.cluster_urls` in
+`spec/proto/flowseer/store/device/v1/service_config.proto`. Configurations
+that still name either field fail to load. The hub binds no WebSocket or
+leaf port.
+
+The removed implementation paths are `src/modules/edgebus/leaf.go`,
+`src/modules/edgebus/follower.go`, `src/modules/edgebus/forwarder.go`, and
+`src/services/device/internal/intake/intake.go`. `Handler.Deliver` and
+`prepareRecord` in `src/services/device/internal/intake` are the ingest
+path. `src/services/device/internal/otlpapi/handler.go` uses
+`edgebus.Collector` directly. The 2026-10-15 amendment's shared forwarder
+classification now belongs to that telemetry handler alone.
+
+`StartHub` in `src/modules/edgebus/hub.go` keeps operator mode and the
+operator, system, and CENTRAL seeds, with CENTRAL as its only data account.
+`hubKeys.mintUser` in `src/modules/edgebus/keys.go` still creates central's
+user when it connects. No per-edge key files or accounts are created.
+
+An upgraded central leaves `keys/edge-*.nk`, `keys/edge-*.tenant`, and
+former edge accounts' JetStream directories on disk. Nothing reads the
+stray keys. At startup nats-server v2.15.0 scans the store, fails to resolve
+each former account, logs one `Account fetch failed` warning per directory,
+and continues serving CENTRAL (`server/jetstream.go:933-947`,
+`server/server.go:2183-2185`). The hub forwards the warning through
+`quietLogger.Warnf`. `TestHubServesCentralWithFormerEdgeState` in
+`src/modules/edgebus/hub_internal_test.go` checks this behavior and leaves
+the files intact. Operators remove the stray files as described in the
+[edgebus README](../../src/modules/edgebus/README.md#keys-and-upgrades).
+There is no automatic removal because a mistaken directory deletion could
+destroy CENTRAL's store.
+
+The device service and ingestion records now have dated amendments naming
+each replaced transport passage. The proposed central high availability
+record makes central a plain NATS client, and the deployment record exposes
+one edge-facing address. `GOALS.md` now states Connect delivery and no
+longer says intake reads per-edge streams. These edits supersede the
+Consequence that tied that goal edit to acceptance of this record. Its
+status remains proposed pending acceptance.
+
+The edge high availability record needed no edit: it already contains no
+leaf attachment or FreeBSD leaf-node open question. This answers the
+Consequence that called for removing that question.
