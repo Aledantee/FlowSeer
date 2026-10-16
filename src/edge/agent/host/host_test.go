@@ -3,8 +3,10 @@ package host_test
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"net/netip"
 	"os"
 	"path/filepath"
 	"sync"
@@ -21,11 +23,16 @@ import (
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/ingest/v1/ingestv1connect"
 	telemetryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/telemetry/v1"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/telemetry/v1/telemetryv1connect"
+	ingestv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/ingest/v1"
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
+	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/spawn"
 	"go.aledante.io/FlowSeer/src/edge/agent/host"
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/identity"
+	"go.aledante.io/FlowSeer/src/edge/agent/internal/lanehost"
+	"go.aledante.io/FlowSeer/src/edge/agent/internal/syslogsource"
+	"go.aledante.io/FlowSeer/src/protocol/syslog"
 )
 
 const testEdgeID = "0192e6a0-0000-7000-8000-0000000000ed"
@@ -36,11 +43,13 @@ const testEdgeID = "0192e6a0-0000-7000-8000-0000000000ed"
 type orderedCentral struct {
 	attachv1connect.UnimplementedEdgeServiceHandler
 
-	mu      sync.Mutex
-	calls   []call
-	refuse  bool
-	anchors [][]byte
-	signed  chan struct{}
+	mu        sync.Mutex
+	calls     []call
+	refuse    bool
+	anchors   [][]byte
+	signed    chan struct{}
+	ingest    chan *ingestv1.IngestRecord
+	telemetry chan struct{}
 }
 
 type call struct {
@@ -93,9 +102,21 @@ func (c *orderedCentral) Enroll(
 
 type orderedIngest struct {
 	ingestv1connect.UnimplementedIngestServiceHandler
+	received chan *ingestv1.IngestRecord
 }
 
-func (orderedIngest) Deliver(_ context.Context, r *connect.Request[edgeingestv1.DeliverRequest]) (*connect.Response[edgeingestv1.DeliverResponse], error) {
+func (h orderedIngest) Deliver(_ context.Context, r *connect.Request[edgeingestv1.DeliverRequest]) (*connect.Response[edgeingestv1.DeliverResponse], error) {
+	for _, record := range r.Msg.GetRecords() {
+		if err := protovalidate.Validate(record); err != nil {
+			return nil, err
+		}
+		if h.received != nil {
+			select {
+			case h.received <- record:
+			default:
+			}
+		}
+	}
 	response := edgeingestv1.DeliverResponse_builder{Settled: proto.Uint32(uint32(len(r.Msg.GetRecords())))}.Build()
 	if err := protovalidate.Validate(response); err != nil {
 		return nil, err
@@ -105,10 +126,19 @@ func (orderedIngest) Deliver(_ context.Context, r *connect.Request[edgeingestv1.
 
 type orderedTelemetry struct {
 	telemetryv1connect.UnimplementedTelemetryServiceHandler
+	refused chan struct{}
 }
 
-func (orderedTelemetry) Deliver(_ context.Context, r *connect.Request[telemetryv1.DeliverRequest]) (*connect.Response[telemetryv1.DeliverResponse], error) {
-	response := telemetryv1.DeliverResponse_builder{Settled: proto.Uint32(uint32(len(r.Msg.GetExports())))}.Build()
+func (h orderedTelemetry) Deliver(_ context.Context, r *connect.Request[telemetryv1.DeliverRequest]) (*connect.Response[telemetryv1.DeliverResponse], error) {
+	settled := uint32(len(r.Msg.GetExports()))
+	if h.refused != nil {
+		select {
+		case h.refused <- struct{}{}:
+		default:
+		}
+		settled = 0
+	}
+	response := telemetryv1.DeliverResponse_builder{Settled: proto.Uint32(settled)}.Build()
 	if err := protovalidate.Validate(response); err != nil {
 		return nil, err
 	}
@@ -122,8 +152,8 @@ func agentAgainst(t *testing.T, central *orderedCentral) *host.Config {
 	mux := http.NewServeMux()
 	path, handler := attachv1connect.NewEdgeServiceHandler(central)
 	mux.Handle(path, central.record(handler))
-	mux.Handle(ingestv1connect.NewIngestServiceHandler(orderedIngest{}))
-	mux.Handle(telemetryv1connect.NewTelemetryServiceHandler(orderedTelemetry{}))
+	mux.Handle(ingestv1connect.NewIngestServiceHandler(orderedIngest{received: central.ingest}))
+	mux.Handle(telemetryv1connect.NewTelemetryServiceHandler(orderedTelemetry{refused: central.telemetry}))
 	server := httptest.NewServer(mux)
 	t.Cleanup(server.Close)
 
@@ -156,7 +186,14 @@ func TestTheAgentEnrollsFirstAndSignsEverythingAfterwards(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
 	spawn.Go(ctx, "agent", func() { done <- host.Run(ctx, cfg, "v0-test", host.Options{}) })
-	defer func() { cancel(); <-done }()
+	defer func() {
+		cancel()
+		select {
+		case <-done:
+		case <-time.After(5 * time.Second):
+			t.Error("Run did not stop during cleanup")
+		}
+	}()
 	select {
 	case <-central.signed:
 	case err := <-done:
@@ -195,7 +232,9 @@ func TestAnAgentThatCannotEnrollStopsThere(t *testing.T) {
 	central := &orderedCentral{refuse: true}
 	cfg := agentAgainst(t, central)
 
-	err := host.Run(context.Background(), cfg, "v0-test", host.Options{})
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	err := host.Run(ctx, cfg, "v0-test", host.Options{})
 
 	if code, _ := errs.CodeOf(err); code != identity.ErrCodeEnroll {
 		t.Fatalf("Run() code = %v (err %v), want %v", code, err, identity.ErrCodeEnroll)
@@ -209,11 +248,92 @@ func TestAnAgentThatCannotEnrollStopsThere(t *testing.T) {
 func TestAnEdgeWithNoAnchorsIsRefusedAtStart(t *testing.T) {
 	central := &orderedCentral{anchors: [][]byte{}}
 	cfg := agentAgainst(t, central)
-	err := host.Run(context.Background(), cfg, "v0-test", host.Options{})
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	err := host.Run(ctx, cfg, "v0-test", host.Options{})
 	if code, _ := errs.CodeOf(err); code != host.ErrCodeStart {
 		t.Fatalf("Run = %v, want agent/start", err)
 	}
 	if seen := central.seen(); len(seen) != 1 || seen[0].procedure != "Enroll" {
 		t.Errorf("calls = %v, want only Enroll", seen)
+	}
+}
+
+func TestHostKeepsSyslogFlowingDuringTelemetryOutage(t *testing.T) {
+	central := &orderedCentral{ingest: make(chan *ingestv1.IngestRecord, 1), telemetry: make(chan struct{}, 1)}
+	cfg := agentAgainst(t, central)
+	ingest, telemetry, err := host.OpenDeliveryLogsForTest(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	opts := syslogsource.ReceiverOptions()
+	opts.Parse.Limits = opts.Limits
+	parser, err := syslog.NewParser(opts.Parse)
+	if err != nil {
+		t.Fatal(err)
+	}
+	parsed, err := parser.Parse([]byte("<34>1 - - - - - - device record"), syslog.Observation{ReceivedAt: time.Now(), Peer: netip.MustParseAddrPort("192.0.2.1:514"), Transport: syslog.UDP})
+	if err != nil {
+		t.Fatal(err)
+	}
+	const deviceID = "0192e6a0-0000-7000-8000-000000000001"
+	record, provenance, _ := syslogsource.MapRecord(parsed, lanehost.DeviceEntry{
+		Device:  inventoryv1.DeviceGlobalRef_builder{Device: inventoryv1.DeviceLocalRef_builder{Id: proto.String(deviceID)}.Build()}.Build(),
+		Binding: inventoryv1.BindingGlobalRef_builder{Binding: inventoryv1.BindingLocalRef_builder{Id: proto.String("0192e6a0-0000-7000-8000-000000000002")}.Build()}.Build(),
+	}, edgev1.EdgeGlobalRef_builder{Edge: edgev1.EdgeLocalRef_builder{Id: proto.String(testEdgeID)}.Build()}.Build())
+	envelope := syslogsource.BuildEnvelope(deviceID, provenance, record, nil)
+	if err := protovalidate.Validate(envelope); err != nil {
+		t.Fatal(err)
+	}
+	data, err := proto.Marshal(envelope)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := ingest.Append(data); err != nil {
+		t.Fatal(err)
+	}
+	export := telemetryv1.TelemetryExport_builder{Signal: telemetryv1.TelemetrySignal_TELEMETRY_SIGNAL_METRICS.Enum(), Body: []byte{10, 0}}.Build()
+	if err := protovalidate.Validate(export); err != nil {
+		t.Fatal(err)
+	}
+	data, err = proto.Marshal(export)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := telemetry.Append(data); err != nil {
+		t.Fatal(err)
+	}
+	if err := telemetry.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := ingest.Close(); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	spawn.Go(ctx, "agent", func() { done <- host.Run(ctx, cfg, "v0-test", host.Options{Logger: slog.New(slog.DiscardHandler)}) })
+	defer func() {
+		cancel()
+		select {
+		case err := <-done:
+			if err != nil {
+				t.Errorf("Run = %v", err)
+			}
+		case <-time.After(5 * time.Second):
+			t.Error("Run did not stop")
+		}
+	}()
+	select {
+	case <-central.telemetry:
+	case <-time.After(5 * time.Second):
+		t.Fatal("telemetry handler not called")
+	}
+	select {
+	case got := <-central.ingest:
+		if !proto.Equal(got, envelope) {
+			t.Errorf("delivered record = %v, want %v", got, envelope)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("syslog record did not reach ingest during telemetry outage")
 	}
 }
