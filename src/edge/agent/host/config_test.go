@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
@@ -526,4 +527,61 @@ func TestLogBoundsAreIndependentAndValidated(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestDeliveryLogsUseTelemetryAgeAndSeparateDirectories(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		path := configFile(t, `buffer { telemetry { max_age { seconds: 1200 } } }`)
+		content, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		state := t.TempDir()
+		content = bytes.Replace(content, []byte("/var/lib/flowseer/agent"), []byte(state), 1)
+		if err := os.WriteFile(path, content, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		cfg, err := host.LoadConfig(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ingest, telemetry, err := host.OpenDeliveryLogsForTest(cfg)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer func() { _ = telemetry.Close(); _ = ingest.Close() }()
+		if err := ingest.Append([]byte("ingest")); err != nil {
+			t.Fatal(err)
+		}
+		if err := telemetry.Append([]byte("telemetry")); err != nil {
+			t.Fatal(err)
+		}
+		for _, name := range []string{"ingest", "telemetry"} {
+			entries, err := os.ReadDir(filepath.Join(state, "buffer", name))
+			if err != nil || len(entries) == 0 {
+				t.Fatalf("%s log directory: %v, %v, want segment files", name, entries, err)
+			}
+		}
+		time.Sleep(21 * time.Minute)
+		if err := ingest.Append([]byte("new ingest")); err != nil {
+			t.Fatal(err)
+		}
+		if err := telemetry.Append([]byte("new telemetry")); err != nil {
+			t.Fatal(err)
+		}
+		is, err := ingest.Stats()
+		if err != nil {
+			t.Fatal(err)
+		}
+		ts, err := telemetry.Stats()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if is.Records != 2 || is.DiscardedRecords != 0 {
+			t.Errorf("ingest stats = %+v, want 2 records and no discards", is)
+		}
+		if ts.Records != 1 || ts.DiscardedRecords != 1 {
+			t.Errorf("telemetry stats = %+v, want 1 record and 1 discard", ts)
+		}
+	})
 }
