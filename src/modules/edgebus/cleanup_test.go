@@ -82,7 +82,7 @@ func TestCleanupSharedConsumerResolvesOnlyPrefix(t *testing.T) {
 	if member.Config.AckWait != 2*time.Minute || member.Config.MaxAckPending != 10000 || member.Config.Durable != "history_sink" || member.Config.FilterSubject != "" || len(member.Config.FilterSubjects) != 0 || member.Config.DeliverPolicy != jetstream.DeliverAllPolicy || member.Config.AckPolicy != jetstream.AckExplicitPolicy || member.Config.MaxDeliver != -1 {
 		t.Fatalf("initial member config=%+v", member.Config)
 	}
-	peerConn, peerJS, err := h.connectAccount(h.server, h.keys.central, h.centralBudgetJWT(t), "cleanup-peer")
+	peerConn, peerJS, err := h.connectAccount(h.server, h.keys.central, "cleanup-peer")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -126,15 +126,6 @@ func TestCleanupSharedConsumerResolvesOnlyPrefix(t *testing.T) {
 	cleanupState(t, s, 3, 1)
 	cleanupPublish(t, h, 4)
 	cleanupState(t, s, 3, 2)
-}
-
-func (h *Hub) centralBudgetJWT(t *testing.T) string {
-	t.Helper()
-	j, err := h.keys.accountJWT(h.keys.central, "CENTRAL", h.centralBudget)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return j
 }
 
 func TestCleanupRefusesMissingDifferingAndStrayConsumers(t *testing.T) {

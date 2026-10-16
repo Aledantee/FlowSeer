@@ -23,8 +23,8 @@ const (
 	minBackoff = time.Second
 	maxBackoff = 30 * time.Second
 
-	// logKey is the attribute naming the log an instrument or record is about.
-	logKey = "flowseer.edge.buffer.log"
+	// LogKey is the attribute naming the log an instrument or record is about.
+	LogKey = "flowseer.edge.buffer.log"
 
 	// nothingSettled is the error.type of a call that answered without error
 	// and settled no record.
@@ -68,42 +68,14 @@ type Config struct {
 // record.
 //
 // Run registers the delivery instruments on cfg.Meter and logs a warning when
-// the log's discard count has risen since the previous attempt.
+// the log's discard count rises, including while waiting and before returning.
+// The count is measured from zero when Run begins and the log's counters are
+// cumulative since it was opened, so a restarted Run repeats the log's
+// cumulative count in its first warning.
 func Run(ctx context.Context, cfg Config) error {
 	if cfg.Log == nil || cfg.Send == nil {
 		return errs.New().Code(ErrCodeRun).Msg("the drain needs a log and a send")
 	}
-	d, err := newDrain(cfg)
-	if err != nil {
-		return err
-	}
-	return d.run(ctx)
-}
-
-type drain struct {
-	log       Log
-	send      Send
-	decodable func([]byte) bool
-	wait      func(context.Context, time.Duration) bool
-	logger    *slog.Logger
-	attrs     metric.MeasurementOption
-
-	settled     metric.Int64Counter
-	undecodable metric.Int64Counter
-	duration    metric.Float64Histogram
-	logAttr     attribute.KeyValue
-
-	// sequence and offset are the resume point: the first unsettled record of
-	// the segment with that sequence. have is false until a segment arrives.
-	sequence uint64
-	have     bool
-	offset   int
-
-	discardedRecords int64
-	discardedBytes   int64
-}
-
-func newDrain(cfg Config) (*drain, error) {
 	meter := cfg.Meter
 	if meter == nil {
 		meter = noop.NewMeterProvider().Meter("go.aledante.io/FlowSeer/src/edge/agent/internal/drain")
@@ -114,7 +86,7 @@ func newDrain(cfg Config) (*drain, error) {
 		decodable: cfg.Decodable,
 		wait:      cfg.Wait,
 		logger:    cfg.Logger,
-		logAttr:   attribute.String(logKey, cfg.LogName),
+		logAttr:   attribute.String(LogKey, cfg.LogName),
 	}
 	d.attrs = metric.WithAttributes(d.logAttr)
 	if d.decodable == nil {
@@ -140,18 +112,49 @@ func newDrain(cfg Config) (*drain, error) {
 		metric.WithDescription("duration of each delivery call to central"),
 	)
 	if err := errors.Join(err1, err2, err3); err != nil {
-		return nil, err
+		return err
 	}
-	return d, nil
+	err := d.run(ctx)
+	d.warnOnDiscards(ctx)
+	return err
+}
+
+type drain struct {
+	log       Log
+	send      Send
+	decodable func([]byte) bool
+	wait      func(context.Context, time.Duration) bool
+	logger    *slog.Logger
+	attrs     metric.MeasurementOption
+
+	settled     metric.Int64Counter
+	undecodable metric.Int64Counter
+	duration    metric.Float64Histogram
+	logAttr     attribute.KeyValue
+
+	// sequence and offset are the resume point: the first unsettled record of
+	// the segment with that sequence. have is false until a segment arrives.
+	sequence uint64
+	have     bool
+	offset   int
+
+	discardedRecords int64
+	discardedBytes   int64
 }
 
 func (d *drain) run(ctx context.Context) error {
 	backoff := minBackoff
 	for {
-		seg, err := d.log.Next(ctx)
+		nextCtx, cancel := context.WithTimeout(ctx, maxBackoff)
+		seg, err := d.log.Next(nextCtx)
+		cancel()
 		if err != nil {
 			if ctx.Err() != nil || isClosed(err) {
 				return nil
+			}
+			if errors.Is(err, context.DeadlineExceeded) {
+				d.warnOnDiscards(ctx)
+				continue
 			}
 			return err
 		}
@@ -160,7 +163,12 @@ func (d *drain) run(ctx context.Context) error {
 			d.sequence, d.have, d.offset = seg.Sequence, true, 0
 		}
 
-		pending := d.pending(seg.Records)
+		var pending []int
+		for i := d.offset; i < len(seg.Records); i++ {
+			if d.decodable(seg.Records[i]) {
+				pending = append(pending, i)
+			}
+		}
 		settled := 0
 		if len(pending) > 0 {
 			batch := make([][]byte, len(pending))
@@ -197,18 +205,6 @@ func (d *drain) run(ctx context.Context) error {
 	}
 }
 
-// pending returns the positions of the decodable records from the resume
-// offset on.
-func (d *drain) pending(records [][]byte) []int {
-	var at []int
-	for i := d.offset; i < len(records); i++ {
-		if d.decodable(records[i]) {
-			at = append(at, i)
-		}
-	}
-	return at
-}
-
 // call sends one batch and records its duration. It returns the settled count
 // clamped to the batch, since a count above the number sent can only mean all
 // of them.
@@ -232,8 +228,9 @@ func (d *drain) call(ctx context.Context, batch [][]byte) (int, error) {
 }
 
 // warnOnDiscards logs the records the log's bounds discarded since the last
-// attempt. It is the drop diagnostic that does not travel through the
-// telemetry log it may be reporting on.
+// check that warned, or since zero for the first one of a Run. It is the drop
+// diagnostic that does not travel through the telemetry log it may be
+// reporting on.
 func (d *drain) warnOnDiscards(ctx context.Context) {
 	stats, err := d.log.Stats()
 	if err != nil || stats.DiscardedRecords <= d.discardedRecords {
@@ -241,7 +238,7 @@ func (d *drain) warnOnDiscards(ctx context.Context) {
 	}
 	d.logger.WarnContext(ctx, "buffer discarded records",
 		fsconv.EventName("flowseer.edge.buffer.discarded"),
-		slog.String(logKey, d.logAttr.Value.AsString()),
+		slog.String(LogKey, d.logAttr.Value.AsString()),
 		slog.Int64("flowseer.edge.buffer.discarded_records", stats.DiscardedRecords-d.discardedRecords),
 		slog.Int64("flowseer.edge.buffer.discarded_bytes", stats.DiscardedBytes-d.discardedBytes))
 	d.discardedRecords, d.discardedBytes = stats.DiscardedRecords, stats.DiscardedBytes
