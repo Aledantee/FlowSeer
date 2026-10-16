@@ -69,6 +69,9 @@ type Config struct {
 //
 // Run registers the delivery instruments on cfg.Meter and logs a warning when
 // the log's discard count rises, including while waiting and before returning.
+// The count is measured from zero when Run begins and the log's counters are
+// cumulative since it was opened, so a restarted Run repeats the log's
+// cumulative count in its first warning.
 func Run(ctx context.Context, cfg Config) error {
 	if cfg.Log == nil || cfg.Send == nil {
 		return errs.New().Code(ErrCodeRun).Msg("the drain needs a log and a send")
@@ -225,8 +228,9 @@ func (d *drain) call(ctx context.Context, batch [][]byte) (int, error) {
 }
 
 // warnOnDiscards logs the records the log's bounds discarded since the last
-// check. It is the drop diagnostic that does not travel through the
-// telemetry log it may be reporting on.
+// check that warned, or since zero for the first one of a Run. It is the drop
+// diagnostic that does not travel through the telemetry log it may be
+// reporting on.
 func (d *drain) warnOnDiscards(ctx context.Context) {
 	stats, err := d.log.Stats()
 	if err != nil || stats.DiscardedRecords <= d.discardedRecords {
