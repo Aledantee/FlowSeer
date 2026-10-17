@@ -52,8 +52,9 @@ type voiceVLANFinding struct {
 	Restore string `json:"restore"`
 }
 
-// RunVoiceVLAN reads the leg for 30 s or the window, whichever is shorter,
-// for an LLDP-MED network policy TLV from another sender naming the
+// RunVoiceVLAN reads the leg for 30 s or half the window, whichever is
+// shorter, so the probe keeps the other half, for an LLDP-MED network
+// policy TLV from another sender naming the
 // target's voice VLAN, then sends the LLDP-MED frame impersonating a phone
 // from the attack leg's MAC and observes. The port name, TTL, priority,
 // and DSCP are probe content. The predicate is such a TLV after the probe,

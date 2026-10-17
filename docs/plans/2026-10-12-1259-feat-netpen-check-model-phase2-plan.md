@@ -411,8 +411,9 @@ Ethernet source other than the attack leg's MAC.
     first frame and its armed step writes back the value read. Example:
     with a map sysctl holding `0`, the run leaves `1` during the behavior
     and `0` after the teardown, and the step name is `ip-forward-restore`.
-17. `voicevlan` reads the leg for 30 s or the window, whichever is
-    shorter, noting whether an LLDP-MED network policy TLV from another
+17. `voicevlan` reads the leg for 30 s or half the window, whichever is
+    shorter, so the probe keeps the other half, as `dtp` and `vtp` do,
+    noting whether an LLDP-MED network policy TLV from another
     sender already names the target voice VLAN, then sends the rebuilt
     LLDP-MED frame and observes. Example: such a TLV after the probe, when
     the pre-read carried none, is `confirmed`, the switch's own CDP VoIP
@@ -824,21 +825,21 @@ harness is outside this phase.
 - `ndpspoof` reads `Server6` as the address it claims. If the operator's
   segment has no IPv6 host worth impersonating, the check skips with the
   target error, which is the parent's requirement 7 shape.
-- Requirement 17 states the `voicevlan` pre-read lasts "30 s or the
-  window, whichever is shorter", but the sound design caps it at half the
-  window to leave the after-read a turn, which `dtp` and `vtp` state in
-  their doc comments. The code (`attacks/l2/voicevlan.go:89`) does the
-  half-window cap; the requirement wording and the `voicevlan` and
-  `stproot` doc comments overstate it. Amend the requirement to the
-  half-window bound, or state why the full window is intended.
-
 ## Review gaps
 
-Review 2026-10-17 of phase 2 (U1-U6): verdict fixes needed. One behavior
-finding holds the verdict; a requirement-wording question is open above.
-The rest are follow-ups that do not hold the verdict.
+Review 2026-10-17 of phase 2 (U1-U6): verdict accept after fixes. The
+behavior finding and the requirement-wording question are closed; the rest
+are follow-ups that do not hold the verdict.
 
-- src/edge/netpen/attacks/fh/hsrp.go:170, src/edge/netpen/attacks/fh/glbp.go:151: a silent (deposed) router with `--observe` in [6s, hold time) returns `resisted "still sends hellos in state active"`; req 3 calls `resisted` only for an Active hello at the window's end, so the honest outcome is `pending` naming a window that reaches the 10s hold time; fails: a takeover where the real router stops after the coup and the operator passes `--observe 7s`; class: behavior
+Closed by round 1 and the follow-up pass:
+- hsrp.go/glbp.go returned `resisted "still sends hellos in state active"`
+  for a silent peer with `--observe` in [6s, hold time); now `pending`
+  naming the window to pass (`e13c8908`, round 1 clean).
+- Requirement 17 and the `voicevlan`/`stproot` doc comments overstated the
+  pre-read; amended to the half-window bound the code uses.
+
+Open follow-ups (do not hold the verdict):
+- src/edge/netpen/attacks/fh/hsrp.go:174, src/edge/netpen/attacks/fh/glbp.go:154: the `pass --observe` hint is the constant 13s; reached with a large window by a peer that sent Active hellos then went quiet for [hello, hold) before the window end, the hint can name a shorter window than the operator already used; fails: `--observe 20s` with a late-quiet peer reads "pass --observe 13s"; class: hardening
 - src/edge/netpen/attacks/ip6/roguedhcp.go, roguedhcp6.go:108: the OFFER/ACK/ADVERTISE copy the observed query's transaction id, but every fixture feeds the old constant xid (`0x12345678`, `{00,11,22}`), so reverting to that literal passes every test; fails: a DISCOVER/SOLICIT whose xid differs from the constant, asserting the emitted frame echoes it; class: gap
 - src/edge/netpen/attacks/routing/observe.go:108: `isEIGRPGoodbyeInAS` no longer reads header flag `0x02` (RFC 7868 6.5 CR-Flag), but no fixture feeds a hello with `Flags=0x02` and no termination TLV to pin that it is not read as goodbye; fails: a reject-lane frame with the CR-Flag set asserting it does not resist; class: gap
 - src/edge/netpen/attacks/routing/harvest_routing.go:82: `eigrpFlagGoodbye uint32 = 0x02` is now dead (the predicate reads TLVs, not the header flag); fails: nothing, unused constant left from the old scheme; class: hardening

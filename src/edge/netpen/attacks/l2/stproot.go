@@ -43,8 +43,9 @@ type stpRootFinding struct {
 	BurstCount   int    `json:"burst_count"`
 }
 
-// RunSTPRoot reads the leg for one hello time for a BPDU from another
-// sender and records its root identifier, then sends a superior BPDU
+// RunSTPRoot reads the leg for one hello time, bounded by half the window,
+// for a BPDU from another sender and records its root identifier, then
+// sends a superior BPDU
 // claiming root with the attack leg's MAC as the bridge identity every
 // hello time until the window ends or the predicate matches. The behavior
 // reads no target: the timers and priority are probe content. The
