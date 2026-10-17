@@ -1,6 +1,6 @@
 {
   "contract": "flowseer-plan-state/v1",
-  "status": "planned",
+  "status": "abandoned",
   "readiness": "implementation-ready",
   "review": null,
   "review_rounds": 0,
