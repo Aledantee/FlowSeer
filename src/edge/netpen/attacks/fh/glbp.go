@@ -55,9 +55,11 @@ type glbpFinding struct {
 // window ends or the predicate matches. The priorities are probe content.
 // The predicate is what the active gateway does: a hello from it in a
 // state other than Active confirms, and so does its silence for one hold
-// time; a hello from it still Active at the window's end is resisted. No
-// Active hello in the pre-read is pending, and a window under 6 s is
-// pending naming the window to pass.
+// time. A hello from it still Active within a hello interval of the
+// window's end is resisted, and its silence past a hello interval but
+// short of the hold time is pending, because the window was too short to
+// decide. No Active hello in the pre-read is pending, and a window under
+// 6 s is pending naming the window to pass.
 func RunGLBP(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	if err := deps.Target.Need(check.FieldGroup, check.FieldVirtualIP); err != nil {
 		return check.Verdict{}, err
@@ -147,6 +149,8 @@ func RunGLBP(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 		return check.Confirmed(fmt.Sprintf("the active gateway for group %d left the active state for state 0x%02x", group, uint8(state)), observed), nil
 	case time.Since(lastSeen) >= glbpHoldTime:
 		return check.Confirmed(fmt.Sprintf("the active gateway for group %d fell silent for the %s hold time", group, glbpHoldTime), observed), nil
+	case time.Since(lastSeen) >= glbpHelloTime:
+		return check.Pending(fmt.Sprintf("the active gateway for group %d fell silent after the probe, but the %s window is shorter than the %s hold time: pass --observe %s", group, deps.Observe, glbpHoldTime, glbpHelloTime+glbpHoldTime)), nil
 	}
 	return check.Resisted(fmt.Sprintf("the active gateway for group %d still sends hellos in state active", group), observed), nil
 }

@@ -222,6 +222,7 @@ func TestHSRP_Observe(t *testing.T) {
 		{"resign after the coup confirms", active, resign, 9 * time.Second, findings.VerdictConfirmed, "sent a Resign after the coup", 3},
 		{"speak hello after the coup confirms", active, speak, 9 * time.Second, findings.VerdictConfirmed, "left the active state for state 8", 3},
 		{"silence for the hold time confirms", active, nil, 15 * time.Second, findings.VerdictConfirmed, "fell silent for the 10s hold time", 6},
+		{"silence short of the hold time is pending", active, nil, 9 * time.Second, findings.VerdictPending, "fell silent after the coup, but the 9s window is shorter than the 10s hold time: pass --observe 13s", 4},
 		{"active hello at the window's end resists", active, active, 9 * time.Second, findings.VerdictResisted, "still sends hellos in state active", 4},
 		{"hello for another group is not the pre-read", withByte(active, offHSRPGrp, 2), nil, 9 * time.Second, findings.VerdictPending, "no active router for group 1 in 3s", 0},
 		{"hello from the attack leg is not the pre-read", withMAC(active, offEthSrc, fixtureMAC), nil, 9 * time.Second, findings.VerdictPending, "no active router for group 1 in 3s", 0},
@@ -297,6 +298,7 @@ func TestGLBP_Observe(t *testing.T) {
 	}{
 		{"listen hello after the probe confirms", active, listen, 9 * time.Second, findings.VerdictConfirmed, "left the active state for state 0x04"},
 		{"silence for the hold time confirms", active, nil, 15 * time.Second, findings.VerdictConfirmed, "fell silent for the 10s hold time"},
+		{"silence short of the hold time is pending", active, nil, 9 * time.Second, findings.VerdictPending, "fell silent after the probe, but the 9s window is shorter than the 10s hold time: pass --observe 13s"},
 		{"active hello at the window's end resists", active, active, 9 * time.Second, findings.VerdictResisted, "still sends hellos in state active"},
 		{"hello for another group is not the pre-read", withByte(active, offGLBPGrp, 2), nil, 9 * time.Second, findings.VerdictPending, "no active gateway for group 1 in 3s"},
 		{"listen hello is not the pre-read", withByte(active, offGLBPStat, 4), nil, 9 * time.Second, findings.VerdictPending, "no active gateway for group 1 in 3s"},

@@ -51,8 +51,10 @@ type hsrpFinding struct {
 // active router does after the Coup: a Resign from it, or a hello from it
 // in a state other than Active, confirms (RFC 2281 section 5.7, event j in
 // Active: send Resign, move to Speak), and so does its silence for one hold
-// time. A hello from it still in state Active at the window's end is
-// resisted. No Active hello in the pre-read is pending, since there is no
+// time. A hello from it still in state Active within a hello interval of
+// the window's end is resisted, and its silence past a hello interval but
+// short of the hold time is pending, because the window was too short to
+// decide. No Active hello in the pre-read is pending, since there is no
 // router to depose, and a window under 6 s is pending naming the window
 // to pass. Craft and send errors carry operation context.
 func RunHSRP(ctx context.Context, deps check.Deps) (check.Verdict, error) {
@@ -167,6 +169,8 @@ func RunHSRP(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 		return check.Confirmed(fmt.Sprintf("the active router for group %d %s after the coup", group, yielded), observed), nil
 	case time.Since(lastSeen) >= hsrpHoldtime:
 		return check.Confirmed(fmt.Sprintf("the active router for group %d fell silent for the %s hold time after the coup", group, hsrpHoldtime), observed), nil
+	case time.Since(lastSeen) >= hsrpHellotime:
+		return check.Pending(fmt.Sprintf("the active router for group %d fell silent after the coup, but the %s window is shorter than the %s hold time: pass --observe %s", group, deps.Observe, hsrpHoldtime, hsrpHellotime+hsrpHoldtime)), nil
 	}
 	return check.Resisted(fmt.Sprintf("the active router for group %d still sends hellos in state active", group), observed), nil
 }
