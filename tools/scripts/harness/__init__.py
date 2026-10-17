@@ -1,1 +1,0 @@
-COMMANDS = {"bridge": "bridge"}

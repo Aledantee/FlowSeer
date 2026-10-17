@@ -11,7 +11,8 @@ decision outlives its task (see the promotion test in
 `.claude/skills/plan/SKILL.md`). A proposed record binds nothing until a
 person reads it and changes the status to `accepted-direction`; a record
 that is replaced gets `status: superseded` and a `superseded_by` path rather
-than an edit.
+than an edit. A record whose direction is dropped with no replacement gets
+`status: withdrawn` and a dated paragraph under its title saying why.
 
 A record never links a plan. `land` deletes a plan under `docs/plans/` once
 its work lands, so a record names landed work by the date it landed and its
@@ -24,7 +25,7 @@ covering port tables and VLAN membership.
 
 | Record | Status | Read when |
 | --- | --- | --- |
-| [Remote Agent Harness](2026-10-15-remote-agent-harness-direction.md) | Accepted direction | Adding Telegram control, persistent remote tasks, human decisions, or Linux Orca coordination for project development. |
+| [Remote Agent Harness](2026-10-15-remote-agent-harness-direction.md) | Withdrawn 2026-10-17 | Considering remote or chat-based control of development agents, to see what was tried and why it was dropped. |
 | [Device Service, Integrations, and Inventory](2026-08-20-device-service-and-inventory-direction.md) | Accepted direction | Working on the device service, integrations, inventory, discovery, ingestion, attachment, or the transport fabric. |
 | [Network Model Structure](2026-08-20-network-model-structure-direction.md) | Accepted direction | Adding or moving FlowSeer-owned protobuf packages, network primitives, entities, refs, or device-facing capability models, or a README under `spec/proto`. |
 | [YANG Protocol Libraries](2026-09-28-yang-protocol-libraries-direction.md) | Accepted direction | Working on the YANG runtime, the `yanggen` generator, the generated `generated/go/yang` bindings, or the NETCONF, RESTCONF, and gNMI client libraries. |
