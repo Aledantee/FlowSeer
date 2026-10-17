@@ -17,8 +17,8 @@ as_of: 2026-10-06
 sensitive_paths: ["src/edge/netpen/**"]
 
 pools:
-  claude: {cli: claude, pin: orca-model, meter: requests, usable_below: 95, plans: {max: {capacity: {session: 20}}}}  # usable_below: the window percent a lane must stay under; 95 for claude on the user's direction 2026-10-01, every other pool the default 85
-  codex: {cli: codex, pin: orca-model, meter: requests, plans: {prolite: {capacity: 1}}}
+  claude: {cli: claude, pin: orca-model, meter: requests, usable_below: 95, plans: {max: {capacity: {session: 20}}}}  # usable_below: the window percent a lane must stay under; 95 for claude on the user's direction 2026-10-01 and for codex on 2026-10-17, every other pool the default 85
+  codex: {cli: codex, pin: orca-model, meter: requests, usable_below: 95, plans: {prolite: {capacity: 1}}}
   google: {cli: agy, pin: launch-flag, meter: requests}
   synthetic: {cli: omp, pin: launch-flag, meter: requests}  # served via omp since 2026-09-29: opencode stalled headless on the sensitive lanes (curl 52 after ~40 min), omp pins the model with --model, sets effort with --thinking, and reports cost inline. rolling five-hour request limit and weekly credit limit, both read from GET api.synthetic.new/v2/quotas
   zai: {cli: omp, pin: launch-flag, meter: credits, plans: {lite: {capacity: 1}}}  # Z.ai GLM subscription (plan Lite) added to omp 2026-09-30 as the fallback pool for security-sensitive work: omp pins zai/<model> via --model, effort via --thinking (efforts vary per model, see evidence). Lite quota 2K credits/5h + 10K/week via `omp usage`. GLM models do NOT refuse or downgrade netpen work, unlike the Claude 5.x pool
