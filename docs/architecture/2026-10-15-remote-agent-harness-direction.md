@@ -3,10 +3,17 @@ title: Remote Agent Harness - Direction
 type: direction
 date: 2026-10-15
 topic: remote-agent-harness
-status: accepted-direction
+status: withdrawn
 ---
 
 # Remote agent harness
+
+Withdrawn 2026-10-17. The maintainer dropped the harness after trying it
+on the deployment host: decisions as Telegram cards were awkward to use,
+and updates took far too long to arrive. Its first phase, the store,
+bridge, and Telegram client under `tools/scripts/harness/` (merged in
+`6036539e`), was removed the same day. The record stays as the account of what was tried. No
+plan builds on it.
 
 Development must continue on a dedicated Linux server while the maintainer
 is away from a desktop. Telegram's native AI interface provides task topics,
