@@ -9,6 +9,15 @@ amends: docs/plans/2026-10-12-1259-feat-netpen-check-model-plan.md
 
 # netpen Check Model Phase 2, Observables - Plan
 
+## Resume on another machine
+
+Branch: `codex/netpen-resume` on `origin`.
+
+Implementation is committed through `0912af90d`. The
+[state](2026-10-12-1259-feat-netpen-check-model-phase2-plan.state.json)
+records six implemented units, with review and compound pending.
+Resume with a review of this phase before landing it.
+
 ## Goal
 
 Every behavior under `src/edge/netpen/attacks/` reads the wire for the
