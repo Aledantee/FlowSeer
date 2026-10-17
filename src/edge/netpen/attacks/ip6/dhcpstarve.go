@@ -10,7 +10,9 @@ package ip6
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net"
+	"time"
 
 	"github.com/gopacket/gopacket"
 	"github.com/gopacket/gopacket/layers"
@@ -24,6 +26,9 @@ type dhcpStarveFinding struct {
 	FrameCount int    `json:"frame_count"`
 	Method     string `json:"method"`
 }
+
+// dhcpStarveCount is the number of DISCOVER frames the check sends.
+const dhcpStarveCount = 5
 
 // dhcpZeroIP is the constant 0.0.0.0 IP for DHCP DISCOVER frames.
 var dhcpZeroIP = net.IPv4(0, 0, 0, 0)
@@ -42,18 +47,22 @@ var dhcpParamRequest = []byte{
 }
 
 // RunDHCPStarve sends five DISCOVER frames with incrementing chaddr tails
-// from the attack leg's MAC. The behavior reads no target: the chaddr tails
-// and transaction IDs are probe content. The verdict is pending: whether
-// the pool ran dry needs an offer listener it does not have.
+// from the attack leg's MAC and reads the attack leg for the window. The
+// behavior reads no target: the chaddr tails and transaction IDs are probe
+// content. The predicate is the OFFERs the server answers with (RFC 2131
+// section 3.1 step 2) to the spoofed chaddr values: offers to all five
+// confirm, offers to fewer confirm with the count, and none within the
+// window resists.
 func RunDHCPStarve(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	src := deps.AttackLeg.Addr().MAC
 
-	frameCount := 5
-	for i := 1; i <= frameCount; i++ {
-		pkt, err := craftDHCPDiscover(src, i)
+	chaddrs := make([]net.HardwareAddr, 0, dhcpStarveCount)
+	for i := 1; i <= dhcpStarveCount; i++ {
+		pkt, chaddr, err := craftDHCPDiscover(src, i)
 		if err != nil {
 			return check.Verdict{}, errs.Wrapf(err, "dhcpstarve: craft frame %d", i)
 		}
+		chaddrs = append(chaddrs, chaddr)
 		if err := deps.AttackLeg.Send(ctx, pkt); err != nil {
 			return check.Verdict{}, errs.Wrapf(err, "dhcpstarve: send frame %d", i)
 		}
@@ -61,17 +70,33 @@ func RunDHCPStarve(ctx context.Context, deps check.Deps) (check.Verdict, error) 
 
 	detail, _ := json.Marshal(dhcpStarveFinding{
 		Action:     "lease-pool-exhaustion",
-		FrameCount: frameCount,
+		FrameCount: dhcpStarveCount,
 		Method:     "incrementing-chaddr-discover",
 	})
 	deps.Emitter.Finding("dhcp", detail)
 
-	return check.Pending("no observable: pool exhaustion needs an offer listener"), nil
+	offered := make(map[int]bool, dhcpStarveCount)
+	obs, err := check.Scan(ctx, deps.AttackLeg, deps.Observe, func(data []byte) {
+		if i, ok := isOfferFor(data, src, chaddrs); ok {
+			offered[i] = true
+		}
+	})
+	if err != nil {
+		if ctx.Err() != nil {
+			return check.Verdict{}, ctx.Err()
+		}
+		return check.Verdict{}, errs.Wrap(err, "dhcpstarve: receive offers")
+	}
+	if len(offered) == 0 {
+		return check.Resisted(fmt.Sprintf("no offer in %s", obs.Elapsed.Round(time.Millisecond)), obs.Elapsed), nil
+	}
+	return check.Confirmed(fmt.Sprintf("the server leased to %d of %d spoofed clients", len(offered), dhcpStarveCount), obs.Elapsed), nil
 }
 
 // craftDHCPDiscover builds a DHCP DISCOVER with a unique chaddr for the
-// given sequence. Uses the pool craft path.
-func craftDHCPDiscover(src net.HardwareAddr, seq int) ([]byte, error) {
+// given sequence, which it returns beside the frame. Uses the pool craft
+// path.
+func craftDHCPDiscover(src net.HardwareAddr, seq int) ([]byte, net.HardwareAddr, error) {
 	chaddr := net.HardwareAddr{
 		0x00, 0x11, 0x22, 0x33,
 		byte((seq >> 8) & 0xFF),
@@ -115,7 +140,8 @@ func craftDHCPDiscover(src net.HardwareAddr, seq int) ([]byte, error) {
 			layers.NewDHCPOption(layers.DHCPOptParamsRequest, dhcpParamRequest),
 		},
 	}
-	return craftPool(eth, ip, udp, dhcp)
+	pkt, err := craftPool(eth, ip, udp, dhcp)
+	return pkt, chaddr, err
 }
 
 var _ gopacket.SerializableLayer = (*layers.DHCPv4)(nil)

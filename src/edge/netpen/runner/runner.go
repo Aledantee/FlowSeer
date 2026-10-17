@@ -244,6 +244,10 @@ func (r *Runner) Run(ctx context.Context) (result error) {
 	if r.opts.Rate > 0 {
 		attackLeg = newPacedLeg(attackLeg, r.opts.Rate)
 	}
+	sysctl := r.opts.Sysctl
+	if sysctl == nil {
+		sysctl = newProcSysctl()
+	}
 
 	// teardownBudget is the total time the executor may spend. Tests
 	// scale it down via [Options.TeardownBudget].
@@ -381,6 +385,7 @@ func (r *Runner) Run(ctx context.Context) (result error) {
 			Observe:   observe,
 			Emitter:   &emitter{stream: r.stream},
 			Listen:    listen,
+			Sysctl:    sysctl,
 		}
 		// A nil *Teardown must not become a non-nil interface holding a
 		// nil pointer, which a behavior's nil check would pass.

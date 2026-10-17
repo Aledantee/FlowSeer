@@ -12,6 +12,31 @@
 //   - raguard (the zero-lifetime probe RA of RFC 4861 section 6.3.4 and
 //     RFC 4862 section 5.5.3), raflood (RA-flood variant), mld (MLD abuse
 //     flood)
+//   - ndpspoof's advertisement names the server's address at the attack
+//     MAC with the Override flag alone (RFC 4861 sections 7.2.5 and 7.2.6)
+//     and is followed by the ICMPv6 echo request (RFC 4443 section 4.1)
+//     that probes the victim's cache
+//
+// Response fixtures, the frames a peer sends back that the predicates
+// read, are spec-authored from the RFC layouts and decoded by gopacket as
+// the second reader; the Wireshark sample capture page
+// (https://wiki.wireshark.org/SampleCaptures, fetched 2026-10-15) carries
+// no licence statement for its capture files, so no frame is copied from
+// one:
+//   - roguera_response.pcap: a host's DAD Neighbor Solicitation for an
+//     address in fd00::/64, source unspecified (RFC 4862 section 5.4.2)
+//   - ndpspoof_response.pcap: the victim's echo reply to the attack MAC
+//     for the server's address (RFC 4443 section 4.2), then the victim's
+//     Neighbor Solicitation for the server (RFC 4861 section 4.3)
+//   - dhcpstarve_response.pcap: the server's OFFER to the first spoofed
+//     chaddr (RFC 2131 section 3.1 step 2, section 4.3.1)
+//   - roguedhcp_query.pcap: the victim's DISCOVER with xid 0x12345678,
+//     its REQUEST naming the attack leg's IPv4 as server identifier, and
+//     its REQUEST naming another server (RFC 2131 sections 4.3.1, 4.3.2,
+//     4.4.1)
+//   - roguedhcp6_request.pcap: the client's REQUEST naming the attack
+//     leg's DUID, then one naming another DUID (RFC 8415 sections 18.2.2
+//     and 21.3)
 //
 // Run from the attacks/ip6 directory:
 //
@@ -110,6 +135,23 @@ func run() error {
 	// Supersets (spec-authored)
 	writePcap("raflood.pcap", raFloodFrames()...)
 	writePcap("mld.pcap", mldFrames()...)
+
+	// Response fixtures: what a host or server sends back.
+	writePcap("roguera_response.pcap", dadSolicitFrom(victimMAC6, net.ParseIP("fd00::aabb:ccff:fedd:1")))
+	writePcap("ndpspoof_response.pcap",
+		echoReply6From(victimMAC6, srcBytes(), victimIP6, serverIP6),
+		solicitFrom6(victimMAC6, victimIP6, serverIP6),
+	)
+	writePcap("dhcpstarve_response.pcap", offerFrom(dhcpServerMAC, dhcpServerIP, net.HardwareAddr{0x00, 0x11, 0x22, 0x33, 0x00, 0x01}, dhcpXid+1, net.IPv4(172, 16, 0, 101)))
+	writePcap("roguedhcp_query.pcap",
+		discoverFrom(dhcpClientMAC, dhcpXid),
+		requestFrom(dhcpClientMAC, dhcpXid, net.IPv4(172, 16, 0, 99), dhcpOfferIP),
+		requestFrom(dhcpClientMAC, dhcpXid, dhcpServerIP, dhcpOfferIP),
+	)
+	writePcap("roguedhcp6_request.pcap",
+		request6From(dhcpClientMAC, clientIP6, dhcpv6Xid, append([]byte{0x00, 0x01, 0x00, 0x01}, srcBytes()...)),
+		request6From(dhcpClientMAC, clientIP6, dhcpv6Xid, append([]byte{0x00, 0x01, 0x00, 0x01}, serverMAC6...)),
+	)
 
 	if genErr != nil {
 		return genErr
@@ -371,8 +413,10 @@ func rogueDHCPv6Frames() [][]byte {
 	return [][]byte{solicit, advertise}
 }
 
-// ndpSpoofFrames sends a spoofed Neighbor Advertisement claiming the
-// victim's IP is at the attacker's MAC.
+// ndpSpoofFrames sends the unsolicited Neighbor Advertisement telling the
+// victim that the server's address is at the attacker's MAC, Override set
+// and Solicited clear, then the echo request to the victim from the
+// server's address that probes the victim's cache.
 
 func ndpSpoofFrames() [][]byte {
 	src := srcBytes()
@@ -386,7 +430,7 @@ func ndpSpoofFrames() [][]byte {
 		Version:    6,
 		NextHeader: layers.IPProtocolICMPv6,
 		HopLimit:   255,
-		SrcIP:      attackerIP,
+		SrcIP:      serverIP6,
 		DstIP:      victimIP6,
 	}
 	icmp := &layers.ICMPv6{
@@ -394,10 +438,10 @@ func ndpSpoofFrames() [][]byte {
 	}
 	_ = icmp.SetNetworkLayerForChecksum(ip)
 
-	// Flags: Router=0, Solicited=1, Override=1 (0x60)
+	// Flags: Router=0, Solicited=0, Override=1 (0x20)
 	na := &layers.ICMPv6NeighborAdvertisement{
-		Flags:         0x60,
-		TargetAddress: victimIP6,
+		Flags:         0x20,
+		TargetAddress: serverIP6,
 		Options: layers.ICMPv6Options{
 			{
 				Type: layers.ICMPv6OptTargetAddress,
@@ -405,7 +449,227 @@ func ndpSpoofFrames() [][]byte {
 			},
 		},
 	}
-	return [][]byte{craft(eth, ip, icmp, na)}
+
+	probeEth := &layers.Ethernet{
+		DstMAC:       victimMAC6,
+		SrcMAC:       src,
+		EthernetType: layers.EthernetTypeIPv6,
+	}
+	probeIP := &layers.IPv6{
+		Version:    6,
+		NextHeader: layers.IPProtocolICMPv6,
+		HopLimit:   64,
+		SrcIP:      serverIP6,
+		DstIP:      victimIP6,
+	}
+	probeICMP := &layers.ICMPv6{
+		TypeCode: layers.CreateICMPv6TypeCode(layers.ICMPv6TypeEchoRequest, 0),
+	}
+	_ = probeICMP.SetNetworkLayerForChecksum(probeIP)
+	echo := &layers.ICMPv6Echo{Identifier: 0x4e50, SeqNumber: 1}
+
+	return [][]byte{
+		craft(eth, ip, icmp, na),
+		craft(probeEth, probeIP, probeICMP, echo, gopacket.Payload([]byte("netpen"))),
+	}
+}
+
+// dadSolicitFrom builds a host's duplicate address detection Neighbor
+// Solicitation for target: source unspecified, destination the
+// solicited-node group (RFC 4862 section 5.4.2).
+func dadSolicitFrom(hostMAC net.HardwareAddr, target net.IP) []byte {
+	eth := &layers.Ethernet{
+		DstMAC:       solicitedNodeMAC(target),
+		SrcMAC:       hostMAC,
+		EthernetType: layers.EthernetTypeIPv6,
+	}
+	ip := &layers.IPv6{
+		Version:    6,
+		NextHeader: layers.IPProtocolICMPv6,
+		HopLimit:   255,
+		SrcIP:      net.IPv6zero,
+		DstIP:      solicitedNodeIP(target),
+	}
+	icmp := &layers.ICMPv6{
+		TypeCode: layers.CreateICMPv6TypeCode(layers.ICMPv6TypeNeighborSolicitation, 0),
+	}
+	_ = icmp.SetNetworkLayerForChecksum(ip)
+	ns := &layers.ICMPv6NeighborSolicitation{TargetAddress: target}
+	return craft(eth, ip, icmp, ns)
+}
+
+// solicitFrom6 builds a host's Neighbor Solicitation for target from its
+// own address, with its link-layer address option (RFC 4861 section 4.3).
+func solicitFrom6(hostMAC net.HardwareAddr, hostIP, target net.IP) []byte {
+	eth := &layers.Ethernet{
+		DstMAC:       solicitedNodeMAC(target),
+		SrcMAC:       hostMAC,
+		EthernetType: layers.EthernetTypeIPv6,
+	}
+	ip := &layers.IPv6{
+		Version:    6,
+		NextHeader: layers.IPProtocolICMPv6,
+		HopLimit:   255,
+		SrcIP:      hostIP,
+		DstIP:      solicitedNodeIP(target),
+	}
+	icmp := &layers.ICMPv6{
+		TypeCode: layers.CreateICMPv6TypeCode(layers.ICMPv6TypeNeighborSolicitation, 0),
+	}
+	_ = icmp.SetNetworkLayerForChecksum(ip)
+	ns := &layers.ICMPv6NeighborSolicitation{
+		TargetAddress: target,
+		Options:       layers.ICMPv6Options{{Type: layers.ICMPv6OptSourceAddress, Data: hostMAC}},
+	}
+	return craft(eth, ip, icmp, ns)
+}
+
+// echoReply6From builds the victim's ICMPv6 echo reply to the probe, sent
+// to dstMAC for the spoofed address, carrying the probe's identifier and
+// payload (RFC 4443 section 4.2).
+func echoReply6From(victimMAC, dstMAC net.HardwareAddr, victimIP, spoofed net.IP) []byte {
+	eth := &layers.Ethernet{
+		DstMAC:       dstMAC,
+		SrcMAC:       victimMAC,
+		EthernetType: layers.EthernetTypeIPv6,
+	}
+	ip := &layers.IPv6{
+		Version:    6,
+		NextHeader: layers.IPProtocolICMPv6,
+		HopLimit:   64,
+		SrcIP:      victimIP,
+		DstIP:      spoofed,
+	}
+	icmp := &layers.ICMPv6{
+		TypeCode: layers.CreateICMPv6TypeCode(layers.ICMPv6TypeEchoReply, 0),
+	}
+	_ = icmp.SetNetworkLayerForChecksum(ip)
+	echo := &layers.ICMPv6Echo{Identifier: 0x4e50, SeqNumber: 1}
+	return craft(eth, ip, icmp, echo, gopacket.Payload([]byte("netpen")))
+}
+
+// dhcpv4From builds a DHCPv4 message between the given hosts.
+func dhcpv4From(srcMAC, dstMAC net.HardwareAddr, srcIP, dstIP net.IP, srcPort, dstPort layers.UDPPort, dhcp *layers.DHCPv4) []byte {
+	eth := &layers.Ethernet{
+		DstMAC:       dstMAC,
+		SrcMAC:       srcMAC,
+		EthernetType: layers.EthernetTypeIPv4,
+	}
+	ip := &layers.IPv4{
+		Version:  4,
+		IHL:      5,
+		TTL:      128,
+		SrcIP:    srcIP,
+		DstIP:    dstIP,
+		Protocol: layers.IPProtocolUDP,
+	}
+	udp := &layers.UDP{SrcPort: srcPort, DstPort: dstPort}
+	_ = udp.SetNetworkLayerForChecksum(ip)
+	return craft(eth, ip, udp, dhcp)
+}
+
+// offerFrom builds a DHCP server's OFFER to chaddr with xid, leasing
+// offered (RFC 2131 section 4.3.1).
+func offerFrom(serverMAC net.HardwareAddr, serverIP net.IP, chaddr net.HardwareAddr, xid uint32, offered net.IP) []byte {
+	leaseTime := make([]byte, 4)
+	binary.BigEndian.PutUint32(leaseTime, 3600)
+	dhcp := &layers.DHCPv4{
+		Operation:    layers.DHCPOpReply,
+		HardwareType: layers.LinkTypeEthernet,
+		HardwareLen:  6,
+		Xid:          xid,
+		Flags:        0x8000,
+		ClientIP:     net.IPv4(0, 0, 0, 0),
+		YourClientIP: offered,
+		NextServerIP: serverIP,
+		RelayAgentIP: net.IPv4(0, 0, 0, 0),
+		ClientHWAddr: chaddr,
+		Options: layers.DHCPOptions{
+			layers.NewDHCPOption(layers.DHCPOptMessageType, []byte{byte(layers.DHCPMsgTypeOffer)}),
+			layers.NewDHCPOption(layers.DHCPOptServerID, serverIP.To4()),
+			layers.NewDHCPOption(layers.DHCPOptLeaseTime, leaseTime),
+			layers.NewDHCPOption(layers.DHCPOptSubnetMask, net.IPv4(255, 255, 255, 0).To4()),
+		},
+	}
+	return dhcpv4From(serverMAC, broadcastMAC, serverIP, net.IPv4(255, 255, 255, 255), 67, 68, dhcp)
+}
+
+// discoverFrom builds a client's DISCOVER with xid (RFC 2131 section
+// 4.3.1).
+func discoverFrom(clientMAC net.HardwareAddr, xid uint32) []byte {
+	dhcp := &layers.DHCPv4{
+		Operation:    layers.DHCPOpRequest,
+		HardwareType: layers.LinkTypeEthernet,
+		HardwareLen:  6,
+		Xid:          xid,
+		Flags:        0x8000,
+		ClientIP:     net.IPv4(0, 0, 0, 0),
+		YourClientIP: net.IPv4(0, 0, 0, 0),
+		NextServerIP: net.IPv4(0, 0, 0, 0),
+		RelayAgentIP: net.IPv4(0, 0, 0, 0),
+		ClientHWAddr: clientMAC,
+		Options: layers.DHCPOptions{
+			layers.NewDHCPOption(layers.DHCPOptMessageType, []byte{byte(layers.DHCPMsgTypeDiscover)}),
+			layers.NewDHCPOption(layers.DHCPOptParamsRequest, []byte{byte(layers.DHCPOptSubnetMask), byte(layers.DHCPOptRouter), byte(layers.DHCPOptDNS)}),
+		},
+	}
+	return dhcpv4From(clientMAC, broadcastMAC, net.IPv4(0, 0, 0, 0), net.IPv4(255, 255, 255, 255), 68, 67, dhcp)
+}
+
+// requestFrom builds a client's REQUEST with xid naming serverID as the
+// server it selected and requested as the address (RFC 2131 sections
+// 4.3.2 and 4.4.1).
+func requestFrom(clientMAC net.HardwareAddr, xid uint32, serverID, requested net.IP) []byte {
+	dhcp := &layers.DHCPv4{
+		Operation:    layers.DHCPOpRequest,
+		HardwareType: layers.LinkTypeEthernet,
+		HardwareLen:  6,
+		Xid:          xid,
+		Flags:        0x8000,
+		ClientIP:     net.IPv4(0, 0, 0, 0),
+		YourClientIP: net.IPv4(0, 0, 0, 0),
+		NextServerIP: net.IPv4(0, 0, 0, 0),
+		RelayAgentIP: net.IPv4(0, 0, 0, 0),
+		ClientHWAddr: clientMAC,
+		Options: layers.DHCPOptions{
+			layers.NewDHCPOption(layers.DHCPOptMessageType, []byte{byte(layers.DHCPMsgTypeRequest)}),
+			layers.NewDHCPOption(layers.DHCPOptServerID, serverID.To4()),
+			layers.NewDHCPOption(layers.DHCPOptRequestIP, requested.To4()),
+		},
+	}
+	return dhcpv4From(clientMAC, broadcastMAC, net.IPv4(0, 0, 0, 0), net.IPv4(255, 255, 255, 255), 68, 67, dhcp)
+}
+
+// request6From builds a DHCPv6 client's REQUEST with xid naming serverDUID
+// as the server it chose (RFC 8415 sections 18.2.2 and 21.3).
+func request6From(clientMAC net.HardwareAddr, clientIP net.IP, xid, serverDUID []byte) []byte {
+	eth := &layers.Ethernet{
+		DstMAC:       allDHCPv6MAC,
+		SrcMAC:       clientMAC,
+		EthernetType: layers.EthernetTypeIPv6,
+	}
+	ip := &layers.IPv6{
+		Version:    6,
+		NextHeader: layers.IPProtocolUDP,
+		HopLimit:   1,
+		SrcIP:      clientIP,
+		DstIP:      net.ParseIP("ff02::1:2"),
+	}
+	udp := &layers.UDP{SrcPort: 546, DstPort: 547}
+	_ = udp.SetNetworkLayerForChecksum(ip)
+	clientDUID := append([]byte{0x00, 0x01, 0x00, 0x01}, clientMAC...)
+	iaNAData := make([]byte, 12)
+	binary.BigEndian.PutUint32(iaNAData[0:4], 0x00000001)
+	dhcp := &layers.DHCPv6{
+		MsgType:       layers.DHCPv6MsgTypeRequest,
+		TransactionID: xid,
+		Options: layers.DHCPv6Options{
+			layers.NewDHCPv6Option(layers.DHCPv6OptClientID, clientDUID),
+			layers.NewDHCPv6Option(layers.DHCPv6OptServerID, serverDUID),
+			layers.NewDHCPv6Option(layers.DHCPv6OptIANA, iaNAData),
+		},
+	}
+	return craft(eth, ip, udp, dhcp)
 }
 
 // dadDOSFrames sends a Neighbor Solicitation for the target address
@@ -729,8 +993,10 @@ func writePcap(path string, pkts ...[]byte) {
 	}
 
 	for _, pkt := range pkts {
+		// The epoch stamp keeps an untouched fixture byte-identical across
+		// runs, since pcapgo writes the wall clock for a zero stamp.
 		if err := w.WritePacket(gopacket.CaptureInfo{
-			Timestamp:     time.Now(),
+			Timestamp:     time.Unix(0, 0),
 			CaptureLength: len(pkt),
 			Length:        len(pkt),
 		}, pkt); err != nil {

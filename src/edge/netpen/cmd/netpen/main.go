@@ -323,10 +323,8 @@ func setupAttack(fs *flag.FlagSet, cf *cmdFlags, name string) {
 	case "vtp":
 		fs.BoolVar(&cf.wipe, "wipe", false, "VTP VLAN-database wipe (permanent; requires --i-accept-permanent)")
 		fs.StringVar(&cf.setVLANs, "set", "", "VTP VLAN-database overwrite (permanent; requires --i-accept-permanent)")
-	case "vlanhop":
-		fs.BoolVar(&cf.persist, "persist", false, "persistent VLAN hop (permanent; requires --i-accept-permanent)")
 	case "voicevlan":
-		fs.BoolVar(&cf.persist, "persist", false, "persistent voice-VLAN hijack (permanent; requires --i-accept-permanent)")
+		fs.BoolVar(&cf.persist, "persist", false, "leave the neighbor entry to expire")
 	case "portsteal":
 		fs.BoolVar(&cf.relay, "relay", false, "port-steal with relay (arms ip_forward restore)")
 	case "dtp":

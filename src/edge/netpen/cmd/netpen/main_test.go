@@ -222,7 +222,7 @@ func TestCeilingFlag(t *testing.T) {
 
 	stdout.Reset()
 	stderr.Reset()
-	if code := run([]string{"camflood", "--json=true"}, &stdout, &stderr); code != 0 {
+	if code := run([]string{"camflood", "--json=true", "--victim", "172.16.0.10,00:aa:bb:cc:dd:01"}, &stdout, &stderr); code != 0 {
 		t.Errorf("exit code under the default ceiling: got %d, want 0; stderr: %s", code, stderr.String())
 	}
 	if strings.Contains(stdout.String(), `"kind":"refusal"`) {
@@ -345,6 +345,7 @@ func TestTargetFlagsParse(t *testing.T) {
 		{[]string{"vlanhop", "--outer-vlan", "4095"}, "want a VLAN id from 1 to 4094"},
 		{[]string{"vlanhop", "--inner-vlan", "4096"}, "want a VLAN id from 1 to 4094"},
 		{[]string{"hsrp", "--group", "-1"}, "want a number from 0 to 65535"},
+		{[]string{"vlanhop", "--persist"}, "flag provided but not defined: -persist"},
 	} {
 		stdout.Reset()
 		stderr.Reset()

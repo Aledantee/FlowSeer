@@ -766,6 +766,44 @@ func TestDepsCarryObserveTargetAndListen(t *testing.T) {
 	_ = ln.Close()
 }
 
+// TestDepsCarryTheSysctlOption pins the seam a behavior changes a kernel
+// setting through: the map the options carry is what the behavior reads
+// and writes, so a test run never touches the host.
+func TestDepsCarryTheSysctlOption(t *testing.T) {
+	leg := newMockLeg()
+	closeLeg(t, leg)
+	sysctl := runner.NewMapSysctl(map[string]string{"net.ipv4.ip_forward": "0"})
+	var before string
+	var getErr error
+	r := newRunner(runner.Options{
+		AttackLeg: leg,
+		Attacks:   []runner.AttackRef{{Name: "vtp"}},
+		Sysctl:    sysctl,
+	}, map[string]check.Run{"vtp": func(_ context.Context, deps check.Deps) (check.Verdict, error) {
+		before, getErr = deps.Sysctl.Get("net.ipv4.ip_forward")
+		if err := deps.Sysctl.Set("net.ipv4.ip_forward", "1"); err != nil {
+			return check.Verdict{}, err
+		}
+		return pending, nil
+	}})
+	if _, err := drainStreamAsync(context.Background(), r); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if getErr != nil {
+		t.Fatalf("Deps.Sysctl.Get: %v", getErr)
+	}
+	if before != "0" {
+		t.Errorf("Deps.Sysctl.Get = %q, want the map's %q", before, "0")
+	}
+	after, err := sysctl.Get("net.ipv4.ip_forward")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if after != "1" {
+		t.Errorf("the map holds %q after the behavior, want %q", after, "1")
+	}
+}
+
 func TestStreamCloseLatency(t *testing.T) {
 	leg := newMockLeg()
 	closeLeg(t, leg)

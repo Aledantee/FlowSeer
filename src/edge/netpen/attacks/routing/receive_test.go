@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"strings"
 	"testing"
 	"time"
 
@@ -33,9 +34,9 @@ func (l *receiveFailureLeg) Receive(context.Context) <-chan link.Frame {
 }
 
 // TestRoutingReceiveFailureStopsSequence pins what the sequence does with
-// the leg's receive outcomes: a terminal frame error and a cancellation stop
-// it after the hello, while a receiver that closes with nothing to deliver
-// ends the window early and the sequence proceeds with every frame.
+// the leg's receive outcomes: a terminal frame error, a receiver that
+// closes with nothing to deliver, and a cancellation each stop it after the
+// hello, since a leg that stops before the window has observed nothing.
 func TestRoutingReceiveFailureStopsSequence(t *testing.T) {
 	for _, name := range []string{"ospf", "eigrp"} {
 		for _, tc := range []struct {
@@ -43,10 +44,10 @@ func TestRoutingReceiveFailureStopsSequence(t *testing.T) {
 			rxErr    error
 			cancel   bool
 			want     error
-			proceeds bool
+			wantText string
 		}{
 			{name: "terminal error", rxErr: io.ErrUnexpectedEOF, want: io.ErrUnexpectedEOF},
-			{name: "closed receiver", proceeds: true},
+			{name: "closed receiver", wantText: "leg closed before the window"},
 			{name: "canceled receive", cancel: true, want: context.Canceled},
 		} {
 			t.Run(name+"/"+tc.name, func(t *testing.T) {
@@ -75,27 +76,19 @@ func TestRoutingReceiveFailureStopsSequence(t *testing.T) {
 					Attacks:        []runner.AttackRef{{Name: name}},
 					Target:         fixtureTarget(),
 					TeardownBudget: time.Second,
+					// A window the OSPF check accepts; the receive fails
+					// at once, so none of it is waited.
+					Observe: 20 * time.Second,
 				})
 				if err != nil {
 					t.Fatalf("run: %v", err)
 				}
-				if tc.proceeds {
-					if behaviorErr != nil {
-						t.Errorf("behavior error: got %v, want nil, since a closed receiver ends the window", behaviorErr)
+				switch {
+				case tc.wantText != "":
+					if behaviorErr == nil || !strings.Contains(behaviorErr.Error(), tc.wantText) {
+						t.Errorf("behavior error: got %v, want one naming %q", behaviorErr, tc.wantText)
 					}
-					if f := findFinding(t, recs); f == nil {
-						t.Error("no finding after the window ended on a closed receiver")
-					}
-					wantSends := 3 // Hello, inject, and the armed goodbye.
-					if name == "ospf" {
-						wantSends = 5 // Hello, db-desc, lsa-update, flush, goodbye.
-					}
-					if got := inner.SendCount(); got != wantSends {
-						t.Errorf("send count: got %d, want %d", got, wantSends)
-					}
-					return
-				}
-				if !errors.Is(behaviorErr, tc.want) {
+				case !errors.Is(behaviorErr, tc.want):
 					t.Errorf("behavior error: got %v, want %v", behaviorErr, tc.want)
 				}
 				if tc.cancel && behaviorErr != context.Canceled {

@@ -24,9 +24,15 @@ var (
 	lacpDstMAC   = net.HardwareAddr{0x01, 0x80, 0xc2, 0x00, 0x00, 0x02}
 	stpDstMAC    = net.HardwareAddr{0x01, 0x80, 0xc2, 0x00, 0x00, 0x00}
 	broadcastMAC = net.HardwareAddr{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
+	lldpDstMAC   = net.HardwareAddr{0x01, 0x80, 0xc2, 0x00, 0x00, 0x0e}
 	ciscoOUI     = []byte{0x00, 0x00, 0x0C}
 	partnerMAC   = net.HardwareAddr{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0xee}
 )
+
+// lldpTTL is the time to live, in seconds, the LLDP frames announce: the
+// receiver discards the neighbor entry once it runs out, which is the
+// decay bound of the voicevlan persist mode.
+const lldpTTL = 120
 
 // SNAP PID constants for Cisco-proprietary protocols.
 const (

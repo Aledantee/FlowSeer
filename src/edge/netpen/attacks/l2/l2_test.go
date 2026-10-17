@@ -9,6 +9,7 @@
 package l2_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"net"
@@ -16,12 +17,16 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gopacket/gopacket"
+	"github.com/gopacket/gopacket/layers"
+
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/l2"
 	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/testtest"
 	"go.aledante.io/FlowSeer/src/edge/netpen/catalog"
 	"go.aledante.io/FlowSeer/src/edge/netpen/check"
 	"go.aledante.io/FlowSeer/src/edge/netpen/findings"
+	nl "go.aledante.io/FlowSeer/src/edge/netpen/layers"
 	"go.aledante.io/FlowSeer/src/edge/netpen/link"
 	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
 )
@@ -29,12 +34,18 @@ import (
 // fixtureMAC is the attacker MAC every fixture frame carries as its source.
 var fixtureMAC = net.HardwareAddr{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
 
+// switchMAC is the sender of every response fixture frame: the switch on
+// the other side of the attack leg.
+var switchMAC = net.HardwareAddr{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0xee}
+
 // fixtureTarget builds the target the fixtures were harvested against: the
-// VLAN pair of the double-tag frames, the voice VLAN, the VTP domain, and
-// the port-steal victim.
+// VLAN pair of the double-tag frames, the voice VLAN, the VTP domain, the
+// port-steal victim with the MAC the CAM flood probes, and the gateway the
+// port-steal probe is sent to.
 func fixtureTarget() check.Target {
 	return check.Target{
-		Victim:    check.Host{IP: net.IPv4(10, 0, 0, 1)},
+		Victim:    check.Host{IP: net.IPv4(10, 0, 0, 1), MAC: net.HardwareAddr{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x01}},
+		Gateway:   check.Host{IP: net.IPv4(10, 0, 0, 254), MAC: switchMAC},
 		OuterVLAN: 10,
 		InnerVLAN: 20,
 		VoiceVLAN: 20,
@@ -238,10 +249,12 @@ func TestNeedFieldsPerBehavior(t *testing.T) {
 		{"doubletag", check.Target{}, check.ErrCodeTargetMissing, "the check needs: --outer-vlan <n>, --inner-vlan <n>"},
 		{"voicevlan", check.Target{}, check.ErrCodeTargetMissing, "the check needs: --voice-vlan <n>"},
 		{"vtp", check.Target{}, check.ErrCodeTargetMissing, "the check needs: --vtp-domain <name>"},
-		{"portsteal", check.Target{}, check.ErrCodeTargetMissing, "the check needs: --victim <ip>,<mac>"},
-		{"portsteal IPv6 victim", check.Target{Victim: check.Host{IP: net.ParseIP("2001:db8::1")}}, check.ErrCodeTargetInvalid, "the check needs: --victim <ip>,<mac> wants an IPv4 address"},
+		{"portsteal", check.Target{}, check.ErrCodeTargetMissing, "the check needs: --victim <ip>,<mac>, --gateway <ip>,<mac>"},
+		{"portsteal IPv6 victim", check.Target{Victim: check.Host{IP: net.ParseIP("2001:db8::1")}, Gateway: fixtureTarget().Gateway}, check.ErrCodeTargetInvalid, "the check needs: --victim <ip>,<mac> wants an IPv4 address"},
+		{"camflood", check.Target{}, check.ErrCodeTargetMissing, "the check needs: --victim <ip>,<mac>"},
+		{"camflood victim without MAC", check.Target{Victim: check.Host{IP: net.IPv4(10, 0, 0, 1)}}, check.ErrCodeTargetMissing, "the check needs: --victim <ip>,<mac>"},
 		{"doubletag VLAN 4095", check.Target{OuterVLAN: 4095, InnerVLAN: 20}, check.ErrCodeTargetInvalid, "the check needs: --outer-vlan <n> wants a VLAN id from 1 to 4094"},
-		{"voicevlan 200", check.Target{VoiceVLAN: 200}, check.ErrCodeTargetInvalid, "the check needs: --voice-vlan at most 127"},
+		{"voicevlan 4095", check.Target{VoiceVLAN: 4095}, check.ErrCodeTargetInvalid, "the check needs: --voice-vlan <n> wants a VLAN id from 1 to 4094"},
 		{"vtp 33-byte domain", check.Target{VTPDomain: strings.Repeat("d", 33)}, check.ErrCodeTargetInvalid, "the check needs: --vtp-domain <name> wants a name of at most 32 bytes"},
 	}
 	for _, tc := range cases {
@@ -281,6 +294,7 @@ func TestVTP_FindingReportsMode(t *testing.T) {
 	for _, mode := range []string{"", "wipe", "set"} {
 		t.Run("mode "+mode, func(t *testing.T) {
 			leg := fixtureLeg(t)
+			leg.PushRX(fixturePackets(t, "vtp_response.pcap")[0])
 			var ack []runner.AttackRef
 			if mode != "" {
 				ack = []runner.AttackRef{{Name: "vtp", Mode: mode}}
@@ -360,36 +374,28 @@ func TestVlanEnum_EnumeratesFixtureVLANs(t *testing.T) {
 	}
 }
 
-func TestVlanHop_RestoreArmed(t *testing.T) {
+// TestVlanHop_SendsTheHop pins that vlanhop sends doubletag's frame, arms
+// nothing, and is pending without a watch leg.
+func TestVlanHop_SendsTheHop(t *testing.T) {
 	leg := fixtureLeg(t)
 
-	_, err := runOne(t, leg, "vlanhop", "")
+	recs, err := runOne(t, leg, "vlanhop", "")
 	if err != nil {
 		t.Fatalf("run vlanhop: %v", err)
 	}
-	// A nil error means the restore step ran: the runner executes the armed
-	// steps and fails the run for a behavior that armed none.
 	tx := leg.TX()
 	if len(tx) != 1 {
 		t.Fatalf("TX count: got %d, want 1", len(tx))
 	}
-}
-
-func TestVlanHop_PersistNoRestore(t *testing.T) {
-	leg := fixtureLeg(t)
-
-	_, err := runOne(t, leg, "vlanhop", "persist",
-		runner.AttackRef{Name: "vlanhop", Mode: "persist"},
-	)
-	if err != nil {
-		t.Fatalf("run vlanhop persist: %v", err)
-	}
-	tx := leg.TX()
-	if len(tx) != 1 {
-		t.Fatalf("TX count: got %d, want 1", len(tx))
+	testtest.AssertBytesEqual(t, "VLAN hop", tx[0], fixturePackets(t, "vlanhop.pcap")[0])
+	if v := verdictOf(recs); v == nil || v.Kind != findings.VerdictPending || !strings.Contains(v.Detail, "no watch leg") {
+		t.Errorf("verdict = %+v, want pending without a watch leg", v)
 	}
 }
 
+// TestVoiceVLAN_RestoreArmed pins the base entry's frames: the LLDP-MED
+// frame against the regenerated fixture, decoded by gopacket to the
+// target VLAN, priority 5, and DSCP 46, then the armed shutdown with TTL 0.
 func TestVoiceVLAN_RestoreArmed(t *testing.T) {
 	leg := fixtureLeg(t)
 
@@ -398,55 +404,84 @@ func TestVoiceVLAN_RestoreArmed(t *testing.T) {
 		t.Fatalf("run voicevlan: %v", err)
 	}
 	tx := leg.TX()
-	if len(tx) != 1 {
-		t.Fatalf("TX count: got %d, want 1", len(tx))
+	if len(tx) != 2 {
+		t.Fatalf("TX count: got %d, want 2 (the frame + the shutdown)", len(tx))
+	}
+	testtest.AssertBytesEqual(t, "LLDP-MED frame", tx[0], fixturePackets(t, "voicevlan.pcap")[0])
+	policy := medPolicyOf(t, tx[0])
+	if policy.VLANId != 20 || policy.L2Priority != 5 || policy.DSCPValue != 46 || !policy.Tagged {
+		t.Errorf("network policy = %+v, want VLAN 20, priority 5, DSCP 46, tagged", policy)
+	}
+	if ttl := lldpTTLOf(t, tx[1]); ttl != 0 {
+		t.Errorf("shutdown TTL = %d, want 0", ttl)
 	}
 }
 
-func TestSTPRoot_BurstSend(t *testing.T) {
-	leg := fixtureLeg(t)
-
-	recs, err := runOne(t, leg, "stproot", "")
+// medPolicyOf decodes the LLDP-MED network policy of an LLDP frame with
+// gopacket, the second reader of the frame's layout.
+func medPolicyOf(t *testing.T, frame []byte) layers.LLDPNetworkPolicy {
+	t.Helper()
+	pkt := gopacket.NewPacket(frame, layers.LayerTypeEthernet, gopacket.Default)
+	info, ok := pkt.Layer(layers.LayerTypeLinkLayerDiscoveryInfo).(*layers.LinkLayerDiscoveryInfo)
+	if !ok {
+		t.Fatalf("frame decodes to %v, want an LLDP info layer", pkt.Layers())
+	}
+	media, err := info.DecodeMedia()
 	if err != nil {
-		t.Fatalf("run stproot: %v", err)
+		t.Fatalf("DecodeMedia: %v", err)
 	}
-
-	tx := leg.TX()
-	if len(tx) != 3 {
-		t.Fatalf("TX count: got %d, want 3", len(tx))
-	}
-
-	fixtures := fixturePackets(t, "stproot.pcap")
-	for _, frame := range tx {
-		testtest.AssertBytesEqual(t, "STP BPDU", frame, fixtures[0])
-	}
-
-	if len(recs) == 0 {
-		t.Fatal("no findings emitted")
-	}
+	return media.NetworkPolicy
 }
 
-func TestCAMFlood_UniqueSourceMACs(t *testing.T) {
+// lldpTTLOf decodes the TTL of an LLDP frame with gopacket.
+func lldpTTLOf(t *testing.T, frame []byte) uint16 {
+	t.Helper()
+	pkt := gopacket.NewPacket(frame, layers.LayerTypeEthernet, gopacket.Default)
+	lldp, ok := pkt.Layer(layers.LayerTypeLinkLayerDiscovery).(*layers.LinkLayerDiscovery)
+	if !ok {
+		t.Fatalf("frame decodes to %v, want an LLDP layer", pkt.Layers())
+	}
+	return lldp.TTL
+}
+
+// TestCAMFlood_SendsTheProbeLast pins the flood: 10,000 stamped frames,
+// the first five byte for byte against the fixture, then the unicast probe
+// to the victim's MAC with the sentinel payload, and pending without a
+// watch leg.
+func TestCAMFlood_SendsTheProbeLast(t *testing.T) {
 	leg := fixtureLeg(t)
 
-	_, err := runOne(t, leg, "camflood", "")
+	recs, err := runOne(t, leg, "camflood", "")
 	if err != nil {
 		t.Fatalf("run camflood: %v", err)
 	}
 
 	tx := leg.TX()
-	if len(tx) != 5 {
-		t.Fatalf("TX count: got %d, want 5", len(tx))
+	if len(tx) != 10_001 {
+		t.Fatalf("TX count: got %d, want 10,001", len(tx))
 	}
 
 	fixtures := fixturePackets(t, "camflood.pcap")
-	for i, frame := range tx {
+	for i, frame := range tx[:5] {
 		testtest.AssertBytesEqual(t, "CAM flood frame", frame, fixtures[i])
+	}
+	last := tx[len(tx)-1]
+	if got := net.HardwareAddr(last[0:6]); !bytes.Equal(got, fixtureTarget().Victim.MAC) {
+		t.Errorf("probe destination = %s, want the victim's MAC", got)
+	}
+	if !bytes.Contains(last, []byte("netpen-camflood")) {
+		t.Error("probe lacks the sentinel payload")
+	}
+	if v := verdictOf(recs); v == nil || v.Kind != findings.VerdictPending || !strings.Contains(v.Detail, "no watch leg") {
+		t.Errorf("verdict = %+v, want pending without a watch leg", v)
 	}
 }
 
+// TestVTP_SafeMode feeds the switch's revision-41 summary and pins the
+// revision-42 summary the base mode answers with against the fixture.
 func TestVTP_SafeMode(t *testing.T) {
 	leg := fixtureLeg(t)
+	leg.PushRX(fixturePackets(t, "vtp_response.pcap")[0])
 
 	recs, err := runOne(t, leg, "vtp", "")
 	if err != nil {
@@ -484,31 +519,70 @@ func TestMVRP_JoinInFlood(t *testing.T) {
 	testtest.AssertBytesEqual(t, "MVRP JoinIn VLAN 20", tx[1], fixtures[1])
 }
 
+// TestPortSteal_Default pins the three announcements against the fixture
+// and the echo probe to the gateway that follows them.
 func TestPortSteal_Default(t *testing.T) {
 	leg := fixtureLeg(t)
 
-	_, err := runOne(t, leg, "portsteal", "")
+	recs, err := runOne(t, leg, "portsteal", "")
 	if err != nil {
 		t.Fatalf("run portsteal: %v", err)
 	}
 
 	tx := leg.TX()
-	if len(tx) != 3 {
-		t.Fatalf("TX count: got %d, want 3", len(tx))
+	if len(tx) != 4 {
+		t.Fatalf("TX count: got %d, want 3 announcements and the probe", len(tx))
+	}
+	fixtures := fixturePackets(t, "portsteal.pcap")
+	for i, frame := range tx[:3] {
+		testtest.AssertBytesEqual(t, "port-steal announcement", frame, fixtures[i])
+	}
+	if got := net.HardwareAddr(tx[3][0:6]); !bytes.Equal(got, switchMAC) {
+		t.Errorf("probe destination = %s, want the gateway's MAC", got)
+	}
+	if v := verdictOf(recs); v == nil || v.Kind != findings.VerdictPending || !strings.Contains(v.Detail, "no reply from the gateway") {
+		t.Errorf("verdict = %+v, want pending on the quiet leg", v)
 	}
 }
 
-func TestPortSteal_RelayArmsRestore(t *testing.T) {
+// TestPortSteal_RelaySetsAndRestoresForwarding pins the relay mode through
+// the sysctl seam: with a map holding 0, the behavior sees 1 while it runs
+// and the armed step writes 0 back after the teardown.
+func TestPortSteal_RelaySetsAndRestoresForwarding(t *testing.T) {
 	leg := fixtureLeg(t)
+	sysctl := runner.NewMapSysctl(map[string]string{"net.ipv4.ip_forward": "0"})
 
-	_, err := runOne(t, leg, "portsteal", "relay")
+	var during string
+	bs := l2.Behaviors()
+	for i := range bs {
+		if bs[i].Name == "portsteal" {
+			run := bs[i].Run
+			bs[i].Run = func(ctx context.Context, deps check.Deps) (check.Verdict, error) {
+				v, err := run(ctx, deps)
+				during, _ = sysctl.Get("net.ipv4.ip_forward")
+				return v, err
+			}
+		}
+	}
+	_, err := run(t, runner.Options{
+		Catalog:   catalog.MustNew(bs...),
+		AttackLeg: leg,
+		Attacks:   []runner.AttackRef{{Name: "portsteal", Mode: "relay"}},
+		Target:    fixtureTarget(),
+		MaxImpact: check.ImpactTemporary,
+		Sysctl:    sysctl,
+	})
 	if err != nil {
 		t.Fatalf("run portsteal relay: %v", err)
 	}
-	// A nil error means the armed restore step ran.
-	tx := leg.TX()
-	if len(tx) != 3 {
-		t.Fatalf("TX count: got %d, want 3", len(tx))
+	if during != "1" {
+		t.Errorf("ip_forward during the behavior = %q, want 1", during)
+	}
+	if after, _ := sysctl.Get("net.ipv4.ip_forward"); after != "0" {
+		t.Errorf("ip_forward after the teardown = %q, want the 0 read before", after)
+	}
+	if tx := leg.TX(); len(tx) != 4 {
+		t.Fatalf("TX count: got %d, want 3 announcements and the probe", len(tx))
 	}
 }
 
@@ -521,13 +595,22 @@ func TestEtherChannel_LACPandPAgP(t *testing.T) {
 	}
 
 	tx := leg.TX()
-	if len(tx) != 2 {
-		t.Fatalf("TX count: got %d, want 2 (LACP + PAgP)", len(tx))
+	if len(tx) != 3 {
+		t.Fatalf("TX count: got %d, want 3 (LACP + PAgP + release)", len(tx))
 	}
 
 	fixtures := fixturePackets(t, "etherchannel.pcap")
 	testtest.AssertBytesEqual(t, "LACPDU", tx[0], fixtures[0])
 	testtest.AssertBytesEqual(t, "PAgP hello", tx[1], fixtures[1])
+
+	release := gopacket.NewPacket(tx[2], layers.LayerTypeEthernet, gopacket.Default)
+	lacp, ok := release.Layer(nl.LayerTypeLACP).(*nl.LACP)
+	if !ok {
+		t.Fatalf("release frame decodes to %v, want an LACPDU", release.Layers())
+	}
+	if lacp.Actor.State&(nl.LACPStateSynchronization|nl.LACPStateCollecting|nl.LACPStateDistributing) != 0 {
+		t.Errorf("release actor state = 0x%02x, want no synchronization, collecting, or distributing bit", uint8(lacp.Actor.State))
+	}
 
 	if len(recs) == 0 {
 		t.Fatal("no findings emitted")
@@ -570,10 +653,12 @@ func TestEtherChannel_Reproducibility(t *testing.T) {
 }
 
 // TestPermanentModesArePermanent pins the cost fields of the modes that
-// outlive the run, and that stproot carries the 6 s max age its BPDU
-// announces as its decay bound.
+// outlive the run, that stproot carries the 6 s max age its BPDU
+// announces as its decay bound, that the voicevlan persist mode decays
+// with the 120 s TTL its frame announces, and that vlanhop costs nothing
+// and has no mode.
 func TestPermanentModesArePermanent(t *testing.T) {
-	for _, c := range []struct{ name, mode string }{{"vtp", "wipe"}, {"vtp", "set"}, {"dtp", "keep-trunk"}, {"vlanhop", "persist"}, {"voicevlan", "persist"}} {
+	for _, c := range []struct{ name, mode string }{{"vtp", "wipe"}, {"vtp", "set"}, {"dtp", "keep-trunk"}} {
 		entry := mustEntry(t, c.name, c.mode)
 		if entry.Impact != check.ImpactPermanent || entry.Restore.Kind != check.RestoreNone {
 			t.Errorf("%s/%s = impact %s restore %s, want permanent with no restore", c.name, c.mode, entry.Impact, entry.Restore.Kind)
@@ -581,6 +666,17 @@ func TestPermanentModesArePermanent(t *testing.T) {
 	}
 	if bound := mustEntry(t, "stproot", "").Restore.Bound.Seconds(); bound != 6 {
 		t.Errorf("stproot decay bound = %v s, want 6", bound)
+	}
+	persist := mustEntry(t, "voicevlan", "persist")
+	if persist.Impact != check.ImpactTemporary || persist.Restore.Kind != check.RestoreDecay || persist.Restore.Bound != 120*time.Second {
+		t.Errorf("voicevlan/persist = %+v, want temporary, decay 120 s", persist)
+	}
+	hop := mustEntry(t, "vlanhop", "")
+	if hop.Impact != check.ImpactNone || hop.Restore.Kind != check.RestoreNone || hop.Affects != check.AffectsNone || hop.Legs != check.WatchOptional {
+		t.Errorf("vlanhop = %+v, want none, none, none, watch-optional", hop)
+	}
+	if _, _, ok := catalog.MustNew(l2.Behaviors()...).Lookup("vlanhop", "persist"); ok {
+		t.Error("vlanhop still has a persist mode")
 	}
 }
 

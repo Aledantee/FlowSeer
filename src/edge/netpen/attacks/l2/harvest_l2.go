@@ -4,7 +4,32 @@
 // attacks/testdata/l2/*.pcap by crafting the exact byte sequences the
 // baseline (l2l3-audit) produces, matching the construction in
 // layers/harvest.py. It is the fixture factory for the L2 attack
-// behaviors.
+// behaviors. The voicevlan frame carries LLDP-MED as organizationally
+// specific TLVs (OUI 00:12:bb, subtypes 1 and 2) in the layout gopacket's
+// DecodeMedia reads, and the stproot BPDU carries the baseline's timers.
+//
+// Response fixtures, the frames a switch sends back that the predicates
+// read, are spec-authored from the layout the owned decoder or gopacket's
+// decoder reads, which is the second reader; no vendored standard covers
+// them (IEEE 802.1D, 802.1AX, 802.1Q clause 10, ANSI/TIA-1057, and Cisco's
+// DTP and VTP formats are not vendored) and the Wireshark sample capture
+// page (https://wiki.wireshark.org/SampleCaptures, fetched 2026-10-15)
+// carries no licence statement for its capture files:
+//   - stproot_response.pcap: a BPDU from the switch naming itself root,
+//     then one naming priority 0 and the attack MAC (gopacket stp.go
+//     DecodeFromBytes layout)
+//   - dtp_response.pcap: a DTP frame from the switch with trunk status
+//     0x81, then one with 0x02 (owned layers/dtp.go)
+//   - vtp_response.pcap: summaries from the switch with revisions 41, 42,
+//     and 0 (owned layers/vtp.go)
+//   - etherchannel_response.pcap: an LACPDU from the switch naming the
+//     attack MAC as a synchronized partner, then one naming another
+//     partner, then a PAgP frame naming the attack MAC (owned
+//     layers/lacp.go and layers/pagp.go)
+//   - mvrp_response.pcap: a JoinIn for VLAN 10 from the switch (owned
+//     layers/mvrp.go)
+//   - voicevlan_response.pcap: an LLDP-MED network policy for VLAN 20 from
+//     the switch (gopacket lldp.go DecodeMedia)
 //
 // Run from the attacks/l2 directory:
 //
@@ -21,6 +46,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/gopacket/gopacket"
 	"github.com/gopacket/gopacket/layers"
@@ -40,6 +66,7 @@ var (
 	pagpDst      = fixtureaddr.MustMAC("01:00:0c:cc:cc:cc")
 	stpDst       = fixtureaddr.MustMAC("01:80:c2:00:00:00")
 	partnerMAC   = fixtureaddr.MustMAC("00:aa:bb:cc:dd:ee")
+	switchMAC    = fixtureaddr.MustMAC("00:aa:bb:cc:dd:ee")
 	broadcastMAC = fixtureaddr.MustMAC("ff:ff:ff:ff:ff:ff")
 )
 
@@ -104,11 +131,13 @@ func run() error {
 		lldpVoiceFrame(),
 	)
 
-	// STP root: superior BPDU (root priority 0, lower than default 32768).
+	// STP root: superior BPDU (root priority 0, lower than default 32768)
+	// with the baseline's timers: hello 1, forward delay 4, max age 6,
+	// message age 0 (l2l3-audit stp_frames).
 	writePcap(filepath.Join(outDir, "stproot.pcap"),
-		stpBPDU(0, 0, 0, 6, 2, 20, 15),
-		stpBPDU(0, 0, 0, 6, 2, 20, 15),
-		stpBPDU(0, 0, 0, 6, 2, 20, 15),
+		stpBPDU(0, 0, 0, 1, 4, 6, 0),
+		stpBPDU(0, 0, 0, 1, 4, 6, 0),
+		stpBPDU(0, 0, 0, 1, 4, 6, 0),
 	)
 
 	// CAM flood: many random-source frames to overflow the CAM table.
@@ -151,6 +180,32 @@ func run() error {
 		pagpFrame(),
 	)
 
+	// Response fixtures: what the switch at switchMAC sends back.
+	writePcap(filepath.Join(outDir, "stproot_response.pcap"),
+		stpBPDUFrom(switchMAC, 32768, switchMAC, 32768, switchMAC, 1, 4, 6, 0), // its own root
+		stpBPDUFrom(switchMAC, 0, srcBytes(), 32768, switchMAC, 1, 4, 6, 0),    // the attack leg as root
+	)
+	writePcap(filepath.Join(outDir, "dtp_response.pcap"),
+		dtpFrameFrom(switchMAC, 0x81), // trunk
+		dtpFrameFrom(switchMAC, 0x02), // access
+	)
+	writePcap(filepath.Join(outDir, "vtp_response.pcap"),
+		vtpSummaryFrom(switchMAC, "LABDOMAIN", 41),
+		vtpSummaryFrom(switchMAC, "LABDOMAIN", 42),
+		vtpSummaryFrom(switchMAC, "LABDOMAIN", 0),
+	)
+	writePcap(filepath.Join(outDir, "etherchannel_response.pcap"),
+		lacpFrameFrom(switchMAC, srcBytes(), 0x3C, 0x3C), // partner: the attack leg, synchronized
+		lacpFrameFrom(switchMAC, partnerMAC, 0x3C, 0x00), // partner: another system
+		pagpFrameFrom(switchMAC, srcBytes()),
+	)
+	writePcap(filepath.Join(outDir, "mvrp_response.pcap"),
+		mvrpFrameFrom(switchMAC, 10, true),
+	)
+	writePcap(filepath.Join(outDir, "voicevlan_response.pcap"),
+		lldpMEDPolicyFrom(switchMAC, 20),
+	)
+
 	if genErr != nil {
 		return genErr
 	}
@@ -161,14 +216,19 @@ func run() error {
 }
 
 func dtpFrame(mode uint8) []byte {
-	neigh := srcBytes()
+	return dtpFrameFrom(srcBytes(), mode)
+}
+
+// dtpFrameFrom builds the DTP frame from the given sender, which is also
+// the neighbor TLV.
+func dtpFrameFrom(src net.HardwareAddr, mode uint8) []byte {
 	body := []byte{0x01} // version
 	body = append(body, dtpTLV(0x0001, []byte{0x00})...)
 	body = append(body, dtpTLV(0x0002, []byte{mode})...)
 	body = append(body, dtpTLV(0x0003, []byte{0xa5})...)
-	body = append(body, dtpTLV(0x0004, neigh)...)
+	body = append(body, dtpTLV(0x0004, src)...)
 
-	return dot3SNAP(dtpDst, srcBytes(), 0x2004, body)
+	return dot3SNAP(dtpDst, src, 0x2004, body)
 }
 
 func dtpTLV(t uint16, v []byte) []byte {
@@ -244,48 +304,67 @@ func dot1qFrame(vlan uint16, payload []byte) []byte {
 	return buf.Bytes()
 }
 
+// lldpVoiceFrame builds the phone's LLDP-MED frame: chassis id, port id,
+// TTL 120, the MED Capabilities TLV (subtype 1, the baseline's bytes
+// 13 00 03, class 3), and the Network Policy TLV naming VLAN 20, tagged,
+// priority 5, DSCP 46.
 func lldpVoiceFrame() []byte {
+	payload := lldpHeaderTLVs(srcBytes(), 120)
+	payload = append(payload, lldpOrgTLV(1, []byte{0x13, 0x00, 0x03})...)
+	payload = append(payload, lldpOrgTLV(2, medNetworkPolicy(20, 5, 46))...)
+	payload = append(payload, 0x00, 0x00)
+	return lldpFrame(srcBytes(), payload)
+}
+
+// lldpMEDPolicyFrom builds the switch's LLDPDU carrying a Network Policy
+// TLV for vlan, the frame the voicevlan predicate reads.
+func lldpMEDPolicyFrom(src net.HardwareAddr, vlan uint16) []byte {
+	payload := lldpHeaderTLVs(src, 120)
+	payload = append(payload, lldpOrgTLV(2, medNetworkPolicy(vlan, 5, 46))...)
+	payload = append(payload, 0x00, 0x00)
+	return lldpFrame(src, payload)
+}
+
+// lldpFrame builds Ethernet → raw LLDP TLVs.
+func lldpFrame(src net.HardwareAddr, payload []byte) []byte {
 	eth := layers.Ethernet{
 		DstMAC:       fixtureaddr.MustMAC("01:80:c2:00:00:0e"), // LLDP multicast
-		SrcMAC:       srcBytes(),
+		SrcMAC:       src,
 		EthernetType: layers.EthernetTypeLinkLayerDiscovery,
 	}
-	// Build the LLDP payload as raw bytes. The wire format is plain TLVs,
-	// which is simpler than the fork's LLDP layer API.
-	lldpPayload := buildLLDPVoiceVLANPayload()
 	buf := gopacket.NewSerializeBuffer()
-	if err := gopacket.SerializeLayers(buf, gopacket.SerializeOptions{}, &eth, gopacket.Payload(lldpPayload)); err != nil {
+	if err := gopacket.SerializeLayers(buf, gopacket.SerializeOptions{}, &eth, gopacket.Payload(payload)); err != nil {
 		fail(err)
 		return nil
 	}
 	return buf.Bytes()
 }
 
-func buildLLDPVoiceVLANPayload() []byte {
+// lldpHeaderTLVs builds the chassis id (subtype 4, MAC), port id (subtype
+// 5, interface name), and TTL TLVs.
+func lldpHeaderTLVs(src net.HardwareAddr, ttl uint16) []byte {
 	var out []byte
-	// Chassis ID TLV: type=1, subtype=4 (MAC address).
-	chassisID := []byte{0x04}
-	chassisID = append(chassisID, srcBytes()...)
-	out = append(out, lldpTLV(1, chassisID)...)
-	// Port ID TLV: type=2, subtype=5 (interface name).
-	portID := []byte("eth0")
-	out = append(out, lldpTLV(2, portID)...)
-	// TTL TLV: type=3, value=120 seconds.
-	ttl := make([]byte, 2)
-	binary.BigEndian.PutUint16(ttl, 120)
-	out = append(out, lldpTLV(3, ttl)...)
-	// Network Policy TLV (voice VLAN): type=8, subtype=voice (1), tagged, VLAN 20, priority 5, DSCP 46.
-	// OUI 00:12:bb (IEEE 802.1AB-2009 Annex E, but Cisco uses 12bb).
-	// TLV: type=8(7 bits) | len(9 bits). Subtype=1 (voice), flags=0x20 (tagged), VLAN=20.
-	netPolicy := []byte{0x01, 0x20}                        // subtype=voice, flags: tagged
-	vlanField := uint16(20)<<9 | uint16(5)<<5 | uint16(46) // VLAN + priority + DSCP
-	nf := make([]byte, 2)
-	binary.BigEndian.PutUint16(nf, vlanField)
-	netPolicy = append(netPolicy, nf...)
-	out = append(out, lldpTLV(8, netPolicy)...)
-	// End TLV: type=0, len=0.
-	out = append(out, 0x00, 0x00)
+	out = append(out, lldpTLV(1, append([]byte{0x04}, src...))...)
+	out = append(out, lldpTLV(2, append([]byte{0x05}, []byte("eth0")...))...)
+	ttlField := make([]byte, 2)
+	binary.BigEndian.PutUint16(ttlField, ttl)
+	out = append(out, lldpTLV(3, ttlField)...)
 	return out
+}
+
+// medNetworkPolicy builds the four info octets gopacket's DecodeMedia
+// reads: the application type (1, voice), then U (0), T (1), X (0) over
+// the 12-bit VLAN id, then the 3-bit L2 priority and the 6-bit DSCP.
+func medNetworkPolicy(vlan uint16, priority, dscp uint8) []byte {
+	bits := uint32(1)<<22 | uint32(vlan&0x0fff)<<9 | uint32(priority&0x07)<<6 | uint32(dscp&0x3f)
+	return []byte{0x01, byte(bits >> 16), byte(bits >> 8), byte(bits)}
+}
+
+// lldpOrgTLV builds an organizationally specific TLV (type 127) with the
+// TIA OUI 00:12:bb.
+func lldpOrgTLV(subtype uint8, info []byte) []byte {
+	value := append([]byte{0x00, 0x12, 0xbb, subtype}, info...)
+	return lldpTLV(127, value)
 }
 
 func lldpTLV(tlvType uint8, value []byte) []byte {
@@ -296,11 +375,17 @@ func lldpTLV(tlvType uint8, value []byte) []byte {
 	return out
 }
 
-func stpBPDU(rootPriority, rootExtID, rootID, helloTime, forwardDelay, maxAge, msgAge uint16) []byte {
-	stpPayload := buildSTPPayload(rootPriority, rootID, helloTime, forwardDelay, maxAge, msgAge)
+func stpBPDU(rootPriority, _, _, helloTime, forwardDelay, maxAge, msgAge uint16) []byte {
+	return stpBPDUFrom(srcBytes(), rootPriority, srcBytes(), rootPriority, srcBytes(), helloTime, forwardDelay, maxAge, msgAge)
+}
+
+// stpBPDUFrom builds a Configuration BPDU from src naming the given root
+// and bridge identifiers, in the layout gopacket's STP decoder reads.
+func stpBPDUFrom(src net.HardwareAddr, rootPriority uint16, rootMAC net.HardwareAddr, bridgePriority uint16, bridgeMAC net.HardwareAddr, helloTime, forwardDelay, maxAge, msgAge uint16) []byte {
+	stpPayload := buildSTPPayload(rootPriority, rootMAC, bridgePriority, bridgeMAC, helloTime, forwardDelay, maxAge, msgAge)
 	eth := layers.Ethernet{
 		DstMAC:       stpDst,
-		SrcMAC:       srcBytes(),
+		SrcMAC:       src,
 		EthernetType: layers.EthernetTypeLLC,
 	}
 	llc := layers.LLC{
@@ -317,7 +402,7 @@ func stpBPDU(rootPriority, rootExtID, rootID, helloTime, forwardDelay, maxAge, m
 	return buf.Bytes()
 }
 
-func buildSTPPayload(rootPriority, rootID, helloTime, forwardDelay, maxAge, msgAge uint16) []byte {
+func buildSTPPayload(rootPriority uint16, rootMAC net.HardwareAddr, bridgePriority uint16, bridgeMAC net.HardwareAddr, helloTime, forwardDelay, maxAge, msgAge uint16) []byte {
 	// STP Configuration BPDU:
 	// Protocol(2) = 0x0000, Version(1) = 0x00, Type(1) = 0x00 (config),
 	// Flags(1) = 0x00, RootID(8) = priority(2)+bridge(6),
@@ -335,14 +420,14 @@ func buildSTPPayload(rootPriority, rootID, helloTime, forwardDelay, maxAge, msgA
 	// Root ID: priority + MAC
 	rootBridge := make([]byte, 8)
 	binary.BigEndian.PutUint16(rootBridge[0:2], rootPriority)
-	copy(rootBridge[2:8], srcBytes())
+	copy(rootBridge[2:8], rootMAC)
 	out = append(out, rootBridge...)
 	// Root path cost
 	out = append(out, 0x00, 0x00, 0x00, 0x00)
-	// Bridge ID: same as root (we are the root)
+	// Bridge ID: the sender's own identifier
 	bridgeID := make([]byte, 8)
-	binary.BigEndian.PutUint16(bridgeID[0:2], rootPriority)
-	copy(bridgeID[2:8], srcBytes())
+	binary.BigEndian.PutUint16(bridgeID[0:2], bridgePriority)
+	copy(bridgeID[2:8], bridgeMAC)
 	out = append(out, bridgeID...)
 	// Port ID
 	portID := make([]byte, 2)
@@ -404,6 +489,11 @@ type vlanEntry struct {
 }
 
 func vtpSummary(domain string, revision uint32) []byte {
+	return vtpSummaryFrom(srcBytes(), domain, revision)
+}
+
+// vtpSummaryFrom builds the summary advertisement from the given sender.
+func vtpSummaryFrom(src net.HardwareAddr, domain string, revision uint32) []byte {
 	dom := []byte(domain)
 	db := make([]byte, 32)
 	copy(db, dom)
@@ -419,7 +509,7 @@ func vtpSummary(domain string, revision uint32) []byte {
 	body = append(body, make([]byte, 16)...) // digest placeholder
 	digest := md5.Sum(append(append(make([]byte, 16), body...), make([]byte, 16)...))
 	copy(body[56:72], digest[:])
-	return dot3SNAP(vtpDst, srcBytes(), 0x2003, body)
+	return dot3SNAP(vtpDst, src, 0x2003, body)
 }
 
 func vtpSubset(domain string, revision uint32, vlans []vlanEntry) []byte {
@@ -462,6 +552,11 @@ func vtpRequest(domain string) []byte {
 }
 
 func mvrpFrame(vid uint16, join bool) []byte {
+	return mvrpFrameFrom(srcBytes(), vid, join)
+}
+
+// mvrpFrameFrom builds the MVRP frame from the given sender.
+func mvrpFrameFrom(src net.HardwareAddr, vid uint16, join bool) []byte {
 	event := byte(2) // JoinIn
 	if !join {
 		event = 3 // LeaveEmpty
@@ -480,7 +575,7 @@ func mvrpFrame(vid uint16, join bool) []byte {
 	pdu := append([]byte{0x00}, msg...) // ProtocolVersion = 0
 	eth := layers.Ethernet{
 		DstMAC:       mvrpDst,
-		SrcMAC:       srcBytes(),
+		SrcMAC:       src,
 		EthernetType: 0x88F5,
 	}
 	buf := gopacket.NewSerializeBuffer()
@@ -518,8 +613,12 @@ func portStealARP(seq int) []byte {
 }
 
 func lacpFrame() []byte {
-	actorSys := srcBytes()
-	partnerSys := partnerMAC
+	return lacpFrameFrom(srcBytes(), partnerMAC, 0x3C, 0x00)
+}
+
+// lacpFrameFrom builds an LACPDU from actorSys naming partnerSys as its
+// partner, with the given actor and partner state bytes.
+func lacpFrameFrom(actorSys, partnerSys net.HardwareAddr, actorState, partnerState byte) []byte {
 	pdu := make([]byte, 110)
 	pdu[0] = 0x01 // subtype
 	pdu[1] = 0x01 // version
@@ -531,7 +630,7 @@ func lacpFrame() []byte {
 	binary.BigEndian.PutUint16(pdu[12:14], 0x0001) // key
 	binary.BigEndian.PutUint16(pdu[14:16], 0x8000) // port priority
 	binary.BigEndian.PutUint16(pdu[16:18], 0x0001) // port
-	pdu[18] = 0x3C                                 // state: activity+aggregation+sync+collecting
+	pdu[18] = actorState                           // state: 0x3C is aggregation+sync+collecting+distributing
 	// Partner TLV: type=0x02, len=20
 	pdu[22] = 0x02
 	pdu[23] = 20
@@ -540,7 +639,7 @@ func lacpFrame() []byte {
 	binary.BigEndian.PutUint16(pdu[32:34], 0x0002)
 	binary.BigEndian.PutUint16(pdu[34:36], 0x8000)
 	binary.BigEndian.PutUint16(pdu[36:38], 0x0002)
-	pdu[38] = 0x00
+	pdu[38] = partnerState
 	// Collector TLV: type=0x03, len=16
 	pdu[42] = 0x03
 	pdu[43] = 16
@@ -550,7 +649,7 @@ func lacpFrame() []byte {
 	pdu[59] = 0x00
 	eth := layers.Ethernet{
 		DstMAC:       lacpDst,
-		SrcMAC:       srcBytes(),
+		SrcMAC:       actorSys,
 		EthernetType: 0x8809,
 	}
 	buf := gopacket.NewSerializeBuffer()
@@ -562,8 +661,12 @@ func lacpFrame() []byte {
 }
 
 func pagpFrame() []byte {
-	srcB := srcBytes()
-	partner := partnerMAC
+	return pagpFrameFrom(srcBytes(), partnerMAC)
+}
+
+// pagpFrameFrom builds a PAgP hello from srcB naming partner as its
+// partner device.
+func pagpFrameFrom(srcB, partner net.HardwareAddr) []byte {
 	body := make([]byte, 38)
 	body[0] = 0x01 // version
 	body[1] = 0x01 // command = hello
@@ -581,7 +684,7 @@ func pagpFrame() []byte {
 	body[35] = 0x00
 	body[36] = 0x00 // count
 	body[37] = 0x00
-	return dot3SNAP(pagpDst, srcBytes(), 0x0104, body)
+	return dot3SNAP(pagpDst, srcB, 0x0104, body)
 }
 
 func dot3SNAP(dst, src net.HardwareAddr, snapPID uint16, body []byte) []byte {
@@ -608,10 +711,12 @@ func dot3SNAP(dst, src net.HardwareAddr, snapPID uint16, body []byte) []byte {
 	return buf.Bytes()
 }
 
-// writePcap writes pkts to path. It records the first failure — its own IO or
-// an assembly error a builder already recorded — into [genErr] and returns
+// writePcap writes pkts to path. It records the first failure, its own IO or
+// an assembly error a builder already recorded, into [genErr] and returns
 // without writing, so a bad packet never lands in a fixture and [run] reports
-// the fault.
+// the fault. Each packet is stamped with the epoch, since pcapgo writes the
+// wall clock for a zero stamp and every fixture would then change on each
+// run.
 func writePcap(path string, pkts ...[]byte) {
 	if genErr != nil {
 		return
@@ -631,6 +736,7 @@ func writePcap(path string, pkts ...[]byte) {
 	}
 	for _, pkt := range pkts {
 		if err := w.WritePacket(gopacket.CaptureInfo{
+			Timestamp:     time.Unix(0, 0),
 			CaptureLength: len(pkt),
 			Length:        len(pkt),
 		}, pkt); err != nil {

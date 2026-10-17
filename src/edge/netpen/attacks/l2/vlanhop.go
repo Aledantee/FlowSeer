@@ -1,8 +1,10 @@
 // vlanhop.go implements the VLAN hopping check. It sends the same QinQ
-// frame as doubletag. The base entry is impact temporary, restore active,
-// affects device: it arms a host-side VLAN interface restore step that does
-// no host work. The persist mode is impact permanent with no restore and
-// runs only with the per-run acknowledgment.
+// frame as doubletag and reads the watch leg the same way. Impact none,
+// restore none, affects none: the one double-tagged frame leaves no state
+// behind. The name stays because the full command arms it from recon for
+// the first VLAN ids it sees. The baseline's hop, a host subinterface in
+// the target VLAN with a DHCP lease, needs the host's own IP stack and is
+// not what this port sends.
 
 package l2
 
@@ -18,14 +20,13 @@ type vlanHopFinding struct {
 	Action    string `json:"action"`
 	OuterVLAN uint16 `json:"outer_vlan"`
 	InnerVLAN uint16 `json:"inner_vlan"`
-	Restore   string `json:"restore"`
 }
 
 // RunVlanHop sends one QinQ frame tagged with the target's outer and inner
-// VLANs and, on the base entry, arms a host-side VLAN interface restore
-// step that does no host work. The persist mode is permanent and arms
-// nothing. The verdict is pending: whether the frame reached the inner VLAN
-// needs a watch leg there, which it does not have.
+// VLANs from the attack leg's MAC and reads the watch leg for the echo
+// request inside it. The predicate is doubletag's: the echo request on the
+// watch leg, tagged with the inner VLAN or untagged, confirms; its absence
+// at the window's end resists; no watch leg is pending. It arms nothing.
 func RunVlanHop(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	if err := deps.Target.Need(check.FieldOuterVLAN, check.FieldInnerVLAN); err != nil {
 		return check.Verdict{}, err
@@ -38,18 +39,6 @@ func RunVlanHop(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	if err != nil {
 		return check.Verdict{}, errs.Wrap(err, "vlanhop: craft frame")
 	}
-
-	restoreArmed := "no"
-	if deps.Entry.Restore.Kind == check.RestoreActive {
-		deps.Teardown.Arm("vlan-interface-restore", func(_ context.Context) error {
-			// Deleting the temporary 802.1Q interface is host-side
-			// state with no wire effect. The in-memory harness sees the
-			// restore through the teardown step name.
-			return nil
-		})
-		restoreArmed = "yes"
-	}
-
 	if err := deps.AttackLeg.Send(ctx, pkt); err != nil {
 		return check.Verdict{}, errs.Wrap(err, "vlanhop: send")
 	}
@@ -58,12 +47,8 @@ func RunVlanHop(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 		Action:    "vlan-hop",
 		OuterVLAN: outerVLAN,
 		InnerVLAN: innerVLAN,
-		Restore:   restoreArmed,
 	})
 	deps.Emitter.Finding("vlan", detail)
 
-	if restoreArmed == "yes" {
-		return check.Pending("no observable: a hop into the inner VLAN needs a watch leg there, and the vlan-interface-restore step is a no-op"), nil
-	}
-	return check.Pending("no observable: a hop into the inner VLAN needs a watch leg there"), nil
+	return observeHop(ctx, deps, "vlanhop", src, innerVLAN)
 }

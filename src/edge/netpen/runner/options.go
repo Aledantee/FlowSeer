@@ -97,6 +97,12 @@ type Options struct {
 	// Non-positive values use [DefaultTeardownBudget]. Steps must respect
 	// their contexts for this allowance to bound completion time.
 	TeardownBudget time.Duration
+
+	// Sysctl is the kernel-setting seam handed to every behavior as
+	// [check.Deps.Sysctl]. Nil selects the proc filesystem; a test passes
+	// a [MapSysctl] so a behavior that changes a setting leaves the host
+	// alone.
+	Sysctl check.Sysctl
 }
 
 // AttackRef is one entry in [Options.Attacks]: a (behavior, mode) pair. An

@@ -3,8 +3,10 @@
 // describes each behavior and mode as an [Entry] whose [Impact], [Restore],
 // and [Affects] state what the check costs the network. The runner gates
 // dispatch on those fields. [Target.Need] checks the form of what a behavior
-// reads before its first frame, and [First] and [Collect] bound what it
-// observes by the run's window. The package imports nothing under netpen
+// reads before its first frame, and [First], [Collect], [Scan], and
+// [Sustain] bound what it observes by the run's window. [Sysctl] is the
+// seam over the host's kernel settings for the one behavior that changes
+// one. The package imports nothing under netpen
 // beyond findings and link, so the catalog, the runner, and every behavior
 // package can share it.
 package check
@@ -187,6 +189,20 @@ type Teardown interface {
 	Arm(name string, fn Step)
 }
 
+// Sysctl reads and writes one kernel setting by its dotted key, such as
+// `net.ipv4.ip_forward`. The runner implements it over the proc filesystem
+// and a test replaces it with a map. A behavior that changes a setting
+// reads the value first and arms a step that writes it back.
+// Implementations are safe for concurrent calls.
+type Sysctl interface {
+	// Get returns the setting's current value with surrounding whitespace
+	// trimmed, or an error when the key cannot be read.
+	Get(key string) (string, error)
+	// Set writes value to the setting, or returns an error when the key
+	// cannot be written.
+	Set(key, value string) error
+}
+
 // Deps supplies a [Run] with its resolved entry, target, legs, and handles.
 // Treat the fields as immutable. Each handle documents its own concurrency
 // contract.
@@ -214,6 +230,10 @@ type Deps struct {
 	// the runner defaults it to net.Listen and a test passes an in-memory
 	// listener.
 	Listen func(ctx context.Context, network, address string) (net.Listener, error)
+	// Sysctl reads and writes the host's kernel settings; the runner
+	// defaults it to the proc filesystem and a test passes a map. A
+	// behavior that never changes a setting leaves it alone.
+	Sysctl Sysctl
 }
 
 // Run is one check. It reads its target from deps, sends through the legs,

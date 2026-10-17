@@ -10,7 +10,9 @@ package ip6
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net"
+	"time"
 
 	"github.com/gopacket/gopacket"
 	"github.com/gopacket/gopacket/layers"
@@ -30,11 +32,11 @@ type dadDOSFinding struct {
 
 // RunDADDOS sends a Neighbor Solicitation for the target's IPv6 victim
 // address during DAD to deny the legitimate host's address configuration,
-// then waits for the window for a Neighbor Advertisement defending that
-// address, which shows the host holds it, and records that in the finding.
-// The verdict is pending: whether the host gave up the address needs a
-// later probe it does not have. Cancellation while observing returns
-// ctx.Err(). A terminal receive error comes back wrapped.
+// then reads the attack leg for the window. The predicate is a Neighbor
+// Advertisement for the address: one within the window shows a host holds
+// and defends it, which resists; none is pending, since a host that
+// abandons the address sends no frame. Cancellation while observing
+// returns ctx.Err(). A terminal receive error comes back wrapped.
 func RunDADDOS(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	if err := deps.Target.Need(check.FieldVictim6); err != nil {
 		return check.Verdict{}, err
@@ -50,9 +52,8 @@ func RunDADDOS(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 		return check.Verdict{}, errs.Wrap(err, "daddos: send NS")
 	}
 
-	defense, _, err := check.First(ctx, deps.AttackLeg, deps.Observe, func(data []byte) bool {
-		na, err := decodeNA(data)
-		return err == nil && na.TargetAddress.Equal(target)
+	defense, obs, err := check.First(ctx, deps.AttackLeg, deps.Observe, func(data []byte) bool {
+		return isAdvertisementFor(data, target)
 	})
 	if err != nil {
 		return check.Verdict{}, errs.Wrap(err, "daddos: receive defense")
@@ -66,7 +67,10 @@ func RunDADDOS(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	})
 	deps.Emitter.Finding("ipv6-nd", detail)
 
-	return check.Pending("no observable: address denial needs a later probe of the victim"), nil
+	if defense != nil {
+		return check.Resisted(fmt.Sprintf("a host holds %s and defended it", target), obs.Elapsed), nil
+	}
+	return check.Pending(fmt.Sprintf("no defense in %s: abandonment leaves no frame", obs.Elapsed.Round(time.Millisecond))), nil
 }
 
 // craftDADNS builds a DAD Neighbor Solicitation: source is unspecified,
@@ -102,21 +106,6 @@ func craftDADNS(src net.HardwareAddr, target net.IP) ([]byte, error) {
 		},
 	}
 	return craft.Default(eth, ip, icmp, ns)
-}
-
-// decodeNA decodes an ICMPv6 Neighbor Advertisement from raw frame
-// bytes (Ethernet, IPv6, ICMPv6, NA).
-func decodeNA(data []byte) (*layers.ICMPv6NeighborAdvertisement, error) {
-	pkt := gopacket.NewPacket(data, layers.LayerTypeEthernet, gopacket.Default)
-	naLayer := pkt.Layer(layers.LayerTypeICMPv6NeighborAdvertisement)
-	if naLayer == nil {
-		return nil, errs.Msg("no neighbor advertisement layer")
-	}
-	na, ok := naLayer.(*layers.ICMPv6NeighborAdvertisement)
-	if !ok {
-		return nil, errs.Msg("unexpected NA layer type")
-	}
-	return na, nil
 }
 
 var _ gopacket.SerializableLayer = (*layers.ICMPv6NeighborSolicitation)(nil)

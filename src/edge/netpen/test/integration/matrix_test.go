@@ -58,6 +58,59 @@ func TestValidationMatrixCompleteness(t *testing.T) {
 	}
 }
 
+// designedPending lists the behaviors whose Observable cell may open with a
+// pending or orchestration reason: the ones with no predicate of their own
+// (lldpspoof reads nothing, scan carries no verdict) and the ones whose
+// quiet leg is pending by design, since the protocol leaves no frame to
+// read (icmpredirect, raflood, daddos, mld).
+var designedPending = map[string]bool{
+	"lldpspoof":    true,
+	"icmpredirect": true,
+	"raflood":      true,
+	"daddos":       true,
+	"mld":          true,
+	"scan":         true,
+}
+
+// TestMatrixPendingRowsAreTheDesignedOnes asserts that no Observable cell
+// still reads "no observable", and that a cell opening with a pending
+// reason belongs to a behavior that is pending by design, so a behavior
+// whose doc comment names a predicate cannot keep the phase-1 placeholder.
+func TestMatrixPendingRowsAreTheDesignedOnes(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join(".", "VALIDATION_MATRIX.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range catalog.GeneratedEntries {
+		mode := e.Mode
+		if mode == "" {
+			mode = "base"
+		}
+		prefix := "\n| " + e.Name + " | " + mode + " | "
+		start := strings.Index(string(data), prefix)
+		if start < 0 {
+			t.Errorf("behavior %q mode %q missing from VALIDATION_MATRIX.md", e.Name, e.Mode)
+			continue
+		}
+		row := string(data[start+1:])
+		if end := strings.Index(row, "\n"); end >= 0 {
+			row = row[:end]
+		}
+		cells := strings.Split(strings.Trim(row, "|"), "|")
+		if len(cells) != 9 {
+			t.Errorf("row for %q mode %q has %d cells, want 9", e.Name, e.Mode, len(cells))
+			continue
+		}
+		observable := strings.TrimSpace(cells[5])
+		if strings.Contains(observable, "no observable") {
+			t.Errorf("row for %q mode %q still reads a no-observable placeholder: %s", e.Name, e.Mode, observable)
+		}
+		if strings.HasPrefix(observable, "pending") && !designedPending[e.Name] {
+			t.Errorf("row for %q mode %q opens with a pending reason, but the behavior names a predicate: %s", e.Name, e.Mode, observable)
+		}
+	}
+}
+
 // TestSupersetAttacksInMatrix asserts the eight superset attacks
 // all appear in the superset-validation section of the matrix.
 func TestSupersetAttacksInMatrix(t *testing.T) {

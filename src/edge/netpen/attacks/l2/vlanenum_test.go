@@ -95,6 +95,48 @@ func TestVlanEnumIgnoresTruncatedHeaders(t *testing.T) {
 	}
 }
 
+// TestVlanEnumSkipsReservedIDs pins that a priority-tagged frame (VID 0)
+// and the reserved VID 4095 count for nothing: a leg carrying only those
+// is pending, and one carrying them beside VLAN 10 reports VLAN 10 alone.
+func TestVlanEnumSkipsReservedIDs(t *testing.T) {
+	frame := fixturePackets(t, "vlanenum.pcap")[0]
+	// The 802.1Q TCI follows the 14-byte Ethernet header and the two-byte
+	// TPID; its low twelve bits are the VID.
+	withVID := func(vid uint16) []byte {
+		out := append([]byte(nil), frame...)
+		out[14] = out[14]&0xf0 | byte(vid>>8)
+		out[15] = byte(vid)
+		return out
+	}
+	synctest.Test(t, func(t *testing.T) {
+		leg := testtest.New()
+		t.Cleanup(func() { _ = leg.Close() })
+		leg.PushRX(withVID(0))
+		leg.PushRX(withVID(4095))
+		v, err := l2.RunVlanEnum(context.Background(), check.Deps{AttackLeg: leg, Observe: time.Second, Emitter: &recordingEmitter{}})
+		if err != nil {
+			t.Fatalf("RunVlanEnum() error = %v, want nil", err)
+		}
+		if v.Kind != findings.VerdictPending {
+			t.Errorf("verdict = %+v, want pending with only reserved ids on the leg", v)
+		}
+	})
+	synctest.Test(t, func(t *testing.T) {
+		leg := testtest.New()
+		t.Cleanup(func() { _ = leg.Close() })
+		leg.PushRX(withVID(0))
+		leg.PushRX(frame)
+		leg.PushRX(withVID(4095))
+		v, err := l2.RunVlanEnum(context.Background(), check.Deps{AttackLeg: leg, Observe: time.Second, Emitter: &recordingEmitter{}})
+		if err != nil {
+			t.Fatalf("RunVlanEnum() error = %v, want nil", err)
+		}
+		if v.Kind != findings.VerdictConfirmed || v.Detail != "VLANs 10" {
+			t.Errorf("verdict = %+v, want confirmed with VLAN 10 alone", v)
+		}
+	})
+}
+
 // TestVlanEnumQuietLegIsPending pins that a leg with no tagged frame runs
 // the window out and the verdict is pending naming the window.
 func TestVlanEnumQuietLegIsPending(t *testing.T) {

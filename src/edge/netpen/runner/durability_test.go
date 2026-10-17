@@ -224,9 +224,9 @@ func TestPermanentRefusalNeverEnablesTX(t *testing.T) {
 
 	r := newRunner(runner.Options{
 		AttackLeg: leg,
-		Attacks:   []runner.AttackRef{{Name: "vlanhop", Mode: "persist"}},
+		Attacks:   []runner.AttackRef{{Name: "vtp", Mode: "wipe"}},
 		MaxImpact: check.ImpactPermanent,
-	}, map[string]check.Run{"vlanhop": stub})
+	}, map[string]check.Run{"vtp": stub})
 
 	_, err := drainStreamAsync(context.Background(), r)
 	if err == nil {

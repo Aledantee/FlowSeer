@@ -8,6 +8,7 @@ package fh
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net"
 
 	"github.com/gopacket/gopacket/layers"
@@ -25,11 +26,15 @@ type gratARPFinding struct {
 }
 
 // RunGratARP sends gratuitous ARP replies announcing the attacker's MAC
-// for the target's virtual IP, the address the attacker claims. The burst
-// of three is probe content. The verdict is pending: whether a neighbor
-// cache took the announcement needs a probe it does not have.
+// for the target's virtual IP, the address the attacker claims, then
+// probes the gateway's cache with an ICMP echo request sent to the
+// gateway's MAC from the virtual IP. The burst of three is probe content.
+// The predicate is the reply's Ethernet destination: the gateway's echo
+// reply addressed to the attack leg's MAC confirms, a reply to another MAC
+// or an ARP request from the gateway for the virtual IP resists, and
+// silence within the window is pending.
 func RunGratARP(ctx context.Context, deps check.Deps) (check.Verdict, error) {
-	if err := deps.Target.Need(check.FieldVirtualIP); err != nil {
+	if err := deps.Target.Need(check.FieldVirtualIP, check.FieldGateway, check.FieldGatewayMAC); err != nil {
 		return check.Verdict{}, err
 	}
 	src := deps.AttackLeg.Addr().MAC
@@ -53,7 +58,15 @@ func RunGratARP(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	})
 	deps.Emitter.Finding("arp", detail)
 
-	return check.Pending("no observable: cache acceptance needs a probe of the announced address"), nil
+	v, err := observeCacheProbe(ctx, deps, cacheProbe{
+		peer:     deps.Target.Gateway,
+		peerName: "gateway",
+		spoofed:  ip,
+	}, fmt.Sprintf("the gateway sent its traffic for %s to the attack leg", ip))
+	if err != nil {
+		return check.Verdict{}, errs.Wrap(err, "gratarp")
+	}
+	return v, nil
 }
 
 // craftGratARP builds a gratuitous ARP reply: announcing ip is-at src.

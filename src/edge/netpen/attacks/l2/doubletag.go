@@ -9,6 +9,7 @@ package l2
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net"
 	"strconv"
 
@@ -20,6 +21,13 @@ import (
 	"go.aledante.io/FlowSeer/src/edge/netpen/check"
 )
 
+// The addresses of the echo request inside the double-tagged frame, the
+// probe content the watch leg is read for.
+var (
+	hopSrcIP = net.IPv4(10, 0, 0, 1)
+	hopDstIP = net.IPv4(10, 0, 0, 2)
+)
+
 type doubleTagFinding struct {
 	Action    string `json:"action"`
 	OuterVLAN uint16 `json:"outer_vlan"`
@@ -28,9 +36,12 @@ type doubleTagFinding struct {
 }
 
 // RunDoubleTag sends one QinQ frame tagged with the target's outer and
-// inner VLANs from the attack leg's MAC. The echo request inside and its
-// addresses are probe content. The verdict is pending: whether the frame
-// reached the inner VLAN needs a watch leg there, which it does not have.
+// inner VLANs from the attack leg's MAC and reads the watch leg for the
+// echo request inside it. The echo request and its addresses are probe
+// content. The predicate is that echo request on the watch leg, from the
+// attack leg's MAC with source 10.0.0.1 and destination 10.0.0.2, tagged
+// with the inner VLAN or untagged, which confirms the hop; its absence at
+// the window's end resists; no watch leg is pending.
 func RunDoubleTag(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	if err := deps.Target.Need(check.FieldOuterVLAN, check.FieldInnerVLAN); err != nil {
 		return check.Verdict{}, err
@@ -55,7 +66,19 @@ func RunDoubleTag(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	})
 	deps.Emitter.Finding("vlan", detail)
 
-	return check.Pending("no observable: a hop into the inner VLAN needs a watch leg there"), nil
+	return observeHop(ctx, deps, "doubletag", src, innerVLAN)
+}
+
+// observeHop reads the watch leg for the double-tagged frame's echo
+// request in the inner VLAN.
+func observeHop(ctx context.Context, deps check.Deps, name string, src net.HardwareAddr, innerVLAN uint16) (check.Verdict, error) {
+	v, err := observeWatch(ctx, deps, func(data []byte) bool {
+		return isHopEcho(data, src, innerVLAN)
+	}, fmt.Sprintf("the echo request crossed into VLAN %d", innerVLAN), fmt.Sprintf("no echo request in VLAN %d on the watch leg", innerVLAN))
+	if err != nil {
+		return check.Verdict{}, errs.Wrap(err, name)
+	}
+	return v, nil
 }
 
 // craftDoubleTagFrame builds a QinQ frame: Ethernet → Dot1Q(outer) →
@@ -78,8 +101,8 @@ func craftDoubleTagFrame(src net.HardwareAddr, outerVLAN, innerVLAN uint16) ([]b
 		Version:  4,
 		IHL:      5,
 		TTL:      64,
-		SrcIP:    net.IPv4(10, 0, 0, 1),
-		DstIP:    net.IPv4(10, 0, 0, 2),
+		SrcIP:    hopSrcIP,
+		DstIP:    hopDstIP,
 		Protocol: layers.IPProtocolICMPv4,
 	}
 	icmp := &layers.ICMPv4{

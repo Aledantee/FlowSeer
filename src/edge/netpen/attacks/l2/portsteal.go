@@ -1,16 +1,19 @@
 // portsteal.go implements the port-steal ARP spoofing check. The base
 // entry is impact temporary, restore decay with no stated bound, affects
-// device: the gratuitous ARP replies, sent from the attack leg's MAC,
+// clients: the gratuitous ARP replies, sent from the attack leg's MAC,
 // claim the victim's address at that MAC in the caches of the hosts that
-// take them, and those entries age out on the hosts' own timers. The
-// relay mode is impact temporary, restore active, affects device: it arms
-// an ip_forward restore step that does no host work.
+// take them, and those entries age out on the hosts' own timers, while
+// the switch relearns the victim's port on the victim's next frame. The
+// relay mode is impact temporary, restore active, affects clients: it sets
+// net.ipv4.ip_forward to 1 through the sysctl seam before its first frame
+// and its armed step writes back the value it read.
 
 package l2
 
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net"
 
 	"github.com/gopacket/gopacket/layers"
@@ -21,6 +24,9 @@ import (
 	"go.aledante.io/FlowSeer/src/edge/netpen/check"
 )
 
+// ipForwardKey is the kernel setting the relay mode changes.
+const ipForwardKey = "net.ipv4.ip_forward"
+
 type portStealFinding struct {
 	Action  string `json:"action"`
 	Target  string `json:"target"`
@@ -28,12 +34,17 @@ type portStealFinding struct {
 }
 
 // RunPortSteal sends three gratuitous ARP replies claiming the target's
-// victim IPv4 address at the attack leg's MAC. The relay mode arms an
-// ip_forward restore step that does no host work. The verdict is pending:
-// whether the switch moved the victim's port needs a probe it does not
-// have.
+// victim IPv4 address at the attack leg's MAC, then probes the gateway's
+// cache with an ICMP echo request sent to the gateway's MAC from the
+// victim's IPv4. The predicate is the reply's Ethernet destination: the
+// gateway's echo reply addressed to the attack leg's MAC confirms that the
+// gateway sends the victim's traffic to the attacker, a reply to another
+// MAC or an ARP request from the gateway for the victim's address resists,
+// and silence within the window is pending. The relay mode reads
+// net.ipv4.ip_forward, sets it to 1 before the first frame, and arms the
+// ip-forward-restore step that writes the read value back.
 func RunPortSteal(ctx context.Context, deps check.Deps) (check.Verdict, error) {
-	if err := deps.Target.Need(check.FieldVictim); err != nil {
+	if err := deps.Target.Need(check.FieldVictim, check.FieldGateway, check.FieldGatewayMAC); err != nil {
 		return check.Verdict{}, err
 	}
 	src := deps.AttackLeg.Addr().MAC
@@ -42,12 +53,16 @@ func RunPortSteal(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	frameCount := 3
 	restoreArmed := "no"
 	if deps.Entry.Restore.Kind == check.RestoreActive {
-		deps.Teardown.Arm("ip-forward-restore", func(_ context.Context) error {
-			// Restoring the original ip_forward sysctl value is host-side
-			// state with no wire effect. The in-memory harness sees the
-			// restore through the teardown step name.
-			return nil
+		before, err := deps.Sysctl.Get(ipForwardKey)
+		if err != nil {
+			return check.Verdict{}, errs.Wrap(err, "portsteal: read ip_forward")
+		}
+		deps.Teardown.Arm("ip-forward-restore", func(context.Context) error {
+			return deps.Sysctl.Set(ipForwardKey, before)
 		})
+		if err := deps.Sysctl.Set(ipForwardKey, "1"); err != nil {
+			return check.Verdict{}, errs.Wrap(err, "portsteal: enable ip_forward")
+		}
 		restoreArmed = "yes"
 	}
 
@@ -68,10 +83,11 @@ func RunPortSteal(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	})
 	deps.Emitter.Finding("arp", detail)
 
-	if restoreArmed == "yes" {
-		return check.Pending("no observable: port move needs a probe of the victim, and the ip-forward-restore step is a no-op"), nil
+	v, err := observeCacheProbe(ctx, deps, deps.Target.Gateway, target, fmt.Sprintf("the gateway sent its traffic for %s to the attack leg", target))
+	if err != nil {
+		return check.Verdict{}, errs.Wrap(err, "portsteal")
 	}
-	return check.Pending("no observable: port move needs a probe of the victim"), nil
+	return v, nil
 }
 
 // craftPortStealARP builds a gratuitous ARP reply: the attacker announces

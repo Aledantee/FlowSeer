@@ -1,3 +1,10 @@
+// arpspoof.go implements the ARP cache poisoning check. Impact temporary,
+// restore active, affects clients: the two unicast replies put the attack
+// leg's MAC into the victim's and the gateway's caches for each other's
+// address, and the two armed repair replies put the real MACs back when
+// the run ends. The behavior changes no host forwarding, so nothing is
+// relayed while the caches are poisoned.
+
 package fh
 
 import (
@@ -21,11 +28,14 @@ type arpSpoofFinding struct {
 }
 
 // RunARPSpoof sends ARP replies for the target's victim and gateway pair
-// after arming neighbor repairs on the runner's teardown handle. The
-// preceding ip-forward-restore step is a no-op because this behavior does
-// not change host forwarding. The verdict is pending: whether the victim's
-// cache took the poison needs a probe through the attacker it does not
-// have. Craft and send failures include operation context.
+// after arming the two neighbor repairs on the runner's teardown handle,
+// then probes the victim's cache with an ICMP echo request sent to the
+// victim's MAC from the gateway's IPv4. The predicate is the reply's
+// Ethernet destination: an echo reply from the victim's MAC addressed to
+// the attack leg's MAC confirms that the victim sends its gateway traffic
+// to the attacker, a reply to another MAC or an ARP request from the
+// victim for the gateway's address resists, and silence within the window
+// is pending. Craft and send failures include operation context.
 func RunARPSpoof(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	if err := deps.Target.Need(check.FieldVictim, check.FieldVictimMAC, check.FieldGateway, check.FieldGatewayMAC); err != nil {
 		return check.Verdict{}, err
@@ -35,16 +45,7 @@ func RunARPSpoof(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	gwMAC, gwIP := deps.Target.Gateway.MAC, deps.Target.Gateway.IP
 
 	// Arm the teardown steps before the first frame so an interrupted
-	// run still restores. The order of Arm calls is the execution order
-	// (reverse-dependency: least-dependent first). ip_forward goes first
-	// because restoring it touches only host-local state, while the
-	// neighbor-cache repairs that follow need the attacker's own stack in
-	// a known state.
-	deps.Teardown.Arm("ip-forward-restore", func(_ context.Context) error {
-		return nil
-	})
-
-	// Pre-build the neighbor repair frames so the teardown step has them.
+	// run still restores. The order of Arm calls is the execution order.
 	victimRepair, err := craftARPRestore(src, victimMAC, victimIP, gwIP, gwMAC)
 	if err != nil {
 		return check.Verdict{}, errs.Wrap(err, "arpspoof: craft victim repair")
@@ -82,11 +83,19 @@ func RunARPSpoof(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 		Action:  "arp-poison",
 		Targets: []string{victimIP.String()},
 		Gateway: gwIP.String(),
-		Restore: "ip-forward-restore + neighbor-unicast-repairs",
+		Restore: "neighbor-unicast-repairs",
 	})
 	deps.Emitter.Finding("arp", detail)
 
-	return check.Pending("no observable: poison acceptance needs a probe through the attacker, and the ip-forward-restore step is a no-op"), nil
+	v, err := observeCacheProbe(ctx, deps, cacheProbe{
+		peer:     deps.Target.Victim,
+		peerName: "victim",
+		spoofed:  gwIP,
+	}, "the victim sent its gateway traffic to the attack leg")
+	if err != nil {
+		return check.Verdict{}, errs.Wrap(err, "arpspoof")
+	}
+	return v, nil
 }
 
 // craftARPSpoof builds a unicast ARP reply: "spoofedIP is-at attackerMAC".

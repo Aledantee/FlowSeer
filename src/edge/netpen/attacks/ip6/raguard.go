@@ -51,6 +51,9 @@ func RunRAGuard(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 
 	pkt, err := craftProbeRA(src, prefix)
 	if err != nil {
+		if check.IsTargetError(err) {
+			return check.Verdict{}, err
+		}
 		return check.Verdict{}, errs.Wrap(err, "raguard: craft RA")
 	}
 	if err := deps.AttackLeg.Send(ctx, pkt); err != nil {
@@ -103,7 +106,10 @@ func emitRAGuardFinding(deps check.Deps, f raGuardFinding) {
 // zero, so the frame installs nothing on a host and still crosses an
 // RA-Guard that lets router advertisements through.
 func craftProbeRA(src net.HardwareAddr, prefix *net.IPNet) ([]byte, error) {
-	linkLocal := linkLocalFromMAC(src)
+	linkLocal, err := linkLocalFromMAC(src)
+	if err != nil {
+		return nil, err
+	}
 	prefixLen, _ := prefix.Mask.Size()
 
 	eth := &layers.Ethernet{

