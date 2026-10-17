@@ -824,3 +824,25 @@ harness is outside this phase.
 - `ndpspoof` reads `Server6` as the address it claims. If the operator's
   segment has no IPv6 host worth impersonating, the check skips with the
   target error, which is the parent's requirement 7 shape.
+- Requirement 17 states the `voicevlan` pre-read lasts "30 s or the
+  window, whichever is shorter", but the sound design caps it at half the
+  window to leave the after-read a turn, which `dtp` and `vtp` state in
+  their doc comments. The code (`attacks/l2/voicevlan.go:89`) does the
+  half-window cap; the requirement wording and the `voicevlan` and
+  `stproot` doc comments overstate it. Amend the requirement to the
+  half-window bound, or state why the full window is intended.
+
+## Review gaps
+
+Review 2026-10-17 of phase 2 (U1-U6): verdict fixes needed. One behavior
+finding holds the verdict; a requirement-wording question is open above.
+The rest are follow-ups that do not hold the verdict.
+
+- src/edge/netpen/attacks/fh/hsrp.go:170, src/edge/netpen/attacks/fh/glbp.go:151: a silent (deposed) router with `--observe` in [6s, hold time) returns `resisted "still sends hellos in state active"`; req 3 calls `resisted` only for an Active hello at the window's end, so the honest outcome is `pending` naming a window that reaches the 10s hold time; fails: a takeover where the real router stops after the coup and the operator passes `--observe 7s`; class: behavior
+- src/edge/netpen/attacks/ip6/roguedhcp.go, roguedhcp6.go:108: the OFFER/ACK/ADVERTISE copy the observed query's transaction id, but every fixture feeds the old constant xid (`0x12345678`, `{00,11,22}`), so reverting to that literal passes every test; fails: a DISCOVER/SOLICIT whose xid differs from the constant, asserting the emitted frame echoes it; class: gap
+- src/edge/netpen/attacks/routing/observe.go:108: `isEIGRPGoodbyeInAS` no longer reads header flag `0x02` (RFC 7868 6.5 CR-Flag), but no fixture feeds a hello with `Flags=0x02` and no termination TLV to pin that it is not read as goodbye; fails: a reject-lane frame with the CR-Flag set asserting it does not resist; class: gap
+- src/edge/netpen/attacks/routing/harvest_routing.go:82: `eigrpFlagGoodbye uint32 = 0x02` is now dead (the predicate reads TLVs, not the header flag); fails: nothing, unused constant left from the old scheme; class: hardening
+- src/edge/netpen/attacks/l2/harvest_l2.go:66: the etherchannel "another partner" fixture names `switchMAC` as the partner, so the resisted row cannot tell `Partner.System` from `Actor.System`; a predicate reading `Actor.System` would pass it; fails: an LACPDU whose partner is a third distinct MAC; the confirm row already pins the distinction; class: false test
+- src/edge/netpen/attacks/fh/harvest_fh.go:27,811-812, src/edge/netpen/attacks/fh/observe_test.go:223: comments and a test name call HSRP state 8 "Speak"; `layers/hsrp.go:39-40` defines state 8 as Standby (Speak is 4); the verdict text is numeric so no verdict is wrong; class: convention
+- docs/plans/2026-10-12-1259-feat-netpen-check-model-phase2-plan.md (resume prose): cites `0912af90d`, neither end of the recorded `landed` range `f6a243da6..1ee257781`; fails: a reader gets two conflicting commit anchors; class: convention
+- docs/plans/2026-10-12-1259-feat-netpen-check-model-phase2-plan.md, docs/plans/2026-10-12-1259-feat-netpen-check-model-plan.md: the "Resume on another machine" blocks narrate process and describe fetching and tracking an `origin` branch, which AGENTS.md Isolation forbids (work lands on local `main`); class: convention
