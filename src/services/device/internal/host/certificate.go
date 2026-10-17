@@ -19,7 +19,7 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
-	"go.aledante.io/FlowSeer/src/modules/edgebus"
+	"go.aledante.io/FlowSeer/src/common/tlspin"
 )
 
 // ErrCodeCertificate is a certificate the service cannot obtain, read, or
@@ -35,8 +35,7 @@ var ErrCodeCertificate = errs.NewCode("host/certificate")
 const certificateValidity = 10 * 365 * 24 * time.Hour
 
 // Certificate is what the service serves and what an edge is provisioned to
-// accept: the same key on the API, edge, and bus listeners, so an edge pins
-// one digest for the edge listener and the bus.
+// accept: the same key on the API and edge listeners.
 type Certificate struct {
 	// TLS is the pair the listeners serve.
 	TLS tls.Certificate
@@ -104,7 +103,7 @@ func loadCertificate(certificateFile, keyFile string, log *slog.Logger) (*Certif
 	}
 	pair.Leaf = leaf
 	log.Info("service certificate loaded", slog.String("flowseer.device.certificate.path", certificateFile))
-	return &Certificate{TLS: pair, SPKI: edgebus.SPKIDigest(leaf)}, nil
+	return &Certificate{TLS: pair, SPKI: tlspin.SPKIDigest(leaf)}, nil
 }
 
 // generateCertificate writes a fresh self-signed pair and reports its digest.
@@ -150,7 +149,7 @@ func generateCertificate(cfg *Config, certificateFile, keyFile string, log *slog
 		return nil, errs.From(err).Code(ErrCodeCertificate).Msg("parse the certificate just written")
 	}
 	pair := tls.Certificate{Certificate: [][]byte{der}, PrivateKey: key, Leaf: leaf}
-	digest := edgebus.SPKIDigest(leaf)
+	digest := tlspin.SPKIDigest(leaf)
 
 	log.Info("service certificate generated",
 		slog.String("flowseer.device.certificate.spki_sha256", hex.EncodeToString(digest)),
@@ -198,7 +197,7 @@ func addSubjectNames(template *x509.Certificate, cfg *Config) {
 	template.DNSNames = []string{"localhost"}
 	template.IPAddresses = []net.IP{net.ParseIP("127.0.0.1"), net.ParseIP("::1")}
 
-	for _, address := range []string{cfg.APIAddress(), cfg.EdgeAddress(), cfg.BusAddress(), cfg.CentralURL()} {
+	for _, address := range []string{cfg.APIAddress(), cfg.EdgeAddress(), cfg.CentralURL()} {
 		host := hostOf(address)
 		if host == "" {
 			continue
@@ -213,20 +212,6 @@ func addSubjectNames(template *x509.Certificate, cfg *Config) {
 			template.DNSNames = append(template.DNSNames, host)
 		}
 	}
-}
-
-// listenHostOf is the host a listener binds, which is not the host a
-// certificate names. An empty result means "every interface" to a listener
-// and "no dialable name" to a SAN, so the two cannot share a mapping:
-// edgebus reads an empty ListenHost as loopback, and a deployment that wrote
-// 0.0.0.0 would silently bind the bus to 127.0.0.1 while the API answered
-// everywhere and AttachBus handed edges a routable address.
-func listenHostOf(address string) string {
-	// The configuration schema admits only host:port here, so the split
-	// cannot fail; an empty host is the wildcard bind, which a listener
-	// reads as every interface.
-	host, _, _ := net.SplitHostPort(address)
-	return host
 }
 
 // hostOf is the host part of a host:port or of a URL, empty for a wildcard

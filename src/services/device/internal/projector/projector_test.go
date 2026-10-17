@@ -939,7 +939,7 @@ func (s storedAccessSource) Partners(ctx context.Context, tenantID string) ([]*i
 func TestReconcileDeletesEveryOwnedRelationWithoutAReadableRecord(t *testing.T) {
 	ctx := t.Context()
 	hub, err := edgebus.StartHub(ctx, edgebus.HubConfig{
-		StateDir: t.TempDir(), FsyncPolicy: service.BusFsyncPeriodic, ListenPort: 0,
+		StateDir: t.TempDir(), FsyncPolicy: service.BusFsyncPeriodic,
 	})
 	if err != nil {
 		t.Fatalf("start hub: %v", err)

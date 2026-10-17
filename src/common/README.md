@@ -17,6 +17,7 @@ nothing of FlowSeer's own.
 | `secret`               | redacting carrier for credential material                            |
 | `service`              | process-local module runtime, supervision, delivery, and telemetry   |
 | `sim`                  | network simulation: traces, capability-built virtual switch          |
+| `tlspin`               | TLS peer verification against provisioned SPKI digests               |
 | `internal/netpenguard` | build guard limiting heavy dependencies to `src/edge/netpen`         |
 | `internal/secretguard` | build guard keeping credential material out of raw string fields     |
 

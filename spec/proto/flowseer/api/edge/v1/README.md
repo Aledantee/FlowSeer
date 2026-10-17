@@ -15,9 +15,9 @@ Imported by: nothing
 
 Deliberately absent:
 
-- The calls an edge makes on its own behalf. Enrollment, rekey, heartbeat, bus
-  attachment, the device listing, and the two credential lifecycles are
-  `EdgeService` in [`edge/attach/v1`](../../../edge/attach/v1/README.md); an
+- The calls an edge makes on its own behalf. Enrollment, rekey, heartbeat,
+  the device listing, and the two credential lifecycles are
+  `EdgeService` in [`edge/attach/v1`](../../../edge/attach/v1/README.md). An
   operator never makes them and this package never names their messages.
 - A device reference. `RetireEdgeResponse` reports each orphaned lane by device
   id rather than by `DeviceGlobalRef`, because the dependency runs the other

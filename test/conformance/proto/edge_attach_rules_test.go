@@ -50,59 +50,6 @@ func TestEdgeRequestRules(t *testing.T) {
 	})
 }
 
-func TestAttachBusResponseRules(t *testing.T) {
-	valid := func() *attachv1.AttachBusResponse {
-		return attachv1.AttachBusResponse_builder{
-			AccountJwt:     []byte("account-jwt"),
-			UserCredential: []byte("user-credential"),
-			Subjects:       map[string]string{"announce": "flowseer.edge.announce"},
-			ClusterUrls:    []string{"wss://central.example.net:443"},
-		}.Build()
-	}
-
-	runValidationCases(t, []validationCase{
-		{
-			name:      "account jwt, user credential, subjects, and one cluster url",
-			message:   valid(),
-			wantValid: true,
-		},
-		{
-			name: "empty subjects map is valid for an edge with no binding yet",
-			message: attachv1.AttachBusResponse_builder{
-				AccountJwt:     []byte("account-jwt"),
-				UserCredential: []byte("user-credential"),
-				ClusterUrls:    []string{"wss://central.example.net:443"},
-			}.Build(),
-			wantValid: true,
-		},
-		{
-			name: "zero cluster urls is rejected",
-			message: attachv1.AttachBusResponse_builder{
-				AccountJwt:     []byte("account-jwt"),
-				UserCredential: []byte("user-credential"),
-				ClusterUrls:    []string{},
-			}.Build(),
-			wantValid: false,
-		},
-		{
-			name: "missing account jwt is rejected",
-			message: attachv1.AttachBusResponse_builder{
-				UserCredential: []byte("user-credential"),
-				ClusterUrls:    []string{"wss://central.example.net:443"},
-			}.Build(),
-			wantValid: false,
-		},
-		{
-			name: "missing user credential is rejected",
-			message: attachv1.AttachBusResponse_builder{
-				AccountJwt:  []byte("account-jwt"),
-				ClusterUrls: []string{"wss://central.example.net:443"},
-			}.Build(),
-			wantValid: false,
-		},
-	})
-}
-
 func deviceCredential(key string) *attachv1.DeviceCredential {
 	return attachv1.DeviceCredential_builder{
 		Credential: policyv1.CredentialHandle_builder{

@@ -154,7 +154,8 @@ The four gauges report nothing until a pass has succeeded. No instrument counts
 discarded records, because the stream removes none by itself. Alert in this
 order: `stream.usage` against `stream.limit`, then
 `flowseer.intake.records.retried` with reason `stream_full`, then
-`flowseer.history.record.age` nearing the per-edge age. A stream near its limit
+`flowseer.history.record.age` nearing the sizing horizon used for
+`ingest_streams.max_bytes_per_type`. A stream near its limit
 with `records.pending` high means the store is slow or down. A stream near its
 limit with `records.pending` low means cleanup is failing, which
 `cleanup.duration` with `error.type` set shows.

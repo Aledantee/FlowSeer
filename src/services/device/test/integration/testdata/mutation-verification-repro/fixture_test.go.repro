@@ -46,15 +46,9 @@ const (
 	fixtureHostKey = "SHA256:47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU"
 )
 
-// freePort asks the kernel for a port and gives it straight back.
-//
-// It is a race, and it is here because both addresses this fixture needs have
-// to be written into files before anything binds. The bus is named by
-// cluster_urls, and the API is named by the provisioning the agent reads at
-// start — and the agent has to keep dialing one address across a central
-// restart, which is a scenario this test exercises. Central can report the
-// port it bound, and does, but nothing can tell the agent about a new one
-// after it has read its file.
+// freePort releases a kernel-assigned port for a listener. Another process
+// can take it before central binds. The fixture needs fixed addresses so the
+// agent can keep dialing its provisioning URL across a central restart.
 func freePort(t *testing.T) int {
 	t.Helper()
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
@@ -184,7 +178,6 @@ type central struct {
 	configDir string
 	registry  string
 	apiPort   int
-	busPort   int
 
 	mu      sync.Mutex
 	stop    func()
@@ -193,7 +186,7 @@ type central struct {
 
 func newCentral(t *testing.T, dir, registryPath string) *central {
 	t.Helper()
-	return &central{t: t, dir: dir, configDir: dir, registry: registryPath, apiPort: freePort(t), busPort: freePort(t)}
+	return &central{t: t, dir: dir, configDir: dir, registry: registryPath, apiPort: freePort(t)}
 }
 
 func (c *central) baseURL() string { return fmt.Sprintf("https://127.0.0.1:%d", c.apiPort) }
@@ -209,12 +202,10 @@ registry_path: %q
 credential_root: %q
 listeners {
   api: "127.0.0.1:%d"
-  bus: "127.0.0.1:%d"
 }
 edges {
   central_url: %q
   assertion_audience: "flowseer-e2e"
-  cluster_urls: "ws://127.0.0.1:%d"
 }
 intervals {
   dispatch_resend { seconds: 1 }
@@ -222,7 +213,7 @@ intervals {
 }
 log_level: LOG_LEVEL_DEBUG
 `, filepath.Join(c.dir, "central-state"), c.registry, filepath.Join(c.dir, "credentials"),
-		c.apiPort, c.busPort, c.baseURL(), c.busPort)
+		c.apiPort, c.baseURL())
 
 	cfg, err := centralhost.LoadConfig(writeFile(c.t, filepath.Join(c.configDir, "central.textproto"), []byte(body)))
 	if err != nil {

@@ -1,5 +1,5 @@
 // Package syslogsource receives syslog from the devices the agent hosts, maps
-// each message into an ingest record, and publishes it to the edge buffer.
+// each message into an ingest record, and appends it to the ingest log.
 package syslogsource
 
 import (
@@ -19,6 +19,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/lanehost"
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/rawwindow"
+	"go.aledante.io/FlowSeer/src/edge/agent/internal/seglog"
 	"go.aledante.io/FlowSeer/src/protocol/syslog"
 )
 
@@ -27,10 +28,9 @@ import (
 // raw window names to collect from all of them.
 const SourceKey = "syslog"
 
-// Publisher writes records to an edge bus leaf. Satisfied by *edgebus.Leaf.
+// Publisher appends a marshaled ingest record. Satisfied by *seglog.Log.
 type Publisher interface {
-	Publish(ctx context.Context, subject string, data []byte, msgID string) error
-	Subject(name string) string
+	Append(record []byte) error
 }
 
 // Config configures a syslog Source.
@@ -54,7 +54,7 @@ type Config struct {
 }
 
 // Source receives syslog frames from one or more listeners, maps them to IngestRecords,
-// applies the raw suppression policy, and publishes them to the edge buffer.
+// applies the raw suppression policy, and appends them to the ingest log.
 // Run is called once: a second concurrent Run gets syslog.ErrBusy from the
 // receiver and its return closes the receiver under the first. Close and
 // Receiver may be called from other goroutines.
@@ -112,7 +112,7 @@ func Listen(ctx context.Context, cfg Config) (*Source, error) {
 
 	published, err1 := meter.Int64Counter("flowseer.edge.syslog.published",
 		metric.WithUnit("{record}"),
-		metric.WithDescription("syslog records published to the edge buffer"),
+		metric.WithDescription("syslog records appended to the ingest log"),
 	)
 	dropped, err2 := meter.Int64Counter("flowseer.edge.syslog.dropped",
 		metric.WithUnit("{record}"),
@@ -128,7 +128,7 @@ func Listen(ctx context.Context, cfg Config) (*Source, error) {
 	)
 	retries, err5 := meter.Int64Counter("flowseer.edge.syslog.publish.retries",
 		metric.WithUnit("{attempt}"),
-		metric.WithDescription("syslog publish attempts retried after buffer refusal"),
+		metric.WithDescription("syslog append attempts retried after ingest log refusal"),
 	)
 	rawWindowed, err6 := meter.Int64Counter("flowseer.edge.syslog.raw.windowed",
 		metric.WithUnit("{record}"),
@@ -199,7 +199,9 @@ func (s *Source) Close() error {
 // closes the receiver on return. It returns nil when ctx is canceled or the
 // receiver is closed. It returns the receiver's terminal listener error when a
 // listener fails, and a non-nil error if record ID generation, record
-// validation, or marshaling fails.
+// validation, or marshaling fails. An append refused as too large is dropped
+// and counted. A closed ingest log returns its ErrCodeClosed error. Other
+// append failures retry with backoff.
 func (s *Source) Run(ctx context.Context) error {
 	defer func() { _ = s.receiver.Close() }()
 
@@ -275,13 +277,18 @@ func (s *Source) Run(ctx context.Context) error {
 			return errs.From(err).Msg("marshal ingest record")
 		}
 
-		subject := s.publisher.Subject("ingest.syslog")
 		backoff := s.initialBackoff
 		for {
-			err := s.publisher.Publish(ctx, subject, data, recordID)
+			err := s.publisher.Append(data)
 			if err == nil {
 				s.published.Add(ctx, 1)
 				break
+			}
+			if code, _ := errs.CodeOf(err); code == seglog.ErrCodeRecord {
+				s.dropped.Add(ctx, 1, metric.WithAttributes(attribute.String("flowseer.edge.syslog.reason", "too_large")))
+				break
+			} else if code == seglog.ErrCodeClosed {
+				return err
 			}
 			if ctx.Err() != nil {
 				return nil

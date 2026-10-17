@@ -2,9 +2,7 @@
 
 `otlpapi` is central's `TelemetryService`. An edge calls `Deliver` with a batch
 of OTLP bodies, each with its signal, and central posts each body unchanged to
-its collector through `edgebus.Collector`. The forwarder classifies a
-collector answer with the same type for bodies that arrive over the edge's
-stream, so both paths treat an answer alike while both exist.
+its collector through `edgebus.Collector`.
 
 ```go
 handler, err := otlpapi.NewHandler(otlpapi.Config{

@@ -1,6 +1,7 @@
 ---
 title: A State Change a Transient Refusal Blocks Is a State Change Nothing Retries
 date: 2026-09-16
+last_verified: 2026-10-16
 category: architecture-patterns
 module: src/modules/localnet/access
 problem_type: bug
@@ -10,7 +11,7 @@ symptoms:
   - "A mutation rests at POSSIBLY_APPLIED and INDETERMINATE forever on a device that may have been written to, and only an operator ends it"
   - "The edge logs no 'recovery started' for the mutation, while a passing run logs it within ~50ms of the dispatch stream opening"
   - "Central re-dispatches the sequence and the edge answers nothing, logging 'duplicate dispatch for an operation still running' each time"
-  - "Central logs 'edge assertion rejected' with error.type edge/key-lookup-failed, or the hub logs 'Account fetch failed: account missing', shortly before the mutation stops moving"
+  - "Central logs 'edge assertion rejected' with error.type edge/key-lookup-failed shortly before the mutation stops moving. The hub's 'Account fetch failed' warning at start is not part of it: the one case left is a former edge account's directory on an upgraded central"
   - "The edge's Subscribe call blocks in http2.(*ClientConn).roundTrip for minutes; the stream never reopens because central has nothing to send"
 root_cause: "EnterRecovering delivered three audit records. The block and the RecoveryStarted wrote their state first and retained the record when delivery failed, so the recovery poll re-sent it. The phase transition alone was strict: a refused delivery returned with the phase unmoved, so Lane.enterRecovery saw !InRecovery(), started no poll, and nothing came back to it. A refusal that lasted a moment — central briefly unable to look up the edge's key after a restart — cost the mutation its recovery permanently."
 resolution_type: code_fix
@@ -75,11 +76,12 @@ state and retaining the record as owed, which is what the neighbouring records
 already did.
 
 The trigger is ordinary. Central rejects the edge's assertion with
-`edge/key-lookup-failed` for a moment after a restart, while it has not yet
-restored the edge's key — the same window in which the hub logs
-`Account fetch failed: account missing` (see
-[a-restarted-hub-must-re-attach-every-persisted-edge-account.md](a-restarted-hub-must-re-attach-every-persisted-edge-account.md)).
-Audit delivery fails inside that window and succeeds a moment later.
+`edge/key-lookup-failed` for a moment after a restart, while the edge key lookup
+fails (`src/services/device/internal/edge/verifier.go:147`). Audit delivery
+fails inside that window and succeeds a moment later. The hub's `Account fetch failed` warning is not a sign of this
+window. The one case left is a former edge account's directory on an upgraded
+central, which the hub logs once per directory at start and which refuses
+nothing.
 
 ## Why This Matters
 
@@ -142,8 +144,6 @@ very little; the unit-level refusal is what makes the property checkable.
 - `src/modules/localnet/access/README.md`: the module states the rule as
   audit-before-*release*, and already carries two state-before-record
   precedents — the hold rule and the firmware-epoch refresh.
-- [a-restarted-hub-must-re-attach-every-persisted-edge-account.md](a-restarted-hub-must-re-attach-every-persisted-edge-account.md):
-  the restart window this refusal falls in.
 - [single-active-drainer-must-not-leak-its-context-or-its-shutdown-flag.md](single-active-drainer-must-not-leak-its-context-or-its-shutdown-flag.md):
   the same lane, and the same shape of defect — one caller's failure reaching
   work that should have outlived it.

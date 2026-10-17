@@ -40,7 +40,6 @@ func newClaimFixture(t *testing.T) *claimFixture {
 	hub, err := edgebus.StartHub(context.Background(), edgebus.HubConfig{
 		StateDir:    t.TempDir(),
 		FsyncPolicy: service.BusFsyncPeriodic,
-		ListenPort:  0,
 	})
 	if err != nil {
 		t.Fatalf("start hub: %v", err)

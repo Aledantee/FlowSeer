@@ -48,7 +48,7 @@ func TestEnforcementAgainstTheRealEngine(t *testing.T) {
 	platformToken := token("platform-admin", "flowseer-platform")
 	c := &central{
 		t: t, dir: dir, configDir: dir, registry: regDir,
-		apiPort: freePort(t), edgePort: freePort(t), busPort: freePort(t), issuer: iss,
+		apiPort: freePort(t), edgePort: freePort(t), issuer: iss,
 		audience: "flowseer-real-engine", token: platformToken,
 		platformAdmin: storev1.PlatformAdmin_builder{
 			Issuer: new(iss.URL()), Organization: new("flowseer-platform"),

@@ -68,7 +68,6 @@ import (
 	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/secret"
-	"go.aledante.io/FlowSeer/src/common/service"
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
 	"go.aledante.io/FlowSeer/src/services/device/internal/authn"
 	"go.aledante.io/FlowSeer/src/services/device/internal/authn/authntest"
@@ -87,15 +86,9 @@ const (
 	testUnlistedDeviceID = "0192e6a0-0000-7000-8000-0000000000d2"
 )
 
-// freePort asks the kernel for a port and gives it straight back, so the
-// configuration can name one before the service binds it.
-//
-// It is a race: between the release and the service's bind, anything on the
-// machine may take the port. The API listener no longer needs it — that
-// address is configured as port 0 and read back from Options.Bound — but the
-// bus and the edge listener still do, because an edge dials the cluster_urls
-// and the central_url the same file names, and those have to be written
-// before the service starts.
+// freePort releases a kernel-assigned port for the edge listener. Another
+// process can take it before the host binds, but central_url must name the
+// port before startup. The API uses port 0 and reports it through Options.Bound.
 func freePort(t *testing.T) int {
 	t.Helper()
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
@@ -240,7 +233,6 @@ func startTestServiceWithConfig(
 	engine.Grant("user:"+principalID, "view", "edge")
 	engine.Grant("user:"+principalID, "manage", "edge")
 	engine.Grant("user:"+principalID, "capture", "edge")
-	busPort := freePort(t)
 	edgePort := freePort(t)
 	body := fmt.Sprintf(`
 state_dir: %q
@@ -248,13 +240,11 @@ registry_path: %q
 credential_root: %q
 listeners {
   api: "127.0.0.1:0"
-  bus: "127.0.0.1:%d"
   edge: "127.0.0.1:%d"
 }
 edges {
   central_url: "https://127.0.0.1:%d"
   assertion_audience: "flowseer-device-test"
-  cluster_urls: "ws://127.0.0.1:%d"
 }
 authentication {
   issuers {
@@ -270,7 +260,7 @@ authorization {
   model_id: "01JK1234567890ABCDEFGHJKMM"
   preshared_key_file: %q
 }
-`, stateDir, writeRegistry(t, dir), credentialRoot, busPort, edgePort, edgePort, busPort, iss.URL(), caPath, keyPath) + extraConfig
+`, stateDir, writeRegistry(t, dir), credentialRoot, edgePort, edgePort, iss.URL(), caPath, keyPath) + extraConfig
 
 	cfg, err := host.LoadConfig(writeConfig(t, body))
 	if err != nil {
@@ -774,9 +764,8 @@ func TestTheAPIListenerDoesNotRouteEdgeProcedures(t *testing.T) {
 	}
 }
 
-// An edge pins one digest for the edge listener and the bus, and an operator
-// sees that same digest on the API, so every listener must present the same
-// leaf. The digest is read from the handshake, not from the file.
+// The API and edge listener present the same certificate. Read the digest
+// from each handshake to verify what each listener serves.
 func TestBothListenersPresentTheSameCertificate(t *testing.T) {
 	svc := startTestService(t, nil)
 
@@ -923,7 +912,6 @@ func TestStartupDoesNotIndexUnindexedRegistryEdge(t *testing.T) {
 		t.Fatalf("write key: %v", err)
 	}
 
-	busPort := freePort(t)
 	edgePort := freePort(t)
 	body := fmt.Sprintf(`
 state_dir: %q
@@ -931,13 +919,11 @@ registry_path: %q
 credential_root: %q
 listeners {
   api: "127.0.0.1:0"
-  bus: "127.0.0.1:%d"
   edge: "127.0.0.1:%d"
 }
 edges {
   central_url: "https://127.0.0.1:%d"
   assertion_audience: "flowseer-device-test"
-  cluster_urls: "ws://127.0.0.1:%d"
 }
 authentication {
   issuers {
@@ -953,7 +939,7 @@ authorization {
   model_id: "01JK1234567890ABCDEFGHJKMM"
   preshared_key_file: %q
 }
-`, stateDir, writeRegistry(t, dir), credentialRoot, busPort, edgePort, edgePort, busPort, iss.URL(), caPath, keyPath)
+`, stateDir, writeRegistry(t, dir), credentialRoot, edgePort, edgePort, iss.URL(), caPath, keyPath)
 
 	cfg, err := host.LoadConfig(writeConfig(t, body))
 	if err != nil {
@@ -1500,7 +1486,6 @@ func TestEdgeServicesNeedNoTokenWhileClosedPortEngineRefusesOperator(t *testing.
 	if err := os.MkdirAll(credentialRoot, 0o700); err != nil {
 		t.Fatalf("credential dir: %v", err)
 	}
-	busPort := freePort(t)
 	edgePort := freePort(t)
 
 	body := fmt.Sprintf(`
@@ -1509,13 +1494,11 @@ registry_path: %q
 credential_root: %q
 listeners {
   api: "127.0.0.1:0"
-  bus: "127.0.0.1:%d"
   edge: "127.0.0.1:%d"
 }
 edges {
   central_url: "https://127.0.0.1:%d"
   assertion_audience: "flowseer-device-test"
-  cluster_urls: "ws://127.0.0.1:%d"
 }
 authentication {
   issuers {
@@ -1531,7 +1514,7 @@ authorization {
   model_id: "01JK1234567890ABCDEFGHJKMM"
   preshared_key_file: %q
 }
-`, stateDir, writeRegistry(t, dir), credentialRoot, busPort, edgePort, edgePort, busPort, iss.URL(), caPath, closedPort, keyPath)
+`, stateDir, writeRegistry(t, dir), credentialRoot, edgePort, edgePort, iss.URL(), caPath, closedPort, keyPath)
 
 	cfg, err := host.LoadConfig(writeConfig(t, body))
 	if err != nil {
@@ -1657,7 +1640,6 @@ func TestAbsentPresharedKeyFileRefusesStartBeforeListenerBinds(t *testing.T) {
 	if err := os.MkdirAll(credentialRoot, 0o700); err != nil {
 		t.Fatalf("credential dir: %v", err)
 	}
-	busPort := freePort(t)
 	edgePort := freePort(t)
 
 	body := fmt.Sprintf(`
@@ -1666,13 +1648,11 @@ registry_path: %q
 credential_root: %q
 listeners {
   api: "127.0.0.1:0"
-  bus: "127.0.0.1:%d"
   edge: "127.0.0.1:%d"
 }
 edges {
   central_url: "https://127.0.0.1:%d"
   assertion_audience: "flowseer-device-test"
-  cluster_urls: "ws://127.0.0.1:%d"
 }
 authentication {
   issuers {
@@ -1688,7 +1668,7 @@ authorization {
   model_id: "01JK1234567890ABCDEFGHJKMM"
   preshared_key_file: %q
 }
-`, stateDir, writeRegistry(t, dir), credentialRoot, busPort, edgePort, edgePort, busPort, iss.URL(), caPath, absentKey)
+`, stateDir, writeRegistry(t, dir), credentialRoot, edgePort, edgePort, iss.URL(), caPath, absentKey)
 
 	cfg, err := host.LoadConfig(writeConfig(t, body))
 	if err != nil {
@@ -1729,7 +1709,6 @@ func startupConfig(t *testing.T, endpoint, storeID, authnCA, authzCA string) str
 	if err := os.WriteFile(keyPath, []byte("test-authz-key"), 0o600); err != nil {
 		t.Fatalf("write key: %v", err)
 	}
-	busPort := freePort(t)
 	edgePort := freePort(t)
 	authnCAField := ""
 	if authnCA != "" {
@@ -1746,13 +1725,11 @@ registry_path: %q
 credential_root: %q
 listeners {
   api: "127.0.0.1:0"
-  bus: "127.0.0.1:%d"
   edge: "127.0.0.1:%d"
 }
 edges {
   central_url: "https://127.0.0.1:%d"
   assertion_audience: "flowseer-device-test"
-  cluster_urls: "ws://127.0.0.1:%d"
 }
 authentication {
   issuers {
@@ -1769,7 +1746,7 @@ authorization {
   preshared_key_file: %q
 %s
 }
-`, stateDir, writeRegistry(t, dir), credentialRoot, busPort, edgePort, edgePort, busPort, issuer.URL(), authnCAField,
+`, stateDir, writeRegistry(t, dir), credentialRoot, edgePort, edgePort, issuer.URL(), authnCAField,
 		endpoint, storeID, keyPath, authzCAField)
 }
 
@@ -2018,66 +1995,6 @@ func TestUnsetIngestBoundsTakeTheHubDefaults(t *testing.T) {
 	config := stream.CachedInfo().Config
 	if config.Discard != jetstream.DiscardNew || config.MaxAge != 0 || config.MaxBytes != 256<<20 {
 		t.Fatalf("ingest stream limits = %v, %v and %d bytes, want discard new, 0 and %d", config.Discard, config.MaxAge, config.MaxBytes, int64(256<<20))
-	}
-}
-
-func TestIntakeRepublishesAnEdgeRecord(t *testing.T) {
-	hub := startTestService(t, nil).Hub
-	if err := hub.AttachEdge(context.Background(), edgebus.DefaultTenant, testEdgeID); err != nil {
-		t.Fatalf("attach edge: %v", err)
-	}
-	credentials, err := hub.MintEdgeUser(context.Background(), testEdgeID)
-	if err != nil {
-		t.Fatalf("mint edge credentials: %v", err)
-	}
-	credentialsFile, err := credentials.CredsFile()
-	if err != nil {
-		t.Fatalf("format edge credentials: %v", err)
-	}
-	leaf, err := edgebus.StartLeaf(context.Background(), edgebus.LeafConfig{
-		StateDir:        t.TempDir(),
-		EdgeID:          testEdgeID,
-		Tenant:          edgebus.DefaultTenant,
-		HubURLs:         []string{hub.ListenURL()},
-		CredentialsFile: secret.New(credentialsFile),
-		TLS:             &tls.Config{InsecureSkipVerify: true}, //nolint:gosec // the host generates a self-signed certificate for this loopback test
-		FsyncPolicy:     service.BusFsyncPeriodic,
-	})
-	if err != nil {
-		t.Fatalf("start edge leaf: %v", err)
-	}
-	t.Cleanup(leaf.Close)
-	waitForHost(t, "edge leaf connection", func() bool {
-		return leaf.HubConnected() && hub.LeafCount() > 0
-	})
-
-	envelope := validIngestRecord(t)
-	data, err := proto.Marshal(envelope)
-	if err != nil {
-		t.Fatalf("marshal ingest record: %v", err)
-	}
-	if err := leaf.Publish(context.Background(), leaf.Subject("ingest.syslog"), data, ""); err != nil {
-		t.Fatalf("publish ingest record: %v", err)
-	}
-
-	stream, err := hub.JetStream().Stream(context.Background(), edgebus.IngestStream(edgebus.IngestRecordTypeSyslog))
-	if err != nil {
-		t.Fatalf("load central ingest stream: %v", err)
-	}
-	waitForHost(t, "central ingest record", func() bool {
-		info, infoErr := stream.Info(context.Background())
-		return infoErr == nil && info.State.Msgs == 1
-	})
-	msg, err := stream.GetLastMsgForSubject(context.Background(), edgebus.CentralIngestSubject(edgebus.DefaultTenant, edgebus.IngestRecordTypeSyslog, testDeviceID))
-	if err != nil {
-		t.Fatalf("read central ingest record: %v", err)
-	}
-	var got ingestv1.IngestRecord
-	if err := proto.Unmarshal(msg.Data, &got); err != nil {
-		t.Fatalf("decode central ingest record: %v", err)
-	}
-	if !proto.Equal(envelope, &got) {
-		t.Fatalf("central ingest record = %v, want %v", &got, envelope)
 	}
 }
 

@@ -120,9 +120,6 @@ func (s *Service) Enroll(ctx context.Context, req *connect.Request[attachv1.Enro
 		if err := s.store.IndexEdge(ctx, edgeID, tenantID); err != nil {
 			return nil, connectErr(err)
 		}
-		if err := s.bus.AttachEdge(ctx, tenantID, edgeID); err != nil {
-			return nil, connectErr(errs.From(err).Code(ErrCodeBus).Attr("edge", edgeID).Msg("attach edge to bus"))
-		}
 		return s.enrollResponse(edgeID, now), nil
 	}
 
@@ -134,10 +131,6 @@ func (s *Service) Enroll(ctx context.Context, req *connect.Request[attachv1.Enro
 
 	if err := s.store.IndexEdge(ctx, edgeID, tenantID); err != nil {
 		return nil, connectErr(err)
-	}
-
-	if err := s.bus.AttachEdge(ctx, tenantID, edgeID); err != nil {
-		return nil, connectErr(errs.From(err).Code(ErrCodeBus).Attr("edge", edgeID).Msg("attach edge to bus"))
 	}
 
 	return s.enrollResponse(edgeID, now), nil

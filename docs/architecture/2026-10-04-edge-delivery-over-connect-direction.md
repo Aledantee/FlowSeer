@@ -156,8 +156,6 @@ forwarder consumers, and the bus listener an edge dials.
   power-loss rule. That change has not landed. Target-hardware rates are
   unverified, since Go syncs with `F_FULLFSYNC` on darwin.
 - Whether the process-local bus stays. It has no consumer in either host.
-- How the agent's configuration splits its buffer bounds between the two
-  logs.
 - Whether an adapter host, the second kind of enrolled host `GOALS.md`
   names, delivers through the same ingest call. The tenant no longer
   comes from a stream, but central resolves it from the edge store, which
@@ -205,3 +203,79 @@ Landed 2026-10-15: `src/services/device/internal/intake/handler.go`,
 - The forwarder and the telemetry call classify a collector's answer through
   one `edgebus.Collector`. Both refuse to start on an endpoint that is not an
   absolute `http` or `https` URL.
+
+### 2026-10-16: agent switch landed
+
+Landed 2026-10-16: `src/edge/agent/internal/drain`,
+`src/edge/agent/internal/otlpreceiver`, `src/common/tlspin`,
+`src/edge/agent/host/delivery.go`, and `AgentLogBounds` in
+`spec/proto/flowseer/store/agent/v1/agent_config.proto`. The agent starts
+no leaf node and no longer calls `AttachBus`.
+
+- The agent's configuration splits its buffer bounds per log.
+  `AgentBuffer` holds an `ingest` and a `telemetry` `AgentLogBounds`, each
+  with `max_bytes` and `max_age`. Unset fields default to 192 MiB and 7 days
+  for ingest and 64 MiB and 7 days for telemetry, which keeps the 256 MiB
+  total the leaf's stream had. The floors are 1 MiB and 20 minutes, the
+  smallest bounds `seglog.Open` accepts. A configuration with the old flat
+  `buffer { max_bytes }` no longer loads.
+- Each log has one drain. It sends one segment per call, resends a partly
+  settled segment from its start after a restart, and backs off from 1 s to
+  30 s without jitter. It drops a record only when the log's bounds expire
+  it or the record cannot be decoded into the call's item type.
+- Each drain runs under its own supervisor branch with error and panic budgets
+  no persistent fault exhausts. A drain that fails or panics restarts only
+  inside its own branch, so a segment that keeps failing to read holds back
+  only its own log (`src/edge/agent/host/delivery.go`).
+- The loopback OTLP receiver moved from `src/modules/edgebus` into the
+  agent, and the TLS pin helpers moved to `src/common/tlspin`, since central
+  and the agent both use them.
+- An upgraded agent leaves its old `jetstream` directory and `hub.creds` on
+  disk. Nothing removes them.
+
+### 2026-10-16: central bus attachment removed
+
+Landed 2026-10-16: `spec/proto/flowseer/edge/attach/v1/bus.proto` and
+`EdgeService.AttachBus` are removed, along with `ServiceListeners.bus` and
+`EdgeEnrollmentPolicy.cluster_urls` in
+`spec/proto/flowseer/store/device/v1/service_config.proto`. Configurations
+that still name either field fail to load. The hub binds no WebSocket or
+leaf port.
+
+The removed implementation paths are `src/modules/edgebus/leaf.go`,
+`src/modules/edgebus/follower.go`, `src/modules/edgebus/forwarder.go`, and
+`src/services/device/internal/intake/intake.go`. `Handler.Deliver` and
+`prepareRecord` in `src/services/device/internal/intake` are the ingest
+path. `src/services/device/internal/otlpapi/handler.go` uses
+`edgebus.Collector` directly. The 2026-10-15 amendment's shared forwarder
+classification now belongs to that telemetry handler alone.
+
+`StartHub` in `src/modules/edgebus/hub.go` keeps operator mode and the
+operator, system, and CENTRAL seeds, with CENTRAL as its only data account.
+`hubKeys.mintUser` in `src/modules/edgebus/keys.go` still creates central's
+user when it connects. No per-edge key files or accounts are created.
+
+An upgraded central leaves `keys/edge-*.nk`, `keys/edge-*.tenant`, and
+former edge accounts' JetStream directories on disk. Nothing reads the
+stray keys. At startup nats-server v2.15.0 scans the store, fails to resolve
+each former account, logs one `Account fetch failed` warning per directory,
+and continues serving CENTRAL (`server/jetstream.go:933-947`,
+`server/server.go:2183-2185`). The hub forwards the warning through
+`quietLogger.Warnf`. `TestHubServesCentralWithFormerEdgeState` in
+`src/modules/edgebus/hub_internal_test.go` checks this behavior and leaves
+the files intact. Operators remove the stray files as described in the
+[edgebus README](../../src/modules/edgebus/README.md#keys-and-upgrades).
+There is no automatic removal because a mistaken directory deletion could
+destroy CENTRAL's store.
+
+The device service and ingestion records now have dated amendments naming
+each replaced transport passage. The proposed central high availability
+record makes central a plain NATS client, and the deployment record exposes
+one edge-facing address. `GOALS.md` now states Connect delivery and no
+longer says intake reads per-edge streams. These edits supersede the
+Consequence that tied that goal edit to acceptance of this record. Its
+status remains proposed pending acceptance.
+
+The edge high availability record needed no edit: it already contains no
+leaf attachment or FreeBSD leaf-node open question. This answers the
+Consequence that called for removing that question.

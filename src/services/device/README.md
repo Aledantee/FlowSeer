@@ -124,10 +124,9 @@ central detecting itself.
 
 ## Deployment
 
-The service binds three addresses, and one certificate answers on all of them.
+The service binds two addresses with the same certificate.
 `listeners.api` serves the operator procedures, `listeners.edge` serves the
-procedures an edge calls, and `listeners.bus` takes the leaf nodes. A procedure
-mounted on one HTTP listener answers 404 on the other, so a deployment can put
+procedures an edge calls. A procedure mounted on one HTTP listener answers 404 on the other, so a deployment can put
 the edge address on the internet and keep the API address on a private network
 (`internal/host/serve.go`). `edges.central_url` names the edge address: it is
 the value `EdgeProvisioning.central_url` carries to an agent. The Connect module
@@ -242,13 +241,12 @@ digest an edge pins. That digest is what every edge is provisioned with, so the
 pair is persisted: a service that generated a fresh key each start would refuse
 every edge in the field.
 
-Nine modules run under the service runtime: the bus hub, the telemetry
-forwarder, intake, the journal's read sweeper, the Connect module (both HTTP
-listeners), the drift poll, the capture artifact sweeper, the relationship
+Seven modules run under the service runtime: the bus hub, the journal's read
+sweeper, the Connect module (both HTTP listeners), the drift poll, the capture artifact sweeper, the relationship
 projector (`internal/projector`), and the history sink
 (`internal/historysink`), which runs only when the configuration has a
 `history` section. They are supervised `RestForOne` with the hub first. That
-is not a default: the eight modules after it hold resources the hub owns, so a
+is not a default: the six modules after it hold resources the hub owns, so a
 hub that is rebuilt must take them with it. The sink is last, so its own
 failures restart nothing else.
 

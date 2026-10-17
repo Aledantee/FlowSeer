@@ -16,7 +16,7 @@ import (
 	"time"
 
 	"buf.build/go/protovalidate"
-	"github.com/nats-io/nats.go/jetstream"
+
 	"go.opentelemetry.io/otel/attribute"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
@@ -34,60 +34,68 @@ import (
 	addrv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/addr/v1"
 	netlogv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/log/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
-	"go.aledante.io/FlowSeer/src/common/secret"
-	"go.aledante.io/FlowSeer/src/common/service"
+
 	"go.aledante.io/FlowSeer/src/common/spawn"
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/lanehost"
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/rawwindow"
+	"go.aledante.io/FlowSeer/src/edge/agent/internal/seglog"
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/syslogsource"
-	"go.aledante.io/FlowSeer/src/modules/edgebus"
 	"go.aledante.io/FlowSeer/src/protocol/syslog"
 )
 
 // testIntegrationID is the integration every listed fixture device belongs to.
 const testIntegrationID = "0192e6a0-0000-7000-8000-0000000000c1"
 
-func startHub(t *testing.T, dir string) *edgebus.Hub {
+func openIngestLog(t *testing.T) *seglog.Log {
 	t.Helper()
-	hub, err := edgebus.StartHub(context.Background(), edgebus.HubConfig{
-		StateDir:    dir,
-		FsyncPolicy: service.BusFsyncPeriodic,
-		ListenPort:  -1,
-	})
+	log, err := seglog.Open(seglog.Config{Dir: t.TempDir()})
 	if err != nil {
-		t.Fatalf("start hub: %v (%v)", err, errs.Attributes(err))
+		t.Fatal(err)
 	}
-	t.Cleanup(hub.Close)
-	return hub
+	t.Cleanup(func() { _ = log.Close() })
+	return log
 }
 
-func startLeaf(t *testing.T, dir string, hub *edgebus.Hub) *edgebus.Leaf {
+func nextRecord(t *testing.T, log *seglog.Log) []byte {
 	t.Helper()
-	id := testEdgeID
-	if err := hub.AttachEdge(context.Background(), edgebus.DefaultTenant, id); err != nil {
-		t.Fatalf("attach edge: %v", err)
-	}
-	creds, err := hub.MintEdgeUser(context.Background(), id)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	segment, err := log.Next(ctx)
 	if err != nil {
-		t.Fatalf("mint edge user: %v", err)
+		t.Fatal(err)
 	}
-	credsBytes, err := creds.CredsFile()
-	if err != nil {
-		t.Fatalf("render credentials: %v", err)
+	if len(segment.Records) != 1 {
+		t.Fatalf("records = %d, want 1", len(segment.Records))
 	}
-	leaf, err := edgebus.StartLeaf(context.Background(), edgebus.LeafConfig{
-		StateDir:        dir,
-		EdgeID:          id,
-		Tenant:          edgebus.DefaultTenant,
-		HubURLs:         []string{hub.ListenURL()},
-		CredentialsFile: secret.New(credsBytes),
-		FsyncPolicy:     service.BusFsyncPeriodic,
+	data := segment.Records[0]
+	var env ingestv1.IngestRecord
+	if err := proto.Unmarshal(data, &env); err != nil {
+		t.Fatal(err)
+	}
+	if err := protovalidate.Validate(&env); err != nil {
+		t.Fatal(err)
+	}
+	if env.GetRecordId() == "" {
+		t.Fatal("record id is empty")
+	}
+	if err := log.Ack(segment.Sequence); err != nil {
+		t.Fatal(err)
+	}
+	return data
+}
+
+func runSource(ctx context.Context, t *testing.T, src *syslogsource.Source) {
+	t.Helper()
+	ctx, cancel := context.WithCancel(ctx)
+	done := make(chan error, 1)
+	spawn.Go(ctx, "syslog source", func() { done <- src.Run(ctx) })
+	t.Cleanup(func() {
+		cancel()
+		_ = src.Close()
+		if err := <-done; err != nil {
+			t.Error(err)
+		}
 	})
-	if err != nil {
-		t.Fatalf("start leaf: %v", err)
-	}
-	t.Cleanup(leaf.Close)
-	return leaf
 }
 
 // listedAt is a listed device answering at an IPv4 management address, built
@@ -155,7 +163,7 @@ func readMetricSum(reader *sdkmetric.ManualReader, name string) (int64, bool) {
 
 // readMetricAttr returns the value of one attribute on the first data point of
 // a counter, and whether the counter has such a point.
-func readMetricAttr(reader *sdkmetric.ManualReader, name, key string) (string, bool) {
+func readDroppedMetricAttr(reader *sdkmetric.ManualReader, key string) (string, bool) {
 	var rm metricdata.ResourceMetrics
 	if err := reader.Collect(context.Background(), &rm); err != nil {
 		return "", false
@@ -163,7 +171,7 @@ func readMetricAttr(reader *sdkmetric.ManualReader, name, key string) (string, b
 	for _, sm := range rm.ScopeMetrics {
 		for _, m := range sm.Metrics {
 			sum, ok := m.Data.(metricdata.Sum[int64])
-			if m.Name != name || !ok {
+			if m.Name != "flowseer.edge.syslog.dropped" || !ok {
 				continue
 			}
 			for _, dp := range sum.DataPoints {
@@ -179,9 +187,7 @@ func readMetricAttr(reader *sdkmetric.ManualReader, name, key string) (string, b
 func TestSource_UDPHostedAndUnknownAddress(t *testing.T) {
 	t.Parallel()
 
-	hub := startHub(t, t.TempDir())
-	leaf := startLeaf(t, t.TempDir(), hub)
-	waitFor(t, "leaf link", 10*time.Second, func() bool { return hub.LeafCount() == 1 && leaf.HubConnected() })
+	log := openIngestLog(t)
 
 	reader := sdkmetric.NewManualReader()
 	mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
@@ -198,7 +204,7 @@ func TestSource_UDPHostedAndUnknownAddress(t *testing.T) {
 			{Transport: syslog.UDP, Address: "127.0.0.1:0"},
 		},
 		Index:     index,
-		Publisher: leaf,
+		Publisher: log,
 		EdgeRef:   testEdgeRef(),
 		Meter:     meter,
 	})
@@ -207,9 +213,7 @@ func TestSource_UDPHostedAndUnknownAddress(t *testing.T) {
 	}
 	defer func() { _ = src.Close() }()
 
-	spawn.Go(ctx, "syslog-source-runner", func() {
-		_ = src.Run(ctx)
-	})
+	runSource(ctx, t, src)
 
 	udpAddr := src.Receiver().Addresses()[0].Address
 	conn, err := net.Dial("udp", udpAddr)
@@ -228,7 +232,7 @@ func TestSource_UDPHostedAndUnknownAddress(t *testing.T) {
 		return ok && val >= 1
 	})
 
-	if reason, ok := readMetricAttr(reader, "flowseer.edge.syslog.dropped", "flowseer.edge.syslog.reason"); !ok || reason != "unknown_source" {
+	if reason, ok := readDroppedMetricAttr(reader, "flowseer.edge.syslog.reason"); !ok || reason != "unknown_source" {
 		t.Errorf("dropped reason = %q (found=%t), want unknown_source", reason, ok)
 	}
 
@@ -239,38 +243,15 @@ func TestSource_UDPHostedAndUnknownAddress(t *testing.T) {
 		t.Fatalf("write hosted UDP: %v", err)
 	}
 
-	stream, err := hub.EdgeStream(context.Background(), testEdgeID)
-	if err != nil {
-		t.Fatalf("hub edge stream: %v", err)
-	}
-
-	subject := leaf.Subject("ingest.syslog")
-	waitFor(t, "stored message in hub stream", 10*time.Second, func() bool {
-		msg, err := stream.GetLastMsgForSubject(context.Background(), subject)
-		return err == nil && msg != nil
-	})
-
-	msg, err := stream.GetLastMsgForSubject(context.Background(), subject)
-	if err != nil {
-		t.Fatalf("read message from stream: %v", err)
-	}
+	msg := nextRecord(t, log)
 
 	var env ingestv1.IngestRecord
-	if err := proto.Unmarshal(msg.Data, &env); err != nil {
+	if err := proto.Unmarshal(msg, &env); err != nil {
 		t.Fatalf("unmarshal IngestRecord: %v", err)
 	}
 
 	if err := protovalidate.Validate(&env); err != nil {
 		t.Fatalf("protovalidate: %v", err)
-	}
-
-	recordID := env.GetRecordId()
-	if msgID := msg.Header.Get("Nats-Msg-Id"); msgID != recordID {
-		t.Errorf("Nats-Msg-Id header = %q, want record_id %q", msgID, recordID)
-	}
-
-	if srcStream := msg.Header.Get("Nats-Stream-Source"); srcStream == "" {
-		t.Error("Nats-Stream-Source header is empty, want stream name")
 	}
 
 	if env.GetSyslog().GetHostname() != "sw1" {
@@ -284,9 +265,7 @@ func TestSource_UDPHostedAndUnknownAddress(t *testing.T) {
 func TestSource_DualStackListenerResolvesAnIPv4Device(t *testing.T) {
 	t.Parallel()
 
-	hub := startHub(t, t.TempDir())
-	leaf := startLeaf(t, t.TempDir(), hub)
-	waitFor(t, "leaf link", 10*time.Second, func() bool { return hub.LeafCount() == 1 && leaf.HubConnected() })
+	log := openIngestLog(t)
 
 	index := lanehost.NewDeviceIndex()
 	seedListing(t, index, listedAt(t, "127.0.0.1", testDeviceID))
@@ -297,14 +276,14 @@ func TestSource_DualStackListenerResolvesAnIPv4Device(t *testing.T) {
 	src, err := syslogsource.Listen(ctx, syslogsource.Config{
 		Listeners: []syslog.ListenConfig{{Transport: syslog.UDP, Address: "[::]:0"}},
 		Index:     index,
-		Publisher: leaf,
+		Publisher: log,
 		EdgeRef:   testEdgeRef(),
 	})
 	if err != nil {
 		t.Fatalf("Listen: %v", err)
 	}
 	defer func() { _ = src.Close() }()
-	spawn.Go(ctx, "syslog-source-runner", func() { _ = src.Run(ctx) })
+	runSource(ctx, t, src)
 
 	_, port, err := net.SplitHostPort(src.Receiver().Addresses()[0].Address)
 	if err != nil {
@@ -319,26 +298,10 @@ func TestSource_DualStackListenerResolvesAnIPv4Device(t *testing.T) {
 		t.Fatalf("write UDP: %v", err)
 	}
 
-	stream, err := hub.EdgeStream(context.Background(), testEdgeID)
-	if err != nil {
-		t.Fatalf("hub edge stream: %v", err)
-	}
-	subject := leaf.Subject("ingest.syslog")
-	var rawMsg *jetstream.RawStreamMsg
-	waitFor(t, "stored message in hub stream", 10*time.Second, func() bool {
-		msg, err := stream.GetLastMsgForSubject(context.Background(), subject)
-		if err == nil && msg != nil {
-			rawMsg = msg
-			return true
-		}
-		return false
-	})
-	if rawMsg == nil {
-		t.Fatal("no message stored in hub stream")
-	}
+	rawMsg := nextRecord(t, log)
 
 	var env ingestv1.IngestRecord
-	if err := proto.Unmarshal(rawMsg.Data, &env); err != nil {
+	if err := proto.Unmarshal(rawMsg, &env); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
 	syslogRec := env.GetSyslog()
@@ -361,9 +324,7 @@ func TestSource_DualStackListenerResolvesAnIPv4Device(t *testing.T) {
 func TestSource_TCPFiveFramingsAndAutoCases(t *testing.T) {
 	t.Parallel()
 
-	hub := startHub(t, t.TempDir())
-	leaf := startLeaf(t, t.TempDir(), hub)
-	waitFor(t, "leaf link", 10*time.Second, func() bool { return hub.LeafCount() == 1 && leaf.HubConnected() })
+	log := openIngestLog(t)
 
 	index := lanehost.NewDeviceIndex()
 	seedListing(t, index, listedAt(t, "127.0.0.1", testDeviceID))
@@ -382,7 +343,7 @@ func TestSource_TCPFiveFramingsAndAutoCases(t *testing.T) {
 	src, err := syslogsource.Listen(ctx, syslogsource.Config{
 		Listeners: listeners,
 		Index:     index,
-		Publisher: leaf,
+		Publisher: log,
 		EdgeRef:   testEdgeRef(),
 	})
 	if err != nil {
@@ -390,15 +351,7 @@ func TestSource_TCPFiveFramingsAndAutoCases(t *testing.T) {
 	}
 	defer func() { _ = src.Close() }()
 
-	spawn.Go(ctx, "syslog-source-runner", func() {
-		_ = src.Run(ctx)
-	})
-
-	stream, err := hub.EdgeStream(context.Background(), testEdgeID)
-	if err != nil {
-		t.Fatalf("hub edge stream: %v", err)
-	}
-	subject := leaf.Subject("ingest.syslog")
+	runSource(ctx, t, src)
 
 	endpoints := src.Receiver().Addresses()
 	if len(endpoints) != 5 {
@@ -409,13 +362,13 @@ func TestSource_TCPFiveFramingsAndAutoCases(t *testing.T) {
 	payload1 := []byte("<34>1 2026-10-03T10:00:00Z sw1 app - - - auto-form1")
 	frame1 := append([]byte(fmt.Sprintf("%d ", len(payload1))), payload1...)
 	sendTCP(t, autoAddr, frame1)
-	msg1 := waitForMessage(t, stream, subject, "auto-form1")
+	msg1 := waitForMessage(t, log, "auto-form1")
 	if msg1 == nil {
 		t.Fatal("auto-form1 message not found")
 	}
 
 	sendTCP(t, autoAddr, []byte("<34>1 2026-10-03T10:00:00Z sw1 app - - - auto-form2\n"))
-	msg2 := waitForMessage(t, stream, subject, "auto-form2")
+	msg2 := waitForMessage(t, log, "auto-form2")
 	if msg2 == nil {
 		t.Fatal("auto-form2 message not found")
 	}
@@ -424,19 +377,19 @@ func TestSource_TCPFiveFramingsAndAutoCases(t *testing.T) {
 	payloadOctet := []byte("<34>1 2026-10-03T10:00:00Z sw1 app - - - octet-msg")
 	frameOctet := append([]byte(fmt.Sprintf("%d ", len(payloadOctet))), payloadOctet...)
 	sendTCP(t, octetAddr, frameOctet)
-	msg3 := waitForMessage(t, stream, subject, "octet-msg")
+	msg3 := waitForMessage(t, log, "octet-msg")
 	if msg3 == nil {
 		t.Fatal("octet-msg message not found")
 	}
 
 	lfAddr := endpoints[2].Address
 	sendTCP(t, lfAddr, []byte("Oct  3 10:00:00 sw1 app: up\n"))
-	msg4 := waitForMessage(t, stream, subject, "up")
+	msg4 := waitForMessage(t, log, "up")
 	if msg4 == nil {
 		t.Fatal("LF line message not found")
 	}
 	var envLF ingestv1.IngestRecord
-	if err := proto.Unmarshal(msg4.Data, &envLF); err != nil {
+	if err := proto.Unmarshal(msg4, &envLF); err != nil {
 		t.Fatalf("unmarshal LF record: %v", err)
 	}
 	if envLF.GetSyslog().HasSeverity() {
@@ -445,14 +398,14 @@ func TestSource_TCPFiveFramingsAndAutoCases(t *testing.T) {
 
 	crlfAddr := endpoints[3].Address
 	sendTCP(t, crlfAddr, []byte("Oct  3 10:00:00 sw1 app: crlf-up\r\n"))
-	msg5 := waitForMessage(t, stream, subject, "crlf-up")
+	msg5 := waitForMessage(t, log, "crlf-up")
 	if msg5 == nil {
 		t.Fatal("CRLF message not found")
 	}
 
 	nulAddr := endpoints[4].Address
 	sendTCP(t, nulAddr, []byte("Oct  3 10:00:00 sw1 app: nul-up\x00"))
-	msg6 := waitForMessage(t, stream, subject, "nul-up")
+	msg6 := waitForMessage(t, log, "nul-up")
 	if msg6 == nil {
 		t.Fatal("NUL message not found")
 	}
@@ -486,9 +439,7 @@ func TestSource_TCPFiveFramingsAndAutoCases(t *testing.T) {
 func TestSource_OctetCounted65535ByteFrameIsCutAndKeepsRaw(t *testing.T) {
 	t.Parallel()
 
-	hub := startHub(t, t.TempDir())
-	leaf := startLeaf(t, t.TempDir(), hub)
-	waitFor(t, "leaf link", 10*time.Second, func() bool { return hub.LeafCount() == 1 && leaf.HubConnected() })
+	log := openIngestLog(t)
 
 	index := lanehost.NewDeviceIndex()
 	seedListing(t, index, listedAt(t, "127.0.0.1", testDeviceID))
@@ -501,7 +452,7 @@ func TestSource_OctetCounted65535ByteFrameIsCutAndKeepsRaw(t *testing.T) {
 			{Transport: syslog.TCP, Address: "127.0.0.1:0", Framing: syslog.OctetCounting},
 		},
 		Index:     index,
-		Publisher: leaf,
+		Publisher: log,
 		EdgeRef:   testEdgeRef(),
 	})
 	if err != nil {
@@ -509,15 +460,7 @@ func TestSource_OctetCounted65535ByteFrameIsCutAndKeepsRaw(t *testing.T) {
 	}
 	defer func() { _ = src.Close() }()
 
-	spawn.Go(ctx, "syslog-source-runner", func() {
-		_ = src.Run(ctx)
-	})
-
-	stream, err := hub.EdgeStream(context.Background(), testEdgeID)
-	if err != nil {
-		t.Fatalf("hub edge stream: %v", err)
-	}
-	subject := leaf.Subject("ingest.syslog")
+	runSource(ctx, t, src)
 
 	largePayload := bytes.Repeat([]byte("z"), 65535)
 	frameHeader := fmt.Sprintf("%d ", len(largePayload))
@@ -526,18 +469,10 @@ func TestSource_OctetCounted65535ByteFrameIsCutAndKeepsRaw(t *testing.T) {
 	tcpAddr := src.Receiver().Addresses()[0].Address
 	sendTCP(t, tcpAddr, frame)
 
-	waitFor(t, "large payload in stream", 10*time.Second, func() bool {
-		msg, err := stream.GetLastMsgForSubject(context.Background(), subject)
-		return err == nil && msg != nil
-	})
-
-	msg, err := stream.GetLastMsgForSubject(context.Background(), subject)
-	if err != nil {
-		t.Fatalf("read message: %v", err)
-	}
+	msg := nextRecord(t, log)
 
 	var env ingestv1.IngestRecord
-	if err := proto.Unmarshal(msg.Data, &env); err != nil {
+	if err := proto.Unmarshal(msg, &env); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
 
@@ -568,19 +503,15 @@ func TestSource_OctetCounted65535ByteFrameIsCutAndKeepsRaw(t *testing.T) {
 type retryPublisherStub struct {
 	mu       sync.Mutex
 	attempts int
-	msgIDs   []string
+	records  [][]byte
 	done     chan struct{}
 }
 
-func (s *retryPublisherStub) Subject(string) string {
-	return "flowseer.test.ingest.syslog"
-}
-
-func (s *retryPublisherStub) Publish(_ context.Context, _ string, _ []byte, msgID string) error {
+func (s *retryPublisherStub) Append(data []byte) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.attempts++
-	s.msgIDs = append(s.msgIDs, msgID)
+	s.records = append(s.records, bytes.Clone(data))
 	if s.attempts == 1 {
 		return errors.New("buffer temporarily refused")
 	}
@@ -623,9 +554,7 @@ func TestSource_PublisherRetryWithBackoff(t *testing.T) {
 	}
 	defer func() { _ = src.Close() }()
 
-	spawn.Go(ctx, "syslog-source-runner", func() {
-		_ = src.Run(ctx)
-	})
+	runSource(ctx, t, src)
 
 	udpAddr := src.Receiver().Addresses()[0].Address
 	conn, err := net.Dial("udp", udpAddr)
@@ -656,8 +585,8 @@ func TestSource_PublisherRetryWithBackoff(t *testing.T) {
 	if stub.attempts != 2 {
 		t.Errorf("stub.attempts = %d, want 2", stub.attempts)
 	}
-	if len(stub.msgIDs) != 2 || stub.msgIDs[0] != stub.msgIDs[1] {
-		t.Errorf("stub.msgIDs = %v, want same msgID twice", stub.msgIDs)
+	if len(stub.records) != 2 || !bytes.Equal(stub.records[0], stub.records[1]) {
+		t.Errorf("retry record bytes differ")
 	}
 
 	retries, ok := readMetricSum(reader, "flowseer.edge.syslog.publish.retries")
@@ -683,17 +612,13 @@ func sendTCP(t *testing.T, addr string, data []byte) {
 	}
 }
 
-func waitForMessage(t *testing.T, stream jetstream.Stream, subject, substring string) *jetstream.RawStreamMsg {
+func waitForMessage(t *testing.T, log *seglog.Log, substring string) []byte {
 	t.Helper()
-	deadline := time.Now().Add(10 * time.Second)
-	for time.Now().Before(deadline) {
-		msg, err := stream.GetLastMsgForSubject(context.Background(), subject)
-		if err == nil && msg != nil && bytes.Contains(msg.Data, []byte(substring)) {
-			return msg
-		}
-		time.Sleep(50 * time.Millisecond)
+	data := nextRecord(t, log)
+	if !bytes.Contains(data, []byte(substring)) {
+		t.Fatalf("record does not contain %q", substring)
 	}
-	return nil
+	return data
 }
 
 func TestSource_ListenRefusesAnEdgeRefWithoutAnID(t *testing.T) {
@@ -729,11 +654,7 @@ type retryFailingPublisherStub struct {
 	once   sync.Once
 }
 
-func (p *retryFailingPublisherStub) Subject(string) string {
-	return "flowseer.test.ingest.syslog"
-}
-
-func (p *retryFailingPublisherStub) Publish(context.Context, string, []byte, string) error {
+func (p *retryFailingPublisherStub) Append([]byte) error {
 	p.once.Do(func() {
 		close(p.called)
 	})
@@ -801,94 +722,12 @@ func TestSource_RunReturnsNilOnCancellationDuringRetry(t *testing.T) {
 	}
 }
 
-// blockingPublisherStub holds Publish until its context ends, as a buffer that
-// is mid-write when the agent shuts down does, and returns the context error.
-type blockingPublisherStub struct {
-	called chan struct{}
-	once   sync.Once
-}
-
-func (p *blockingPublisherStub) Subject(string) string {
-	return "flowseer.test.ingest.syslog"
-}
-
-func (p *blockingPublisherStub) Publish(ctx context.Context, _ string, _ []byte, _ string) error {
-	p.once.Do(func() { close(p.called) })
-	<-ctx.Done()
-	return ctx.Err()
-}
-
-func TestSource_RunReturnsNilWhenCanceledInsidePublish(t *testing.T) {
-	t.Parallel()
-
-	reader := sdkmetric.NewManualReader()
-	mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	index := lanehost.NewDeviceIndex()
-	seedListing(t, index, listedAt(t, "127.0.0.1", testDeviceID))
-
-	stub := &blockingPublisherStub{called: make(chan struct{})}
-	src, err := syslogsource.Listen(ctx, syslogsource.Config{
-		Listeners: []syslog.ListenConfig{
-			{Transport: syslog.UDP, Address: "127.0.0.1:0"},
-		},
-		Index:     index,
-		Publisher: stub,
-		EdgeRef:   testEdgeRef(),
-		Meter:     mp.Meter("test"),
-	})
-	if err != nil {
-		t.Fatalf("Listen: %v", err)
-	}
-	defer func() { _ = src.Close() }()
-
-	errCh := make(chan error, 1)
-	spawn.Go(ctx, "syslog-source-runner", func() {
-		errCh <- src.Run(ctx)
-	})
-
-	conn, err := net.Dial("udp", src.Receiver().Addresses()[0].Address)
-	if err != nil {
-		t.Fatalf("Dial UDP: %v", err)
-	}
-	defer func() { _ = conn.Close() }()
-	if _, err := conn.Write([]byte("<34>1 2026-10-03T10:00:00Z sw1 app - - - publish blocks")); err != nil {
-		t.Fatalf("write UDP: %v", err)
-	}
-
-	select {
-	case <-stub.called:
-	case <-time.After(5 * time.Second):
-		t.Fatal("timed out waiting for Publish to be called")
-	}
-	cancel()
-
-	select {
-	case runErr := <-errCh:
-		if runErr != nil {
-			t.Errorf("Run returned error %v, want nil on context cancellation", runErr)
-		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("timed out waiting for Run to return")
-	}
-	if retries, ok := readMetricSum(reader, "flowseer.edge.syslog.publish.retries"); ok && retries != 0 {
-		t.Errorf("publish.retries = %d, want 0: a canceled publish is not a refusal", retries)
-	}
-}
-
 type capturingPublisherStub struct {
 	mu      sync.Mutex
 	records []*ingestv1.IngestRecord
 }
 
-func (s *capturingPublisherStub) Subject(string) string {
-	return "flowseer.test.ingest.syslog"
-}
-
-func (s *capturingPublisherStub) Publish(_ context.Context, _ string, data []byte, _ string) error {
+func (s *capturingPublisherStub) Append(data []byte) error {
 	var env ingestv1.IngestRecord
 	if err := proto.Unmarshal(data, &env); err != nil {
 		return err
@@ -942,9 +781,7 @@ func TestSource_RawPolicySuppressionAndMetrics(t *testing.T) {
 	}
 	defer func() { _ = src.Close() }()
 
-	spawn.Go(ctx, "syslog-source-runner", func() {
-		_ = src.Run(ctx)
-	})
+	runSource(ctx, t, src)
 
 	udpAddr := src.Receiver().Addresses()[0].Address
 	conn, err := net.Dial("udp", udpAddr)
@@ -1062,7 +899,7 @@ type refusingPublisherStub struct {
 	attempts   int
 }
 
-func (s *refusingPublisherStub) Publish(ctx context.Context, subject string, data []byte, msgID string) error {
+func (s *refusingPublisherStub) Append(data []byte) error {
 	s.attemptsMu.Lock()
 	s.attempts++
 	refused := s.attempts <= s.refuse
@@ -1070,7 +907,7 @@ func (s *refusingPublisherStub) Publish(ctx context.Context, subject string, dat
 	if refused {
 		return errors.New("buffer temporarily refused")
 	}
-	return s.capturingPublisherStub.Publish(ctx, subject, data, msgID)
+	return s.capturingPublisherStub.Append(data)
 }
 
 func newWindowController(t *testing.T) *rawwindow.Controller {
@@ -1184,7 +1021,7 @@ func startWindowSource(t *testing.T, index *lanehost.DeviceIndex, pub syslogsour
 		t.Fatalf("Listen: %v", err)
 	}
 	t.Cleanup(func() { _ = src.Close() })
-	spawn.Go(ctx, "syslog-source-runner", func() { _ = src.Run(ctx) })
+	runSource(ctx, t, src)
 
 	conn, err := net.Dial("udp", src.Receiver().Addresses()[0].Address)
 	if err != nil {
@@ -1476,9 +1313,7 @@ func TestSource_DatagramFromSharedAddressYieldsNoEnvelopeAndAmbiguousDroppedCoun
 	}
 	defer func() { _ = src.Close() }()
 
-	spawn.Go(ctx, "syslog-source-runner", func() {
-		_ = src.Run(ctx)
-	})
+	runSource(ctx, t, src)
 
 	udpAddr := src.Receiver().Addresses()[0].Address
 	conn, err := net.Dial("udp", udpAddr)
@@ -1500,10 +1335,10 @@ func TestSource_DatagramFromSharedAddressYieldsNoEnvelopeAndAmbiguousDroppedCoun
 		return ok && val == 2
 	})
 
-	if reason, ok := readMetricAttr(reader, "flowseer.edge.syslog.dropped", "flowseer.edge.syslog.reason"); !ok || reason != "ambiguous_source" {
+	if reason, ok := readDroppedMetricAttr(reader, "flowseer.edge.syslog.reason"); !ok || reason != "ambiguous_source" {
 		t.Errorf("dropped reason = %q (found=%t), want ambiguous_source", reason, ok)
 	}
-	if _, found := readMetricAttr(reader, "flowseer.edge.syslog.dropped", "flowseer.device.id"); found {
+	if _, found := readDroppedMetricAttr(reader, "flowseer.device.id"); found {
 		t.Error("flowseer.device.id attribute found on dropped metric, want none")
 	}
 
@@ -1536,9 +1371,7 @@ func TestSource_PublishesARecordForAListedDeviceTheLaneNeverOnboarded(t *testing
 	}
 	defer func() { _ = src.Close() }()
 
-	spawn.Go(ctx, "syslog-source-runner", func() {
-		_ = src.Run(ctx)
-	})
+	runSource(ctx, t, src)
 
 	conn, err := net.Dial("udp", src.Receiver().Addresses()[0].Address)
 	if err != nil {
@@ -1558,5 +1391,65 @@ func TestSource_PublishesARecordForAListedDeviceTheLaneNeverOnboarded(t *testing
 	}
 	if got := record.GetProvenance().GetBinding().GetBinding().GetId(); got != testBindingID {
 		t.Errorf("record binding = %q, want the listed binding %q", got, testBindingID)
+	}
+}
+
+type errorAppender struct{ code errs.Code }
+
+func (a errorAppender) Append([]byte) error { return errs.New().Code(a.code).Msg("append refused") }
+
+func TestSourceAppendRefusals(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		code errs.Code
+	}{
+		{"too large", seglog.ErrCodeRecord}, {"closed", seglog.ErrCodeClosed},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			reader := sdkmetric.NewManualReader()
+			provider := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
+			defer func() { _ = provider.Shutdown(context.Background()) }()
+			index := lanehost.NewDeviceIndex()
+			seedListing(t, index, listedAt(t, "127.0.0.1", testDeviceID))
+			ctx, cancel := context.WithCancel(context.Background())
+			src, err := syslogsource.Listen(ctx, syslogsource.Config{
+				Listeners: []syslog.ListenConfig{{Transport: syslog.UDP, Address: "127.0.0.1:0"}},
+				Index:     index, Publisher: errorAppender{tc.code}, EdgeRef: testEdgeRef(), Meter: provider.Meter("test"),
+			})
+			if err != nil {
+				cancel()
+				t.Fatal(err)
+			}
+			done := make(chan error, 1)
+			spawn.Go(ctx, "syslog source", func() { done <- src.Run(ctx) })
+			defer func() { cancel(); _ = src.Close(); <-done }()
+			conn, err := net.Dial("udp", src.Receiver().Addresses()[0].Address)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer func() { _ = conn.Close() }()
+			if _, err := conn.Write([]byte("<34>1 - - - - - - refusal")); err != nil {
+				t.Fatal(err)
+			}
+			if tc.code == seglog.ErrCodeClosed {
+				select {
+				case err := <-done:
+					done <- err
+					if code, _ := errs.CodeOf(err); code != seglog.ErrCodeClosed {
+						t.Errorf("Run error = %v, want closed", err)
+					}
+				case <-time.After(time.Second):
+					t.Error("Run did not return the closed error")
+				}
+			} else {
+				waitFor(t, "too_large drop", time.Second, func() bool {
+					reason, ok := readDroppedMetricAttr(reader, "flowseer.edge.syslog.reason")
+					return ok && reason == "too_large"
+				})
+				if n, _ := readMetricSum(reader, "flowseer.edge.syslog.publish.retries"); n != 0 {
+					t.Errorf("retries = %d, want zero", n)
+				}
+			}
+		})
 	}
 }

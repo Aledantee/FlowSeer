@@ -26,6 +26,18 @@ Suggested change: <smallest edit to the skill, agent, or hook>.
 
 ## Entries
 
+## 2026-10-16 plan: a removal scope excluded citation repairs that tests require
+Skill or agent: `.claude/skills/plan/SKILL.md`, steps 2 and 3.
+What happened: the phase 4 removal plan excluded operator-authorization record
+edits while shortening files that record cites. The scope did not fit the
+existing citation gate. `TestTheDirectionRecordCitationsAndDecisions` checks
+that cited line ranges fit their files
+(`src/services/device/test/integration/lab_fixtures_test.go:707-755`).
+Commits `51887643` and `f24d3bc9` record the blocked scope and its amendment.
+Suggested change: when scoping a removal, inspect tests that validate incoming
+documentation references and include required citation repairs before marking
+the plan ready. Distinguish those repairs from changes to accepted decisions.
+
 ## 2026-10-15 delegate: a coordinator's record commit broke the next stage's fast-forward in the no-Orca path
 Skill or agent: `.claude/skills/delegate/references/no-orca.md`, hand-off between stage branches.
 What happened: after one stage finished, the drive coordinator committed a branch record on the plan branch. The next stage worker's `git merge --ff-only` of the previous stage's branch then failed because the two branches had diverged. The reference was followed as written.

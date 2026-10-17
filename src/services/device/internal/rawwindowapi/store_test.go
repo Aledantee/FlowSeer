@@ -54,7 +54,6 @@ func runTests(m *testing.M) int {
 	hub, err := edgebus.StartHub(context.Background(), edgebus.HubConfig{
 		StateDir:    dir,
 		FsyncPolicy: service.BusFsyncPeriodic,
-		ListenPort:  0,
 	})
 	if err != nil {
 		return failSetup("start hub", err)

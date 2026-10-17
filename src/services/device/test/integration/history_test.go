@@ -156,8 +156,8 @@ func (d *historyDeployment) send(t *testing.T, messages ...string) {
 }
 
 // warmUp sends messages until one reaches central's ingest stream, since a
-// datagram sent before the agent has bound its listener or attached its bus is
-// lost without a trace.
+// datagram sent before the agent has bound its listener or resolved the sender
+// is lost without a trace.
 func (d *historyDeployment) warmUp(t *testing.T) {
 	t.Helper()
 	conn, err := net.Dial("udp", d.syslogAddr)

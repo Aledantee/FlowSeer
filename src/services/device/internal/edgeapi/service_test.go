@@ -172,10 +172,9 @@ func newHarnessWith(t *testing.T, device func(*storev1.RegistryDevice)) *harness
 
 	anchor := make([]byte, 32)
 	h.lanes = &fakeLanes{}
-	svc, err := edgeapi.NewService(store, testRegistry(t, h.edgeID, device), h.lanes, h.creds, hub, edgeapi.ServiceConfig{
+	svc, err := edgeapi.NewService(store, testRegistry(t, h.edgeID, device), h.lanes, h.creds, edgeapi.ServiceConfig{
 		Audience:      "flowseer-central",
 		TrustAnchors:  [][]byte{anchor},
-		ClusterURLs:   []string{"wss://central.example.test:4223"},
 		PulseInterval: 5 * time.Millisecond,
 	}, func() time.Time { return h.now }, nil)
 	if err != nil {
@@ -335,10 +334,9 @@ func TestEnrollRetryReturnsErrorWhenIndexEdgeFails(t *testing.T) {
 
 	anchor := make([]byte, 32)
 	lanes := &fakeLanes{}
-	svc, err := edgeapi.NewService(store, testRegistry(t, edgeID, nil), lanes, &fakeCredentials{material: snmpMaterial()}, hub, edgeapi.ServiceConfig{
+	svc, err := edgeapi.NewService(store, testRegistry(t, edgeID, nil), lanes, &fakeCredentials{material: snmpMaterial()}, edgeapi.ServiceConfig{
 		Audience:      "flowseer-central",
 		TrustAnchors:  [][]byte{anchor},
-		ClusterURLs:   []string{"wss://central.example.test:4223"},
 		PulseInterval: 5 * time.Millisecond,
 	}, func() time.Time { return now }, nil)
 	if err != nil {
@@ -622,33 +620,6 @@ func TestHeartbeatClearsABacklogThatHasDrained(t *testing.T) {
 	}
 }
 
-func TestAttachBusHandsOnTheHubsCredentialUnchanged(t *testing.T) {
-	h, edgeID, _, _ := enrolledHarness(t)
-
-	resp, err := h.edge.AttachBus(enrollCtx(edgeID, nil), connect.NewRequest(&attachv1.AttachBusRequest{}))
-	if err != nil {
-		t.Fatalf("AttachBus: %v", err)
-	}
-	if err := protovalidate.Validate(resp.Msg); err != nil {
-		t.Fatalf("AttachBus response fails its schema rules: %v", err)
-	}
-	if len(resp.Msg.GetAccountJwt()) == 0 {
-		t.Error("no account JWT was returned")
-	}
-	if !bytes.Contains(resp.Msg.GetUserCredential(), []byte("-----BEGIN NATS USER JWT-----")) {
-		t.Error("the user credential is not a .creds file a leaf node can read")
-	}
-	want := edgebus.EdgePublishSubjects(defaultTenantID, edgeID)
-	for name, subject := range want {
-		if got := resp.Msg.GetSubjects()[name]; got != subject {
-			t.Errorf("subject %q = %q, want %q", name, got, subject)
-		}
-	}
-	if len(resp.Msg.GetSubjects()) != len(want) {
-		t.Errorf("subject map has %d entries, want %d", len(resp.Msg.GetSubjects()), len(want))
-	}
-}
-
 func TestAcquireReadCredentialDeliversThePinnedVersionWithItsExpiry(t *testing.T) {
 	h, edgeID, _, _ := enrolledHarness(t)
 
@@ -732,8 +703,6 @@ func TestEveryAuthenticatedCallRefusesAContextWithNoVerifiedEdge(t *testing.T) {
 	ctx := context.Background()
 
 	_, err := h.edge.Heartbeat(ctx, connect.NewRequest(attachv1.HeartbeatRequest_builder{AgentVersion: proto.String("v0")}.Build()))
-	wantConnectCode(t, err, connect.CodeUnauthenticated)
-	_, err = h.edge.AttachBus(ctx, connect.NewRequest(&attachv1.AttachBusRequest{}))
 	wantConnectCode(t, err, connect.CodeUnauthenticated)
 	_, err = h.edge.Rekey(ctx, connect.NewRequest(&attachv1.RekeyRequest{}))
 	wantConnectCode(t, err, connect.CodeUnauthenticated)
@@ -897,47 +866,4 @@ func TestAcquireReadCredentialSendsNoCredentialFileContentToTheEdge(t *testing.T
 	if strings.Contains(err.Error(), "credential material") {
 		t.Errorf("the edge was told what central failed to read: %q", err.Error())
 	}
-}
-
-type failingBus struct {
-	err error
-}
-
-func (b *failingBus) AttachEdge(context.Context, string, string) error {
-	return b.err
-}
-
-func (b *failingBus) MintEdgeUser(context.Context, string) (edgebus.EdgeCredentials, error) {
-	return edgebus.EdgeCredentials{}, b.err
-}
-
-func TestEnrollBusAttachFailureUnavailable(t *testing.T) {
-	hub := newHub(t)
-	store := newStoreOver(t, hub)
-	admin := newAdminOver(t, store, func() time.Time { return testClock })
-	record, setupKey := createEdge(t, admin)
-	edgeID := refOf(record).GetEdge().GetId()
-
-	bus := &failingBus{err: errors.New("bus connection failed")}
-	svc, err := edgeapi.NewService(store, testRegistry(t, edgeID, nil), &fakeLanes{}, &fakeCredentials{material: snmpMaterial()}, bus, edgeapi.ServiceConfig{
-		Audience:      "flowseer-central",
-		TrustAnchors:  [][]byte{make([]byte, 32)},
-		ClusterURLs:   []string{"wss://central.example.test:4223"},
-		PulseInterval: 5 * time.Millisecond,
-	}, func() time.Time { return testClock }, nil)
-	if err != nil {
-		t.Fatalf("NewService: %v", err)
-	}
-
-	public, private, err := ed25519.GenerateKey(nil)
-	if err != nil {
-		t.Fatalf("keygen: %v", err)
-	}
-
-	_, err = svc.Enroll(context.Background(), connect.NewRequest(attachv1.EnrollRequest_builder{
-		SetupKey: proto.String(setupKey),
-		Proof:    enrollProof(t, private, public, setupKey),
-	}.Build()))
-
-	wantConnectCode(t, err, connect.CodeUnavailable)
 }

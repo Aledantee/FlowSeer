@@ -42,7 +42,6 @@ var ClientErrors = connecterr.Table{
 	ErrCodeSetupKeyRefused: {Code: connect.CodePermissionDenied, UserMsg: "the request was refused"},
 	ErrCodeForbidden:       {Code: connect.CodePermissionDenied, UserMsg: "the request was refused"},
 
-	ErrCodeBus:              {Code: connect.CodeUnavailable, UserMsg: "the edge's bus identity cannot be issued right now"},
 	ErrCodeAuthorityUnknown: {Code: connect.CodeUnavailable, UserMsg: "submission authority cannot be determined right now"},
 	edgestore.ErrCodeStore:  {Code: connect.CodeUnavailable, UserMsg: "the edge store cannot be reached right now"},
 	edgestore.ErrCodeConflict: {

@@ -92,7 +92,7 @@ func TestTheHeaderBindsTheBodyAndTheProcedure(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Header() error: %v", err)
 	}
-	otherProcedure, err := newSigner().Header("/flowseer.edge.attach.v1.EdgeService/AttachBus", []byte("one"))
+	otherProcedure, err := newSigner().Header("/flowseer.edge.attach.v1.EdgeService/ListDevices", []byte("one"))
 	if err != nil {
 		t.Fatalf("Header() error: %v", err)
 	}
