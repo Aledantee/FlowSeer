@@ -85,12 +85,11 @@ case "silence short of the hold time is pending").
 - `src/edge/netpen/attacks/fh/hsrp.go:30-32,67-68,170-175`, the guard, the
   timers, and the three-way switch.
 - `src/edge/netpen/attacks/fh/glbp.go`, the same shape for the gateway.
-- The rule this applies: the plan Decision "A behavior whose confirmation
-  needs a protocol timer longer than the window returns `pending` with a
-  detail naming the window to pass"
-  (`docs/plans/2026-10-12-1259-feat-netpen-check-model-phase2-plan.md`), and
-  the verdict model in
-  `docs/architecture/2026-10-12-netpen-check-model-direction.md`.
+- The verdict set and the window each verdict carries:
+  `docs/architecture/2026-10-12-netpen-check-model-direction.md`. The
+  pending-when-the-window-is-too-short rule this solution generalizes is
+  the netpen check model observables work (2026-10-12), embodied in the
+  switch quoted above.
 
 ## What it does not cover
 

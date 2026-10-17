@@ -8,19 +8,6 @@ execution: code
 
 # netpen Check Model - Plan
 
-## Resume on another machine
-
-Branch: `codex/netpen-resume` on `origin`.
-
-Phase 2 is implemented. Its [state](2026-10-12-1259-feat-netpen-check-model-phase2-plan.state.json)
-records the implementation range. Review and compound are pending before
-landing phase 2 and continuing with phase 3.
-
-```bash
-git fetch origin codex/netpen-resume
-git switch --track origin/codex/netpen-resume
-```
-
 ## Goal
 
 An operator runs `netpen` against a segment and gets a verdict per check:
